@@ -1,0 +1,54 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase-server'
+import { createClient as createServiceClient } from '@supabase/supabase-js'
+
+// POST /api/admin/create-user
+// Réservé admin / rh / caf. Crée un compte Supabase Auth + profil.
+export async function POST(req: NextRequest) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
+
+  const { data: profile } = await supabase
+    .from('profiles').select('role').eq('id', user.id).single()
+
+  if (!profile || !['admin', 'rh', 'caf'].includes(profile.role)) {
+    return NextResponse.json({ error: 'accès refusé' }, { status: 403 })
+  }
+
+  const body = await req.json()
+  const { email, password, nom, prenoms, telephone, fonction } = body
+
+  if (!email || !password || !nom || !prenoms) {
+    return NextResponse.json({ error: 'Champs requis : email, password, nom, prenoms' }, { status: 400 })
+  }
+
+  // Utilise la service_role key pour créer un compte sans confirmation email
+  const admin = createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+
+  const { data: newUser, error: authError } = await admin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { nom, prenoms },
+  })
+
+  if (authError || !newUser.user) {
+    return NextResponse.json({ error: authError?.message ?? 'Échec création Auth' }, { status: 400 })
+  }
+
+  // Mettre à jour le profil (créé par le trigger) avec les champs supplémentaires
+  const { error: profileError } = await admin
+    .from('profiles')
+    .update({ telephone: telephone || null, fonction: fonction || null })
+    .eq('id', newUser.user.id)
+
+  if (profileError) {
+    return NextResponse.json({ error: 'Compte créé mais profil incomplet : ' + profileError.message }, { status: 207 })
+  }
+
+  return NextResponse.json({ ok: true, userId: newUser.user.id })
+}

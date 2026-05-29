@@ -39,7 +39,7 @@ export default function ReconciliationForm({
 
   async function submit() {
     setLoading(true); setMsg('')
-    const res = await fetch('/api/missions/reconcile', {
+    const res = await fetch(`/api/missions/${missionId}/reconcile`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic'
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
@@ -34,6 +35,9 @@ export default async function Dashboard() {
         <div style={{ display: 'flex', gap: 12 }}>
           <Link href="/missions/nouveau" className="btn">+ Demander un OM</Link>
           <Link href="/timesheets" className="btn secondary">Timesheets</Link>
+          {(role === 'admin' || role === 'rh' || role === 'caf') && (
+            <Link href="/admin" className="btn secondary">Admin</Link>
+          )}
         </div>
       </header>
 

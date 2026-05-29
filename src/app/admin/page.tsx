@@ -1,0 +1,75 @@
+export const dynamic = 'force-dynamic'
+import { createClient } from '@/lib/supabase-server'
+import { redirect } from 'next/navigation'
+import GestionTitres from '@/components/GestionTitres'
+import AdminUserCreate from './AdminUserCreate'
+import Link from 'next/link'
+
+export default async function AdminPage() {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const { data: profile } = await supabase
+    .from('profiles').select('role').eq('id', user.id).single()
+
+  if (!profile || !['admin', 'rh', 'caf'].includes(profile.role)) {
+    redirect('/dashboard')
+  }
+
+  const { data: users } = await supabase
+    .from('profiles')
+    .select('id, nom, prenoms, email, role, telephone, fonction')
+    .order('nom')
+
+  return (
+    <div style={{ maxWidth: 1100, margin: '0 auto', padding: 32 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+        <div>
+          <Link href="/dashboard" style={{ fontSize: 13, color: 'var(--abed-muted)' }}>← Retour</Link>
+          <h2 style={{ color: 'var(--abed-green)', margin: '8px 0 0' }}>Administration — Comptes &amp; Titres</h2>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 32 }}>
+        <div className="card">
+          <h3 style={{ marginBottom: 16, fontSize: 15 }}>Créer un compte</h3>
+          <AdminUserCreate />
+        </div>
+        <div className="card">
+          <h3 style={{ marginBottom: 16, fontSize: 15 }}>Attribuer un titre</h3>
+          <GestionTitres />
+        </div>
+      </div>
+
+      <div className="card">
+        <h3 style={{ marginBottom: 16, fontSize: 15 }}>Tous les comptes ({users?.length ?? 0})</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Nom &amp; Prénoms</th>
+              <th>Email</th>
+              <th>Téléphone</th>
+              <th>Rôle système</th>
+              <th>Fonction</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(users ?? []).map(u => (
+              <tr key={u.id}>
+                <td style={{ fontWeight: 600 }}>{u.nom} {u.prenoms}</td>
+                <td style={{ fontSize: 13 }}>{u.email}</td>
+                <td style={{ fontSize: 13 }}>{u.telephone ?? '—'}</td>
+                <td><span className={`badge ${u.role}`}>{u.role?.toUpperCase()}</span></td>
+                <td style={{ fontSize: 13 }}>{u.fonction ?? '—'}</td>
+              </tr>
+            ))}
+            {(!users || users.length === 0) && (
+              <tr><td colSpan={5} style={{ color: 'var(--abed-muted)' }}>Aucun compte.</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
