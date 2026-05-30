@@ -1,16 +1,24 @@
-import { createServerClient } from '@supabase/ssr'
+﻿import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function proxy(req: NextRequest) {
   let res = NextResponse.next({ request: req })
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://placeholder.supabase.co',
-process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? 'placeholder',
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? 'placeholder',
     {
       cookies: {
-        getAll() { return req.cookies.getAll() },
+        getAll() {
+          const header = req.headers.get('cookie') ?? ''
+          if (!header) return []
+          return header.split(';').map(c => {
+            const idx = c.indexOf('=')
+            return idx === -1
+              ? { name: c.trim(), value: '' }
+              : { name: c.slice(0, idx).trim(), value: c.slice(idx + 1).trim() }
+          })
+        },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => req.cookies.set(name, value))
           res = NextResponse.next({ request: req })
           cookiesToSet.forEach(({ name, value, options }) => res.cookies.set(name, value, options))
         },

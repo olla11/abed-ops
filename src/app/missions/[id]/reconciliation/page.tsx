@@ -1,4 +1,4 @@
-export const dynamic = 'force-dynamic'
+﻿export const dynamic = 'force-dynamic'
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import ReconciliationForm from '@/components/ReconciliationForm'
@@ -27,7 +27,7 @@ export default async function ReconciliationPage({ params }: { params: { id: str
         Mission : <strong>{mission.objet}</strong> — {mission.lieu}
         {mission.a_charge_partenaire && (
           <span style={{ marginLeft: 10, color: 'var(--abed-amber)' }}>
-            ⚠ Mission à charge partenaire — prélèvement 20 % applicable
+            Attention : Mission à charge partenaire — prélèvement 20 % applicable
           </span>
         )}
       </p>

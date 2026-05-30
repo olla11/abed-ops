@@ -1,4 +1,4 @@
-export const dynamic = 'force-dynamic'
+﻿export const dynamic = 'force-dynamic'
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
@@ -29,7 +29,7 @@ export default async function Dashboard() {
         <div>
           <h1 style={{ fontSize: 24, color: 'var(--abed-green)' }}>ABED-ONG</h1>
           <p style={{ color: 'var(--abed-muted)', fontSize: 14 }}>
-            {profile?.prenoms} {profile?.nom} Â· {role.toUpperCase()}
+            {profile?.prenoms} {profile?.nom} · {role.toUpperCase()}
           </p>
         </div>
         <div style={{ display: 'flex', gap: 12 }}>
@@ -57,16 +57,16 @@ export default async function Dashboard() {
         <h3 style={{ marginBottom: 16 }}>Ordres de mission</h3>
         <table>
           <thead>
-            <tr><th>RÃ©fÃ©rence</th><th>Objet</th><th>Lieu</th><th>PÃ©riode</th><th>Statut</th><th></th></tr>
+            <tr><th>Référence</th><th>Objet</th><th>Lieu</th><th>Période</th><th>Statut</th><th></th></tr>
           </thead>
           <tbody>
             {(missions ?? []).map(m => (
               <tr key={m.id}>
-                <td>{m.reference ?? 'â€”'}</td>
+                <td>{m.reference ?? '—'}</td>
                 <td>{m.objet}</td>
                 <td>{m.lieu}</td>
                 <td style={{ fontSize: 13 }}>
-                  {new Date(m.date_depart).toLocaleDateString('fr-FR')} â†’ {new Date(m.date_retour).toLocaleDateString('fr-FR')}
+                  {new Date(m.date_depart).toLocaleDateString('fr-FR')} → {new Date(m.date_retour).toLocaleDateString('fr-FR')}
                 </td>
                 <td><span className={`badge ${m.status}`}>{m.status}</span></td>
                 <td><Link href={`/missions/${m.id}`}>Ouvrir</Link></td>
@@ -81,4 +81,3 @@ export default async function Dashboard() {
     </div>
   )
 }
-

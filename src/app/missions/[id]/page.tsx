@@ -1,4 +1,4 @@
-export const dynamic = 'force-dynamic'
+﻿export const dynamic = 'force-dynamic'
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
@@ -40,6 +40,9 @@ export default async function MissionDetail({ params }: { params: { id: string }
     rejete: 'Rejeté',
   }
 
+  const d = (v: string | null | undefined) =>
+    v ? new Date(v).toLocaleDateString('fr-FR') : '—'
+
   return (
     <div style={{ maxWidth: 860, margin: '0 auto', padding: 32 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
@@ -73,8 +76,11 @@ export default async function MissionDetail({ params }: { params: { id: string }
             <Row label="Objet" value={mission.objet} />
             <Row label="Lieu" value={mission.lieu} />
             <Row label="Moyen de transport" value={mission.moyen_transport ?? '—'} />
-            <Row label="Date de départ" value={new Date(mission.date_depart).toLocaleDateString('fr-FR')} />
-            <Row label="Date de retour" value={new Date(mission.date_retour).toLocaleDateString('fr-FR')} />
+            <Row label="Conducteur à bord" value={mission.conducteur_a_bord ?? '—'} />
+            <Row label="Départ de l'origine" value={d(mission.date_depart)} />
+            <Row label="Arrivée à destination" value={d(mission.date_arrivee_destination)} />
+            <Row label="Départ de la destination" value={d(mission.date_depart_destination)} />
+            <Row label="Retour à l'origine" value={d(mission.date_retour)} />
             <Row label="Imputation" value={mission.imputation ?? '—'} />
             <Row label="À charge partenaire" value={mission.a_charge_partenaire ? 'Oui (prélèvement 20 %)' : 'Non'} />
           </tbody>

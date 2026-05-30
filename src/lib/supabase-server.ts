@@ -1,6 +1,7 @@
 ﻿import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
+// Client serveur lié à la session de l'utilisateur (respecte la RLS)
 export async function createClient() {
   const cookieStore = await cookies()
   return createServerClient(
@@ -11,18 +12,22 @@ export async function createClient() {
         getAll() {
           return cookieStore.getAll()
         },
-        setAll(cookiesToSet) {
+        setAll(cookiesToSet: { name: string; value: string; options?: any }[]) {
           try {
             cookiesToSet.forEach(({ name, value, options }) =>
               cookieStore.set(name, value, options)
             )
-          } catch {}
+          } catch {
+            // appelé depuis un Server Component : ignorable si middleware gère le refresh
+          }
         },
       },
     }
   )
 }
 
+// Client admin (service role) — contourne la RLS.
+// À utiliser UNIQUEMENT dans les routes API serveur (webhooks, déclencheurs).
 import { createClient as createAdmin } from '@supabase/supabase-js'
 export function createAdminClient() {
   return createAdmin(

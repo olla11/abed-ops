@@ -26,14 +26,14 @@ export default async function AdminPage() {
     <div style={{ maxWidth: 1100, margin: '0 auto', padding: 32 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <div>
-          <Link href="/dashboard" style={{ fontSize: 13, color: 'var(--abed-muted)' }}>â† Retour</Link>
-          <h2 style={{ color: 'var(--abed-green)', margin: '8px 0 0' }}>Administration â€” Comptes &amp; Titres</h2>
+          <Link href="/dashboard" style={{ fontSize: 13, color: 'var(--abed-muted)' }}>← Retour</Link>
+          <h2 style={{ color: 'var(--abed-green)', margin: '8px 0 0' }}>Administration — Comptes &amp; Titres</h2>
         </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 32 }}>
         <div className="card">
-          <h3 style={{ marginBottom: 16, fontSize: 15 }}>CrÃ©er un compte</h3>
+          <h3 style={{ marginBottom: 16, fontSize: 15 }}>Créer un compte</h3>
           <AdminUserCreate />
         </div>
         <div className="card">
@@ -47,10 +47,10 @@ export default async function AdminPage() {
         <table>
           <thead>
             <tr>
-              <th>Nom &amp; PrÃ©noms</th>
+              <th>Nom &amp; Prénoms</th>
               <th>Email</th>
-              <th>TÃ©lÃ©phone</th>
-              <th>RÃ´le systÃ¨me</th>
+              <th>Téléphone</th>
+              <th>Rôle système</th>
               <th>Fonction</th>
             </tr>
           </thead>
@@ -59,9 +59,9 @@ export default async function AdminPage() {
               <tr key={u.id}>
                 <td style={{ fontWeight: 600 }}>{u.nom} {u.prenoms}</td>
                 <td style={{ fontSize: 13 }}>{u.email}</td>
-                <td style={{ fontSize: 13 }}>{u.telephone ?? 'â€”'}</td>
+                <td style={{ fontSize: 13 }}>{u.telephone ?? '—'}</td>
                 <td><span className={`badge ${u.role}`}>{u.role?.toUpperCase()}</span></td>
-                <td style={{ fontSize: 13 }}>{u.fonction ?? 'â€”'}</td>
+                <td style={{ fontSize: 13 }}>{u.fonction ?? '—'}</td>
               </tr>
             ))}
             {(!users || users.length === 0) && (
@@ -73,4 +73,3 @@ export default async function AdminPage() {
     </div>
   )
 }
-
