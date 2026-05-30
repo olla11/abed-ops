@@ -4,14 +4,14 @@ import { createMomoDebit } from '@/lib/fedapay'
 
 // POST /api/missions/[id]/reconcile
 // Le missionnaire valide son point financier.
-// Si mission à charge partenaire -> déclenche le push MoMo des 20%.
+// Si mission Ã  charge partenaire -> dÃ©clenche le push MoMo des 20%.
 export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
+  if (!user) return NextResponse.json({ error: 'non authentifiÃ©' }, { status: 401 })
 
   const body = await req.json()
   const { point_financier, montant_recu, rapport } = body
@@ -35,21 +35,21 @@ export async function POST(
     return NextResponse.json({ error: error?.message ?? 'mission introuvable' }, { status: 400 })
   }
 
-  // 2. Pas de prélèvement si la mission n'est pas à charge d'un partenaire
+  // 2. Pas de prÃ©lÃ¨vement si la mission n'est pas Ã  charge d'un partenaire
   if (!mission.a_charge_partenaire || !mission.prelevement_20 || mission.prelevement_20 <= 0) {
     await supabase.from('missions').update({ status: 'cloture' }).eq('id', mission.id)
     return NextResponse.json({ ok: true, prelevement: 0, status: 'cloture' })
   }
 
-  // 3. Récupérer le téléphone MoMo du missionnaire
+  // 3. RÃ©cupÃ©rer le tÃ©lÃ©phone MoMo du missionnaire
   const { data: profile } = await supabase
     .from('profiles').select('telephone, nom, prenoms').eq('id', user.id).single()
 
   if (!profile?.telephone) {
-    return NextResponse.json({ error: 'Numéro Mobile Money manquant dans le profil' }, { status: 400 })
+    return NextResponse.json({ error: 'NumÃ©ro Mobile Money manquant dans le profil' }, { status: 400 })
   }
 
-  // 4. Créer l'enregistrement de paiement
+  // 4. CrÃ©er l'enregistrement de paiement
   await supabase.from('payments').insert({
     mission_id: mission.id,
     montant: mission.prelevement_20,
@@ -57,12 +57,12 @@ export async function POST(
     status: 'en_attente',
   })
 
-  // 5. Déclencher le push MoMo via FedaPay
+  // 5. DÃ©clencher le push MoMo via FedaPay
   try {
     const { fedapayTxId } = await createMomoDebit({
       montant: mission.prelevement_20,
       telephone: profile.telephone,
-      description: `Prélèvement 20% mission ${mission.reference ?? mission.id}`,
+      description: `PrÃ©lÃ¨vement 20% mission ${mission.reference ?? mission.id}`,
       missionId: mission.id,
     })
     await supabase.from('payments')
@@ -72,10 +72,11 @@ export async function POST(
     return NextResponse.json({
       ok: true,
       prelevement: mission.prelevement_20,
-      message: 'Confirmez le paiement sur votre téléphone (MTN MoMo).',
+      message: 'Confirmez le paiement sur votre tÃ©lÃ©phone (MTN MoMo).',
     })
   } catch (e: any) {
     await supabase.from('payments').update({ status: 'echoue' }).eq('mission_id', mission.id)
-    return NextResponse.json({ error: `Échec FedaPay: ${e.message}` }, { status: 502 })
+    return NextResponse.json({ error: `Ã‰chec FedaPay: ${e.message}` }, { status: 502 })
   }
 }
+

@@ -1,11 +1,11 @@
-export const dynamic = 'force-dynamic'
+﻿export const dynamic = 'force-dynamic'
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import SoumissionForm from '@/components/SoumissionForm'
 import ValidationManager from '@/components/ValidationManager'
 
 export default async function TimesheetsPage() {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
@@ -25,8 +25,8 @@ export default async function TimesheetsPage() {
         <SoumissionForm managerId={profile.manager_id} />
       ) : (
         <div className="card" style={{ borderLeft: '4px solid var(--abed-amber)' }}>
-          <p>Aucun responsable direct n'est défini sur votre profil. Contactez l'administration
-          pour qu'un manager vous soit attribué avant de soumettre.</p>
+          <p>Aucun responsable direct n'est dÃ©fini sur votre profil. Contactez l'administration
+          pour qu'un manager vous soit attribuÃ© avant de soumettre.</p>
         </div>
       )}
 
@@ -35,3 +35,4 @@ export default async function TimesheetsPage() {
     </div>
   )
 }
+
