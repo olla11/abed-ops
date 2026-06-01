@@ -4,9 +4,10 @@ import { createMomoDebit } from '@/lib/fedapay'
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const supabase = await createClient()
+  const { id } = await params
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
 
@@ -16,7 +17,7 @@ export async function POST(
   const { data: mission, error } = await supabase
     .from('missions')
     .update({ point_financier, montant_recu, rapport, status: 'paiement_attente' })
-    .eq('id', params.id)
+    .eq('id', id)
     .eq('missionnaire_id', user.id)
     .select()
     .single()

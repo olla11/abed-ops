@@ -3,21 +3,22 @@ import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import ReconciliationForm from '@/components/ReconciliationForm'
 
-export default async function ReconciliationPage({ params }: { params: { id: string } }) {
+export default async function ReconciliationPage({ params }: { params: Promise<{ id: string }> }) {
   const supabase = await createClient()
+  const { id } = await params
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
   const { data: mission } = await supabase
     .from('missions')
     .select('id, objet, lieu, status, missionnaire_id, a_charge_partenaire')
-    .eq('id', params.id)
+    .eq('id', id)
     .single()
 
   if (!mission) redirect('/dashboard')
   if (mission.missionnaire_id !== user.id) redirect('/dashboard')
   if (!['signe', 'en_mission', 'reconciliation'].includes(mission.status)) {
-    redirect(`/missions/${params.id}`)
+    redirect(`/missions/${id}`)
   }
 
   return (

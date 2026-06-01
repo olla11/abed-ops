@@ -3,9 +3,10 @@ import { createClient } from '@/lib/supabase-server'
 
 export async function POST(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const supabase = await createClient()
+  const { id } = await params
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
 
@@ -29,20 +30,20 @@ export async function POST(
   const { error } = await supabase
     .from('missions')
     .update({ status: 'signe', reference, signe_par: user.id, signe_le: new Date().toISOString() })
-    .eq('id', params.id)
+    .eq('id', id)
     .in('status', ['soumis', 'brouillon'])
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
   const { data: mission } = await supabase
-    .from('missions').select('missionnaire_id, objet').eq('id', params.id).single()
+    .from('missions').select('missionnaire_id, objet').eq('id', id).single()
 
   if (mission) {
     await supabase.from('notifications').insert({
       user_id: mission.missionnaire_id,
       titre: 'Ordre de Mission signé',
       message: `Votre OM "${mission.objet}" (réf. ${reference}) est signé et disponible au téléchargement.`,
-      lien: `/missions/${params.id}`,
+      lien: `/missions/${id}`,
     })
   }
 

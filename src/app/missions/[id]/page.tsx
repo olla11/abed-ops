@@ -4,8 +4,9 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import MissionActions from './MissionActions'
 
-export default async function MissionDetail({ params }: { params: { id: string } }) {
+export default async function MissionDetail({ params }: { params: Promise<{ id: string }> }) {
   const supabase = await createClient()
+  const { id } = await params
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
@@ -16,7 +17,7 @@ export default async function MissionDetail({ params }: { params: { id: string }
       missionnaire:profiles!missions_missionnaire_id_fkey(nom, prenoms, email, telephone, fonction),
       signataire:profiles!missions_signe_par_fkey(nom, prenoms, fonction)
     `)
-    .eq('id', params.id)
+    .eq('id', id)
     .single()
 
   if (!mission) redirect('/dashboard')
