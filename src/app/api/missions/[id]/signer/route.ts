@@ -24,7 +24,7 @@ export async function POST(
     .not('reference', 'is', null)
     .gte('created_at', `${new Date().getFullYear()}-01-01`)
 
-  const seq = String((count ?? 0) + 1).padStart(3, '0')
+  const seq = String((count ?? 0) + 12).padStart(3, '0')
   const reference = `${seq}-${year}/ABED/DE/CAF/AAF`
 
   const { error } = await supabase

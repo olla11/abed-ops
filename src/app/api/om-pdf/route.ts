@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
   let y = 810
 
   // En-tete
-  page.drawText('ASSOCIATION BENINOISE POUR L\'ENVIRONNEMENT ET LE DEVELOPPEMENT', {
+  page.drawText('AGRICULTURE POUR LE BIEN ETRE ET LE DEVELOPPEMENT DURABLE', {
     x: 55, y, size: 8, font: bold, color: green,
   }); y -= 13
   page.drawText('ABED-ONG', { x: 120, y, size: 14, font: bold, color: green }); y -= 10
