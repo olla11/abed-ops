@@ -3,10 +3,12 @@ import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import MissionActions from './MissionActions'
+import MissionEditForm from './MissionEditForm'
+import MissionDeleteButton from './MissionDeleteButton'
 
 export default async function MissionDetail({ params }: { params: Promise<{ id: string }> }) {
-  const supabase = await createClient()
   const { id } = await params
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
@@ -26,23 +28,21 @@ export default async function MissionDetail({ params }: { params: Promise<{ id: 
     .from('profiles').select('role').eq('id', user.id).single()
 
   const role = profile?.role ?? 'missionnaire'
-  const canSign = ['caf', 'de', 'admin'].includes(role) &&
-    ['soumis', 'brouillon'].includes(mission.status)
+  const canSign = ['caf', 'de', 'admin'].includes(role) && ['soumis', 'brouillon'].includes(mission.status)
+  const canEdit = ['caf', 'de', 'admin'].includes(role) && ['soumis', 'brouillon'].includes(mission.status)
+  const canDelete = role === 'admin'
   const pdfDispo = !['brouillon', 'soumis'].includes(mission.status)
 
   const STATUS_LABELS: Record<string, string> = {
     brouillon: 'Brouillon',
     soumis: 'Soumis — En attente de signature',
-    signe: 'Signé',
+    signe: 'Signe',
     en_mission: 'En mission',
-    reconciliation: 'Réconciliation requise',
+    reconciliation: 'Reconciliation requise',
     paiement_attente: 'Paiement en attente',
-    cloture: 'Clôturé',
-    rejete: 'Rejeté',
+    cloture: 'Cloture',
+    rejete: 'Rejete',
   }
-
-  const d = (v: string | null | undefined) =>
-    v ? new Date(v).toLocaleDateString('fr-FR') : '—'
 
   return (
     <div style={{ maxWidth: 860, margin: '0 auto', padding: 32 }}>
@@ -57,12 +57,12 @@ export default async function MissionDetail({ params }: { params: Promise<{ id: 
         <div style={{ display: 'flex', gap: 10 }}>
           {pdfDispo && (
             <a className="btn secondary" href={`/api/om-pdf?missionId=${mission.id}`} target="_blank">
-              Télécharger PDF
+              Telecharger PDF
             </a>
           )}
           {mission.status === 'signe' && user.id === mission.missionnaire_id && (
             <Link className="btn" href={`/missions/${mission.id}/reconciliation`}>
-              Faire la réconciliation
+              Faire la reconciliation
             </Link>
           )}
         </div>
@@ -77,13 +77,10 @@ export default async function MissionDetail({ params }: { params: Promise<{ id: 
             <Row label="Objet" value={mission.objet} />
             <Row label="Lieu" value={mission.lieu} />
             <Row label="Moyen de transport" value={mission.moyen_transport ?? '—'} />
-            <Row label="Conducteur à bord" value={mission.conducteur_a_bord ?? '—'} />
-            <Row label="Départ de l'origine" value={d(mission.date_depart)} />
-            <Row label="Arrivée à destination" value={d(mission.date_arrivee_destination)} />
-            <Row label="Départ de la destination" value={d(mission.date_depart_destination)} />
-            <Row label="Retour à l'origine" value={d(mission.date_retour)} />
+            <Row label="Date de depart" value={new Date(mission.date_depart).toLocaleDateString('fr-FR')} />
+            <Row label="Date de retour" value={new Date(mission.date_retour).toLocaleDateString('fr-FR')} />
             <Row label="Imputation" value={mission.imputation ?? '—'} />
-            <Row label="À charge partenaire" value={mission.a_charge_partenaire ? 'Oui (prélèvement 20 %)' : 'Non'} />
+            <Row label="A charge partenaire" value={mission.a_charge_partenaire ? 'Oui (prelevement 20 %)' : 'Non'} />
           </tbody>
         </table>
       </div>
@@ -91,30 +88,42 @@ export default async function MissionDetail({ params }: { params: Promise<{ id: 
       {mission.signe_le && (
         <div className="card" style={{ marginBottom: 20 }}>
           <h3 style={{ marginBottom: 12, fontSize: 15 }}>Signature</h3>
-          <table>
-            <tbody>
-              <Row label="Signé par" value={`${mission.signataire?.prenoms ?? ''} ${mission.signataire?.nom ?? ''} (${mission.signataire?.fonction ?? ''})`} />
-              <Row label="Le" value={new Date(mission.signe_le).toLocaleDateString('fr-FR', { dateStyle: 'long' })} />
-            </tbody>
-          </table>
+          <table><tbody>
+            <Row label="Signe par" value={`${mission.signataire?.prenoms ?? ''} ${mission.signataire?.nom ?? ''} (${mission.signataire?.fonction ?? ''})`} />
+            <Row label="Le" value={new Date(mission.signe_le).toLocaleDateString('fr-FR', { dateStyle: 'long' })} />
+          </tbody></table>
         </div>
       )}
 
       {(mission.point_financier || mission.rapport) && (
         <div className="card" style={{ marginBottom: 20 }}>
-          <h3 style={{ marginBottom: 12, fontSize: 15 }}>Réconciliation</h3>
-          <table>
-            <tbody>
-              <Row label="Montant reçu" value={mission.montant_recu != null ? `${Number(mission.montant_recu).toLocaleString('fr-FR')} FCFA` : '—'} />
-              <Row label="Total dépenses" value={mission.total_depenses != null ? `${Number(mission.total_depenses).toLocaleString('fr-FR')} FCFA` : '—'} />
-              <Row label="Prélèvement 20 %" value={mission.prelevement_20 != null ? `${Number(mission.prelevement_20).toLocaleString('fr-FR')} FCFA` : '—'} />
-              <Row label="Solde missionnaire" value={mission.solde_missionnaire != null ? `${Number(mission.solde_missionnaire).toLocaleString('fr-FR')} FCFA` : '—'} />
-            </tbody>
-          </table>
+          <h3 style={{ marginBottom: 12, fontSize: 15 }}>Reconciliation</h3>
+          <table><tbody>
+            <Row label="Montant recu" value={mission.montant_recu != null ? `${Number(mission.montant_recu).toLocaleString('fr-FR')} FCFA` : '—'} />
+            <Row label="Total depenses" value={mission.total_depenses != null ? `${Number(mission.total_depenses).toLocaleString('fr-FR')} FCFA` : '—'} />
+            <Row label="Prelevement 20 %" value={mission.prelevement_20 != null ? `${Number(mission.prelevement_20).toLocaleString('fr-FR')} FCFA` : '—'} />
+            <Row label="Solde missionnaire" value={mission.solde_missionnaire != null ? `${Number(mission.solde_missionnaire).toLocaleString('fr-FR')} FCFA` : '—'} />
+          </tbody></table>
         </div>
       )}
 
+      {canEdit && (
+        <MissionEditForm mission={{
+          id: mission.id, objet: mission.objet, lieu: mission.lieu,
+          moyen_transport: mission.moyen_transport, conducteur_a_bord: mission.conducteur_a_bord,
+          date_depart: mission.date_depart, date_arrivee_destination: mission.date_arrivee_destination,
+          date_depart_destination: mission.date_depart_destination, date_retour: mission.date_retour,
+          imputation: mission.imputation, a_charge_partenaire: mission.a_charge_partenaire,
+        }} />
+      )}
+
       {canSign && <MissionActions missionId={mission.id} />}
+
+      {canDelete && (
+        <div style={{ marginTop: 32, paddingTop: 16, borderTop: '1px solid var(--abed-border)' }}>
+          <MissionDeleteButton missionId={mission.id} />
+        </div>
+      )}
     </div>
   )
 }

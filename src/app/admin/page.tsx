@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import GestionTitres from '@/components/GestionTitres'
 import AdminUserCreate from './AdminUserCreate'
+import UserDeleteButton from './UserDeleteButton'
 import Link from 'next/link'
 
 export default async function AdminPage() {
@@ -13,9 +14,7 @@ export default async function AdminPage() {
   const { data: profile } = await supabase
     .from('profiles').select('role').eq('id', user.id).single()
 
-  if (!profile || !['admin', 'rh', 'caf'].includes(profile.role)) {
-    redirect('/dashboard')
-  }
+  if (!profile || !['admin', 'rh', 'caf'].includes(profile.role)) redirect('/dashboard')
 
   const { data: users } = await supabase
     .from('profiles')
@@ -33,7 +32,7 @@ export default async function AdminPage() {
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 32 }}>
         <div className="card">
-          <h3 style={{ marginBottom: 16, fontSize: 15 }}>Créer un compte</h3>
+          <h3 style={{ marginBottom: 16, fontSize: 15 }}>Creer un compte</h3>
           <AdminUserCreate />
         </div>
         <div className="card">
@@ -47,11 +46,12 @@ export default async function AdminPage() {
         <table>
           <thead>
             <tr>
-              <th>Nom &amp; Prénoms</th>
+              <th>Nom &amp; Prenoms</th>
               <th>Email</th>
-              <th>Téléphone</th>
-              <th>Rôle système</th>
+              <th>Telephone</th>
+              <th>Role systeme</th>
               <th>Fonction</th>
+              {profile?.role === 'admin' && <th></th>}
             </tr>
           </thead>
           <tbody>
@@ -62,10 +62,13 @@ export default async function AdminPage() {
                 <td style={{ fontSize: 13 }}>{u.telephone ?? '—'}</td>
                 <td><span className={`badge ${u.role}`}>{u.role?.toUpperCase()}</span></td>
                 <td style={{ fontSize: 13 }}>{u.fonction ?? '—'}</td>
+                {profile?.role === 'admin' && (
+                  <td><UserDeleteButton userId={u.id} name={`${u.prenoms} ${u.nom}`} /></td>
+                )}
               </tr>
             ))}
             {(!users || users.length === 0) && (
-              <tr><td colSpan={5} style={{ color: 'var(--abed-muted)' }}>Aucun compte.</td></tr>
+              <tr><td colSpan={profile?.role === 'admin' ? 6 : 5} style={{ color: 'var(--abed-muted)' }}>Aucun compte.</td></tr>
             )}
           </tbody>
         </table>
