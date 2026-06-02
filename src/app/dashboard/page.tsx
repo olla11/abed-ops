@@ -61,7 +61,17 @@ export default async function Dashboard() {
         <h3 style={{ marginBottom: 16 }}>
           {isManager ? 'Tous les ordres de mission' : 'Mes ordres de mission'}
         </h3>
-        <table>
+        <div className="table-wrap">
+        <table style={{ minWidth: isManager ? 900 : 750 }}>
+          <colgroup>
+            <col style={{ width: 160 }} />
+            {isManager && <col style={{ width: 160 }} />}
+            <col style={{ width: isManager ? 280 : 340 }} />
+            <col style={{ width: 100 }} />
+            <col style={{ width: 160 }} />
+            <col style={{ width: 140 }} />
+            <col style={{ width: 70 }} />
+          </colgroup>
           <thead>
             <tr>
               <th>Référence</th>
@@ -76,19 +86,19 @@ export default async function Dashboard() {
           <tbody>
             {(missions ?? []).map(m => (
               <tr key={m.id}>
-                <td>{m.reference ?? '—'}</td>
+                <td title={m.reference ?? '—'}>{m.reference ?? '—'}</td>
                 {isManager && (
-                  <td style={{ fontSize: 13 }}>
+                  <td style={{ fontSize: 13 }} title={`${(m.missionnaire as any)?.prenoms} ${(m.missionnaire as any)?.nom}`}>
                     {(m.missionnaire as any)?.prenoms} {(m.missionnaire as any)?.nom}
                   </td>
                 )}
-                <td>{m.objet}</td>
-                <td>{m.lieu}</td>
-                <td style={{ fontSize: 13 }}>
+                <td title={m.objet}>{m.objet}</td>
+                <td title={m.lieu}>{m.lieu}</td>
+                <td style={{ fontSize: 12 }}>
                   {new Date(m.date_depart).toLocaleDateString('fr-FR')} → {new Date(m.date_retour).toLocaleDateString('fr-FR')}
                 </td>
                 <td><span className={`badge ${m.status}`}>{STATUS_LABELS[m.status] ?? m.status}</span></td>
-                <td><Link href={`/missions/${m.id}`}>Ouvrir</Link></td>
+                <td><Link href={`/missions/${m.id}`} style={{ fontSize: 13 }}>Ouvrir</Link></td>
               </tr>
             ))}
             {(!missions || missions.length === 0) && (
@@ -96,6 +106,7 @@ export default async function Dashboard() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   )

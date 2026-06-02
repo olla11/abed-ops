@@ -57,6 +57,7 @@ a { color: var(--abed-blue); text-decoration: none; }
 .badge.rejete { background: #fee2e2; color: #991b1b; }
 .badge.brouillon, .badge.en_mission { background: #e5e7eb; color: #374151; }
 
-table { width: 100%; border-collapse: collapse; }
-th, td { text-align: left; padding: 12px; border-bottom: 1px solid var(--abed-border); font-size: 14px; }
+.table-wrap { width: 100%; overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--abed-border); font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 th { color: var(--abed-muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
