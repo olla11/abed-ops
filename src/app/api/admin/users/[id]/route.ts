@@ -28,6 +28,10 @@ export async function DELETE(
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
+  // Supprimer d'abord le profil explicitement (au cas où pas de CASCADE côté DB)
+  await admin.from('profiles').delete().eq('id', id)
+
+  // Puis supprimer le compte Auth
   const { error } = await admin.auth.admin.deleteUser(id)
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 

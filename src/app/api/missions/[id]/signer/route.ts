@@ -18,16 +18,16 @@ export async function POST(
   }
 
   const now = new Date()
-  const year2 = String(now.getFullYear()).slice(-2) // 2 chiffres : "26", "27"…
+  const year2 = String(now.getFullYear()).slice(-2) // "26" en 2026, "27" en 2027…
   const yearStart = `${now.getFullYear()}-01-01`
   const { count } = await supabase
     .from('missions')
     .select('*', { count: 'exact', head: true })
     .not('reference', 'is', null)
-    .gte('signe_le', yearStart) // compte uniquement les OM signés cette année
+    .gte('signe_le', yearStart)
 
   const seq = String((count ?? 0) + 1).padStart(3, '0')
-  const reference = `${seq}-${year2}`
+  const reference = `${seq}-${year2}/ABED/DE/CAF/AAF`
 
   const { error } = await supabase
     .from('missions')
