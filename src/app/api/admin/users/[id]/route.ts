@@ -1,8 +1,8 @@
-﻿import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 
-// DELETE /api/admin/users/[id] — supprime le compte Auth + profil (admin uniquement)
+// DELETE /api/admin/users/[id] — supprime le compte Auth + toutes les données (admin uniquement)
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -28,12 +28,34 @@ export async function DELETE(
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  // Supprimer d'abord le profil explicitement (au cas où pas de CASCADE côté DB)
+  // Supprimer dans l'ordre des dépendances FK pour éviter les erreurs de contrainte
+
+  // 1. Timesheets où cet utilisateur est prestataire ou manager
+  const { error: e1 } = await admin
+    .from('timesheets')
+    .delete()
+    .or(`prestataire_id.eq.${id},manager_id.eq.${id}`)
+  if (e1) return NextResponse.json({ error: 'Erreur suppression timesheets : ' + e1.message }, { status: 400 })
+
+  // 2. Nullifier signe_par sur les missions signées par cet utilisateur (FK nullable)
+  await admin.from('missions').update({ signe_par: null }).eq('signe_par', id)
+
+  // 3. Supprimer les missions dont il est missionnaire (cascade vers payments)
+  const { error: e3 } = await admin
+    .from('missions')
+    .delete()
+    .eq('missionnaire_id', id)
+  if (e3) return NextResponse.json({ error: 'Erreur suppression missions : ' + e3.message }, { status: 400 })
+
+  // 4. Détacher les profils dont il est manager
+  await admin.from('profiles').update({ manager_id: null }).eq('manager_id', id)
+
+  // 5. Supprimer le profil explicitement
   await admin.from('profiles').delete().eq('id', id)
 
-  // Puis supprimer le compte Auth
-  const { error } = await admin.auth.admin.deleteUser(id)
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  // 6. Supprimer le compte Auth
+  const { error: authErr } = await admin.auth.admin.deleteUser(id)
+  if (authErr) return NextResponse.json({ error: authErr.message }, { status: 400 })
 
   return NextResponse.json({ ok: true })
 }
