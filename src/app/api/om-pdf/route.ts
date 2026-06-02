@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
+import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { PDFDocument, StandardFonts, rgb, degrees } from 'pdf-lib'
 import { LOGO_PNG_B64 } from '@/lib/logo-b64'
 
@@ -119,7 +120,7 @@ export async function GET(req: NextRequest) {
         adresse, date_naissance, lieu_naissance, nationalite,
         telephone, civilite
       ),
-      signataire:profiles!missions_signe_par_fkey(nom, prenoms, fonction, role, civilite)
+      signataire:profiles!missions_signe_par_fkey(nom, prenoms, fonction, role, civilite, signature_url, cachet_url)
     `)
     .eq('id', missionId)
     .single()
@@ -235,6 +236,24 @@ export async function GET(req: NextRequest) {
   page.drawText(mention, { x: 60, y, size: 9, font, color: black, maxWidth: 475, lineHeight: 13 })
   y -= 32
 
+  // ---- Charger signature et cachet uploadés si disponibles ----
+  let uploadedSigBytes: Uint8Array | null = null
+  let uploadedCachetBytes: Uint8Array | null = null
+  if (sg?.signature_url || sg?.cachet_url) {
+    const adminStorage = createServiceClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+    if (sg.signature_url) {
+      const { data } = await adminStorage.storage.from('assets').download(sg.signature_url)
+      if (data) uploadedSigBytes = new Uint8Array(await data.arrayBuffer())
+    }
+    if (sg.cachet_url) {
+      const { data } = await adminStorage.storage.from('assets').download(sg.cachet_url)
+      if (data) uploadedCachetBytes = new Uint8Array(await data.arrayBuffer())
+    }
+  }
+
   // ---- SIGNATURE À GAUCHE + CACHET À DROITE ----
   const sigX = 60
   const sigBaseY = y
@@ -245,9 +264,22 @@ export async function GET(req: NextRequest) {
 
   page.drawText(titreLabel, { x: sigX, y: sigBaseY + 36, size: 9, font: bold, color: black })
 
-  // Signature illustrative SVG
-  const red = rgb(0.20, 0.20, 0.60) // bleu foncé comme une vraie signature
-  drawSignature(page, sigX, sigBaseY + 6, red)
+  if (uploadedSigBytes) {
+    try {
+      const sigImg = await pdf.embedPng(uploadedSigBytes)
+      const sigH = 40, sigW = sigImg.width * (sigH / sigImg.height)
+      page.drawImage(sigImg, { x: sigX, y: sigBaseY - 10, width: sigW, height: sigH })
+    } catch {
+      try {
+        const sigImg = await pdf.embedJpg(uploadedSigBytes)
+        const sigH = 40, sigW = sigImg.width * (sigH / sigImg.height)
+        page.drawImage(sigImg, { x: sigX, y: sigBaseY - 10, width: sigW, height: sigH })
+      } catch { /* fallback illustratif */ }
+    }
+  } else {
+    const sigBlue = rgb(0.20, 0.20, 0.60)
+    drawSignature(page, sigX, sigBaseY + 6, sigBlue)
+  }
 
   // Nom en gras souligné en dessous
   const sigName = `${sg?.prenoms ?? ''} ${sg?.nom ?? ''}`
@@ -260,18 +292,32 @@ export async function GET(req: NextRequest) {
     thickness: 0.8, color: black,
   })
 
-  // ---- CACHET OVALE ROUGE ----
+  // ---- CACHET ----
   const cachetCX = 400, cachetCY = y - 20
-  drawCachet(
-    page,
-    cachetCX, cachetCY,
-    78, 58, // rx, ry (ovale)
-    'AGRICULTURE POUR LE BIEN ETRE ET LE DEVELOPPEMENT DURABLE',
-    'Le Directeur',
-    sg?.civilite === 'Mme' ? 'Executive' : 'Executif',
-    '* (ABED ONG) *',
-    font, bold,
-  )
+  if (uploadedCachetBytes) {
+    try {
+      const cachetImg = await pdf.embedPng(uploadedCachetBytes)
+      const cachetH = 100, cachetW = cachetImg.width * (cachetH / cachetImg.height)
+      page.drawImage(cachetImg, { x: cachetCX - cachetW / 2, y: cachetCY - cachetH / 2, width: cachetW, height: cachetH })
+    } catch {
+      try {
+        const cachetImg = await pdf.embedJpg(uploadedCachetBytes)
+        const cachetH = 100, cachetW = cachetImg.width * (cachetH / cachetImg.height)
+        page.drawImage(cachetImg, { x: cachetCX - cachetW / 2, y: cachetCY - cachetH / 2, width: cachetW, height: cachetH })
+      } catch { /* fallback dessiné */ }
+    }
+  } else {
+    drawCachet(
+      page,
+      cachetCX, cachetCY,
+      78, 58,
+      'AGRICULTURE POUR LE BIEN ETRE ET LE DEVELOPPEMENT DURABLE',
+      'Le Directeur',
+      sg?.civilite === 'Mme' ? 'Executive' : 'Executif',
+      '* (ABED ONG) *',
+      font, bold,
+    )
+  }
 
   const bytes = await pdf.save()
   return new NextResponse(Buffer.from(bytes), {

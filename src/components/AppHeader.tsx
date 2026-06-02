@@ -41,6 +41,7 @@ export default function AppHeader({ userName, userRole, showAdmin }: Props) {
           {showAdmin && (
             <Link href="/admin" className="btn secondary" style={{ fontSize: 13 }}>Admin</Link>
           )}
+          <Link href="/profile" className="btn secondary" style={{ fontSize: 13 }}>Mon profil</Link>
           <LogoutButton />
         </div>
       </div>
