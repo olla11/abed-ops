@@ -17,6 +17,25 @@ export async function POST(
     return NextResponse.json({ error: 'accès refusé' }, { status: 403 })
   }
 
+  // Vérifier la mission et la règle : le DE ne peut pas signer ses propres OM (seule la CAF peut)
+  const { data: missionCheck } = await supabase
+    .from('missions')
+    .select('missionnaire_id, missionnaire:profiles!missions_missionnaire_id_fkey(role)')
+    .eq('id', id)
+    .single()
+
+  if (missionCheck) {
+    const missionnaireRole = (missionCheck.missionnaire as any)?.role
+    // Si le missionnaire est DE, seule la CAF (ou admin) peut signer
+    if (missionnaireRole === 'de' && profile.role === 'de') {
+      return NextResponse.json({ error: 'Le Directeur Exécutif ne peut pas signer son propre OM. La CAF doit apposer la signature.' }, { status: 403 })
+    }
+    // Personne ne peut signer son propre OM
+    if (missionCheck.missionnaire_id === user.id) {
+      return NextResponse.json({ error: 'Vous ne pouvez pas signer votre propre ordre de mission.' }, { status: 403 })
+    }
+  }
+
   const now = new Date()
   const year2 = String(now.getFullYear()).slice(-2) // "26" en 2026, "27" en 2027…
   const yearStart = `${now.getFullYear()}-01-01`

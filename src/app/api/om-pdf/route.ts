@@ -234,7 +234,7 @@ export async function GET(req: NextRequest) {
   // ---- MENTION LÉGALE ----
   const mention = `Les autorites administratives et politiques sont priees de faciliter a ${mn?.prenoms ?? ''} ${mn?.nom ?? ''} l'accomplissement de sa mission.`
   page.drawText(mention, { x: 60, y, size: 9, font, color: black, maxWidth: 475, lineHeight: 13 })
-  y -= 32
+  y -= 46  // 2 lignes de texte + marge
 
   // ---- Charger signature et cachet uploadés si disponibles ----
   let uploadedSigBytes: Uint8Array | null = null
@@ -254,37 +254,40 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // ---- SIGNATURE À GAUCHE + CACHET À DROITE ----
+  // ---- BLOC SIGNATURE (gauche) + CACHET (droite) — côte à côte ----
+  // Zone fixe : 110pt de hauteur, signature à gauche, cachet centré à droite
+  const blockTop = y          // ligne de départ du bloc
   const sigX = 60
-  const sigBaseY = y
+  const cachetCX = 415
+  const cachetCY = blockTop - 45  // centre vertical du cachet dans le bloc
 
-  // Titre au-dessus de la signature
+  // -- Colonne gauche : titre + signature + nom --
   let titreLabel = sg?.civilite === 'Mme' ? 'La Directrice Executive' : 'Le Directeur Executif'
   if (sg?.role === 'caf') titreLabel = 'Le Directeur Executif Int. et P.O'
+  page.drawText(titreLabel, { x: sigX, y: blockTop, size: 9, font: bold, color: black })
 
-  page.drawText(titreLabel, { x: sigX, y: sigBaseY + 36, size: 9, font: bold, color: black })
-
+  // Signature (image ou dessin illustratif)
+  const sigImageY = blockTop - 46  // bas de la zone signature
   if (uploadedSigBytes) {
     try {
       const sigImg = await pdf.embedPng(uploadedSigBytes)
-      const sigH = 40, sigW = sigImg.width * (sigH / sigImg.height)
-      page.drawImage(sigImg, { x: sigX, y: sigBaseY - 10, width: sigW, height: sigH })
+      const sigH = 38, sigW = Math.min(sigImg.width * (sigH / sigImg.height), 180)
+      page.drawImage(sigImg, { x: sigX, y: sigImageY, width: sigW, height: sigH })
     } catch {
       try {
         const sigImg = await pdf.embedJpg(uploadedSigBytes)
-        const sigH = 40, sigW = sigImg.width * (sigH / sigImg.height)
-        page.drawImage(sigImg, { x: sigX, y: sigBaseY - 10, width: sigW, height: sigH })
+        const sigH = 38, sigW = Math.min(sigImg.width * (sigH / sigImg.height), 180)
+        page.drawImage(sigImg, { x: sigX, y: sigImageY, width: sigW, height: sigH })
       } catch { /* fallback illustratif */ }
     }
   } else {
-    const sigBlue = rgb(0.20, 0.20, 0.60)
-    drawSignature(page, sigX, sigBaseY + 6, sigBlue)
+    drawSignature(page, sigX, blockTop - 14, rgb(0.20, 0.20, 0.60))
   }
 
-  // Nom en gras souligné en dessous
+  // Nom signataire souligné
   const sigName = `${sg?.prenoms ?? ''} ${sg?.nom ?? ''}`
   const nameW = boldItalic.widthOfTextAtSize(sigName, 10)
-  const nameY = sigBaseY - 18
+  const nameY = blockTop - 62
   page.drawText(sigName, { x: sigX, y: nameY, size: 10, font: boldItalic, color: black })
   page.drawLine({
     start: { x: sigX, y: nameY - 2 },
@@ -292,17 +295,16 @@ export async function GET(req: NextRequest) {
     thickness: 0.8, color: black,
   })
 
-  // ---- CACHET ----
-  const cachetCX = 400, cachetCY = y - 20
+  // -- Colonne droite : cachet --
   if (uploadedCachetBytes) {
     try {
       const cachetImg = await pdf.embedPng(uploadedCachetBytes)
-      const cachetH = 100, cachetW = cachetImg.width * (cachetH / cachetImg.height)
+      const cachetH = 90, cachetW = cachetImg.width * (cachetH / cachetImg.height)
       page.drawImage(cachetImg, { x: cachetCX - cachetW / 2, y: cachetCY - cachetH / 2, width: cachetW, height: cachetH })
     } catch {
       try {
         const cachetImg = await pdf.embedJpg(uploadedCachetBytes)
-        const cachetH = 100, cachetW = cachetImg.width * (cachetH / cachetImg.height)
+        const cachetH = 90, cachetW = cachetImg.width * (cachetH / cachetImg.height)
         page.drawImage(cachetImg, { x: cachetCX - cachetW / 2, y: cachetCY - cachetH / 2, width: cachetW, height: cachetH })
       } catch { /* fallback dessiné */ }
     }
@@ -310,7 +312,7 @@ export async function GET(req: NextRequest) {
     drawCachet(
       page,
       cachetCX, cachetCY,
-      78, 58,
+      78, 55,
       'AGRICULTURE POUR LE BIEN ETRE ET LE DEVELOPPEMENT DURABLE',
       'Le Directeur',
       sg?.civilite === 'Mme' ? 'Executive' : 'Executif',

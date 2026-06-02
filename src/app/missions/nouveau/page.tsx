@@ -5,10 +5,10 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 import Link from 'next/link'
 
-// Départ minimum : aujourd'hui + 5 jours
+// Départ minimum : demain
 function minDepart() {
   const d = new Date()
-  d.setDate(d.getDate() + 5)
+  d.setDate(d.getDate() + 1)
   return d.toISOString().split('T')[0]
 }
 
@@ -45,7 +45,7 @@ export default function NouvelleMission() {
   function validate(): string | null {
     const min5 = minDepart()
     if (form.date_depart && form.date_depart < min5) {
-      return `La date de départ doit être au moins le ${new Date(min5).toLocaleDateString('fr-FR')} (5 jours après aujourd'hui).`
+      return `La date de départ doit être au minimum demain (${new Date(min5).toLocaleDateString('fr-FR')}).`
     }
     if (form.date_retour && form.date_depart && form.date_retour <= form.date_depart) {
       return 'La date de retour doit être après la date de départ.'
@@ -115,7 +115,7 @@ export default function NouvelleMission() {
           </div>
 
           <p style={{ fontSize: 13, color: 'var(--abed-muted)', margin: '4px 0 12px' }}>
-            Dates du voyage — le départ doit être au minimum 5 jours après aujourd'hui.
+            Dates du voyage — le départ doit être au minimum demain.
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <div className="field">
