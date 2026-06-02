@@ -6,7 +6,6 @@ import { LOGO_PNG_B64 } from '@/lib/logo-b64'
 const fmt = (d: string | null | undefined) =>
   d ? new Date(d).toLocaleDateString('fr-FR') : '—'
 
-// Découpe un texte en lignes de max maxChars caractères (max maxLines lignes)
 function wrapText(text: string, maxChars: number, maxLines: number): string[] {
   if (!text) return ['']
   const words = text.split(' ')
@@ -25,55 +24,84 @@ function wrapText(text: string, maxChars: number, maxLines: number): string[] {
   return lines.length ? lines : ['']
 }
 
-// Dessine un cachet circulaire officiel en rouge
+// Cachet ovale officiel ABED — style de l'image de référence
 function drawCachet(
-  page: ReturnType<PDFDocument['getPage']>,
-  cx: number, cy: number, r: number,
-  perimeterText: string,
-  centerLine1: string,
-  font: import('pdf-lib').PDFFont,
-  boldFont: import('pdf-lib').PDFFont,
+  page: any,
+  cx: number, cy: number,
+  rx: number, ry: number, // demi-axes horizontal / vertical
+  topText: string,        // texte sur l'arc supérieur
+  centerLine1: string,    // ex: "Le Directeur"
+  centerLine2: string,    // ex: "Exécutif"
+  bottomText: string,     // ex: "*(ABED ONG)*"
+  font: any,
+  boldFont: any,
 ) {
-  const red = rgb(0.8, 0.05, 0.05)
-  // Cercle extérieur
-  page.drawCircle({ x: cx, y: cy, size: r, borderColor: red, borderWidth: 1.8, color: rgb(1, 1, 1) })
-  // Cercle intérieur (double trait)
-  page.drawCircle({ x: cx, y: cy, size: r - 5, borderColor: red, borderWidth: 0.6 })
+  const red = rgb(0.75, 0.05, 0.05)
 
-  // Texte sur le périmètre (arc supérieur)
-  const chars = perimeterText.split('')
-  const totalAngle = Math.PI * 1.1 // ~200° pour l'arc supérieur
-  const startAngle = Math.PI / 2 + totalAngle / 2
-  const angleStep = totalAngle / Math.max(chars.length - 1, 1)
-  const textR = r - 10
+  // Ellipse extérieure
+  page.drawEllipse({ x: cx, y: cy, xScale: rx, yScale: ry, borderColor: red, borderWidth: 2, color: rgb(1,1,1) })
+  // Ellipse intérieure (double trait)
+  page.drawEllipse({ x: cx, y: cy, xScale: rx - 6, yScale: ry - 6, borderColor: red, borderWidth: 0.8 })
+
+  // Texte sur l'arc supérieur — caractère par caractère le long de l'ellipse
+  const chars = topText.split('')
+  // Arc de ~220° centré en haut (de ~160° à ~380° en notation standard)
+  const arcSpan = Math.PI * 1.25
+  const arcStart = Math.PI / 2 + arcSpan / 2
+  const step = arcSpan / Math.max(chars.length - 1, 1)
+  const tRx = rx - 11, tRy = ry - 11
 
   for (let i = 0; i < chars.length; i++) {
-    const angle = startAngle - i * angleStep
-    const x = cx + textR * Math.cos(angle)
-    const y = cy + textR * Math.sin(angle)
+    const angle = arcStart - i * step
+    const x = cx + tRx * Math.cos(angle)
+    const y = cy + tRy * Math.sin(angle)
+    // Rotation : tangente à l'ellipse en ce point, orientée vers l'extérieur
     const rot = (angle - Math.PI / 2) * 180 / Math.PI
-    page.drawText(chars[i], {
-      x: x - 3, y: y - 4,
-      size: 5.5,
-      font,
-      color: red,
-      rotate: degrees(rot),
-    })
+    page.drawText(chars[i], { x: x - 3, y: y - 3.5, size: 5.5, font, color: red, rotate: degrees(rot) })
   }
 
-  // Texte au centre
-  const lines = centerLine1.split('\n')
-  const lineH = 9
-  const startY = cy + (lines.length - 1) * lineH / 2
-  for (let i = 0; i < lines.length; i++) {
-    const w = boldFont.widthOfTextAtSize(lines[i], 7)
-    page.drawText(lines[i], {
-      x: cx - w / 2,
-      y: startY - i * lineH,
-      size: 7,
-      font: boldFont,
-      color: red,
-    })
+  // Texte central (2 lignes) — gras
+  const totalH = 10 * 2
+  const startY = cy + totalH / 2 - 2
+  ;[centerLine1, centerLine2].forEach((line, i) => {
+    const w = boldFont.widthOfTextAtSize(line, 8)
+    page.drawText(line, { x: cx - w / 2, y: startY - i * 11, size: 8, font: boldFont, color: red })
+  })
+
+  // Texte du bas (arc inférieur, centré)
+  const bChars = bottomText.split('')
+  const bArcSpan = Math.PI * 0.7
+  const bArcStart = -Math.PI / 2 - bArcSpan / 2
+  const bStep = bArcSpan / Math.max(bChars.length - 1, 1)
+  for (let i = 0; i < bChars.length; i++) {
+    const angle = bArcStart + i * bStep
+    const x = cx + tRx * Math.cos(angle)
+    const y = cy + tRy * Math.sin(angle)
+    const rot = (angle + Math.PI / 2) * 180 / Math.PI
+    page.drawText(bChars[i], { x: x - 3, y: y - 3.5, size: 5.5, font, color: red, rotate: degrees(rot) })
+  }
+}
+
+// Signature illustrative (tracé SVG courbe simulant une signature manuscrite)
+function drawSignature(page: any, x: number, y: number, color: any) {
+  // Tracé SVG d'une signature stylisée (initiales + paraphe)
+  const sig = [
+    // Boucle initiale
+    `M ${x} ${y+10} C ${x+5} ${y+20} ${x+15} ${y+22} ${x+18} ${y+12}`,
+    // Trait montant
+    `M ${x+18} ${y+12} C ${x+22} ${y+2} ${x+28} ${y+18} ${x+34} ${y+14}`,
+    // Boucle centrale
+    `M ${x+34} ${y+14} C ${x+40} ${y+10} ${x+44} ${y+20} ${x+50} ${y+16}`,
+    // Trait long descendant
+    `M ${x+50} ${y+16} C ${x+58} ${y+12} ${x+66} ${y+8} ${x+74} ${y+14}`,
+    // Paraphe final
+    `M ${x+74} ${y+14} C ${x+80} ${y+18} ${x+88} ${y+6} ${x+92} ${y+12}`,
+    `M ${x+92} ${y+12} C ${x+96} ${y+16} ${x+98} ${y+10} ${x+100} ${y+13}`,
+  ]
+  for (const path of sig) {
+    try {
+      page.drawSvgPath(path, { borderColor: color, borderWidth: 1.2, color: rgb(0,0,0,0) })
+    } catch { /* ignore si path non supporté */ }
   }
 }
 
@@ -105,7 +133,6 @@ export async function GET(req: NextRequest) {
   const page = pdf.addPage([595, 842])
   const font = await pdf.embedFont(StandardFonts.Helvetica)
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold)
-  const italic = await pdf.embedFont(StandardFonts.HelveticaOblique)
   const boldItalic = await pdf.embedFont(StandardFonts.HelveticaBoldOblique)
   const green = rgb(0.18, 0.49, 0.20)
   const black = rgb(0, 0, 0)
@@ -116,44 +143,36 @@ export async function GET(req: NextRequest) {
 
   let y = 810
 
-  // ---- EN-TÊTE avec logo base64 (fiable sur Vercel) ----
+  // ---- EN-TÊTE avec logo RGB couleur ----
   try {
     const logoBytes = Buffer.from(LOGO_PNG_B64, 'base64')
     const logoImg = await pdf.embedPng(logoBytes)
-    const logoH = 48
+    const logoH = 52
     const logoW = logoImg.width * (logoH / logoImg.height)
-    page.drawImage(logoImg, { x: 55, y: y - logoH + 8, width: logoW, height: logoH })
-    // Texte organisation à droite du logo
-    const ox = 55 + logoW + 10
-    page.drawText('AGRICULTURE POUR LE BIEN ETRE ET LE', { x: ox, y: y - 4, size: 7, font: bold, color: green })
-    page.drawText('DEVELOPPEMENT DURABLE', { x: ox, y: y - 13, size: 7, font: bold, color: green })
-    page.drawText('ABED-ONG', { x: ox, y: y - 26, size: 13, font: bold, color: green })
-    page.drawText('Systeme de Gestion des Operations', { x: ox, y: y - 37, size: 6.5, font, color: gray })
-    y -= logoH + 6
-  } catch {
+    page.drawImage(logoImg, { x: 55, y: y - logoH + 10, width: logoW, height: logoH })
+    const ox = 55 + logoW + 12
     page.drawText('AGRICULTURE POUR LE BIEN ETRE ET LE DEVELOPPEMENT DURABLE', {
-      x: 55, y, size: 8, font: bold, color: green,
-    }); y -= 13
-    page.drawText('ABED-ONG', { x: 55, y, size: 14, font: bold, color: green }); y -= 10
+      x: ox, y: y - 2, size: 7.5, font: bold, color: green,
+    })
+    page.drawText('ABED - ONG', { x: ox, y: y - 15, size: 14, font: bold, color: green })
+    page.drawText('Systeme de Gestion des Operations', { x: ox, y: y - 28, size: 7, font, color: gray })
+    y -= logoH + 8
+  } catch (e) {
+    page.drawText('ABED-ONG', { x: 55, y, size: 14, font: bold, color: green }); y -= 14
   }
 
-  page.drawLine({ start: { x: 55, y }, end: { x: 540, y }, thickness: 1.2, color: green }); y -= 18
+  page.drawLine({ start: { x: 55, y }, end: { x: 540, y }, thickness: 1.5, color: green }); y -= 18
 
   page.drawText(`ORDRE DE MISSION N° : ${m.reference ?? '—'}`, {
     x: 55, y, size: 13, font: bold, color: black,
   }); y -= 14
 
-  page.drawText(`Parakou, le ${fmt(m.signe_le)}`, {
-    x: 370, y, size: 10, font, color: gray,
-  }); y -= 20
+  page.drawText(`Parakou, le ${fmt(m.signe_le)}`, { x: 370, y, size: 10, font, color: gray }); y -= 20
 
-  // Civilité DE pour l'autorisation
-  const civSg = sg?.civilite === 'Mme' ? 'La Directrice Executive' : 'Le Directeur Executif'
-  page.drawText(`${civSg} de ABED-ONG donne ordre a :`,
-    { x: 55, y, size: 10, font, color: black }
-  ); y -= 16
+  const civSg = sg?.civilite === 'Mme' ? 'La Directrice Executive de ABED-ONG donne ordre a :' : 'Le Directeur Executif de ABED-ONG donne ordre a :'
+  page.drawText(civSg, { x: 55, y, size: 10, font, color: black }); y -= 16
 
-  // ---- TABLEAU MISSIONNAIRE ----
+  // ---- MISSIONNAIRE ----
   const rows1: [string, string][] = [
     ['Nom & Prenoms',            `${mn?.prenoms ?? ''} ${mn?.nom ?? ''}`],
     ['Date de naissance',        `${fmt(mn?.date_naissance)}  a : ${mn?.lieu_naissance ?? '—'}`],
@@ -164,7 +183,6 @@ export async function GET(req: NextRequest) {
     ['Adresse',                  mn?.adresse ?? '—'],
     ['Telephone',                mn?.telephone ?? '—'],
   ]
-
   for (const [k, v] of rows1) {
     page.drawText(k, { x: 60, y, size: 9, font: bold, color: black })
     page.drawText(': ' + v, { x: 220, y, size: 9, font, color: black })
@@ -172,18 +190,13 @@ export async function GET(req: NextRequest) {
   }
   y -= 4
 
-  page.drawLine({ start: { x: 55, y: y + 4 }, end: { x: 540, y: y + 4 }, thickness: 0.5, color: gray })
-  y -= 10
+  page.drawLine({ start: { x: 55, y: y+4 }, end: { x: 540, y: y+4 }, thickness: 0.5, color: gray }); y -= 10
 
-  // ---- OBJET / LIEU (objet sur max 3 lignes) ----
-  // Objet avec wrap
+  // ---- MISSION ----
   const objetLines = wrapText(m.objet, 52, 3)
   page.drawText('Objet de la mission', { x: 60, y, size: 9, font: bold, color: black })
   page.drawText(': ' + objetLines[0], { x: 220, y, size: 9, font, color: black })
-  for (let i = 1; i < objetLines.length; i++) {
-    y -= 12
-    page.drawText(objetLines[i], { x: 222, y, size: 9, font, color: black })
-  }
+  for (let i = 1; i < objetLines.length; i++) { y -= 12; page.drawText(objetLines[i], { x: 222, y, size: 9, font, color: black }) }
   y -= 14
 
   const rows2: [string, string][] = [
@@ -192,7 +205,6 @@ export async function GET(req: NextRequest) {
     ['Conducteur a bord',     m.conducteur_a_bord || '—'],
     ['Imputation budgetaire', m.imputation ?? '—'],
   ]
-
   for (const [k, v] of rows2) {
     page.drawText(k, { x: 60, y, size: 9, font: bold, color: black })
     page.drawText(': ' + v, { x: 220, y, size: 9, font, color: black })
@@ -200,17 +212,15 @@ export async function GET(req: NextRequest) {
   }
   y -= 4
 
-  page.drawLine({ start: { x: 55, y: y + 4 }, end: { x: 540, y: y + 4 }, thickness: 0.5, color: gray })
-  y -= 10
+  page.drawLine({ start: { x: 55, y: y+4 }, end: { x: 540, y: y+4 }, thickness: 0.5, color: gray }); y -= 10
 
-  // ---- DATES DU VOYAGE ----
+  // ---- DATES ----
   const rows3: [string, string][] = [
-    ['Depart de l\'origine',     fmt(m.date_depart)],
+    ["Depart de l'origine",     fmt(m.date_depart)],
     ['Arrivee a destination',    fmt(m.date_arrivee_destination)],
     ['Depart de la destination', fmt(m.date_depart_destination)],
-    ['Retour a l\'origine',      fmt(m.date_retour)],
+    ["Retour a l'origine",       fmt(m.date_retour)],
   ]
-
   for (const [k, v] of rows3) {
     page.drawText(k, { x: 60, y, size: 9, font: bold, color: black })
     page.drawText(': ' + v, { x: 220, y, size: 9, font, color: black })
@@ -218,54 +228,50 @@ export async function GET(req: NextRequest) {
   }
   y -= 10
 
-  page.drawLine({ start: { x: 55, y: y + 4 }, end: { x: 540, y: y + 4 }, thickness: 0.5, color: gray })
-  y -= 12
+  page.drawLine({ start: { x: 55, y: y+4 }, end: { x: 540, y: y+4 }, thickness: 0.5, color: gray }); y -= 12
 
   // ---- MENTION LÉGALE ----
   const mention = `Les autorites administratives et politiques sont priees de faciliter a ${mn?.prenoms ?? ''} ${mn?.nom ?? ''} l'accomplissement de sa mission.`
   page.drawText(mention, { x: 60, y, size: 9, font, color: black, maxWidth: 475, lineHeight: 13 })
-  y -= 30
+  y -= 32
 
-  // ---- SIGNATURE + CACHET (côte à côte) ----
-  // Cachet rouge à gauche
-  const cachetX = 120
-  const cachetY = y - 30
-  const cachetR = 48
+  // ---- SIGNATURE À GAUCHE + CACHET À DROITE ----
+  const sigX = 60
+  const sigBaseY = y
 
-  // Texte du périmètre = sigle développé ABED
-  const perimeterText = 'AGRICULTURE POUR LE BIEN ETRE ET LE DEVELOPPEMENT DURABLE'
-  // Centre : LE DIRECTEUR EXECUTIF ou LA DIRECTRICE EXECUTIVE selon civilité
-  const civCenter = sg?.civilite === 'Mme'
-    ? 'LA DIRECTRICE\nEXECUTIVE'
-    : 'LE DIRECTEUR\nEXECUTIF'
+  // Titre au-dessus de la signature
+  let titreLabel = sg?.civilite === 'Mme' ? 'La Directrice Executive' : 'Le Directeur Executif'
+  if (sg?.role === 'caf') titreLabel = 'Le Directeur Executif Int. et P.O'
 
-  drawCachet(page, cachetX, cachetY, cachetR, perimeterText, civCenter, font, bold)
+  page.drawText(titreLabel, { x: sigX, y: sigBaseY + 36, size: 9, font: bold, color: black })
 
-  // Signature à droite : nom stylisé
-  const sigX = 310
-  let sigY = y
+  // Signature illustrative SVG
+  const red = rgb(0.20, 0.20, 0.60) // bleu foncé comme une vraie signature
+  drawSignature(page, sigX, sigBaseY + 6, red)
 
-  // Mention selon rôle du signataire
-  let sigMention = 'Pour le Directeur Executif,'
-  let sigTitle = sg?.fonction ?? ''
-
-  if (sg?.role === 'caf') {
-    sigMention = 'Pour le Directeur Executif,'
-    sigTitle = 'Directeur Executif Int. et P.O'
-  } else if (sg?.civilite === 'Mme') {
-    sigMention = 'La Directrice Executive,'
-  }
-
-  page.drawText(sigMention, { x: sigX, y: sigY, size: 9, font, color: black }); sigY -= 14
-
-  // Nom en signature stylisée (bold italic, plus grand)
+  // Nom en gras souligné en dessous
   const sigName = `${sg?.prenoms ?? ''} ${sg?.nom ?? ''}`
-  page.drawText(sigName, { x: sigX, y: sigY, size: 13, font: boldItalic, color: black }); sigY -= 14
+  const nameW = boldItalic.widthOfTextAtSize(sigName, 10)
+  const nameY = sigBaseY - 18
+  page.drawText(sigName, { x: sigX, y: nameY, size: 10, font: boldItalic, color: black })
+  page.drawLine({
+    start: { x: sigX, y: nameY - 2 },
+    end: { x: sigX + nameW, y: nameY - 2 },
+    thickness: 0.8, color: black,
+  })
 
-  if (sigTitle) {
-    page.drawText(sigTitle, { x: sigX, y: sigY, size: 8.5, font: italic, color: gray }); sigY -= 11
-  }
-  page.drawText('(Signe electroniquement)', { x: sigX, y: sigY, size: 7.5, font, color: gray })
+  // ---- CACHET OVALE ROUGE ----
+  const cachetCX = 400, cachetCY = y - 20
+  drawCachet(
+    page,
+    cachetCX, cachetCY,
+    78, 58, // rx, ry (ovale)
+    'AGRICULTURE POUR LE BIEN ETRE ET LE DEVELOPPEMENT DURABLE',
+    'Le Directeur',
+    sg?.civilite === 'Mme' ? 'Executive' : 'Executif',
+    '* (ABED ONG) *',
+    font, bold,
+  )
 
   const bytes = await pdf.save()
   return new NextResponse(Buffer.from(bytes), {
