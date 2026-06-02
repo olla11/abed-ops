@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json()
   const {
-    email, password, nom, prenoms, telephone, fonction,
+    email, password, nom, prenoms, civilite, telephone, fonction,
     ifu, grade_indice, adresse, date_naissance, lieu_naissance, nationalite,
   } = body
 
@@ -47,6 +47,7 @@ export async function POST(req: NextRequest) {
     .update({
       nom:            nom,
       prenoms:        prenoms,
+      civilite:       civilite       || 'M.',
       telephone:      telephone      || null,
       fonction:       fonction       || null,
       ifu:            ifu            || null,

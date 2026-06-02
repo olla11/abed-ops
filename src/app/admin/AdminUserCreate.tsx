@@ -3,7 +3,7 @@ import { useState } from 'react'
 
 export default function AdminUserCreate() {
   const [form, setForm] = useState({
-    email: '', password: '', nom: '', prenoms: '',
+    email: '', password: '', nom: '', prenoms: '', civilite: 'M.',
     telephone: '', fonction: '', ifu: '',
     grade_indice: '', adresse: '',
     date_naissance: '', lieu_naissance: '', nationalite: 'Béninoise',
@@ -27,7 +27,7 @@ export default function AdminUserCreate() {
     setLoading(false)
     if (data.ok) {
       setMsg({ ok: true, text: `Compte créé pour ${form.prenoms} ${form.nom}` })
-      setForm({ email: '', password: '', nom: '', prenoms: '', telephone: '', fonction: '',
+      setForm({ email: '', password: '', nom: '', prenoms: '', civilite: 'M.', telephone: '', fonction: '',
         ifu: '', grade_indice: '', adresse: '', date_naissance: '', lieu_naissance: '', nationalite: 'Béninoise' })
     } else {
       setMsg({ ok: false, text: data.error ?? 'Erreur inconnue' })
@@ -36,7 +36,16 @@ export default function AdminUserCreate() {
 
   return (
     <form onSubmit={submit}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr 1fr', gap: 12 }}>
+        <div className="field">
+          <label className="label">Civilité</label>
+          <select className="input" value={form.civilite} onChange={e => set('civilite', e.target.value)}>
+            <option>M.</option>
+            <option>Mme</option>
+            <option>Dr</option>
+            <option>Pr</option>
+          </select>
+        </div>
         <div className="field">
           <label className="label">Nom *</label>
           <input className="input" value={form.nom} onChange={e => set('nom', e.target.value)} required />

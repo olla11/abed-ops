@@ -17,15 +17,17 @@ export async function POST(
     return NextResponse.json({ error: 'accès refusé' }, { status: 403 })
   }
 
-  const year = new Date().getFullYear() % 100
+  const now = new Date()
+  const year2 = String(now.getFullYear()).slice(-2) // 2 chiffres : "26", "27"…
+  const yearStart = `${now.getFullYear()}-01-01`
   const { count } = await supabase
     .from('missions')
     .select('*', { count: 'exact', head: true })
     .not('reference', 'is', null)
-    .gte('created_at', `${new Date().getFullYear()}-01-01`)
+    .gte('signe_le', yearStart) // compte uniquement les OM signés cette année
 
-  const seq = String((count ?? 0) + 12).padStart(3, '0')
-  const reference = `${seq}-${year}/ABED/DE/CAF/AAF`
+  const seq = String((count ?? 0) + 1).padStart(3, '0')
+  const reference = `${seq}-${year2}`
 
   const { error } = await supabase
     .from('missions')

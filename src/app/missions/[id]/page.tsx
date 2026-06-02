@@ -5,6 +5,7 @@ import Link from 'next/link'
 import MissionActions from './MissionActions'
 import MissionEditForm from './MissionEditForm'
 import MissionDeleteButton from './MissionDeleteButton'
+import AppHeader from '@/components/AppHeader'
 
 export default async function MissionDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -25,7 +26,7 @@ export default async function MissionDetail({ params }: { params: Promise<{ id: 
   if (!mission) redirect('/dashboard')
 
   const { data: profile } = await supabase
-    .from('profiles').select('role').eq('id', user.id).single()
+    .from('profiles').select('role, nom, prenoms').eq('id', user.id).single()
 
   const role = profile?.role ?? 'missionnaire'
   const canSign = ['caf', 'de', 'admin'].includes(role) && ['soumis', 'brouillon'].includes(mission.status)
@@ -46,6 +47,11 @@ export default async function MissionDetail({ params }: { params: Promise<{ id: 
 
   return (
     <div style={{ maxWidth: 860, margin: '0 auto', padding: 32 }}>
+      <AppHeader
+        userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
+        userRole={role}
+        showAdmin={['admin', 'rh', 'caf'].includes(role)}
+      />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div>
           <Link href="/dashboard" style={{ fontSize: 13, color: 'var(--abed-muted)' }}>← Retour</Link>
