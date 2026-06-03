@@ -42,7 +42,7 @@ export default async function Dashboard() {
       <AppHeader
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={role}
-        showAdmin={['admin', 'rh', 'caf'].includes(role)}
+        showAdmin={role === 'admin'}
       />
 
       {notifs && notifs.length > 0 && (

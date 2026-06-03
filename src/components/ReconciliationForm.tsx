@@ -2,11 +2,16 @@
 import { useState } from 'react'
 
 type Ligne = { libelle: string; quantite: number; pu: number; montant: number }
+type Rapport = { objectifs: string; activites: string; resultats: string; difficultes: string; suite: string }
 
-// Formulaire de réconciliation post-mission (dans les 72h).
-// - Point financier : tableau de libellés saisi par le missionnaire
-// - Rapport : compte rendu de mission
-// - À la validation : si mission à charge partenaire, déclenche le push MoMo (20%)
+const RAPPORT_FIELDS: [keyof Rapport, string][] = [
+  ['objectifs',   'Objectifs de la mission *'],
+  ['activites',   'Activités menées *'],
+  ['resultats',   'Résultats obtenus *'],
+  ['difficultes', 'Difficultés rencontrées *'],
+  ['suite',       'Suite à donner *'],
+]
+
 export default function ReconciliationForm({
   missionId,
   aChargePartenaire,
@@ -14,15 +19,14 @@ export default function ReconciliationForm({
   missionId: string
   aChargePartenaire: boolean
 }) {
-  const [lignes, setLignes] = useState<Ligne[]>([
-    { libelle: '', quantite: 1, pu: 0, montant: 0 },
-  ])
+  const [lignes, setLignes] = useState<Ligne[]>([{ libelle: '', quantite: 1, pu: 0, montant: 0 }])
   const [montantRecu, setMontantRecu] = useState(0)
-  const [rapport, setRapport] = useState({
-    objectifs: '', activites: '', resultats: '', difficultes: '', suite: '',
-  })
+  const [rapport, setRapport] = useState<Rapport>({ objectifs: '', activites: '', resultats: '', difficultes: '', suite: '' })
   const [msg, setMsg] = useState('')
+  const [msgType, setMsgType] = useState<'ok' | 'err' | 'warn'>('ok')
   const [loading, setLoading] = useState(false)
+  const [paymentFailed, setPaymentFailed] = useState(false)
+  const [retrying, setRetrying] = useState(false)
 
   const totalDepenses = lignes.reduce((s, l) => s + (l.montant || 0), 0)
   const prelevement = aChargePartenaire ? Math.round(montantRecu * 0.2) : 0
@@ -37,90 +41,140 @@ export default function ReconciliationForm({
     }))
   }
 
+  function validate(): string | null {
+    for (const [k, lbl] of RAPPORT_FIELDS) {
+      if (!rapport[k].trim()) return `Le champ "${lbl.replace(' *', '')}" est obligatoire.`
+    }
+    if (lignes.every(l => !l.libelle.trim())) return 'Saisissez au moins une ligne dans le point financier.'
+    if (aChargePartenaire && montantRecu <= 0) return 'Saisissez le montant reçu du partenaire.'
+    return null
+  }
+
   async function submit() {
-    setLoading(true); setMsg('')
+    const err = validate()
+    if (err) { setMsg(err); setMsgType('err'); return }
+    setLoading(true); setMsg(''); setPaymentFailed(false)
     const res = await fetch(`/api/missions/${missionId}/reconcile`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        // l'id passe par l'URL côté route ; ici on l'inclut dans le body simplifié
-        point_financier: lignes,
-        montant_recu: montantRecu,
-        rapport,
-      }),
+      body: JSON.stringify({ point_financier: lignes, montant_recu: montantRecu, rapport }),
     })
     const data = await res.json()
     setLoading(false)
-    if (!res.ok) { setMsg('Erreur : ' + (data.error ?? 'inconnue')); return }
-    setMsg(data.message ?? 'Réconciliation enregistrée. Mission clôturée.')
+    if (!res.ok) {
+      const isFedapay = data.error?.includes('FedaPay') || data.error?.includes('fedapay')
+      setMsg('Erreur : ' + (data.error ?? 'inconnue'))
+      setMsgType('err')
+      if (isFedapay) setPaymentFailed(true)
+      return
+    }
+    setMsg(data.message ?? 'Réconciliation enregistrée.')
+    setMsgType('ok')
+  }
+
+  async function retryPayment() {
+    setRetrying(true); setMsg(''); setPaymentFailed(false)
+    const res = await fetch(`/api/missions/${missionId}/retry-payment`, { method: 'POST' })
+    const data = await res.json()
+    setRetrying(false)
+    if (!res.ok) {
+      setMsg('Erreur : ' + (data.error ?? 'inconnue'))
+      setMsgType('err')
+      setPaymentFailed(true)
+    } else {
+      setMsg(data.message ?? 'Push MoMo envoyé. Confirmez sur votre téléphone.')
+      setMsgType('warn')
+    }
   }
 
   return (
     <div style={{ display: 'grid', gap: 24 }}>
+      {/* Point financier */}
       <div className="card">
         <h3 style={{ marginBottom: 16 }}>Point financier</h3>
+        <div className="table-wrap">
         <table>
-          <thead>
-            <tr><th>Libellé</th><th>Qté</th><th>P. Unitaire</th><th>Montant</th></tr>
-          </thead>
+          <thead><tr><th>Libellé</th><th>Qté</th><th>P. Unitaire (F)</th><th>Montant</th></tr></thead>
           <tbody>
             {lignes.map((l, i) => (
               <tr key={i}>
                 <td><input className="input" value={l.libelle}
                   onChange={e => updateLigne(i, { libelle: e.target.value })} /></td>
-                <td><input className="input" type="number" value={l.quantite}
-                  onChange={e => updateLigne(i, { quantite: +e.target.value })} style={{ width: 70 }} /></td>
-                <td><input className="input" type="number" value={l.pu}
-                  onChange={e => updateLigne(i, { pu: +e.target.value })} style={{ width: 110 }} /></td>
-                <td>{l.montant.toLocaleString('fr-FR')} F</td>
+                <td><input className="input" type="number" value={l.quantite} style={{ width: 70 }}
+                  onChange={e => updateLigne(i, { quantite: +e.target.value })} /></td>
+                <td><input className="input" type="number" value={l.pu} style={{ width: 110 }}
+                  onChange={e => updateLigne(i, { pu: +e.target.value })} /></td>
+                <td style={{ whiteSpace: 'nowrap' }}>{l.montant.toLocaleString('fr-FR')} F</td>
               </tr>
             ))}
           </tbody>
         </table>
+        </div>
         <button className="btn secondary" style={{ marginTop: 12 }}
           onClick={() => setLignes([...lignes, { libelle: '', quantite: 1, pu: 0, montant: 0 }])}>
           + Ajouter une ligne
         </button>
 
-        <div className="field" style={{ marginTop: 20, maxWidth: 280 }}>
-          <label className="label">Montant total reçu du partenaire (F CFA)</label>
-          <input className="input" type="number" value={montantRecu}
-            onChange={e => setMontantRecu(+e.target.value)} />
-        </div>
+        {aChargePartenaire && (
+          <div className="field" style={{ marginTop: 20, maxWidth: 280 }}>
+            <label className="label">Montant total reçu du partenaire (F CFA) *</label>
+            <input className="input" type="number" value={montantRecu}
+              onChange={e => setMontantRecu(+e.target.value)} />
+          </div>
+        )}
 
-        <div style={{ background: 'var(--abed-bg)', padding: 16, borderRadius: 8, marginTop: 8 }}>
+        <div style={{ background: 'var(--abed-bg)', padding: 16, borderRadius: 8, marginTop: 12 }}>
           <Row label="Total dépenses" value={totalDepenses} />
-          <Row label="Montant reçu" value={montantRecu} />
+          {aChargePartenaire && <Row label="Montant reçu" value={montantRecu} />}
           {aChargePartenaire && <Row label="Prélèvement ABED (20%)" value={prelevement} accent />}
           <Row label="Solde missionnaire" value={solde} bold />
         </div>
       </div>
 
+      {/* Rapport de mission — tous champs obligatoires */}
       <div className="card">
-        <h3 style={{ marginBottom: 16 }}>Rapport de mission</h3>
-        {([
-          ['objectifs', 'Objectifs'],
-          ['activites', 'Activités menées'],
-          ['resultats', 'Résultats obtenus'],
-          ['difficultes', 'Difficultés rencontrées'],
-          ['suite', 'Suite à donner'],
-        ] as const).map(([k, lbl]) => (
+        <h3 style={{ marginBottom: 4 }}>Rapport de mission</h3>
+        <p style={{ fontSize: 12, color: 'var(--abed-muted)', marginBottom: 16 }}>
+          Tous les champs sont obligatoires. Ce rapport sera transmis au Directeur Exécutif et à la CAF.
+        </p>
+        {RAPPORT_FIELDS.map(([k, lbl]) => (
           <div className="field" key={k}>
             <label className="label">{lbl}</label>
-            <textarea className="textarea" rows={3} value={(rapport as any)[k]}
-              onChange={e => setRapport({ ...rapport, [k]: e.target.value })} />
+            <textarea className="textarea" rows={3} value={rapport[k]}
+              style={{ borderColor: rapport[k].trim() ? 'var(--abed-border)' : '#f87171' }}
+              onChange={e => setRapport(r => ({ ...r, [k]: e.target.value }))} />
           </div>
         ))}
       </div>
 
       {aChargePartenaire && prelevement > 0 && (
-        <p style={{ fontSize: 13, color: 'var(--abed-amber)' }}>
-          ⚠ À la validation, un push MTN Mobile Money de {prelevement.toLocaleString('fr-FR')} F CFA
-          sera envoyé sur votre téléphone. Confirmez-le pour clôturer la mission.
+        <p style={{ fontSize: 13, color: 'var(--abed-amber)', background: '#fef3c7', padding: '10px 14px', borderRadius: 8 }}>
+          ⚠ À la validation, un push MTN Mobile Money de <strong>{prelevement.toLocaleString('fr-FR')} F CFA</strong> sera
+          envoyé sur votre téléphone. Confirmez-le pour clôturer la mission.
         </p>
       )}
 
-      {msg && <p style={{ fontSize: 14 }}>{msg}</p>}
+      {msg && (
+        <div style={{
+          padding: '12px 16px', borderRadius: 8, fontSize: 14,
+          background: msgType === 'ok' ? '#dcfce7' : msgType === 'warn' ? '#fef3c7' : '#fee2e2',
+          color: msgType === 'ok' ? '#166534' : msgType === 'warn' ? '#92400e' : '#991b1b',
+        }}>
+          {msg}
+        </div>
+      )}
+
+      {paymentFailed && (
+        <div style={{ background: '#fff7ed', border: '1px solid #f59e0b', borderRadius: 8, padding: 16 }}>
+          <p style={{ fontWeight: 600, marginBottom: 8, color: '#92400e' }}>
+            Le prélèvement MTN MoMo a échoué. Vous pouvez réessayer ci-dessous.
+          </p>
+          <button className="btn" style={{ background: '#d97706' }} onClick={retryPayment} disabled={retrying}>
+            {retrying ? '⏳ Envoi en cours…' : '🔄 Réessayer le prélèvement MTN MoMo'}
+          </button>
+        </div>
+      )}
+
       <button className="btn" onClick={submit} disabled={loading}>
         {loading ? 'Traitement…' : 'Valider la réconciliation'}
       </button>

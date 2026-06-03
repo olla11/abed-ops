@@ -5,6 +5,7 @@ import GestionTitres from '@/components/GestionTitres'
 import AdminUserCreate from './AdminUserCreate'
 import UserDeleteButton from './UserDeleteButton'
 import ManagerAssignSelect from '@/components/ManagerAssignSelect'
+import AdminStorage from '@/components/AdminStorage'
 import AppHeader from '@/components/AppHeader'
 import Link from 'next/link'
 
@@ -40,6 +41,8 @@ export default async function AdminPage() {
         <Link href="/dashboard" style={{ fontSize: 13, color: 'var(--abed-muted)' }}>← Retour</Link>
         <h2 style={{ color: 'var(--abed-green)', margin: 0 }}>Administration — Comptes &amp; Titres</h2>
       </div>
+
+      {profile?.role === 'admin' && <AdminStorage />}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 32 }}>
         <div className="card">

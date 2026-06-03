@@ -25,7 +25,7 @@ export default async function TimesheetsPage() {
       <AppHeader
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={role}
-        showAdmin={['admin', 'caf'].includes(role)}
+        showAdmin={role === 'admin'}
       />
 
       <h1 style={{ color: 'var(--abed-green)', marginBottom: 0 }}>Timesheets &amp; livrables</h1>

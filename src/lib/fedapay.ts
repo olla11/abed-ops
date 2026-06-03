@@ -68,15 +68,15 @@ export async function createMomoDebit(p: CreateDebitParams) {
   // 2. Générer le token de paiement
   const tokenRes = await fedapayFetch(`/transactions/${txId}/token`, { method: 'POST' })
   const token = tokenRes.token
-  if (!token) throw new Error(`FedaPay : token manquant dans la réponse token. ${JSON.stringify(tokenRes)}`)
+  if (!token) throw new Error(`FedaPay : token manquant. ${JSON.stringify(tokenRes)}`)
 
-  // 3. Initier le débit Mobile Money MTN (push USSD)
-  await fedapayFetch('/payments', {
+  // 3. Initier le débit Mobile Money MTN — endpoint correct : /transactions/{id}/payments
+  await fedapayFetch(`/transactions/${txId}/payments`, {
     method: 'POST',
     body: JSON.stringify({
       token,
-      mode: 'mtn_open',
-      phone_number: { number: p.telephone, country: 'bj' },
+      type: 'MTN_BENIN',
+      phone_number: { number: p.telephone, country: 'BJ' },
     }),
   })
 

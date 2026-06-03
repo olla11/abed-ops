@@ -23,7 +23,7 @@ export default async function ProfilePage() {
       <AppHeader
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={role}
-        showAdmin={['admin', 'caf'].includes(role)}
+        showAdmin={role === 'admin'}
       />
 
       <h1 style={{ color: 'var(--abed-green)' }}>Mon profil</h1>
