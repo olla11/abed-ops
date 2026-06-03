@@ -30,19 +30,21 @@ async function fedapayFetch(path: string, init?: RequestInit) {
   }
 
   const contentType = res.headers.get('content-type') ?? ''
-  if (!contentType.includes('application/json')) {
+  // FedaPay renvoie application/vnd.api+json — on accepte tout type JSON
+  const isJson = contentType.includes('json')
+  if (!isJson) {
     const text = await res.text()
     throw new Error(
       `FedaPay ${path} ${res.status} — réponse non-JSON (${contentType}). ` +
-      `Vérifiez que FEDAPAY_SECRET_KEY et FEDAPAY_BASE_URL sont bien définis dans Vercel. ` +
-      `Début réponse : ${text.slice(0, 200)}`
+      `Vérifiez FEDAPAY_SECRET_KEY et FEDAPAY_BASE_URL dans Vercel. ` +
+      `Début : ${text.slice(0, 200)}`
     )
   }
 
   const data = await res.json()
   if (!res.ok) {
     const msg = data?.message ?? data?.error ?? JSON.stringify(data)
-    throw new Error(`FedaPay ${path} ${res.status}: ${msg}`)
+    throw new Error(`FedaPay ${path} ${res.status} : ${msg}`)
   }
   return data
 }
