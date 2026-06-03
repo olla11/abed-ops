@@ -1,36 +1,48 @@
-// =====================================================================
-// FedaPay — Prélèvement 20% par Mobile Money (MTN)
-// =====================================================================
-// Flux :
-// 1) createMomoDebit() crée une transaction et envoie un push USSD au
-//    numéro du missionnaire. Il confirme sur son téléphone.
-// 2) FedaPay appelle notre webhook (/api/fedapay/webhook) à la
-//    confirmation. C'est CE webhook qui valide la mission, jamais
-//    le retour client.
-// =====================================================================
+import crypto from 'crypto'
 
-const BASE = process.env.FEDAPAY_BASE_URL!
-const SECRET = process.env.FEDAPAY_SECRET_KEY!
+const BASE = (process.env.FEDAPAY_BASE_URL ?? 'https://api.fedapay.com/v1').replace(/\/$/, '')
+const SECRET = process.env.FEDAPAY_SECRET_KEY ?? ''
 
 type CreateDebitParams = {
-  montant: number          // en F CFA (entier)
-  telephone: string        // format international, ex: 22994xxxxxx
+  montant: number
+  telephone: string
   description: string
-  missionId: string        // passé en metadata pour retrouver la mission au webhook
+  missionId: string
 }
 
 async function fedapayFetch(path: string, init?: RequestInit) {
-  const res = await fetch(`${BASE}${path}`, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${SECRET}`,
-      'Content-Type': 'application/json',
-      ...(init?.headers || {}),
-    },
-  })
+  if (!SECRET) throw new Error('FEDAPAY_SECRET_KEY non configuré dans les variables d\'environnement Vercel.')
+
+  const url = `${BASE}${path}`
+  let res: Response
+  try {
+    res = await fetch(url, {
+      ...init,
+      headers: {
+        Authorization: `Bearer ${SECRET}`,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        ...(init?.headers ?? {}),
+      },
+    })
+  } catch (e: any) {
+    throw new Error(`FedaPay réseau [${url}] : ${e.message}`)
+  }
+
+  const contentType = res.headers.get('content-type') ?? ''
+  if (!contentType.includes('application/json')) {
+    const text = await res.text()
+    throw new Error(
+      `FedaPay ${path} ${res.status} — réponse non-JSON (${contentType}). ` +
+      `Vérifiez que FEDAPAY_SECRET_KEY et FEDAPAY_BASE_URL sont bien définis dans Vercel. ` +
+      `Début réponse : ${text.slice(0, 200)}`
+    )
+  }
+
   const data = await res.json()
   if (!res.ok) {
-    throw new Error(`FedaPay ${path} ${res.status}: ${JSON.stringify(data)}`)
+    const msg = data?.message ?? data?.error ?? JSON.stringify(data)
+    throw new Error(`FedaPay ${path} ${res.status}: ${msg}`)
   }
   return data
 }
@@ -43,43 +55,37 @@ export async function createMomoDebit(p: CreateDebitParams) {
       description: p.description,
       amount: Math.round(p.montant),
       currency: { iso: 'XOF' },
-      // metadata pour relier le webhook à la mission
       custom_metadata: { mission_id: p.missionId },
       callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/missions/${p.missionId}`,
     }),
   })
 
-  const txId = tx['v1/transaction'].id
+  const txId = tx['v1/transaction']?.id ?? tx.transaction?.id ?? tx.id
+  if (!txId) throw new Error(`FedaPay : impossible d'extraire l'id de transaction. Réponse : ${JSON.stringify(tx)}`)
 
-  // 2. Générer le token de paiement et déclencher le push MoMo MTN
-  const tokenRes = await fedapayFetch(`/transactions/${txId}/token`, {
-    method: 'POST',
-  })
+  // 2. Générer le token de paiement
+  const tokenRes = await fedapayFetch(`/transactions/${txId}/token`, { method: 'POST' })
   const token = tokenRes.token
+  if (!token) throw new Error(`FedaPay : token manquant dans la réponse token. ${JSON.stringify(tokenRes)}`)
 
-  // 3. Initier le débit Mobile Money MTN (envoie le push USSD)
+  // 3. Initier le débit Mobile Money MTN (push USSD)
   await fedapayFetch('/payments', {
     method: 'POST',
     body: JSON.stringify({
       token,
-      mode: 'mtn_open',          // MTN MoMo Bénin
-      phone_number: {
-        number: p.telephone,
-        country: 'bj',           // Bénin
-      },
+      mode: 'mtn_open',
+      phone_number: { number: p.telephone, country: 'bj' },
     }),
   })
 
   return { fedapayTxId: String(txId) }
 }
 
-// Vérifie la signature du webhook (HMAC). FedaPay envoie l'en-tête X-FEDAPAY-SIGNATURE.
-import crypto from 'crypto'
 export function verifyWebhookSignature(rawBody: string, signature: string | null): boolean {
   if (!signature) return false
-  const secret = process.env.FEDAPAY_WEBHOOK_SECRET!
+  const secret = process.env.FEDAPAY_WEBHOOK_SECRET ?? ''
+  if (!secret) return true // désactivé si pas de secret configuré
   const expected = crypto.createHmac('sha256', secret).update(rawBody).digest('hex')
-  // comparaison à temps constant
   try {
     return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))
   } catch {
