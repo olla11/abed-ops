@@ -196,13 +196,12 @@ export async function GET(req: NextRequest) {
   // Phrase d'ordre selon rôle du signataire
   let ordrePhrase: string
   if (sg?.role === 'administrateur') {
-    ordrePhrase = sg?.civilite === 'Mme'
-      ? "L'Administratrice de ABED-ONG donne ordre a :"
-      : "L'Administrateur de ABED-ONG donne ordre a :"
+    const fonctionSg = sg?.fonction ?? (sg?.civilite === 'Mme' ? "L'Administratrice" : "L'Administrateur")
+    ordrePhrase = `${fonctionSg} de ABED-ONG donne ordre à :`
   } else {
     ordrePhrase = sg?.civilite === 'Mme'
-      ? 'La Directrice Executive de ABED-ONG donne ordre a :'
-      : 'Le Directeur Executif de ABED-ONG donne ordre a :'
+      ? 'La Directrice Executive de ABED-ONG donne ordre à :'
+      : 'Le Directeur Executif de ABED-ONG donne ordre à :'
   }
   page.drawText(ordrePhrase, { x: ML, y, size: 10, font, color: black }); y -= 16
 
@@ -314,7 +313,7 @@ export async function GET(req: NextRequest) {
   // Titre signataire
   let titreLabel: string
   if (sg?.role === 'administrateur') {
-    titreLabel = sg?.civilite === 'Mme' ? "L'Administratrice" : "L'Administrateur"
+    titreLabel = sg?.fonction ?? (sg?.civilite === 'Mme' ? "L'Administratrice" : "L'Administrateur")
   } else if (sg?.role === 'caf') {
     titreLabel = sg?.civilite === 'Mme' ? 'La Directrice Executive et P.O' : 'Le Directeur Executif et P.O'
   } else {
