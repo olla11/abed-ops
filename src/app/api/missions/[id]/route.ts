@@ -1,5 +1,5 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase-server'
+import { createClient, createAdminClient } from '@/lib/supabase-server'
 
 // PATCH /api/missions/[id] — mise a jour avant signature (caf/de/admin uniquement)
 export async function PATCH(
@@ -60,7 +60,18 @@ export async function DELETE(
     return NextResponse.json({ error: 'acces refuse — admin uniquement' }, { status: 403 })
   }
 
-  const { error } = await supabase.from('missions').delete().eq('id', id)
+  // Utiliser le service role pour contourner la RLS
+  const admin = createAdminClient()
+
+  // Vérifier que la mission existe
+  const { data: mission } = await admin.from('missions').select('id').eq('id', id).single()
+  if (!mission) return NextResponse.json({ error: 'Mission introuvable' }, { status: 404 })
+
+  // Nullifier signe_par (FK vers profiles) avant suppression
+  await admin.from('missions').update({ signe_par: null }).eq('id', id)
+
+  // Supprimer (payments cascade automatiquement)
+  const { error } = await admin.from('missions').delete().eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
   return NextResponse.json({ ok: true })
