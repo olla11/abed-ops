@@ -32,6 +32,7 @@ export default async function Dashboard() {
     signe: 'Signé',
     en_mission: 'En mission',
     reconciliation: 'Réconciliation',
+    reconciliation_caf: 'Validation CAF',
     paiement_attente: 'Paiement en attente',
     cloture: 'Clôturé',
     rejete: 'Rejeté',

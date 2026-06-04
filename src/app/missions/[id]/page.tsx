@@ -1,4 +1,4 @@
-﻿export const dynamic = 'force-dynamic'
+export const dynamic = 'force-dynamic'
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
@@ -6,6 +6,7 @@ import MissionActions from './MissionActions'
 import MissionEditForm from './MissionEditForm'
 import MissionDeleteButton from './MissionDeleteButton'
 import AppHeader from '@/components/AppHeader'
+import ReconciliationValidationCAF from '@/components/ReconciliationValidationCAF'
 
 export default async function MissionDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -29,20 +30,31 @@ export default async function MissionDetail({ params }: { params: Promise<{ id: 
     .from('profiles').select('role, nom, prenoms').eq('id', user.id).single()
 
   const role = profile?.role ?? 'missionnaire'
+  const isLocked = mission.status === 'cloture'
   const canSign = ['caf', 'de', 'admin'].includes(role) && ['soumis', 'brouillon'].includes(mission.status)
   const canEdit = ['caf', 'de', 'admin'].includes(role) && ['soumis', 'brouillon'].includes(mission.status)
   const canDelete = role === 'admin'
   const pdfDispo = !['brouillon', 'soumis'].includes(mission.status)
+  const canReconcile = user.id === mission.missionnaire_id
+    && ['signe', 'en_mission', 'reconciliation'].includes(mission.status)
+  const canValidateReconc = ['caf', 'admin'].includes(role) && mission.status === 'reconciliation_caf'
 
   const STATUS_LABELS: Record<string, string> = {
     brouillon: 'Brouillon',
     soumis: 'Soumis — En attente de signature',
-    signe: 'Signe',
+    signe: 'Signé',
     en_mission: 'En mission',
-    reconciliation: 'Reconciliation requise',
+    reconciliation: 'Réconciliation requise',
+    reconciliation_caf: 'Validation CAF en attente',
     paiement_attente: 'Paiement en attente',
-    cloture: 'Cloture',
-    rejete: 'Rejete',
+    cloture: 'Clôturé',
+    rejete: 'Rejeté',
+  }
+
+  const MODE_LABELS: Record<string, string> = {
+    credit: 'À crédit',
+    avance: 'Sur avance',
+    totalite_avant: 'Totalité avant départ',
   }
 
   return (
@@ -58,17 +70,27 @@ export default async function MissionDetail({ params }: { params: Promise<{ id: 
           <h2 style={{ color: 'var(--abed-green)', margin: '8px 0 4px' }}>
             Ordre de Mission {mission.reference ? `— ${mission.reference}` : ''}
           </h2>
-          <span className={`badge ${mission.status}`}>{STATUS_LABELS[mission.status] ?? mission.status}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span className={`badge ${mission.status}`}>{STATUS_LABELS[mission.status] ?? mission.status}</span>
+            {isLocked && (
+              <span style={{
+                fontSize: 12, fontWeight: 700, color: '#166534',
+                background: '#dcfce7', padding: '3px 10px', borderRadius: 999, border: '1px solid #86efac',
+              }}>
+                🔒 Dossier clôturé — lecture seule
+              </span>
+            )}
+          </div>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           {pdfDispo && (
             <a className="btn secondary" href={`/api/om-pdf?missionId=${mission.id}`} target="_blank">
-              Telecharger PDF
+              Télécharger PDF
             </a>
           )}
-          {mission.status === 'signe' && user.id === mission.missionnaire_id && (
+          {canReconcile && (
             <Link className="btn" href={`/missions/${mission.id}/reconciliation`}>
-              Faire la reconciliation
+              Faire la réconciliation
             </Link>
           )}
         </div>
@@ -83,10 +105,10 @@ export default async function MissionDetail({ params }: { params: Promise<{ id: 
             <Row label="Objet" value={mission.objet} />
             <Row label="Lieu" value={mission.lieu} />
             <Row label="Moyen de transport" value={mission.moyen_transport ?? '—'} />
-            <Row label="Date de depart" value={new Date(mission.date_depart).toLocaleDateString('fr-FR')} />
+            <Row label="Date de départ" value={new Date(mission.date_depart).toLocaleDateString('fr-FR')} />
             <Row label="Date de retour" value={new Date(mission.date_retour).toLocaleDateString('fr-FR')} />
             <Row label="Imputation" value={mission.imputation ?? '—'} />
-            <Row label="A charge partenaire" value={mission.a_charge_partenaire ? 'Oui (prelevement 20 %)' : 'Non'} />
+            <Row label="À charge partenaire" value={mission.a_charge_partenaire ? 'Oui (prélèvement 20 %)' : 'Non (à charge ABED)'} />
           </tbody>
         </table>
       </div>
@@ -95,7 +117,7 @@ export default async function MissionDetail({ params }: { params: Promise<{ id: 
         <div className="card" style={{ marginBottom: 20 }}>
           <h3 style={{ marginBottom: 12, fontSize: 15 }}>Signature</h3>
           <table><tbody>
-            <Row label="Signe par" value={`${mission.signataire?.prenoms ?? ''} ${mission.signataire?.nom ?? ''} (${mission.signataire?.fonction ?? ''})`} />
+            <Row label="Signé par" value={`${mission.signataire?.prenoms ?? ''} ${mission.signataire?.nom ?? ''} (${mission.signataire?.fonction ?? ''})`} />
             <Row label="Le" value={new Date(mission.signe_le).toLocaleDateString('fr-FR', { dateStyle: 'long' })} />
           </tbody></table>
         </div>
@@ -103,17 +125,37 @@ export default async function MissionDetail({ params }: { params: Promise<{ id: 
 
       {(mission.point_financier || mission.rapport) && (
         <div className="card" style={{ marginBottom: 20 }}>
-          <h3 style={{ marginBottom: 12, fontSize: 15 }}>Reconciliation</h3>
+          <h3 style={{ marginBottom: 12, fontSize: 15 }}>Réconciliation</h3>
           <table><tbody>
-            <Row label="Montant recu" value={mission.montant_recu != null ? `${Number(mission.montant_recu).toLocaleString('fr-FR')} FCFA` : '—'} />
-            <Row label="Total depenses" value={mission.total_depenses != null ? `${Number(mission.total_depenses).toLocaleString('fr-FR')} FCFA` : '—'} />
-            <Row label="Prelevement 20 %" value={mission.prelevement_20 != null ? `${Number(mission.prelevement_20).toLocaleString('fr-FR')} FCFA` : '—'} />
-            <Row label="Solde missionnaire" value={mission.solde_missionnaire != null ? `${Number(mission.solde_missionnaire).toLocaleString('fr-FR')} FCFA` : '—'} />
+            {mission.mode_financement && (
+              <Row label="Mode financement" value={MODE_LABELS[mission.mode_financement] ?? mission.mode_financement} />
+            )}
+            <Row label="Montant reçu" value={mission.montant_recu != null ? `${Number(mission.montant_recu).toLocaleString('fr-FR')} FCFA` : '—'} />
+            <Row label="Total dépenses" value={mission.total_depenses != null ? `${Number(mission.total_depenses).toLocaleString('fr-FR')} FCFA` : '—'} />
+            {mission.a_charge_partenaire && (
+              <Row label="Prélèvement 20 %" value={mission.prelevement_20 != null ? `${Number(mission.prelevement_20).toLocaleString('fr-FR')} FCFA` : '—'} />
+            )}
+            {mission.a_charge_partenaire && (
+              <Row label="Solde missionnaire" value={mission.solde_missionnaire != null ? `${Number(mission.solde_missionnaire).toLocaleString('fr-FR')} FCFA` : '—'} />
+            )}
           </tbody></table>
         </div>
       )}
 
-      {canEdit && (
+      {canValidateReconc && (
+        <ReconciliationValidationCAF
+          missionId={id}
+          mission={{
+            mode_financement: mission.mode_financement,
+            point_financier: mission.point_financier,
+            rapport: mission.rapport,
+            total_depenses: mission.total_depenses,
+            reconciliation_commentaire: mission.reconciliation_commentaire,
+          }}
+        />
+      )}
+
+      {!isLocked && canEdit && (
         <MissionEditForm mission={{
           id: mission.id, objet: mission.objet, lieu: mission.lieu,
           moyen_transport: mission.moyen_transport, conducteur_a_bord: mission.conducteur_a_bord,
@@ -123,7 +165,7 @@ export default async function MissionDetail({ params }: { params: Promise<{ id: 
         }} />
       )}
 
-      {canSign && <MissionActions missionId={mission.id} />}
+      {!isLocked && canSign && <MissionActions missionId={mission.id} />}
 
       {canDelete && (
         <div style={{ marginTop: 32, paddingTop: 16, borderTop: '1px solid var(--abed-border)' }}>

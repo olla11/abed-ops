@@ -3,6 +3,7 @@ import { useState } from 'react'
 
 type Ligne = { libelle: string; quantite: number; pu: number; montant: number }
 type Rapport = { objectifs: string; activites: string; resultats: string; difficultes: string; suite: string }
+type ModeFinancement = 'credit' | 'avance' | 'totalite_avant'
 
 const RAPPORT_FIELDS: [keyof Rapport, string][] = [
   ['objectifs',   'Objectifs de la mission *'],
@@ -12,16 +13,25 @@ const RAPPORT_FIELDS: [keyof Rapport, string][] = [
   ['suite',       'Suite à donner *'],
 ]
 
+const MODE_OPTIONS: { value: ModeFinancement; label: string; desc: string }[] = [
+  { value: 'credit', label: 'À crédit', desc: 'Mission effectuée à crédit — aucun paiement reçu avant ou pendant.' },
+  { value: 'avance', label: 'Sur avance', desc: 'Une avance partielle a été reçue avant le départ.' },
+  { value: 'totalite_avant', label: 'Totalité avant départ', desc: 'La totalité du budget a été reçue avant le départ.' },
+]
+
 export default function ReconciliationForm({
   missionId,
   aChargePartenaire,
+  commentaireRejet,
 }: {
   missionId: string
   aChargePartenaire: boolean
+  commentaireRejet?: string | null
 }) {
   const [lignes, setLignes] = useState<Ligne[]>([{ libelle: '', quantite: 1, pu: 0, montant: 0 }])
   const [montantRecu, setMontantRecu] = useState(0)
   const [rapport, setRapport] = useState<Rapport>({ objectifs: '', activites: '', resultats: '', difficultes: '', suite: '' })
+  const [modeFinancement, setModeFinancement] = useState<ModeFinancement | ''>('')
   const [msg, setMsg] = useState('')
   const [msgType, setMsgType] = useState<'ok' | 'err' | 'warn'>('ok')
   const [loading, setLoading] = useState(false)
@@ -30,7 +40,7 @@ export default function ReconciliationForm({
 
   const totalDepenses = lignes.reduce((s, l) => s + (l.montant || 0), 0)
   const prelevement = aChargePartenaire ? Math.round(montantRecu * 0.2) : 0
-  const solde = montantRecu - totalDepenses - prelevement
+  const solde = aChargePartenaire ? (montantRecu - totalDepenses - prelevement) : 0
 
   function updateLigne(i: number, patch: Partial<Ligne>) {
     setLignes(prev => prev.map((l, idx) => {
@@ -47,6 +57,7 @@ export default function ReconciliationForm({
     }
     if (lignes.every(l => !l.libelle.trim())) return 'Saisissez au moins une ligne dans le point financier.'
     if (aChargePartenaire && montantRecu <= 0) return 'Saisissez le montant reçu du partenaire.'
+    if (!aChargePartenaire && !modeFinancement) return 'Sélectionnez le mode de financement de la mission.'
     return null
   }
 
@@ -57,7 +68,12 @@ export default function ReconciliationForm({
     const res = await fetch(`/api/missions/${missionId}/reconcile`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ point_financier: lignes, montant_recu: montantRecu, rapport }),
+      body: JSON.stringify({
+        point_financier: lignes,
+        montant_recu: montantRecu,
+        rapport,
+        mode_financement: aChargePartenaire ? null : modeFinancement,
+      }),
     })
     const data = await res.json()
     setLoading(false)
@@ -69,7 +85,7 @@ export default function ReconciliationForm({
       return
     }
     setMsg(data.message ?? 'Réconciliation enregistrée.')
-    setMsgType('ok')
+    setMsgType(data.status === 'reconciliation_caf' ? 'warn' : 'ok')
   }
 
   async function retryPayment() {
@@ -89,7 +105,46 @@ export default function ReconciliationForm({
 
   return (
     <div style={{ display: 'grid', gap: 24 }}>
-      {/* Point financier */}
+      {commentaireRejet && (
+        <div style={{ background: '#fee2e2', border: '1px solid #f87171', borderRadius: 8, padding: '12px 16px' }}>
+          <strong style={{ color: '#991b1b', fontSize: 14 }}>Réconciliation rejetée par la CAF</strong>
+          <p style={{ margin: '6px 0 0', fontSize: 13, color: '#7f1d1d' }}>Commentaire : {commentaireRejet}</p>
+          <p style={{ margin: '4px 0 0', fontSize: 12, color: '#991b1b' }}>Corrigez les informations ci-dessous et resoumettez.</p>
+        </div>
+      )}
+
+      {!aChargePartenaire && (
+        <div className="card">
+          <h3 style={{ marginBottom: 12 }}>Mode de financement *</h3>
+          <p style={{ fontSize: 12, color: 'var(--abed-muted)', marginBottom: 16 }}>
+            Cette mission est à la charge d'ABED. Précisez comment le financement a été géré.
+          </p>
+          <div style={{ display: 'grid', gap: 10 }}>
+            {MODE_OPTIONS.map(opt => (
+              <label key={opt.value} style={{
+                display: 'flex', alignItems: 'flex-start', gap: 12,
+                padding: '12px 14px', borderRadius: 8, cursor: 'pointer',
+                border: `2px solid ${modeFinancement === opt.value ? 'var(--abed-green)' : 'var(--abed-border)'}`,
+                background: modeFinancement === opt.value ? '#f0fdf4' : 'var(--abed-bg)',
+              }}>
+                <input
+                  type="radio"
+                  name="mode_financement"
+                  value={opt.value}
+                  checked={modeFinancement === opt.value}
+                  onChange={() => setModeFinancement(opt.value)}
+                  style={{ marginTop: 2 }}
+                />
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>{opt.label}</div>
+                  <div style={{ fontSize: 12, color: 'var(--abed-muted)', marginTop: 2 }}>{opt.desc}</div>
+                </div>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="card">
         <h3 style={{ marginBottom: 16 }}>Point financier</h3>
         <div className="table-wrap">
@@ -127,11 +182,10 @@ export default function ReconciliationForm({
           <Row label="Total dépenses" value={totalDepenses} />
           {aChargePartenaire && <Row label="Montant reçu" value={montantRecu} />}
           {aChargePartenaire && <Row label="Prélèvement ABED (20%)" value={prelevement} accent />}
-          <Row label="Solde missionnaire" value={solde} bold />
+          {aChargePartenaire && <Row label="Solde missionnaire" value={solde} bold />}
         </div>
       </div>
 
-      {/* Rapport de mission — tous champs obligatoires */}
       <div className="card">
         <h3 style={{ marginBottom: 4 }}>Rapport de mission</h3>
         <p style={{ fontSize: 12, color: 'var(--abed-muted)', marginBottom: 16 }}>
@@ -151,6 +205,12 @@ export default function ReconciliationForm({
         <p style={{ fontSize: 13, color: 'var(--abed-amber)', background: '#fef3c7', padding: '10px 14px', borderRadius: 8 }}>
           ⚠ À la validation, un push MTN Mobile Money de <strong>{prelevement.toLocaleString('fr-FR')} F CFA</strong> sera
           envoyé sur votre téléphone. Confirmez-le pour clôturer la mission.
+        </p>
+      )}
+
+      {!aChargePartenaire && modeFinancement && (
+        <p style={{ fontSize: 13, color: 'var(--abed-amber)', background: '#fef3c7', padding: '10px 14px', borderRadius: 8 }}>
+          ⚠ Votre réconciliation sera transmise à la CAF pour validation avant clôture définitive.
         </p>
       )}
 
