@@ -1,5 +1,5 @@
 const RESEND_API_KEY = process.env.RESEND_API_KEY
-const FROM_EMAIL = process.env.RESEND_FROM_EMAIL ?? 'ABED-ONG <noreply@abed-ong.org>'
+const FROM_EMAIL = process.env.RESEND_FROM_EMAIL ?? 'ABED-ONG <noreply@abedong.org>'
 
 export async function sendEmail({
   to,
