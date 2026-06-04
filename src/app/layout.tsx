@@ -4,6 +4,11 @@ import './globals.css'
 export const metadata: Metadata = {
   title: 'ABED-ONG · Gestion des opérations',
   description: 'Ordres de mission, réconciliation et timesheets',
+  icons: {
+    icon: '/logoabed2.png',
+    shortcut: '/logoabed2.png',
+    apple: '/logoabed2.png',
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

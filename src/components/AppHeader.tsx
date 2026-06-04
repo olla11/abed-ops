@@ -28,7 +28,7 @@ export default function AppHeader({ userName, userRole, showAdmin }: Props) {
     <header style={{ marginBottom: 28, paddingBottom: 0, borderBottom: '2px solid var(--abed-green)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <Image src="/logo.png" alt="Logo ABED" width={56} height={56} style={{ objectFit: 'contain' }} />
+          <Image src="/logoabed2.png" alt="Logo ABED" width={56} height={56} style={{ objectFit: 'contain' }} />
           <div>
             <div style={{ fontSize: 11, color: 'var(--abed-green)', fontWeight: 700, lineHeight: 1.2, maxWidth: 340 }}>
               AGRICULTURE POUR LE BIEN ÊTRE ET LE DÉVELOPPEMENT DURABLE

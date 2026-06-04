@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { PDFDocument, StandardFonts, rgb, degrees } from 'pdf-lib'
-import { LOGO_PNG_B64 } from '@/lib/logo-b64'
+import fs from 'fs'
+import path from 'path'
 
 const fmt = (d: string | null | undefined) =>
   d ? new Date(d).toLocaleDateString('fr-FR') : '—'
@@ -146,7 +147,8 @@ export async function GET(req: NextRequest) {
 
   // ---- EN-TÊTE avec logo RGB couleur ----
   try {
-    const logoBytes = Buffer.from(LOGO_PNG_B64, 'base64')
+    const logoPath = path.join(process.cwd(), 'public', 'logoabed2.png')
+    const logoBytes = fs.readFileSync(logoPath)
     const logoImg = await pdf.embedPng(logoBytes)
     const logoH = 72
     const logoW = logoImg.width * (logoH / logoImg.height)
