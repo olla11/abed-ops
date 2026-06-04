@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase-server'
+import { createClient, createAdminClient } from "@/lib/supabase-server"
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { PDFDocument, StandardFonts, rgb, degrees } from 'pdf-lib'
 import QRCode from 'qrcode'
@@ -112,8 +112,8 @@ export async function GET(req: NextRequest) {
   const missionId = req.nextUrl.searchParams.get('missionId')
   if (!missionId) return NextResponse.json({ error: 'missionId requis' }, { status: 400 })
 
-  const supabase = await createClient()
-  const { data: m, error } = await supabase
+  const admin = createAdminClient()
+  const { data: m, error } = await admin
     .from('missions')
     .select(`
       *,
@@ -214,7 +214,7 @@ export async function GET(req: NextRequest) {
 
   const rows1: [string, string][] = [
     ['Nom & Prenoms',            `${mn?.prenoms ?? ''} ${mn?.nom ?? ''}`],
-    ['Date de naissance',        `${fmt(mn?.date_naissance)} a ${mn?.lieu_naissance ?? '—'}`],
+    ['Date de naissance',        `${fmt(mn?.date_naissance)} à ${mn?.lieu_naissance ?? '—'}`],
     ['Nationalite',              mn?.nationalite ?? '—'],
     ['Numero IFU',               mn?.ifu ?? '—'],
     ['Qualite / Grade / Indice', mn?.grade_indice ?? '—'],
@@ -271,7 +271,7 @@ export async function GET(req: NextRequest) {
 
   // ---- MENTION LÉGALE — nom en gras ----
   const nomMissionnaire = `${mn?.prenoms ?? ''} ${mn?.nom ?? ''}`
-  const before = 'Les autorites administratives et politiques sont priees de faciliter a '
+  const before = 'Les autorites administratives et politiques sont priees de faciliter à '
   const after = " l'accomplissement de sa mission."
   const beforeW = font.widthOfTextAtSize(before, rowSize)
   const nameW2 = bold.widthOfTextAtSize(nomMissionnaire, rowSize)
