@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase-server'
+import { createClient, createAdminClient } from '@/lib/supabase-server'
 
 export async function POST(
   req: NextRequest,
@@ -43,10 +43,11 @@ export async function POST(
   if (fichier_livrable_url) updates.fichier_livrable_url = fichier_livrable_url
   if (fichier_facture_url) updates.fichier_facture_url = fichier_facture_url
 
-  const { error } = await supabase.from('soumissions').update(updates).eq('id', id)
+  // Service role pour contourner RLS WITH CHECK sur le statut
+  const admin = createAdminClient()
+  const { error } = await admin.from('soumissions').update(updates).eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
-  // Notifier le manager
   await supabase.from('notifications').insert({
     user_id: soum.manager_id,
     titre: 'Dossier corrigé et resoumis',

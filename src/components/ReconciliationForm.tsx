@@ -16,7 +16,7 @@ const RAPPORT_FIELDS: [keyof Rapport, string][] = [
 const MODE_OPTIONS: { value: ModeFinancement; label: string; desc: string }[] = [
   { value: 'credit', label: 'À crédit', desc: 'Mission effectuée à crédit — aucun paiement reçu avant ou pendant.' },
   { value: 'avance', label: 'Sur avance', desc: 'Une avance partielle a été reçue avant le départ.' },
-  { value: 'totalite_avant', label: 'Totalité avant départ', desc: 'La totalité du budget a été reçue avant le départ.' },
+  { value: 'totalite_avant', label: 'Totalité avant départ', desc: 'La totalité du budget a été reçue avant le départ — clôture automatique.' },
 ]
 
 export default function ReconciliationForm({
@@ -40,7 +40,15 @@ export default function ReconciliationForm({
 
   const totalDepenses = lignes.reduce((s, l) => s + (l.montant || 0), 0)
   const prelevement = aChargePartenaire ? Math.round(montantRecu * 0.2) : 0
-  const solde = aChargePartenaire ? (montantRecu - totalDepenses - prelevement) : 0
+
+  // Calculs non-partenaire
+  const abedDoit = !aChargePartenaire
+    ? modeFinancement === 'totalite_avant'
+      ? 0
+      : modeFinancement === 'avance'
+        ? Math.max(0, totalDepenses - montantRecu)
+        : totalDepenses // credit
+    : 0
 
   function updateLigne(i: number, patch: Partial<Ligne>) {
     setLignes(prev => prev.map((l, idx) => {
@@ -58,6 +66,9 @@ export default function ReconciliationForm({
     if (lignes.every(l => !l.libelle.trim())) return 'Saisissez au moins une ligne dans le point financier.'
     if (aChargePartenaire && montantRecu <= 0) return 'Saisissez le montant reçu du partenaire.'
     if (!aChargePartenaire && !modeFinancement) return 'Sélectionnez le mode de financement de la mission.'
+    if (!aChargePartenaire && (modeFinancement === 'avance' || modeFinancement === 'totalite_avant') && montantRecu <= 0) {
+      return 'Saisissez le montant reçu d\'ABED avant le départ.'
+    }
     return null
   }
 
@@ -102,6 +113,8 @@ export default function ReconciliationForm({
       setMsgType('warn')
     }
   }
+
+  const showMontantRecu = aChargePartenaire || modeFinancement === 'avance' || modeFinancement === 'totalite_avant'
 
   return (
     <div style={{ display: 'grid', gap: 24 }}>
@@ -170,9 +183,15 @@ export default function ReconciliationForm({
           + Ajouter une ligne
         </button>
 
-        {aChargePartenaire && (
-          <div className="field" style={{ marginTop: 20, maxWidth: 280 }}>
-            <label className="label">Montant total reçu du partenaire (F CFA) *</label>
+        {showMontantRecu && (
+          <div className="field" style={{ marginTop: 20, maxWidth: 300 }}>
+            <label className="label">
+              {aChargePartenaire
+                ? 'Montant total reçu du partenaire (F CFA) *'
+                : modeFinancement === 'avance'
+                  ? 'Montant de l\'avance reçue d\'ABED (F CFA) *'
+                  : 'Montant total reçu d\'ABED avant départ (F CFA) *'}
+            </label>
             <input className="input" type="number" value={montantRecu}
               onChange={e => setMontantRecu(+e.target.value)} />
           </div>
@@ -180,9 +199,18 @@ export default function ReconciliationForm({
 
         <div style={{ background: 'var(--abed-bg)', padding: 16, borderRadius: 8, marginTop: 12 }}>
           <Row label="Total dépenses" value={totalDepenses} />
-          {aChargePartenaire && <Row label="Montant reçu" value={montantRecu} />}
+          {showMontantRecu && <Row label="Montant reçu" value={montantRecu} />}
           {aChargePartenaire && <Row label="Prélèvement ABED (20%)" value={prelevement} accent />}
-          {aChargePartenaire && <Row label="Solde missionnaire" value={solde} bold />}
+          {aChargePartenaire && <Row label="Solde missionnaire" value={montantRecu - totalDepenses - prelevement} bold />}
+          {!aChargePartenaire && modeFinancement === 'avance' && (
+            <Row label="Reste dû par ABED" value={abedDoit} bold accent={abedDoit > 0} />
+          )}
+          {!aChargePartenaire && modeFinancement === 'totalite_avant' && (
+            <Row label="Montant dû par ABED" value={0} bold />
+          )}
+          {!aChargePartenaire && modeFinancement === 'credit' && (
+            <Row label="Montant dû par ABED" value={abedDoit} bold accent={abedDoit > 0} />
+          )}
         </div>
       </div>
 
@@ -208,7 +236,13 @@ export default function ReconciliationForm({
         </p>
       )}
 
-      {!aChargePartenaire && modeFinancement && (
+      {!aChargePartenaire && modeFinancement === 'totalite_avant' && (
+        <p style={{ fontSize: 13, color: '#166534', background: '#dcfce7', padding: '10px 14px', borderRadius: 8 }}>
+          ✓ Totalité reçue avant départ — la mission sera clôturée automatiquement après validation.
+        </p>
+      )}
+
+      {!aChargePartenaire && (modeFinancement === 'credit' || modeFinancement === 'avance') && (
         <p style={{ fontSize: 13, color: 'var(--abed-amber)', background: '#fef3c7', padding: '10px 14px', borderRadius: 8 }}>
           ⚠ Votre réconciliation sera transmise à la CAF pour validation avant clôture définitive.
         </p>
