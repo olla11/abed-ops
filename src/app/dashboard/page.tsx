@@ -13,7 +13,7 @@ export default async function Dashboard() {
     .from('profiles').select('*').eq('id', user.id).single()
 
   const role = profile?.role ?? 'missionnaire'
-  const isManager = ['admin', 'rh', 'caf', 'de'].includes(role)
+  const isManager = ['admin', 'rh', 'caf', 'de', 'administrateur'].includes(role)
 
   // caf/de/admin voient toutes les missions (RLS le gère, mais on trie différemment)
   const { data: missions } = await supabase
