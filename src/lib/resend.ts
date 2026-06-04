@@ -1,6 +1,3 @@
-const RESEND_API_KEY = process.env.RESEND_API_KEY
-const FROM_EMAIL = process.env.RESEND_FROM_EMAIL ?? 'ABED-ONG <noreply@abedong.org>'
-
 export async function sendEmail({
   to,
   subject,
@@ -10,7 +7,10 @@ export async function sendEmail({
   subject: string
   html: string
 }) {
-  if (!RESEND_API_KEY) {
+  const apiKey = process.env.RESEND_API_KEY
+  const fromEmail = process.env.RESEND_FROM_EMAIL ?? 'ABED-ONG <noreply@abedong.org>'
+
+  if (!apiKey) {
     console.warn('[Resend] RESEND_API_KEY non défini — email non envoyé')
     return
   }
@@ -18,11 +18,11 @@ export async function sendEmail({
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${RESEND_API_KEY}`,
+      Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: FROM_EMAIL,
+      from: fromEmail,
       to: Array.isArray(to) ? to : [to],
       subject,
       html,
@@ -31,6 +31,6 @@ export async function sendEmail({
 
   if (!res.ok) {
     const txt = await res.text()
-    console.error('[Resend] Erreur envoi email:', res.status, txt)
+    throw new Error(`[Resend] Erreur ${res.status}: ${txt}`)
   }
 }

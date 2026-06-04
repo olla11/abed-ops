@@ -102,11 +102,15 @@ export async function POST(
       .from('profiles').select('email, id').in('role', ['de', 'caf'])
     const emails = (gestionnaires ?? []).map((g: any) => g.email).filter(Boolean)
     if (emails.length > 0) {
-      await sendEmail({
-        to: emails,
-        subject: `[ABED] Rapport consolidé — Mission ${mission.reference ?? mission.id}`,
-        html: buildEmailHtml(mission, rapport, point_financier, totalDepenses, 'Totalité reçue avant départ'),
-      })
+      try {
+        await sendEmail({
+          to: emails,
+          subject: `[ABED] Rapport consolidé — Mission ${mission.reference ?? mission.id}`,
+          html: buildEmailHtml(mission, rapport, point_financier, totalDepenses, 'Totalité reçue avant départ'),
+        })
+      } catch (e) {
+        console.error('[Email] Échec envoi rapport cloture:', e)
+      }
     }
     for (const g of gestionnaires ?? []) {
       await admin.from('notifications').insert({

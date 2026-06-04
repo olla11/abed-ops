@@ -136,11 +136,15 @@ export async function POST(
 
   const emails = (gestionnaires ?? []).map(g => g.email).filter(Boolean)
   if (emails.length > 0) {
-    await sendEmail({
-      to: emails,
-      subject: `[ABED] Rapport consolidé — Mission ${mission.reference ?? mission.id}`,
-      html: emailHtml,
-    })
+    try {
+      await sendEmail({
+        to: emails,
+        subject: `[ABED] Rapport consolidé — Mission ${mission.reference ?? mission.id}`,
+        html: emailHtml,
+      })
+    } catch (e) {
+      console.error('[Email] Échec envoi rapport validation CAF:', e)
+    }
   }
 
   // Notifications internes DE/CAF
