@@ -38,9 +38,16 @@ export default function AdminStorage() {
   useEffect(() => { load() }, [])
 
   async function bulkDelete(type: string) {
-    const before = dates[type]
-    if (!before) { setMsgs(m => ({ ...m, [type]: 'Choisissez une date limite.' })); return }
-    if (!confirm(`Supprimer les ${DELETE_TYPES.find(t => t.key === type)?.label.toLowerCase()} ${DELETE_TYPES.find(t => t.key === type)?.desc} avant le ${new Date(before).toLocaleDateString('fr-FR')} ?`)) return
+    const month = dates[type] // format YYYY-MM
+    if (!month) { setMsgs(m => ({ ...m, [type]: 'Choisissez un mois.' })); return }
+    // Calcule le premier jour du mois suivant → supprime tout créé AVANT cette date
+    const [yyyy, mm] = month.split('-').map(Number)
+    const nextMonth = new Date(yyyy, mm, 1) // mois suivant, jour 1
+    const before = nextMonth.toISOString().split('T')[0]
+    const label = DELETE_TYPES.find(t => t.key === type)?.label.toLowerCase()
+    const desc = DELETE_TYPES.find(t => t.key === type)?.desc
+    const monthFr = new Date(yyyy, mm - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+    if (!confirm(`Supprimer les ${label} (${desc}) jusqu'à fin ${monthFr} inclus ?`)) return
 
     setDeleting(type)
     const res = await fetch(`/api/admin/bulk-delete?type=${type}&before=${before}`, { method: 'DELETE' })
@@ -90,7 +97,7 @@ export default function AdminStorage() {
       <div className="card">
         <h3 style={{ marginBottom: 4, fontSize: 15 }}>Suppression par lot</h3>
         <p style={{ fontSize: 12, color: 'var(--abed-muted)', marginBottom: 16 }}>
-          Supprime uniquement les éléments terminés/lus avant la date choisie. Irréversible.
+          Sélectionne un mois pour supprimer les éléments terminés/lus jusqu'à la fin de ce mois. Irréversible.
         </p>
         <div style={{ display: 'grid', gap: 12 }}>
           {DELETE_TYPES.map(t => (
@@ -100,7 +107,7 @@ export default function AdminStorage() {
                 <strong style={{ fontSize: 13 }}>{t.label}</strong>
                 <span style={{ fontSize: 11, color: 'var(--abed-muted)', marginLeft: 6 }}>({t.desc})</span>
               </div>
-              <input type="date" style={{ padding: '6px 10px', border: '1px solid var(--abed-border)', borderRadius: 6, fontSize: 13 }}
+              <input type="month" style={{ padding: '6px 10px', border: '1px solid var(--abed-border)', borderRadius: 6, fontSize: 13 }}
                 value={dates[t.key] ?? ''}
                 onChange={e => setDates(d => ({ ...d, [t.key]: e.target.value }))} />
               <button className="btn danger" style={{ fontSize: 12, padding: '6px 14px' }}
