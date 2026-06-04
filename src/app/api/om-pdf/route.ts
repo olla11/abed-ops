@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { PDFDocument, StandardFonts, rgb, degrees } from 'pdf-lib'
+import QRCode from 'qrcode'
 import fs from 'fs'
 import path from 'path'
 
@@ -150,31 +151,31 @@ export async function GET(req: NextRequest) {
     const logoPath = path.join(process.cwd(), 'public', 'logoabed2.png')
     const logoBytes = fs.readFileSync(logoPath)
     const logoImg = await pdf.embedPng(logoBytes)
-    const logoH = 72
+    const logoH = 88
     const logoW = logoImg.width * (logoH / logoImg.height)
-    page.drawImage(logoImg, { x: 55, y: y - logoH + 10, width: logoW, height: logoH })
+    page.drawImage(logoImg, { x: 40, y: y - logoH + 12, width: logoW, height: logoH })
 
-    // Bloc texte aligné à droite du logo
-    const ox = 55 + logoW + 16
-    const centerX = (ox + 540) / 2
+    // Bloc texte centré dans l'espace à droite du logo
+    const ox = 40 + logoW + 14
+    const centerX = (ox + 555) / 2
 
     const lines: { text: string; size: number; isBold: boolean; color: any }[] = [
-      { text: 'Agriculture pour le Bien-Etre et le Developpement Durable', size: 8.5, isBold: true, color: black },
-      { text: '(ABED-ONG)', size: 9, isBold: true, color: black },
-      { text: 'Enregistre sous le N° 2019-4/0008 /PDB/SG/SAG du 16 Janvier 2019', size: 7, isBold: false, color: gray },
-      { text: 'Parakou – BENIN', size: 7.5, isBold: false, color: gray },
-      { text: 'Tel. : +229 0167779141', size: 7.5, isBold: false, color: gray },
-      { text: 'Email : contact@abedong.org  |  abedcontactpk@gmail.com', size: 7, isBold: false, color: gray },
+      { text: 'AGRICULTURE POUR LE BIEN-ETRE ET LE DEVELOPPEMENT DURABLE', size: 9, isBold: true, color: black },
+      { text: '(ABED-ONG)', size: 10.5, isBold: true, color: black },
+      { text: 'Enregistre sous le N° 2019-4/0008 /PDB/SG/SAG du 16 Janvier 2019', size: 7.5, isBold: false, color: gray },
+      { text: 'Parakou – BENIN', size: 8, isBold: false, color: gray },
+      { text: 'Tel. : +229 0167779141', size: 8, isBold: false, color: gray },
+      { text: 'Email : contact@abedong.org  |  abedcontactpk@gmail.com', size: 7.5, isBold: false, color: gray },
     ]
-    let ly = y + 4
+    let ly = y + 6
     for (const l of lines) {
       const f = l.isBold ? bold : font
       const w = f.widthOfTextAtSize(l.text, l.size)
       page.drawText(l.text, { x: centerX - w / 2, y: ly, size: l.size, font: f, color: l.color })
-      ly -= l.size + 3.5
+      ly -= l.size + 4
     }
 
-    y -= logoH + 8
+    y -= logoH + 10
   } catch (e) {
     page.drawText('ABED-ONG', { x: 55, y, size: 14, font: bold, color: green }); y -= 14
   }
@@ -221,7 +222,7 @@ export async function GET(req: NextRequest) {
     ['Lieu',                  m.lieu],
     ['Moyen de transport',    m.moyen_transport ?? '—'],
     ['Conducteur a bord',     m.conducteur_a_bord || '—'],
-    ['Imputation budgetaire', m.imputation ?? '—'],
+    ['Imputation budgetaire', m.imputation || (!m.a_charge_partenaire ? 'ABED' : '—')],
   ]
   for (const [k, v] of rows2) {
     page.drawText(k, { x: 60, y, size: 9, font: bold, color: black })
@@ -336,6 +337,23 @@ export async function GET(req: NextRequest) {
       '* (ABED ONG) *',
       font, bold,
     )
+  }
+
+  // ---- QR CODE — coin inférieur droit ----
+  try {
+    const qrUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://abed-ops.vercel.app'}/missions/${missionId}`
+    const qrDataUrl = await QRCode.toDataURL(qrUrl, { width: 100, margin: 1, color: { dark: '#000000', light: '#ffffff' } })
+    const qrBase64 = qrDataUrl.replace('data:image/png;base64,', '')
+    const qrBytes = Buffer.from(qrBase64, 'base64')
+    const qrImg = await pdf.embedPng(qrBytes)
+    const qrSize = 64
+    page.drawImage(qrImg, { x: 540 - qrSize, y: 28, width: qrSize, height: qrSize })
+    // Légende sous le QR
+    const qrLabel = 'Verifier en ligne'
+    const qrLabelW = font.widthOfTextAtSize(qrLabel, 6)
+    page.drawText(qrLabel, { x: 540 - qrSize + (qrSize - qrLabelW) / 2, y: 20, size: 6, font, color: gray })
+  } catch (e) {
+    console.error('[QR] Erreur génération QR code:', e)
   }
 
   const bytes = await pdf.save()
