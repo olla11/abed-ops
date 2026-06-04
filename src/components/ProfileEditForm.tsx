@@ -10,12 +10,17 @@ type Profile = {
   ifu: string | null
   fonction: string | null
   role: string
+  adresse: string | null
+  date_naissance: string | null
+  lieu_naissance: string | null
+  nationalite: string | null
 }
 
 const CIVILITES = ['M.', 'Mme', 'Dr', 'Pr']
 
 const ROLE_LABELS: Record<string, string> = {
-  admin: 'Administrateur',
+  admin: 'Administrateur système',
+  administrateur: 'Administrateur (CA)',
   rh: 'Ressources Humaines',
   caf: 'Comptable / CAF',
   de: 'Directeur Exécutif',
@@ -31,6 +36,10 @@ export default function ProfileEditForm({ profile }: { profile: Profile }) {
   const [telephone, setTelephone] = useState(profile.telephone || '')
   const [ifu, setIfu] = useState(profile.ifu || '')
   const [fonction, setFonction] = useState(profile.fonction || '')
+  const [adresse, setAdresse] = useState(profile.adresse || '')
+  const [dateNaissance, setDateNaissance] = useState(profile.date_naissance || '')
+  const [lieuNaissance, setLieuNaissance] = useState(profile.lieu_naissance || '')
+  const [nationalite, setNationalite] = useState(profile.nationalite || '')
   const [msg, setMsg] = useState('')
   const [msgType, setMsgType] = useState<'ok' | 'err'>('ok')
   const [loading, setLoading] = useState(false)
@@ -40,7 +49,7 @@ export default function ProfileEditForm({ profile }: { profile: Profile }) {
     const res = await fetch('/api/profile/update', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nom, prenoms, civilite, telephone, ifu, fonction }),
+      body: JSON.stringify({ nom, prenoms, civilite, telephone, ifu, fonction, adresse, date_naissance: dateNaissance, lieu_naissance: lieuNaissance, nationalite }),
     })
     const data = await res.json()
     setLoading(false)
@@ -64,7 +73,6 @@ export default function ProfileEditForm({ profile }: { profile: Profile }) {
         </div>
       </div>
 
-      {/* Infos modifiables */}
       <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr 1fr', gap: 12 }}>
         <div className="field">
           <label className="label">Civilité</label>
@@ -99,6 +107,31 @@ export default function ProfileEditForm({ profile }: { profile: Profile }) {
         <label className="label">Fonction / Poste</label>
         <input className="input" value={fonction} onChange={e => setFonction(e.target.value)}
           placeholder="Ex: Chargé de programme" />
+      </div>
+
+      <div className="field">
+        <label className="label">Adresse complète</label>
+        <input className="input" value={adresse} onChange={e => setAdresse(e.target.value)}
+          placeholder="Quartier, ville…" />
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div className="field">
+          <label className="label">Date de naissance</label>
+          <input className="input" type="date" value={dateNaissance}
+            onChange={e => setDateNaissance(e.target.value)} />
+        </div>
+        <div className="field">
+          <label className="label">Lieu de naissance</label>
+          <input className="input" value={lieuNaissance} onChange={e => setLieuNaissance(e.target.value)}
+            placeholder="Ville, pays" />
+        </div>
+      </div>
+
+      <div className="field">
+        <label className="label">Nationalité</label>
+        <input className="input" value={nationalite} onChange={e => setNationalite(e.target.value)}
+          placeholder="Ex: Béninoise" />
       </div>
 
       {msg && (

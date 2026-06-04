@@ -12,12 +12,12 @@ export default async function ProfilePage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, nom, prenoms, email, civilite, telephone, ifu, fonction, signature_url, cachet_url')
+    .select('role, nom, prenoms, email, civilite, telephone, ifu, fonction, signature_url, cachet_url, adresse, date_naissance, lieu_naissance, nationalite')
     .eq('id', user.id)
     .single()
 
   const role = profile?.role ?? 'missionnaire'
-  const canUpload = ['de', 'caf', 'admin'].includes(role)
+  const canUpload = ['de', 'caf', 'admin', 'administrateur'].includes(role)
 
   return (
     <div style={{ maxWidth: 760, margin: '0 auto', padding: 32 }}>
@@ -40,6 +40,10 @@ export default async function ProfilePage() {
           ifu: profile?.ifu ?? null,
           fonction: profile?.fonction ?? null,
           role,
+          adresse: profile?.adresse ?? null,
+          date_naissance: profile?.date_naissance ?? null,
+          lieu_naissance: profile?.lieu_naissance ?? null,
+          nationalite: profile?.nationalite ?? null,
         }} />
       </div>
 

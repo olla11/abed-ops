@@ -13,7 +13,7 @@ export async function POST(
   const { data: profile } = await supabase
     .from('profiles').select('role, nom, prenoms, fonction').eq('id', user.id).single()
 
-  if (!profile || !['caf', 'de', 'admin'].includes(profile.role)) {
+  if (!profile || !['caf', 'de', 'admin', 'administrateur'].includes(profile.role)) {
     return NextResponse.json({ error: 'accès refusé' }, { status: 403 })
   }
 

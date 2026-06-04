@@ -37,17 +37,19 @@ export default function ReconciliationForm({
   const [loading, setLoading] = useState(false)
   const [paymentFailed, setPaymentFailed] = useState(false)
   const [retrying, setRetrying] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
+  const [emailFailed, setEmailFailed] = useState(false)
+  const [retryingEmail, setRetryingEmail] = useState(false)
 
   const totalDepenses = lignes.reduce((s, l) => s + (l.montant || 0), 0)
   const prelevement = aChargePartenaire ? Math.round(montantRecu * 0.2) : 0
 
-  // Calculs non-partenaire
   const abedDoit = !aChargePartenaire
     ? modeFinancement === 'totalite_avant'
       ? 0
       : modeFinancement === 'avance'
         ? Math.max(0, totalDepenses - montantRecu)
-        : totalDepenses // credit
+        : totalDepenses
     : 0
 
   function updateLigne(i: number, patch: Partial<Ligne>) {
@@ -75,7 +77,7 @@ export default function ReconciliationForm({
   async function submit() {
     const err = validate()
     if (err) { setMsg(err); setMsgType('err'); return }
-    setLoading(true); setMsg(''); setPaymentFailed(false)
+    setLoading(true); setMsg(''); setPaymentFailed(false); setEmailFailed(false)
     const res = await fetch(`/api/missions/${missionId}/reconcile`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -95,8 +97,12 @@ export default function ReconciliationForm({
       if (isFedapay) setPaymentFailed(true)
       return
     }
+    setSubmitted(true)
     setMsg(data.message ?? 'Réconciliation enregistrée.')
     setMsgType(data.status === 'reconciliation_caf' ? 'warn' : 'ok')
+    if (data.email_sent === false) {
+      setEmailFailed(true)
+    }
   }
 
   async function retryPayment() {
@@ -114,6 +120,21 @@ export default function ReconciliationForm({
     }
   }
 
+  async function retryEmail() {
+    setRetryingEmail(true)
+    const res = await fetch(`/api/missions/${missionId}/retry-email`, { method: 'POST' })
+    const data = await res.json()
+    setRetryingEmail(false)
+    if (!res.ok) {
+      setMsg('Email non envoyé : ' + (data.error ?? 'erreur inconnue') + ' — réessayez plus tard.')
+      setMsgType('err')
+    } else {
+      setEmailFailed(false)
+      setMsg('Email envoyé avec succès au DE et à la CAF.')
+      setMsgType('ok')
+    }
+  }
+
   const showMontantRecu = aChargePartenaire || modeFinancement === 'avance' || modeFinancement === 'totalite_avant'
 
   return (
@@ -126,7 +147,7 @@ export default function ReconciliationForm({
         </div>
       )}
 
-      {!aChargePartenaire && (
+      {!submitted && !aChargePartenaire && (
         <div className="card">
           <h3 style={{ marginBottom: 12 }}>Mode de financement *</h3>
           <p style={{ fontSize: 12, color: 'var(--abed-muted)', marginBottom: 16 }}>
@@ -158,91 +179,95 @@ export default function ReconciliationForm({
         </div>
       )}
 
-      <div className="card">
-        <h3 style={{ marginBottom: 16 }}>Point financier</h3>
-        <div className="table-wrap">
-        <table>
-          <thead><tr><th>Libellé</th><th>Qté</th><th>P. Unitaire (F)</th><th>Montant</th></tr></thead>
-          <tbody>
-            {lignes.map((l, i) => (
-              <tr key={i}>
-                <td><input className="input" value={l.libelle}
-                  onChange={e => updateLigne(i, { libelle: e.target.value })} /></td>
-                <td><input className="input" type="number" value={l.quantite} style={{ width: 70 }}
-                  onChange={e => updateLigne(i, { quantite: +e.target.value })} /></td>
-                <td><input className="input" type="number" value={l.pu} style={{ width: 110 }}
-                  onChange={e => updateLigne(i, { pu: +e.target.value })} /></td>
-                <td style={{ whiteSpace: 'nowrap' }}>{l.montant.toLocaleString('fr-FR')} F</td>
-              </tr>
+      {!submitted && (
+        <>
+          <div className="card">
+            <h3 style={{ marginBottom: 16 }}>Point financier</h3>
+            <div className="table-wrap">
+            <table>
+              <thead><tr><th>Libellé</th><th>Qté</th><th>P. Unitaire (F)</th><th>Montant</th></tr></thead>
+              <tbody>
+                {lignes.map((l, i) => (
+                  <tr key={i}>
+                    <td><input className="input" value={l.libelle}
+                      onChange={e => updateLigne(i, { libelle: e.target.value })} /></td>
+                    <td><input className="input" type="number" value={l.quantite} style={{ width: 70 }}
+                      onChange={e => updateLigne(i, { quantite: +e.target.value })} /></td>
+                    <td><input className="input" type="number" value={l.pu} style={{ width: 110 }}
+                      onChange={e => updateLigne(i, { pu: +e.target.value })} /></td>
+                    <td style={{ whiteSpace: 'nowrap' }}>{l.montant.toLocaleString('fr-FR')} F</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            </div>
+            <button className="btn secondary" style={{ marginTop: 12 }}
+              onClick={() => setLignes([...lignes, { libelle: '', quantite: 1, pu: 0, montant: 0 }])}>
+              + Ajouter une ligne
+            </button>
+
+            {showMontantRecu && (
+              <div className="field" style={{ marginTop: 20, maxWidth: 300 }}>
+                <label className="label">
+                  {aChargePartenaire
+                    ? 'Montant total reçu du partenaire (F CFA) *'
+                    : modeFinancement === 'avance'
+                      ? 'Montant de l\'avance reçue d\'ABED (F CFA) *'
+                      : 'Montant total reçu d\'ABED avant départ (F CFA) *'}
+                </label>
+                <input className="input" type="number" value={montantRecu}
+                  onChange={e => setMontantRecu(+e.target.value)} />
+              </div>
+            )}
+
+            <div style={{ background: 'var(--abed-bg)', padding: 16, borderRadius: 8, marginTop: 12 }}>
+              <Row label="Total dépenses" value={totalDepenses} />
+              {showMontantRecu && <Row label="Montant reçu" value={montantRecu} />}
+              {aChargePartenaire && <Row label="Prélèvement ABED (20%)" value={prelevement} accent />}
+              {aChargePartenaire && <Row label="Solde missionnaire" value={montantRecu - totalDepenses - prelevement} bold />}
+              {!aChargePartenaire && modeFinancement === 'avance' && (
+                <Row label="Reste dû par ABED" value={abedDoit} bold accent={abedDoit > 0} />
+              )}
+              {!aChargePartenaire && modeFinancement === 'totalite_avant' && (
+                <Row label="Montant dû par ABED" value={0} bold />
+              )}
+              {!aChargePartenaire && modeFinancement === 'credit' && (
+                <Row label="Montant dû par ABED" value={abedDoit} bold accent={abedDoit > 0} />
+              )}
+            </div>
+          </div>
+
+          <div className="card">
+            <h3 style={{ marginBottom: 4 }}>Rapport de mission</h3>
+            <p style={{ fontSize: 12, color: 'var(--abed-muted)', marginBottom: 16 }}>
+              Tous les champs sont obligatoires. Ce rapport sera transmis au Directeur Exécutif et à la CAF.
+            </p>
+            {RAPPORT_FIELDS.map(([k, lbl]) => (
+              <div className="field" key={k}>
+                <label className="label">{lbl}</label>
+                <textarea className="textarea" rows={3} value={rapport[k]}
+                  style={{ borderColor: rapport[k].trim() ? 'var(--abed-border)' : '#f87171' }}
+                  onChange={e => setRapport(r => ({ ...r, [k]: e.target.value }))} />
+              </div>
             ))}
-          </tbody>
-        </table>
-        </div>
-        <button className="btn secondary" style={{ marginTop: 12 }}
-          onClick={() => setLignes([...lignes, { libelle: '', quantite: 1, pu: 0, montant: 0 }])}>
-          + Ajouter une ligne
-        </button>
-
-        {showMontantRecu && (
-          <div className="field" style={{ marginTop: 20, maxWidth: 300 }}>
-            <label className="label">
-              {aChargePartenaire
-                ? 'Montant total reçu du partenaire (F CFA) *'
-                : modeFinancement === 'avance'
-                  ? 'Montant de l\'avance reçue d\'ABED (F CFA) *'
-                  : 'Montant total reçu d\'ABED avant départ (F CFA) *'}
-            </label>
-            <input className="input" type="number" value={montantRecu}
-              onChange={e => setMontantRecu(+e.target.value)} />
           </div>
-        )}
+        </>
+      )}
 
-        <div style={{ background: 'var(--abed-bg)', padding: 16, borderRadius: 8, marginTop: 12 }}>
-          <Row label="Total dépenses" value={totalDepenses} />
-          {showMontantRecu && <Row label="Montant reçu" value={montantRecu} />}
-          {aChargePartenaire && <Row label="Prélèvement ABED (20%)" value={prelevement} accent />}
-          {aChargePartenaire && <Row label="Solde missionnaire" value={montantRecu - totalDepenses - prelevement} bold />}
-          {!aChargePartenaire && modeFinancement === 'avance' && (
-            <Row label="Reste dû par ABED" value={abedDoit} bold accent={abedDoit > 0} />
-          )}
-          {!aChargePartenaire && modeFinancement === 'totalite_avant' && (
-            <Row label="Montant dû par ABED" value={0} bold />
-          )}
-          {!aChargePartenaire && modeFinancement === 'credit' && (
-            <Row label="Montant dû par ABED" value={abedDoit} bold accent={abedDoit > 0} />
-          )}
-        </div>
-      </div>
-
-      <div className="card">
-        <h3 style={{ marginBottom: 4 }}>Rapport de mission</h3>
-        <p style={{ fontSize: 12, color: 'var(--abed-muted)', marginBottom: 16 }}>
-          Tous les champs sont obligatoires. Ce rapport sera transmis au Directeur Exécutif et à la CAF.
-        </p>
-        {RAPPORT_FIELDS.map(([k, lbl]) => (
-          <div className="field" key={k}>
-            <label className="label">{lbl}</label>
-            <textarea className="textarea" rows={3} value={rapport[k]}
-              style={{ borderColor: rapport[k].trim() ? 'var(--abed-border)' : '#f87171' }}
-              onChange={e => setRapport(r => ({ ...r, [k]: e.target.value }))} />
-          </div>
-        ))}
-      </div>
-
-      {aChargePartenaire && prelevement > 0 && (
+      {aChargePartenaire && prelevement > 0 && !submitted && (
         <p style={{ fontSize: 13, color: 'var(--abed-amber)', background: '#fef3c7', padding: '10px 14px', borderRadius: 8 }}>
           ⚠ À la validation, un push MTN Mobile Money de <strong>{prelevement.toLocaleString('fr-FR')} F CFA</strong> sera
           envoyé sur votre téléphone. Confirmez-le pour clôturer la mission.
         </p>
       )}
 
-      {!aChargePartenaire && modeFinancement === 'totalite_avant' && (
+      {!submitted && !aChargePartenaire && modeFinancement === 'totalite_avant' && (
         <p style={{ fontSize: 13, color: '#166534', background: '#dcfce7', padding: '10px 14px', borderRadius: 8 }}>
           ✓ Totalité reçue avant départ — la mission sera clôturée automatiquement après validation.
         </p>
       )}
 
-      {!aChargePartenaire && (modeFinancement === 'credit' || modeFinancement === 'avance') && (
+      {!submitted && !aChargePartenaire && (modeFinancement === 'credit' || modeFinancement === 'avance') && (
         <p style={{ fontSize: 13, color: 'var(--abed-amber)', background: '#fef3c7', padding: '10px 14px', borderRadius: 8 }}>
           ⚠ Votre réconciliation sera transmise à la CAF pour validation avant clôture définitive.
         </p>
@@ -258,6 +283,17 @@ export default function ReconciliationForm({
         </div>
       )}
 
+      {emailFailed && (
+        <div style={{ background: '#fff7ed', border: '1px solid #f59e0b', borderRadius: 8, padding: 16 }}>
+          <p style={{ fontWeight: 600, marginBottom: 8, color: '#92400e', fontSize: 14 }}>
+            L'email au DE et à la CAF n'a pas pu être envoyé. Vérifiez la configuration Resend puis réessayez.
+          </p>
+          <button className="btn" style={{ background: '#d97706' }} onClick={retryEmail} disabled={retryingEmail}>
+            {retryingEmail ? '⏳ Envoi…' : '🔄 Réessayer l\'envoi de l\'email'}
+          </button>
+        </div>
+      )}
+
       {paymentFailed && (
         <div style={{ background: '#fff7ed', border: '1px solid #f59e0b', borderRadius: 8, padding: 16 }}>
           <p style={{ fontWeight: 600, marginBottom: 8, color: '#92400e' }}>
@@ -269,9 +305,11 @@ export default function ReconciliationForm({
         </div>
       )}
 
-      <button className="btn" onClick={submit} disabled={loading}>
-        {loading ? 'Traitement…' : 'Valider la réconciliation'}
-      </button>
+      {!submitted && (
+        <button className="btn" onClick={submit} disabled={loading}>
+          {loading ? 'Traitement…' : 'Valider la réconciliation'}
+        </button>
+      )}
     </div>
   )
 }

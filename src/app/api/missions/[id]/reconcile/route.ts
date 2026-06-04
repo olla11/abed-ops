@@ -99,8 +99,10 @@ export async function POST(
 
     // Envoyer rapport au DE et CAF par email
     const { data: gestionnaires } = await admin
-      .from('profiles').select('email, id').in('role', ['de', 'caf'])
+      .from('profiles').select('email, id').in('role', ['de', 'caf', 'administrateur'])
     const emails = (gestionnaires ?? []).map((g: any) => g.email).filter(Boolean)
+    let emailSent = false
+    let emailError: string | null = null
     if (emails.length > 0) {
       try {
         await sendEmail({
@@ -108,7 +110,9 @@ export async function POST(
           subject: `[ABED] Rapport consolidé — Mission ${mission.reference ?? mission.id}`,
           html: buildEmailHtml(mission, rapport, point_financier, totalDepenses, 'Totalité reçue avant départ'),
         })
-      } catch (e) {
+        emailSent = true
+      } catch (e: any) {
+        emailError = e.message ?? 'Erreur inconnue'
         console.error('[Email] Échec envoi rapport cloture:', e)
       }
     }
@@ -124,7 +128,11 @@ export async function POST(
     return NextResponse.json({
       ok: true,
       status: 'cloture',
-      message: 'Mission clôturée automatiquement. Rapport envoyé au DE et à la CAF.',
+      email_sent: emailSent,
+      email_error: emailError,
+      message: emailSent
+        ? 'Mission clôturée automatiquement. Rapport envoyé au DE et à la CAF.'
+        : 'Mission clôturée. L\'email n\'a pas pu être envoyé — vous pouvez réessayer.',
     })
   }
 
