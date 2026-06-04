@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import AppHeader from '@/components/AppHeader'
+import ProfileEditForm from '@/components/ProfileEditForm'
 import ProfileAssetForm from '@/components/ProfileAssetForm'
 
 export default async function ProfilePage() {
@@ -11,7 +12,7 @@ export default async function ProfilePage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, nom, prenoms, civilite, signature_url, cachet_url')
+    .select('role, nom, prenoms, email, civilite, telephone, ifu, fonction, signature_url, cachet_url')
     .eq('id', user.id)
     .single()
 
@@ -19,25 +20,37 @@ export default async function ProfilePage() {
   const canUpload = ['de', 'caf', 'admin'].includes(role)
 
   return (
-    <div style={{ maxWidth: 700, margin: '0 auto', padding: 32, display: 'grid', gap: 24 }}>
+    <div style={{ maxWidth: 760, margin: '0 auto', padding: 32 }}>
       <AppHeader
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={role}
         showAdmin={role === 'admin'}
       />
 
-      <h1 style={{ color: 'var(--abed-green)' }}>Mon profil</h1>
+      <h2 style={{ color: 'var(--abed-green)', marginBottom: 24 }}>Mon profil</h2>
 
-      <div className="card">
-        <p><strong>Nom :</strong> {profile?.civilite} {profile?.prenoms} {profile?.nom}</p>
-        <p><strong>Rôle :</strong> {role.toUpperCase()}</p>
+      <div className="card" style={{ marginBottom: 24 }}>
+        <h3 style={{ marginBottom: 20, fontSize: 15 }}>Informations personnelles</h3>
+        <ProfileEditForm profile={{
+          nom: profile?.nom ?? '',
+          prenoms: profile?.prenoms ?? '',
+          civilite: profile?.civilite ?? 'M.',
+          email: profile?.email ?? user.email ?? '',
+          telephone: profile?.telephone ?? null,
+          ifu: profile?.ifu ?? null,
+          fonction: profile?.fonction ?? null,
+          role,
+        }} />
       </div>
 
       {canUpload && (
-        <ProfileAssetForm
-          hasSignature={!!profile?.signature_url}
-          hasCachet={!!profile?.cachet_url}
-        />
+        <div className="card">
+          <h3 style={{ marginBottom: 20, fontSize: 15 }}>Signature &amp; Cachet (pour les PDF)</h3>
+          <ProfileAssetForm
+            hasSignature={!!profile?.signature_url}
+            hasCachet={!!profile?.cachet_url}
+          />
+        </div>
       )}
     </div>
   )

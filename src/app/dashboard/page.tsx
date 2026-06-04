@@ -59,9 +59,12 @@ export default async function Dashboard() {
       )}
 
       <div className="card">
-        <h3 style={{ marginBottom: 16 }}>
-          {isManager ? 'Tous les ordres de mission' : 'Mes ordres de mission'}
-        </h3>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <h3 style={{ margin: 0 }}>
+            {isManager ? 'Tous les ordres de mission' : 'Mes ordres de mission'}
+          </h3>
+          <Link href="/missions/nouveau" className="btn" style={{ fontSize: 13 }}>+ Nouvel OM</Link>
+        </div>
         <div className="table-wrap">
         <table style={{ minWidth: isManager ? 900 : 750 }}>
           <colgroup>
