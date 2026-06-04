@@ -22,7 +22,7 @@ export default function MissionActions({ missionId }: { missionId: string }) {
 
   return (
     <div className="card" style={{ borderLeft: '4px solid var(--abed-green)' }}>
-      <h3 style={{ marginBottom: 12, fontSize: 15 }}>Actions (CAF / DE)</h3>
+      <h3 style={{ marginBottom: 12, fontSize: 15 }}>Actions (CAF / DE / Administrateur)</h3>
       <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: 14 }}>
         En signant, vous attribuez une référence officielle et rendez le PDF disponible au missionnaire.
       </p>
