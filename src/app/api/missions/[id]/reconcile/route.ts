@@ -19,10 +19,19 @@ export async function POST(
     ? point_financier.reduce((s: number, l: any) => s + (Number(l.montant) || 0), 0)
     : 0
 
+  // Vérifier que la mission appartient bien à cet utilisateur
+  const { data: missionCheck } = await supabase
+    .from('missions').select('id, missionnaire_id').eq('id', id).single()
+  if (!missionCheck || missionCheck.missionnaire_id !== user.id) {
+    return NextResponse.json({ error: 'mission introuvable' }, { status: 404 })
+  }
+
   // Statut initial selon mode
   const statusInitial = mode_financement === 'totalite_avant' ? 'cloture' : 'reconciliation_caf'
 
-  const { data: mission, error } = await supabase
+  // Service role pour contourner la RLS WITH CHECK qui bloque status='cloture' pour le missionnaire
+  const admin = createAdminClient()
+  const { data: mission, error } = await admin
     .from('missions')
     .update({
       point_financier,
@@ -33,7 +42,6 @@ export async function POST(
       status: statusInitial,
     })
     .eq('id', id)
-    .eq('missionnaire_id', user.id)
     .select()
     .single()
 
@@ -43,7 +51,7 @@ export async function POST(
 
   // ── Cas partenaire : prélèvement FedaPay ──
   if (mission.a_charge_partenaire && mission.prelevement_20 && mission.prelevement_20 > 0) {
-    await supabase.from('missions').update({ status: 'paiement_attente' }).eq('id', id)
+    await admin.from('missions').update({ status: 'paiement_attente' }).eq('id', id)
 
     const { data: profile } = await supabase
       .from('profiles').select('telephone, nom, prenoms').eq('id', user.id).single()
@@ -74,15 +82,13 @@ export async function POST(
       })
     } catch (e: any) {
       await supabase.from('payments').update({ status: 'echoue' }).eq('mission_id', mission.id)
-      await supabase.from('missions').update({ status: 'reconciliation' }).eq('id', id)
+      await admin.from('missions').update({ status: 'reconciliation' }).eq('id', id)
       return NextResponse.json({ error: `Échec FedaPay: ${e.message}` }, { status: 502 })
     }
   }
 
   // ── Cas non-partenaire : totalite_avant → cloture directe ──
   if (mode_financement === 'totalite_avant') {
-    const admin = createAdminClient()
-
     // Notifier le missionnaire
     await admin.from('notifications').insert({
       user_id: user.id,
