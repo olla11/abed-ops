@@ -148,15 +148,30 @@ export async function GET(req: NextRequest) {
   try {
     const logoBytes = Buffer.from(LOGO_PNG_B64, 'base64')
     const logoImg = await pdf.embedPng(logoBytes)
-    const logoH = 52
+    const logoH = 72
     const logoW = logoImg.width * (logoH / logoImg.height)
     page.drawImage(logoImg, { x: 55, y: y - logoH + 10, width: logoW, height: logoH })
-    const ox = 55 + logoW + 12
-    page.drawText('AGRICULTURE POUR LE BIEN ETRE ET LE DEVELOPPEMENT DURABLE', {
-      x: ox, y: y - 2, size: 7.5, font: bold, color: green,
-    })
-    page.drawText('ABED - ONG', { x: ox, y: y - 15, size: 14, font: bold, color: green })
-    page.drawText('Systeme de Gestion des Operations', { x: ox, y: y - 28, size: 7, font, color: gray })
+
+    // Bloc texte aligné à droite du logo
+    const ox = 55 + logoW + 16
+    const centerX = (ox + 540) / 2
+
+    const lines: { text: string; size: number; isBold: boolean; color: any }[] = [
+      { text: 'Agriculture pour le Bien-Etre et le Developpement Durable', size: 8.5, isBold: true, color: black },
+      { text: '(ABED-ONG)', size: 9, isBold: true, color: black },
+      { text: 'Enregistre sous le N° 2019-4/0008 /PDB/SG/SAG du 16 Janvier 2019', size: 7, isBold: false, color: gray },
+      { text: 'Parakou – BENIN', size: 7.5, isBold: false, color: gray },
+      { text: 'Tel. : +229 0167779141', size: 7.5, isBold: false, color: gray },
+      { text: 'Email : contact@abedong.org  |  abedcontactpk@gmail.com', size: 7, isBold: false, color: gray },
+    ]
+    let ly = y + 4
+    for (const l of lines) {
+      const f = l.isBold ? bold : font
+      const w = f.widthOfTextAtSize(l.text, l.size)
+      page.drawText(l.text, { x: centerX - w / 2, y: ly, size: l.size, font: f, color: l.color })
+      ly -= l.size + 3.5
+    }
+
     y -= logoH + 8
   } catch (e) {
     page.drawText('ABED-ONG', { x: 55, y, size: 14, font: bold, color: green }); y -= 14
@@ -263,7 +278,7 @@ export async function GET(req: NextRequest) {
 
   // -- Colonne gauche : titre + signature + nom --
   let titreLabel = sg?.civilite === 'Mme' ? 'La Directrice Executive' : 'Le Directeur Executif'
-  if (sg?.role === 'caf') titreLabel = 'Le Directeur Executif Int. et P.O'
+  if (sg?.role === 'caf') titreLabel = sg?.civilite === 'Mme' ? 'La Directrice Executive P.O' : 'Le Directeur Executif P.O'
   page.drawText(titreLabel, { x: sigX, y: blockTop, size: 9, font: bold, color: black })
 
   // Signature (image ou dessin illustratif)
