@@ -141,23 +141,29 @@ export async function GET(req: NextRequest) {
   const black = rgb(0, 0, 0)
   const gray = rgb(0.45, 0.45, 0.45)
 
+  // Marges 2.54 cm = 72 pt
+  const ML = 72   // gauche
+  const MR = 523  // droite (595 - 72)
+  const MT = 770  // haut (842 - 72)
+  const MB = 72   // bas
+  const W = MR - ML  // largeur utile = 451
+
   const mn = m.missionnaire as any
   const sg = m.signataire as any
 
-  let y = 810
+  let y = MT + 14  // on démarre un peu au-dessus de la marge pour le header
 
-  // ---- EN-TÊTE avec logo RGB couleur ----
+  // ---- EN-TÊTE ----
   try {
     const logoPath = path.join(process.cwd(), 'public', 'logoabed2.png')
     const logoBytes = fs.readFileSync(logoPath)
     const logoImg = await pdf.embedPng(logoBytes)
     const logoH = 88
     const logoW = logoImg.width * (logoH / logoImg.height)
-    page.drawImage(logoImg, { x: 40, y: y - logoH + 12, width: logoW, height: logoH })
+    page.drawImage(logoImg, { x: ML, y: y - logoH + 12, width: logoW, height: logoH })
 
-    // Bloc texte centré dans l'espace à droite du logo
-    const ox = 40 + logoW + 14
-    const centerX = (ox + 555) / 2
+    const ox = ML + logoW + 14
+    const centerX = (ox + MR) / 2
 
     const lines: { text: string; size: number; isBold: boolean; color: any }[] = [
       { text: 'AGRICULTURE POUR LE BIEN-ETRE ET LE DEVELOPPEMENT DURABLE', size: 9, isBold: true, color: black },
@@ -174,27 +180,41 @@ export async function GET(req: NextRequest) {
       page.drawText(l.text, { x: centerX - w / 2, y: ly, size: l.size, font: f, color: l.color })
       ly -= l.size + 4
     }
-
     y -= logoH + 10
-  } catch (e) {
-    page.drawText('ABED-ONG', { x: 55, y, size: 14, font: bold, color: green }); y -= 14
+  } catch {
+    page.drawText('ABED-ONG', { x: ML, y, size: 14, font: bold, color: green }); y -= 14
   }
 
-  page.drawLine({ start: { x: 55, y }, end: { x: 540, y }, thickness: 1.5, color: green }); y -= 18
+  page.drawLine({ start: { x: ML, y }, end: { x: MR, y }, thickness: 1.5, color: green }); y -= 18
 
   page.drawText(`ORDRE DE MISSION N° : ${m.reference ?? '—'}`, {
-    x: 55, y, size: 13, font: bold, color: black,
+    x: ML, y, size: 13, font: bold, color: black,
   }); y -= 14
 
-  page.drawText(`Parakou, le ${fmt(m.signe_le)}`, { x: 370, y, size: 10, font, color: gray }); y -= 20
+  page.drawText(`Parakou, le ${fmt(m.signe_le)}`, { x: MR - 140, y, size: 10, font, color: gray }); y -= 20
 
-  const civSg = sg?.civilite === 'Mme' ? 'La Directrice Executive de ABED-ONG donne ordre a :' : 'Le Directeur Executif de ABED-ONG donne ordre a :'
-  page.drawText(civSg, { x: 55, y, size: 10, font, color: black }); y -= 16
+  // Phrase d'ordre selon rôle du signataire
+  let ordrePhrase: string
+  if (sg?.role === 'administrateur') {
+    ordrePhrase = sg?.civilite === 'Mme'
+      ? "L'Administratrice de ABED-ONG donne ordre a :"
+      : "L'Administrateur de ABED-ONG donne ordre a :"
+  } else {
+    ordrePhrase = sg?.civilite === 'Mme'
+      ? 'La Directrice Executive de ABED-ONG donne ordre a :'
+      : 'Le Directeur Executif de ABED-ONG donne ordre a :'
+  }
+  page.drawText(ordrePhrase, { x: ML, y, size: 10, font, color: black }); y -= 16
 
   // ---- MISSIONNAIRE ----
+  const labelX = ML + 4
+  const valX = ML + 152
+  const rowSize = 9
+  const rowStep = 14
+
   const rows1: [string, string][] = [
     ['Nom & Prenoms',            `${mn?.prenoms ?? ''} ${mn?.nom ?? ''}`],
-    ['Date de naissance',        `${fmt(mn?.date_naissance)}  a : ${mn?.lieu_naissance ?? '—'}`],
+    ['Date de naissance',        `${fmt(mn?.date_naissance)} a ${mn?.lieu_naissance ?? '—'}`],
     ['Nationalite',              mn?.nationalite ?? '—'],
     ['Numero IFU',               mn?.ifu ?? '—'],
     ['Qualite / Grade / Indice', mn?.grade_indice ?? '—'],
@@ -203,20 +223,20 @@ export async function GET(req: NextRequest) {
     ['Telephone',                mn?.telephone ?? '—'],
   ]
   for (const [k, v] of rows1) {
-    page.drawText(k, { x: 60, y, size: 9, font: bold, color: black })
-    page.drawText(': ' + v, { x: 220, y, size: 9, font, color: black })
-    y -= 14
+    page.drawText(k, { x: labelX, y, size: rowSize, font: bold, color: black })
+    page.drawText(': ' + v, { x: valX, y, size: rowSize, font, color: black, maxWidth: MR - valX })
+    y -= rowStep
   }
   y -= 4
 
-  page.drawLine({ start: { x: 55, y: y+4 }, end: { x: 540, y: y+4 }, thickness: 0.5, color: gray }); y -= 10
+  page.drawLine({ start: { x: ML, y: y+4 }, end: { x: MR, y: y+4 }, thickness: 0.5, color: gray }); y -= 10
 
   // ---- MISSION ----
   const objetLines = wrapText(m.objet, 52, 3)
-  page.drawText('Objet de la mission', { x: 60, y, size: 9, font: bold, color: black })
-  page.drawText(': ' + objetLines[0], { x: 220, y, size: 9, font, color: black })
-  for (let i = 1; i < objetLines.length; i++) { y -= 12; page.drawText(objetLines[i], { x: 222, y, size: 9, font, color: black }) }
-  y -= 14
+  page.drawText('Objet de la mission', { x: labelX, y, size: rowSize, font: bold, color: black })
+  page.drawText(': ' + objetLines[0], { x: valX, y, size: rowSize, font, color: black })
+  for (let i = 1; i < objetLines.length; i++) { y -= 12; page.drawText(objetLines[i], { x: valX + 2, y, size: rowSize, font, color: black }) }
+  y -= rowStep
 
   const rows2: [string, string][] = [
     ['Lieu',                  m.lieu],
@@ -225,13 +245,13 @@ export async function GET(req: NextRequest) {
     ['Imputation budgetaire', m.imputation || (!m.a_charge_partenaire ? 'ABED' : '—')],
   ]
   for (const [k, v] of rows2) {
-    page.drawText(k, { x: 60, y, size: 9, font: bold, color: black })
-    page.drawText(': ' + v, { x: 220, y, size: 9, font, color: black })
-    y -= 14
+    page.drawText(k, { x: labelX, y, size: rowSize, font: bold, color: black })
+    page.drawText(': ' + v, { x: valX, y, size: rowSize, font, color: black })
+    y -= rowStep
   }
   y -= 4
 
-  page.drawLine({ start: { x: 55, y: y+4 }, end: { x: 540, y: y+4 }, thickness: 0.5, color: gray }); y -= 10
+  page.drawLine({ start: { x: ML, y: y+4 }, end: { x: MR, y: y+4 }, thickness: 0.5, color: gray }); y -= 10
 
   // ---- DATES ----
   const rows3: [string, string][] = [
@@ -241,20 +261,33 @@ export async function GET(req: NextRequest) {
     ["Retour a l'origine",       fmt(m.date_retour)],
   ]
   for (const [k, v] of rows3) {
-    page.drawText(k, { x: 60, y, size: 9, font: bold, color: black })
-    page.drawText(': ' + v, { x: 220, y, size: 9, font, color: black })
-    y -= 14
+    page.drawText(k, { x: labelX, y, size: rowSize, font: bold, color: black })
+    page.drawText(': ' + v, { x: valX, y, size: rowSize, font, color: black })
+    y -= rowStep
   }
   y -= 10
 
-  page.drawLine({ start: { x: 55, y: y+4 }, end: { x: 540, y: y+4 }, thickness: 0.5, color: gray }); y -= 12
+  page.drawLine({ start: { x: ML, y: y+4 }, end: { x: MR, y: y+4 }, thickness: 0.5, color: gray }); y -= 12
 
-  // ---- MENTION LÉGALE ----
-  const mention = `Les autorites administratives et politiques sont priees de faciliter a ${mn?.prenoms ?? ''} ${mn?.nom ?? ''} l'accomplissement de sa mission.`
-  page.drawText(mention, { x: 60, y, size: 9, font, color: black, maxWidth: 475, lineHeight: 13 })
-  y -= 46  // 2 lignes de texte + marge
+  // ---- MENTION LÉGALE — nom en gras ----
+  const nomMissionnaire = `${mn?.prenoms ?? ''} ${mn?.nom ?? ''}`
+  const before = 'Les autorites administratives et politiques sont priees de faciliter a '
+  const after = " l'accomplissement de sa mission."
+  const beforeW = font.widthOfTextAtSize(before, rowSize)
+  const nameW2 = bold.widthOfTextAtSize(nomMissionnaire, rowSize)
+  page.drawText(before, { x: labelX, y, size: rowSize, font, color: black })
+  page.drawText(nomMissionnaire, { x: labelX + beforeW, y, size: rowSize, font: bold, color: black })
+  // si le nom dépasse la ligne, passer à la ligne suivante pour "after"
+  const totalW = beforeW + nameW2 + font.widthOfTextAtSize(after, rowSize)
+  if (totalW > W) {
+    page.drawText(after, { x: labelX, y: y - 13, size: rowSize, font, color: black })
+    y -= 13 * 2 + 14
+  } else {
+    page.drawText(after, { x: labelX + beforeW + nameW2, y, size: rowSize, font, color: black })
+    y -= 30
+  }
 
-  // ---- Charger signature et cachet uploadés si disponibles ----
+  // ---- Charger signature et cachet ----
   let uploadedSigBytes: Uint8Array | null = null
   let uploadedCachetBytes: Uint8Array | null = null
   if (sg?.signature_url || sg?.cachet_url) {
@@ -272,31 +305,37 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // ---- BLOC SIGNATURE (gauche) + CACHET (droite) — côte à côte ----
-  // Zone fixe : 110pt de hauteur, signature à gauche, cachet centré à droite
-  const blockTop = y          // ligne de départ du bloc
-  const sigX = 60
-  const cachetCX = 415
-  const cachetCY = blockTop - 45  // centre vertical du cachet dans le bloc
+  // ---- BLOC SIGNATURE (gauche) + CACHET (droite) ----
+  const blockTop = y
+  const sigX = ML
+  const cachetCX = ML + W * 0.72
+  const cachetCY = blockTop - 45
 
-  // -- Colonne gauche : titre + signature + nom --
-  let titreLabel = sg?.civilite === 'Mme' ? 'La Directrice Executive' : 'Le Directeur Executif'
-  if (sg?.role === 'caf') titreLabel = sg?.civilite === 'Mme' ? 'La Directrice Executive P.O' : 'Le Directeur Executif P.O'
+  // Titre signataire
+  let titreLabel: string
+  if (sg?.role === 'administrateur') {
+    titreLabel = sg?.civilite === 'Mme' ? "L'Administratrice" : "L'Administrateur"
+  } else if (sg?.role === 'caf') {
+    titreLabel = sg?.civilite === 'Mme' ? 'La Directrice Executive et P.O' : 'Le Directeur Executif et P.O'
+  } else {
+    titreLabel = sg?.civilite === 'Mme' ? 'La Directrice Executive' : 'Le Directeur Executif'
+  }
   page.drawText(titreLabel, { x: sigX, y: blockTop, size: 9, font: bold, color: black })
 
-  // Signature (image ou dessin illustratif)
-  const sigImageY = blockTop - 46  // bas de la zone signature
+  // Signature — même hauteur que le cachet (90pt)
+  const sigH = 90
+  const sigImageY = blockTop - sigH - 2
   if (uploadedSigBytes) {
     try {
       const sigImg = await pdf.embedPng(uploadedSigBytes)
-      const sigH = 38, sigW = Math.min(sigImg.width * (sigH / sigImg.height), 180)
+      const sigW = Math.min(sigImg.width * (sigH / sigImg.height), 180)
       page.drawImage(sigImg, { x: sigX, y: sigImageY, width: sigW, height: sigH })
     } catch {
       try {
         const sigImg = await pdf.embedJpg(uploadedSigBytes)
-        const sigH = 38, sigW = Math.min(sigImg.width * (sigH / sigImg.height), 180)
+        const sigW = Math.min(sigImg.width * (sigH / sigImg.height), 180)
         page.drawImage(sigImg, { x: sigX, y: sigImageY, width: sigW, height: sigH })
-      } catch { /* fallback illustratif */ }
+      } catch { drawSignature(page, sigX, blockTop - 14, rgb(0.20, 0.20, 0.60)) }
     }
   } else {
     drawSignature(page, sigX, blockTop - 14, rgb(0.20, 0.20, 0.60))
@@ -305,15 +344,11 @@ export async function GET(req: NextRequest) {
   // Nom signataire souligné
   const sigName = `${sg?.prenoms ?? ''} ${sg?.nom ?? ''}`
   const nameW = boldItalic.widthOfTextAtSize(sigName, 10)
-  const nameY = blockTop - 62
+  const nameY = blockTop - sigH - 16
   page.drawText(sigName, { x: sigX, y: nameY, size: 10, font: boldItalic, color: black })
-  page.drawLine({
-    start: { x: sigX, y: nameY - 2 },
-    end: { x: sigX + nameW, y: nameY - 2 },
-    thickness: 0.8, color: black,
-  })
+  page.drawLine({ start: { x: sigX, y: nameY - 2 }, end: { x: sigX + nameW, y: nameY - 2 }, thickness: 0.8, color: black })
 
-  // -- Colonne droite : cachet --
+  // Cachet droite
   if (uploadedCachetBytes) {
     try {
       const cachetImg = await pdf.embedPng(uploadedCachetBytes)
@@ -327,13 +362,10 @@ export async function GET(req: NextRequest) {
       } catch { /* fallback dessiné */ }
     }
   } else {
-    drawCachet(
-      page,
-      cachetCX, cachetCY,
-      78, 55,
+    drawCachet(page, cachetCX, cachetCY, 78, 55,
       'AGRICULTURE POUR LE BIEN ETRE ET LE DEVELOPPEMENT DURABLE',
-      'Le Directeur',
-      sg?.civilite === 'Mme' ? 'Executive' : 'Executif',
+      sg?.role === 'administrateur' ? "L'Administrateur" : 'Le Directeur',
+      sg?.civilite === 'Mme' ? (sg?.role === 'administrateur' ? 'trice' : 'Executive') : (sg?.role === 'administrateur' ? '' : 'Executif'),
       '* (ABED ONG) *',
       font, bold,
     )
@@ -341,19 +373,19 @@ export async function GET(req: NextRequest) {
 
   // ---- QR CODE — coin inférieur droit ----
   try {
-    const qrUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://abed-ops.vercel.app'}/missions/${missionId}`
-    const qrDataUrl = await QRCode.toDataURL(qrUrl, { width: 100, margin: 1, color: { dark: '#000000', light: '#ffffff' } })
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://abed-ops-aqsc-3787xhse0-olla11s-projects.vercel.app'
+    const qrUrl = `${appUrl}/missions/${missionId}`
+    const qrDataUrl = await QRCode.toDataURL(qrUrl, { width: 120, margin: 1 })
     const qrBase64 = qrDataUrl.replace('data:image/png;base64,', '')
     const qrBytes = Buffer.from(qrBase64, 'base64')
     const qrImg = await pdf.embedPng(qrBytes)
     const qrSize = 64
-    page.drawImage(qrImg, { x: 540 - qrSize, y: 28, width: qrSize, height: qrSize })
-    // Légende sous le QR
+    page.drawImage(qrImg, { x: MR - qrSize, y: MB - 4, width: qrSize, height: qrSize })
     const qrLabel = 'Verifier en ligne'
     const qrLabelW = font.widthOfTextAtSize(qrLabel, 6)
-    page.drawText(qrLabel, { x: 540 - qrSize + (qrSize - qrLabelW) / 2, y: 20, size: 6, font, color: gray })
+    page.drawText(qrLabel, { x: MR - qrSize + (qrSize - qrLabelW) / 2, y: MB - 12, size: 6, font, color: gray })
   } catch (e) {
-    console.error('[QR] Erreur génération QR code:', e)
+    console.error('[QR]', e)
   }
 
   const bytes = await pdf.save()
