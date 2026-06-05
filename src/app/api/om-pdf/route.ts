@@ -196,8 +196,10 @@ export async function GET(req: NextRequest) {
   // Phrase d'ordre selon rôle du signataire
   let ordrePhrase: string
   if (sg?.role === 'administrateur') {
-    const fonctionSg = sg?.fonction ?? (sg?.civilite === 'Mme' ? "L'Administratrice" : "L'Administrateur")
-    ordrePhrase = `${fonctionSg} de ABED-ONG donne ordre à :`
+    const isFemme = sg?.civilite === 'Mme'
+    const article = isFemme ? 'La' : 'Le'
+    const fonctionSg = sg?.fonction ?? (isFemme ? "Administratrice" : "Administrateur")
+    ordrePhrase = `${article} ${fonctionSg} de ABED-ONG donne ordre à :`
   } else {
     ordrePhrase = sg?.civilite === 'Mme'
       ? 'La Directrice Executive de ABED-ONG donne ordre à :'
@@ -313,7 +315,10 @@ export async function GET(req: NextRequest) {
   // Titre signataire
   let titreLabel: string
   if (sg?.role === 'administrateur') {
-    titreLabel = sg?.fonction ?? (sg?.civilite === 'Mme' ? "L'Administratrice" : "L'Administrateur")
+    const isFemme = sg?.civilite === 'Mme'
+    const article = isFemme ? 'La' : 'Le'
+    const fonctionSg = sg?.fonction ?? (isFemme ? 'Administratrice' : 'Administrateur')
+    titreLabel = `${article} ${fonctionSg}`
   } else if (sg?.role === 'caf') {
     titreLabel = sg?.civilite === 'Mme' ? 'La Directrice Executive et P.O' : 'Le Directeur Executif et P.O'
   } else {
