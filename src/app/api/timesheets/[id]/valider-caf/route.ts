@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 
-const TAUX_HORAIRE = 1500 // FCFA par heure
-
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -21,11 +19,10 @@ export async function POST(
 
   const body = await req.json()
   const { action, commentaire_caf } = body
-  // action: 'valider' | 'corriger' | 'rejeter'
 
   const { data: soum } = await supabase
     .from('soumissions')
-    .select('id, prestataire_id, titre, heures_retenues, status')
+    .select('id, prestataire_id, titre, heures_retenues, status, prestataire:profiles!soumissions_prestataire_id_fkey(type_emploi)')
     .eq('id', id).single()
 
   if (!soum) return NextResponse.json({ error: 'introuvable' }, { status: 404 })
@@ -34,7 +31,18 @@ export async function POST(
   }
 
   if (action === 'valider') {
-    const montant_caf = Math.round((soum.heures_retenues ?? 0) * TAUX_HORAIRE)
+    // Lire le taux selon type_emploi du prestataire
+    const typeEmploi = (soum.prestataire as any)?.type_emploi ?? 'prestataire_direct'
+    const clesTaux = typeEmploi === 'prestataire_credit'
+      ? ['taux_horaire_credit_fcfa', 'taux_horaire_fcfa']
+      : ['taux_horaire_direct_fcfa', 'taux_horaire_fcfa']
+
+    const { data: tauxRows } = await supabase
+      .from('parametres').select('cle, valeur').in('cle', clesTaux)
+    const tauxMap = Object.fromEntries((tauxRows ?? []).map((r: any) => [r.cle, Number(r.valeur)]))
+    const taux = tauxMap[clesTaux[0]] ?? tauxMap[clesTaux[1]] ?? 1500
+
+    const montant_caf = Math.round((soum.heures_retenues ?? 0) * taux)
     await supabase.from('soumissions').update({
       status: 'valide_caf',
       montant_caf,
@@ -46,8 +54,8 @@ export async function POST(
 
     await supabase.from('notifications').insert({
       user_id: soum.prestataire_id,
-      titre: 'Timesheet entièrement validé ✓',
-      message: `${soum.titre} : ${soum.heures_retenues}h × 1 500 F = ${montant_caf.toLocaleString('fr-FR')} FCFA à payer.`,
+      titre: 'Timesheet validé par la CAF ✓',
+      message: `${soum.titre} : ${soum.heures_retenues} h × ${taux.toLocaleString('fr-FR')} F = ${montant_caf.toLocaleString('fr-FR')} FCFA.`,
       lien: '/timesheets',
     })
   } else {

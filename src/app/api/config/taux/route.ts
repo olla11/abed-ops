@@ -4,8 +4,14 @@ import { createClient } from '@/lib/supabase-server'
 export async function GET() {
   const supabase = await createClient()
   const { data } = await supabase
-    .from('parametres').select('valeur').eq('cle', 'taux_horaire_fcfa').single()
-  return NextResponse.json({ taux: Number(data?.valeur ?? 1500) })
+    .from('parametres')
+    .select('cle, valeur')
+    .in('cle', ['taux_horaire_direct_fcfa', 'taux_horaire_credit_fcfa', 'taux_horaire_fcfa'])
+
+  const map = Object.fromEntries((data ?? []).map((r: any) => [r.cle, Number(r.valeur)]))
+  const direct = map['taux_horaire_direct_fcfa'] ?? map['taux_horaire_fcfa'] ?? 1500
+  const credit = map['taux_horaire_credit_fcfa'] ?? map['taux_horaire_fcfa'] ?? 1500
+  return NextResponse.json({ taux: direct, taux_direct: direct, taux_credit: credit })
 }
 
 export async function PUT(req: NextRequest) {
@@ -19,16 +25,28 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: 'acces refuse' }, { status: 403 })
   }
 
-  const { taux } = await req.json()
-  if (!taux || isNaN(+taux) || +taux <= 0) {
-    return NextResponse.json({ error: 'Taux invalide' }, { status: 400 })
+  const body = await req.json()
+  const updates: Array<{ cle: string; valeur: string }> = []
+
+  if (body.taux_direct !== undefined) {
+    const v = Math.round(+body.taux_direct)
+    if (!v || v <= 0) return NextResponse.json({ error: 'Taux direct invalide' }, { status: 400 })
+    updates.push({ cle: 'taux_horaire_direct_fcfa', valeur: String(v) })
+  }
+  if (body.taux_credit !== undefined) {
+    const v = Math.round(+body.taux_credit)
+    if (!v || v <= 0) return NextResponse.json({ error: 'Taux crédit invalide' }, { status: 400 })
+    updates.push({ cle: 'taux_horaire_credit_fcfa', valeur: String(v) })
   }
 
-  const { error } = await supabase
-    .from('parametres')
-    .update({ valeur: String(Math.round(+taux)), updated_at: new Date().toISOString() })
-    .eq('cle', 'taux_horaire_fcfa')
+  if (updates.length === 0) return NextResponse.json({ error: 'Aucun taux fourni' }, { status: 400 })
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
-  return NextResponse.json({ ok: true, taux: Math.round(+taux) })
+  for (const u of updates) {
+    const { error } = await supabase
+      .from('parametres')
+      .upsert({ cle: u.cle, valeur: u.valeur }, { onConflict: 'cle' })
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  }
+
+  return NextResponse.json({ ok: true })
 }

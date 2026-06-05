@@ -6,6 +6,7 @@ type Soumission = {
   id: string; titre: string; status: string
   periode_mois: number; periode_annee: number
   heures_declarees: number; heures_retenues: number | null; montant_caf: number | null
+  paye: boolean | null
   commentaire_manager: string | null; commentaire_caf: string | null
   fichier_timesheet_url: string | null; fichier_livrable_url: string | null; fichier_facture_url: string | null
 }
@@ -13,7 +14,7 @@ type Soumission = {
 const STATUS_LABEL: Record<string, { label: string; color: string }> = {
   soumis:           { label: 'En attente manager',          color: '#92660b' },
   valide_tech:      { label: 'Validé techn. — attente CAF', color: '#1e40af' },
-  valide_caf:       { label: 'Validé ✓',                   color: '#166534' },
+  valide_caf:       { label: 'Validé ✓ — en attente paiement', color: '#166534' },
   corrections_tech: { label: '⚠ Corrections demandées',     color: '#9a3412' },
   corrections_caf:  { label: '⚠ Corrections CAF',           color: '#9a3412' },
   rejete_tech:      { label: '✗ Rejeté (manager)',           color: '#991b1b' },
@@ -39,8 +40,9 @@ async function openSignedFile(path: string) {
   else alert('Impossible d\'ouvrir le fichier : ' + (json.error ?? 'erreur inconnue'))
 }
 
-export default function SoumissionForm({ managerId }: { managerId: string }) {
+export default function SoumissionForm({ managerId, typeEmploi }: { managerId: string; typeEmploi?: string | null }) {
   const supabase = createClient()
+  const estCredit = typeEmploi === 'prestataire_credit'
   const [titre, setTitre] = useState('')
   const [mois, setMois] = useState(new Date().getMonth() + 1)
   const [annee, setAnnee] = useState(new Date().getFullYear())
@@ -62,7 +64,7 @@ export default function SoumissionForm({ managerId }: { managerId: string }) {
     if (!user) return
     const { data } = await supabase
       .from('soumissions')
-      .select('id,titre,status,periode_mois,periode_annee,heures_declarees,heures_retenues,montant_caf,commentaire_manager,commentaire_caf,fichier_timesheet_url,fichier_livrable_url,fichier_facture_url')
+      .select('id,titre,status,periode_mois,periode_annee,heures_declarees,heures_retenues,montant_caf,paye,commentaire_manager,commentaire_caf,fichier_timesheet_url,fichier_livrable_url,fichier_facture_url')
       .eq('prestataire_id', user.id)
       .order('created_at', { ascending: false })
     setHistory((data as any) ?? [])
@@ -143,8 +145,26 @@ export default function SoumissionForm({ managerId }: { managerId: string }) {
   const toCorrect = history.filter(s => CORRECTABLE.includes(s.status))
   const others = history.filter(s => !CORRECTABLE.includes(s.status))
 
+  // Solde crédit
+  const totalValide = history.filter(s => s.status === 'valide_caf').reduce((s, h) => s + (h.montant_caf ?? 0), 0)
+  // On ne peut pas calculer le total payé côté client sans charger paiements_prestataires, on affiche juste le total validé
+
   return (
     <div style={{ display: 'grid', gap: 24 }}>
+      {/* ---- Solde crédit ---- */}
+      {estCredit && totalValide > 0 && (
+        <div className="card" style={{ borderLeft: '4px solid #1e40af', background: '#eff6ff' }}>
+          <h3 style={{ marginBottom: 8, color: '#1e40af' }}>📊 Votre solde cumulatif</h3>
+          <p style={{ fontSize: 14 }}>
+            Montant total validé par la CAF :{' '}
+            <strong style={{ fontSize: 18, color: '#1e40af' }}>{totalValide.toLocaleString('fr-FR')} FCFA</strong>
+          </p>
+          <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginTop: 4 }}>
+            La CAF effectuera un versement à sa convenance. Vous recevrez un email à chaque paiement.
+          </p>
+        </div>
+      )}
+
       {/* ---- Dossiers à corriger ---- */}
       {toCorrect.length > 0 && (
         <div className="card" style={{ borderLeft: '4px solid #c0392b' }}>
@@ -311,10 +331,17 @@ export default function SoumissionForm({ managerId }: { managerId: string }) {
                       {s.montant_caf != null ? `${s.montant_caf.toLocaleString('fr-FR')} F` : '—'}
                     </td>
                     <td>
-                      <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 999,
-                        fontSize: 11, fontWeight: 600, background: st.color + '22', color: st.color }}>
-                        {st.label}
-                      </span>
+                      {s.paye ? (
+                        <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 999,
+                          fontSize: 11, fontWeight: 600, background: '#dcfce7', color: '#166534' }}>
+                          💳 Payé
+                        </span>
+                      ) : (
+                        <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 999,
+                          fontSize: 11, fontWeight: 600, background: st.color + '22', color: st.color }}>
+                          {st.label}
+                        </span>
+                      )}
                     </td>
                   </tr>
                 )

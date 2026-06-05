@@ -13,7 +13,7 @@ export default async function TimesheetsPage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, nom, prenoms, manager_id')
+    .select('role, nom, prenoms, manager_id, type_emploi')
     .eq('id', user.id).single()
 
   const role = profile?.role ?? 'missionnaire'
@@ -32,7 +32,7 @@ export default async function TimesheetsPage() {
 
       {/* Prestataire : formulaire de soumission (si responsable assigné) */}
       {profile?.manager_id ? (
-        <SoumissionForm managerId={profile.manager_id} />
+        <SoumissionForm managerId={profile.manager_id} typeEmploi={profile.type_emploi} />
       ) : !estManager && !estCAF ? (
         <div className="card" style={{ borderLeft: '4px solid var(--abed-amber)' }}>
           <p style={{ fontSize: 14 }}>
