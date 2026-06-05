@@ -37,16 +37,20 @@ export async function POST(
   }
 
   const now = new Date()
-  const year2 = String(now.getFullYear()).slice(-2) // "26" en 2026, "27" en 2027…
-  const yearStart = `${now.getFullYear()}-01-01`
-  const { count } = await supabase
-    .from('missions')
-    .select('*', { count: 'exact', head: true })
-    .not('reference', 'is', null)
-    .gte('signe_le', yearStart)
+  const year2 = String(now.getFullYear()).slice(-2)
 
-  const seq = String((count ?? 0) + 1).padStart(3, '0')
-  const reference = `${seq}-${year2}/ABED/DE/CAF/AAF`
+  // Trouver le numéro de séquence max déjà utilisé pour cette année
+  const { data: existingRefs } = await supabase
+    .from('missions')
+    .select('reference')
+    .like('reference', `%-${year2}/ABED/DE/CAF/AAF`)
+
+  const maxSeq = (existingRefs ?? []).reduce((max, r) => {
+    const m = r.reference?.match(/^(\d+)-/)
+    return m ? Math.max(max, parseInt(m[1])) : max
+  }, 0)
+
+  const reference = `${String(maxSeq + 1).padStart(3, '0')}-${year2}/ABED/DE/CAF/AAF`
 
   const { error } = await supabase
     .from('missions')

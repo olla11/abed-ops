@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import AppFooter from '@/components/AppFooter'
 
 export const metadata: Metadata = {
   title: 'ABED-ONG · Gestion des opérations',
@@ -14,7 +15,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fr">
-      <body>{children}</body>
+      <body className="flex flex-col min-h-screen">
+        <div className="flex-1">{children}</div>
+        <AppFooter />
+      </body>
     </html>
   )
 }
