@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
   const { data: profile } = await supabase
     .from('profiles').select('role').eq('id', user.id).single()
 
-  const canAccess = ['manager', 'caf', 'de', 'admin'].includes(profile?.role ?? '') ||
+  const canAccess = ['manager', 'aaf', 'caf', 'de', 'admin', 'administrateur', 'rh'].includes(profile?.role ?? '') ||
     path.startsWith(user.id + '/')
 
   if (!canAccess) return NextResponse.json({ error: 'acces refuse' }, { status: 403 })
