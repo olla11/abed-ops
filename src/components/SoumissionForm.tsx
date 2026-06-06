@@ -59,6 +59,10 @@ export default function SoumissionForm({ managerId, typeEmploi }: { managerId: s
   const [resubmitting, setResubmitting] = useState<string | null>(null)
   const [reFiles, setReFiles] = useState<Record<string, { ts?: File; liv?: File; fac?: File }>>({})
   const [demandeForSoum, setDemandeForSoum] = useState<Soumission | null>(null)
+  const [solde, setSolde] = useState<{
+    entries: any[]; paiements: any[]
+    totalHeures: number; totalMontant: number; totalPaye: number; resteADevoir: number
+  } | null>(null)
   const tsRef = useRef<HTMLInputElement>(null)
   const livRef = useRef<HTMLInputElement>(null)
   const facRef = useRef<HTMLInputElement>(null)
@@ -72,6 +76,11 @@ export default function SoumissionForm({ managerId, typeEmploi }: { managerId: s
       .eq('prestataire_id', user.id)
       .order('created_at', { ascending: false })
     setHistory((data as any) ?? [])
+    if (typeEmploi === 'prestataire_credit') {
+      const res = await fetch('/api/timesheets/mon-solde')
+      const json = await res.json()
+      if (res.ok) setSolde(json)
+    }
   }
 
   useEffect(() => { loadHistory() }, [])
@@ -179,23 +188,101 @@ export default function SoumissionForm({ managerId, typeEmploi }: { managerId: s
   return (
     <div style={{ display: 'grid', gap: 24 }}>
 
-      {/* ── Solde cumulatif (crédit seulement) ── */}
-      {estCredit && (() => {
-        const total = history.filter(s => s.status === 'valide_caf' && s.montant_caf != null)
-          .reduce((sum, s) => sum + (s.montant_caf ?? 0), 0)
-        return total > 0 ? (
-          <div className="card" style={{ borderLeft: '4px solid #1e40af', background: '#eff6ff' }}>
-            <h3 style={{ marginBottom: 8, color: '#1e40af' }}>📊 Votre solde cumulatif</h3>
-            <p style={{ fontSize: 14 }}>
-              Montant total validé par la CAF :{' '}
-              <strong style={{ fontSize: 18, color: '#1e40af' }}>{total.toLocaleString('fr-FR')} FCFA</strong>
-            </p>
-            <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginTop: 4 }}>
-              La CAF effectuera un versement à sa convenance. Vous recevrez un email à chaque paiement.
-            </p>
+      {/* ── Compteur crédit ── */}
+      {estCredit && solde && (
+        <div style={{ display: 'grid', gap: 16 }}>
+
+          {/* Compteurs cumulatifs */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
+            {[
+              { label: 'Heures totales validées', value: `${solde.totalHeures} h`, color: '#1e40af' },
+              { label: 'Montant total validé', value: `${solde.totalMontant.toLocaleString('fr-FR')} F`, color: '#0f766e' },
+              { label: 'Total payé', value: `${solde.totalPaye.toLocaleString('fr-FR')} F`, color: '#166534' },
+              { label: 'Reste à percevoir', value: `${solde.resteADevoir.toLocaleString('fr-FR')} F`, color: solde.resteADevoir > 0 ? '#92660b' : '#166534' },
+            ].map(c => (
+              <div key={c.label} style={{ background: 'white', border: `2px solid ${c.color}22`,
+                borderRadius: 10, padding: '14px 16px', textAlign: 'center' }}>
+                <div style={{ fontSize: 20, fontWeight: 800, color: c.color }}>{c.value}</div>
+                <div style={{ fontSize: 11, color: 'var(--abed-muted)', marginTop: 3 }}>{c.label}</div>
+              </div>
+            ))}
           </div>
-        ) : null
-      })()}
+
+          {/* Détail par mois */}
+          {solde.entries.length > 0 && (
+            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+              <div style={{ padding: '12px 16px', background: '#f9fafb', borderBottom: '1px solid var(--abed-border)' }}>
+                <h3 style={{ margin: 0, fontSize: 14 }}>📋 Détail par mois</h3>
+              </div>
+              <div>
+                {solde.entries.map((e: any) => {
+                  const estValide = e.status === 'valide_caf'
+                  const isPaye = e.paye
+                  return (
+                    <div key={e.id} style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      padding: '11px 16px', borderBottom: '1px solid var(--abed-border)',
+                      flexWrap: 'wrap', gap: 8,
+                    }}>
+                      <div>
+                        <span style={{ fontWeight: 600, fontSize: 13 }}>{e.titre}</span>
+                        <span style={{ fontSize: 12, color: 'var(--abed-muted)', marginLeft: 8 }}>
+                          {e.mois}/{e.annee}
+                        </span>
+                        {e.heures > 0 && (
+                          <span style={{ fontSize: 12, color: '#374151', marginLeft: 8 }}>
+                            · {e.heures} h
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        {e.montant > 0 && (
+                          <span style={{ fontSize: 13, fontWeight: 700, color: '#0f766e' }}>
+                            {e.montant.toLocaleString('fr-FR')} F
+                          </span>
+                        )}
+                        {estValide ? (
+                          <span style={{
+                            fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999,
+                            background: isPaye ? '#dcfce7' : '#fef9c3',
+                            color: isPaye ? '#166534' : '#92660b',
+                          }}>
+                            {isPaye ? '✓ Payé' : '⏳ En attente paiement'}
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 999,
+                            background: '#dbeafe', color: '#1e40af' }}>
+                            En validation
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Historique paiements reçus */}
+          {solde.paiements.length > 0 && (
+            <div className="card">
+              <h3 style={{ fontSize: 14, marginBottom: 10 }}>💳 Versements reçus</h3>
+              {solde.paiements.map((p: any, i: number) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between',
+                  padding: '8px 0', borderBottom: '1px solid var(--abed-border)', fontSize: 13 }}>
+                  <span>
+                    <strong style={{ color: '#166534' }}>{Number(p.montant).toLocaleString('fr-FR')} F</strong>
+                    {p.note && <span style={{ color: 'var(--abed-muted)', marginLeft: 8 }}>— {p.note}</span>}
+                  </span>
+                  <span style={{ fontSize: 11, color: 'var(--abed-muted)' }}>
+                    {new Date(p.created_at).toLocaleDateString('fr-FR')}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Timesheets validés — demande de paiement à faire (directs seulement) ── */}
       {prets.length > 0 && (
