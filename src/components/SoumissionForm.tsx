@@ -1,6 +1,7 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 import { createClient } from '@/lib/supabase-client'
+import DemandePaiementForm from './DemandePaiementForm'
 
 type Soumission = {
   id: string; titre: string; status: string
@@ -55,6 +56,7 @@ export default function SoumissionForm({ managerId, typeEmploi }: { managerId: s
   const [history, setHistory] = useState<Soumission[]>([])
   const [resubmitting, setResubmitting] = useState<string | null>(null)
   const [reFiles, setReFiles] = useState<Record<string, { ts?: File; liv?: File; fac?: File }>>({})
+  const [demandeForSoum, setDemandeForSoum] = useState<Soumission | null>(null)
   const tsRef = useRef<HTMLInputElement>(null)
   const livRef = useRef<HTMLInputElement>(null)
   const facRef = useRef<HTMLInputElement>(null)
@@ -164,21 +166,28 @@ export default function SoumissionForm({ managerId, typeEmploi }: { managerId: s
       )}
 
       {/* ---- Demandes de paiement disponibles (directs validés) ---- */}
-      {avecDemande && (avecDemande as typeof history).length > 0 && (
+      {!demandeForSoum && avecDemande && (avecDemande as typeof history).length > 0 && (
         <div className="card" style={{ borderLeft: '4px solid var(--abed-green)', background: '#f0fdf4' }}>
-          <h3 style={{ marginBottom: 8, color: '#166534' }}>💳 Demandes de paiement disponibles</h3>
+          <h3 style={{ marginBottom: 8, color: '#166534' }}>💳 Timesheets prêts pour paiement</h3>
           <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: 12 }}>
-            Vos timesheets suivants sont validés techniquement. Vous pouvez maintenant soumettre une demande de paiement.
+            Ces timesheets sont validés techniquement. Soumettez une demande de paiement pour chacun.
           </p>
           {(avecDemande as typeof history).map(s => (
             <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
               padding: '8px 0', borderBottom: '1px solid #bbf7d0' }}>
-              <span style={{ fontSize: 13 }}><strong>{s.titre}</strong> — {s.periode_mois}/{s.periode_annee}
-                {s.heures_retenues != null && ` — ${s.heures_retenues} h`}
+              <span style={{ fontSize: 13 }}>
+                <strong>{s.titre}</strong> — {s.periode_mois}/{s.periode_annee}
+                {s.heures_retenues != null && ` — ${s.heures_retenues} h retenues`}
+                {s.montant_caf != null && (
+                  <strong style={{ color: 'var(--abed-green)', marginLeft: 6 }}>
+                    {s.montant_caf.toLocaleString('fr-FR')} FCFA
+                  </strong>
+                )}
               </span>
-              <a href="/demandes" className="btn" style={{ fontSize: 12, textDecoration: 'none', padding: '4px 12px' }}>
-                Faire une demande →
-              </a>
+              <button className="btn" style={{ fontSize: 12, padding: '4px 14px' }}
+                onClick={() => setDemandeForSoum(s)}>
+                💳 Faire une demande de paiement
+              </button>
             </div>
           ))}
         </div>
@@ -303,7 +312,7 @@ export default function SoumissionForm({ managerId, typeEmploi }: { managerId: s
             {fileTS && <p style={{ fontSize: 11, color: 'var(--abed-muted)', marginTop: 4 }}>{fileTS.name}</p>}
           </div>
           <div className="field">
-            <label className="label">📄 Livrable PDF *</label>
+            <label className="label">📄 Livrable PDF {estDirect ? '(optionnel)' : '*'}</label>
             <input ref={livRef} className="input" type="file" accept=".pdf,.doc,.docx"
               onChange={e => setFileLiv(e.target.files?.[0] ?? null)} />
             {fileLiv && <p style={{ fontSize: 11, color: 'var(--abed-muted)', marginTop: 4 }}>{fileLiv.name}</p>}
