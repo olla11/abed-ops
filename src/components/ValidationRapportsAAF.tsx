@@ -100,7 +100,9 @@ export default function ValidationRapportsAAF({ role }: { role: string }) {
                 )}
                 {['aaf', 'admin'].includes(role) && (
                   <div className="field" style={{ marginBottom: 0 }}>
-                    <label className="label">Montant allocation (FCFA) *</label>
+                    <label className="label">
+                      {['cdd','cdi'].includes(r.prestataire?.type_emploi ?? '') ? 'Salaire net (FCFA) *' : 'Montant allocation (FCFA) *'}
+                    </label>
                     <input className="input" type="number" min={0} style={{ maxWidth: 200 }}
                       value={montantMap[r.id] ?? ''}
                       onChange={e => setMontantMap(m => ({ ...m, [r.id]: e.target.value }))} />

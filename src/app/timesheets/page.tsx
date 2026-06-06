@@ -20,7 +20,7 @@ export default async function TimesheetsPage() {
 
   const role = profile?.role ?? 'missionnaire'
   const typeEmploi = profile?.type_emploi ?? null
-  const estBenevoleStag = ['benevole', 'stagiaire_n1', 'stagiaire_n2'].includes(typeEmploi ?? '')
+  const estRapportMensuel = ['benevole', 'stagiaire_n1', 'stagiaire_n2', 'cdd', 'cdi'].includes(typeEmploi ?? '')
   const estManager = ['manager', 'caf', 'admin', 'de', 'aaf'].includes(role)
   const estCAF = ['caf', 'admin'].includes(role)
   const estAAF = ['aaf', 'admin'].includes(role)
@@ -35,13 +35,13 @@ export default async function TimesheetsPage() {
 
       <h1 style={{ color: 'var(--abed-green)', marginBottom: 0 }}>Timesheets &amp; livrables</h1>
 
-      {/* Bénévole / Stagiaire : rapport mensuel */}
-      {estBenevoleStag && profile?.manager_id && <RapportAllocationForm />}
+      {/* Bénévole / Stagiaire / CDD / CDI : rapport mensuel */}
+      {estRapportMensuel && profile?.manager_id && <RapportAllocationForm typeEmploi={typeEmploi} />}
 
       {/* Prestataire direct/crédit : formulaire timesheet */}
-      {!estBenevoleStag && profile?.manager_id ? (
+      {!estRapportMensuel && profile?.manager_id ? (
         <SoumissionForm managerId={profile.manager_id} typeEmploi={profile.type_emploi} />
-      ) : !estBenevoleStag && !estManager && !estCAF ? (
+      ) : !estRapportMensuel && !estManager && !estCAF ? (
         <div className="card" style={{ borderLeft: '4px solid var(--abed-amber)' }}>
           <p style={{ fontSize: 14 }}>
             Aucun responsable direct n'est défini sur votre profil.

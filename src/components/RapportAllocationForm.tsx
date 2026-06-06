@@ -23,7 +23,8 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
 
 const REJETE = ['rejete_manager','rejete_aaf','rejete_caf','refuse_de']
 
-export default function RapportAllocationForm() {
+export default function RapportAllocationForm({ typeEmploi }: { typeEmploi?: string | null }) {
+  const estSalarie = typeEmploi === 'cdd' || typeEmploi === 'cdi'
   const supabase = createClient()
   const [mois, setMois] = useState(new Date().getMonth() + 1)
   const [annee, setAnnee] = useState(new Date().getFullYear())
@@ -72,9 +73,13 @@ export default function RapportAllocationForm() {
     <div style={{ display: 'grid', gap: 20 }}>
       {/* Rapport mensuel */}
       <div className="card">
-        <h3 style={{ marginBottom: 4 }}>Rapport mensuel d'activité</h3>
+        <h3 style={{ marginBottom: 4 }}>
+          {estSalarie ? 'Rapport mensuel — Fiche de paie' : 'Rapport mensuel d\'activité'}
+        </h3>
         <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: 16 }}>
-          Soumettez votre rapport en fin de mois pour déclencher le traitement de votre allocation.
+          {estSalarie
+            ? 'Soumettez votre rapport en fin de mois. L\'AAF génèrera votre fiche de paie, validée par la CAF et autorisée par le DE.'
+            : 'Soumettez votre rapport en fin de mois pour déclencher le traitement de votre allocation.'}
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div className="field">
@@ -144,7 +149,7 @@ export default function RapportAllocationForm() {
                   <strong>{r.periode_mois}/{r.periode_annee}</strong>
                   {r.montant_allocation != null && (
                     <span style={{ fontSize: 12, color: '#166534', marginLeft: 10, fontWeight: 600 }}>
-                      {r.montant_allocation.toLocaleString('fr-FR')} FCFA
+                      {estSalarie ? 'Salaire net : ' : ''}{r.montant_allocation.toLocaleString('fr-FR')} FCFA
                     </span>
                   )}
                 </div>
