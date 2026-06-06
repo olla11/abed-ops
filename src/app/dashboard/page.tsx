@@ -43,6 +43,7 @@ export default async function Dashboard() {
       <AppHeader
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={role}
+        typeEmploi={profile?.type_emploi}
         showAdmin={role === 'admin'}
       />
 

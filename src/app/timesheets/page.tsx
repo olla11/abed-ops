@@ -31,25 +31,37 @@ export default async function TimesheetsPage() {
       <AppHeader
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={role}
+        typeEmploi={typeEmploi}
         showAdmin={role === 'admin'}
       />
 
       <h1 style={{ color: 'var(--abed-green)', marginBottom: 0 }}>Timesheets &amp; livrables</h1>
 
       {/* Bénévole / Stagiaire / CDD / CDI : rapport mensuel */}
-      {estRapportMensuel && profile?.manager_id && <RapportAllocationForm typeEmploi={typeEmploi} />}
+      {estRapportMensuel && (
+        profile?.manager_id
+          ? <RapportAllocationForm typeEmploi={typeEmploi} />
+          : !estManager && !estCAF && (
+            <div className="card" style={{ borderLeft: '4px solid var(--abed-amber)' }}>
+              <p style={{ fontSize: 14 }}>
+                Aucun responsable direct n'est défini sur votre profil.
+                Contactez l'administration pour qu'un manager vous soit attribué avant de soumettre votre rapport mensuel.
+              </p>
+            </div>
+          )
+      )}
 
       {/* Prestataire direct/crédit : formulaire timesheet */}
-      {!estRapportMensuel && profile?.manager_id ? (
-        <SoumissionForm managerId={profile.manager_id} typeEmploi={profile.type_emploi} />
-      ) : !estRapportMensuel && !estManager && !estCAF ? (
-        <div className="card" style={{ borderLeft: '4px solid var(--abed-amber)' }}>
-          <p style={{ fontSize: 14 }}>
-            Aucun responsable direct n'est défini sur votre profil.
-            Contactez l'administration pour qu'un manager vous soit attribué avant de soumettre.
-          </p>
-        </div>
-      ) : null}
+      {!estRapportMensuel && !estManager && !estCAF && (
+        profile?.manager_id
+          ? <SoumissionForm managerId={profile.manager_id} typeEmploi={profile.type_emploi} />
+          : <div className="card" style={{ borderLeft: '4px solid var(--abed-amber)' }}>
+              <p style={{ fontSize: 14 }}>
+                Aucun responsable direct n'est défini sur votre profil.
+                Contactez l'administration pour qu'un manager vous soit attribué avant de soumettre.
+              </p>
+            </div>
+      )}
 
       {/* Manager : validation technique */}
       {estManager && <ValidationManager />}

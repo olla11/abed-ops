@@ -11,7 +11,7 @@ export default async function DemandesPage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, nom, prenoms, email')
+    .select('role, nom, prenoms, email, type_emploi')
     .eq('id', user.id).single()
 
   const role = profile?.role ?? 'missionnaire'
@@ -21,6 +21,7 @@ export default async function DemandesPage() {
       <AppHeader
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={role}
+        typeEmploi={profile?.type_emploi}
         showAdmin={role === 'admin'}
       />
       <DemandesClient
