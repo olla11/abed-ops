@@ -135,7 +135,7 @@ export async function POST(
 }
 
 function buildEmailDemandeur({ demande, status, commentaire, profile }: any) {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://abed-ops.vercel.app'
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://abed-ops-aqsc-gmzbdoc7d-olla11s-projects.vercel.app'
   return `
   <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
     <div style="background:${status === 'autorisée' ? '#63a521' : '#991b1b'};color:white;padding:20px 28px;border-radius:8px 8px 0 0;">
@@ -157,7 +157,7 @@ function buildEmailDemandeur({ demande, status, commentaire, profile }: any) {
 }
 
 function buildEmailTraiteur({ demande, msg, nom }: any) {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://abed-ops.vercel.app'
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://abed-ops-aqsc-gmzbdoc7d-olla11s-projects.vercel.app'
   return `
   <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
     <div style="background:#63a521;color:white;padding:20px 28px;border-radius:8px 8px 0 0;">

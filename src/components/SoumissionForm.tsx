@@ -43,7 +43,7 @@ async function openSignedFile(path: string) {
 export default function SoumissionForm({ managerId, typeEmploi }: { managerId: string; typeEmploi?: string | null }) {
   const supabase = createClient()
   const estCredit = typeEmploi === 'prestataire_credit'
-  const estDirect = typeEmploi === 'prestataire_direct' || typeEmploi === 'cdd'
+  const estDirect = typeEmploi === 'prestataire_direct'
   const [titre, setTitre] = useState('')
   const [mois, setMois] = useState(new Date().getMonth() + 1)
   const [annee, setAnnee] = useState(new Date().getFullYear())

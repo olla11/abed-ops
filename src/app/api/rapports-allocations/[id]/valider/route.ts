@@ -145,7 +145,7 @@ export async function POST(
 }
 
 function buildEmailAutorise({ rapport, mois, prest, id, estSalarie }: any) {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://abed-ops.vercel.app'
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://abed-ops-aqsc-gmzbdoc7d-olla11s-projects.vercel.app'
   const montantLabel = estSalarie ? 'SALAIRE NET' : "MONTANT DE L'ALLOCATION"
   const docLabel = estSalarie ? '📄 Télécharger la fiche de paie' : '📄 Télécharger l\'état de paiement'
   return `
@@ -178,7 +178,7 @@ function buildEmailAutorise({ rapport, mois, prest, id, estSalarie }: any) {
 }
 
 function buildEmailEtape({ prest, mois, rapport, msg, nom, estSalarie }: any) {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://abed-ops.vercel.app'
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://abed-ops-aqsc-gmzbdoc7d-olla11s-projects.vercel.app'
   return `
   <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
     <div style="background:#63a521;color:white;padding:20px 28px;border-radius:8px 8px 0 0;">
@@ -201,7 +201,7 @@ function buildEmailEtape({ prest, mois, rapport, msg, nom, estSalarie }: any) {
 }
 
 function buildEmailRejete({ mois, prest, commentaire }: any) {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://abed-ops.vercel.app'
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://abed-ops-aqsc-gmzbdoc7d-olla11s-projects.vercel.app'
   return `
   <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
     <div style="background:#991b1b;color:white;padding:20px 28px;border-radius:8px 8px 0 0;">

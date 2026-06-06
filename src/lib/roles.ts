@@ -21,18 +21,21 @@ export type TypeEmploi = (typeof TYPES_EMPLOI)[number]
 
 // --- Titres / fonctions (Politique de rémunération, Tableau 2) ---
 export const TITRES = [
-  'directeur_executif',          // DE
-  'directeur_principal',         // Directions principales (Programmes, Exploitation...)
-  'programme_lead',              // Programme Lead / Manager
-  'charge_projet',               // Chargé de Projet / opérations
-  'agent_projet',                // Agent de projet, chargé d'accompagnement, superviseur
-  'animateur',                   // Animateurs terrain, coachs, conseillers, facilitateurs
-  'caf',                         // Chargé Administration & Finances
-  'aaf',                         // Assistant administratif et financier
-  'assistant_admin',             // Assistants (administration)
-  'rh',                          // Chargé des Ressources Humaines
-  'conducteur',                  // Conducteur de véhicule administratif
-  'agent_entretien',             // Agent d'entretien / sécurité / coursier
+  'directeur_executif',
+  'directeur_principal',
+  'programme_lead',
+  'charge_projet',
+  'agent_projet',
+  'animateur',
+  'caf',
+  'aaf',
+  'assistant_admin',
+  'rh',
+  'conducteur',
+  'agent_entretien',
+  'president_ca',
+  'secretaire_general_ca',
+  'tresorier_ca',
 ] as const
 export type Titre = (typeof TITRES)[number]
 
@@ -82,6 +85,9 @@ export const TITRE_TO_ACCESS: Record<Titre, AccessRole> = {
   assistant_admin: 'missionnaire',
   conducteur: 'missionnaire',
   agent_entretien: 'missionnaire',
+  president_ca: 'administrateur',
+  secretaire_general_ca: 'administrateur',
+  tresorier_ca: 'administrateur',
 }
 
 export function accessFromTitre(titre: Titre): AccessRole {
