@@ -6,7 +6,6 @@ type Soumission = {
   id: string; titre: string; status: string
   periode_mois: number; periode_annee: number
   heures_declarees: number; heures_retenues: number | null; montant_caf: number | null
-  paye: boolean | null
   commentaire_manager: string | null; commentaire_caf: string | null
   fichier_timesheet_url: string | null; fichier_livrable_url: string | null; fichier_facture_url: string | null
 }
@@ -14,7 +13,7 @@ type Soumission = {
 const STATUS_LABEL: Record<string, { label: string; color: string }> = {
   soumis:           { label: 'En attente manager',          color: '#92660b' },
   valide_tech:      { label: 'Validé techn. — attente CAF', color: '#1e40af' },
-  valide_caf:       { label: 'Validé ✓ — en attente paiement', color: '#166534' },
+  valide_caf:       { label: 'Validé ✓',                   color: '#166534' },
   corrections_tech: { label: '⚠ Corrections demandées',     color: '#9a3412' },
   corrections_caf:  { label: '⚠ Corrections CAF',           color: '#9a3412' },
   rejete_tech:      { label: '✗ Rejeté (manager)',           color: '#991b1b' },
@@ -43,6 +42,7 @@ async function openSignedFile(path: string) {
 export default function SoumissionForm({ managerId, typeEmploi }: { managerId: string; typeEmploi?: string | null }) {
   const supabase = createClient()
   const estCredit = typeEmploi === 'prestataire_credit'
+  const estDirect = typeEmploi === 'prestataire_direct' || typeEmploi === 'cdd'
   const [titre, setTitre] = useState('')
   const [mois, setMois] = useState(new Date().getMonth() + 1)
   const [annee, setAnnee] = useState(new Date().getFullYear())
@@ -64,7 +64,7 @@ export default function SoumissionForm({ managerId, typeEmploi }: { managerId: s
     if (!user) return
     const { data } = await supabase
       .from('soumissions')
-      .select('id,titre,status,periode_mois,periode_annee,heures_declarees,heures_retenues,montant_caf,paye,commentaire_manager,commentaire_caf,fichier_timesheet_url,fichier_livrable_url,fichier_facture_url')
+      .select('id,titre,status,periode_mois,periode_annee,heures_declarees,heures_retenues,montant_caf,commentaire_manager,commentaire_caf,fichier_timesheet_url,fichier_livrable_url,fichier_facture_url')
       .eq('prestataire_id', user.id)
       .order('created_at', { ascending: false })
     setHistory((data as any) ?? [])
@@ -76,16 +76,17 @@ export default function SoumissionForm({ managerId, typeEmploi }: { managerId: s
     if (!titre.trim()) { setMsg('Donnez un titre à votre soumission.'); return }
     if (!heures || heures <= 0) { setMsg('Saisissez le nombre d\'heures déclarées.'); return }
     if (!fileTS) { setMsg('Le fichier Excel timesheet est obligatoire.'); return }
-    if (!fileLiv) { setMsg('Le fichier PDF livrable est obligatoire.'); return }
-    if (!fileFac) { setMsg('Le fichier PDF facture est obligatoire.'); return }
+    if (!estDirect && !fileLiv) { setMsg('Le fichier PDF livrable est obligatoire.'); return }
+    if (!estDirect && !fileFac) { setMsg('Le fichier PDF facture est obligatoire.'); return }
 
     setLoading(true); setMsg('Envoi des fichiers…')
     try {
-      const [urlTS, urlLiv, urlFac] = await Promise.all([
+      const uploads = await Promise.all([
         uploadFile(fileTS, 'timesheet'),
-        uploadFile(fileLiv, 'livrable'),
-        uploadFile(fileFac, 'facture'),
+        fileLiv ? uploadFile(fileLiv, 'livrable') : Promise.resolve(''),
+        fileFac ? uploadFile(fileFac, 'facture') : Promise.resolve(''),
       ])
+      const [urlTS, urlLiv, urlFac] = uploads
       setMsg('Création de la soumission…')
       const res = await fetch('/api/timesheets', {
         method: 'POST',
@@ -144,10 +145,7 @@ export default function SoumissionForm({ managerId, typeEmploi }: { managerId: s
 
   const toCorrect = history.filter(s => CORRECTABLE.includes(s.status))
   const others = history.filter(s => !CORRECTABLE.includes(s.status))
-
-  // Solde crédit
-  const totalValide = history.filter(s => s.status === 'valide_caf').reduce((s, h) => s + (h.montant_caf ?? 0), 0)
-  // On ne peut pas calculer le total payé côté client sans charger paiements_prestataires, on affiche juste le total validé
+  const avecDemande = estDirect && history.filter(s => s.status === 'valide_tech')
 
   return (
     <div style={{ display: 'grid', gap: 24 }}>
@@ -162,6 +160,27 @@ export default function SoumissionForm({ managerId, typeEmploi }: { managerId: s
           <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginTop: 4 }}>
             La CAF effectuera un versement à sa convenance. Vous recevrez un email à chaque paiement.
           </p>
+        </div>
+      )}
+
+      {/* ---- Demandes de paiement disponibles (directs validés) ---- */}
+      {avecDemande && (avecDemande as typeof history).length > 0 && (
+        <div className="card" style={{ borderLeft: '4px solid var(--abed-green)', background: '#f0fdf4' }}>
+          <h3 style={{ marginBottom: 8, color: '#166534' }}>💳 Demandes de paiement disponibles</h3>
+          <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: 12 }}>
+            Vos timesheets suivants sont validés techniquement. Vous pouvez maintenant soumettre une demande de paiement.
+          </p>
+          {(avecDemande as typeof history).map(s => (
+            <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '8px 0', borderBottom: '1px solid #bbf7d0' }}>
+              <span style={{ fontSize: 13 }}><strong>{s.titre}</strong> — {s.periode_mois}/{s.periode_annee}
+                {s.heures_retenues != null && ` — ${s.heures_retenues} h`}
+              </span>
+              <a href="/demandes" className="btn" style={{ fontSize: 12, textDecoration: 'none', padding: '4px 12px' }}>
+                Faire une demande →
+              </a>
+            </div>
+          ))}
         </div>
       )}
 
@@ -245,7 +264,9 @@ export default function SoumissionForm({ managerId, typeEmploi }: { managerId: s
       <div className="card">
         <h3 style={{ marginBottom: 4 }}>Soumettre un dossier mensuel</h3>
         <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: 20 }}>
-          Joignez obligatoirement les trois fichiers. Taux : <strong>1 h = 1 500 FCFA</strong> (défini par la CAF).
+          {estDirect
+            ? 'Joignez votre timesheet (obligatoire) et éventuellement un livrable. La facture sera soumise via une demande de paiement séparée.'
+            : 'Joignez les trois fichiers obligatoires.'}
         </p>
 
         <div className="field">
@@ -287,12 +308,14 @@ export default function SoumissionForm({ managerId, typeEmploi }: { managerId: s
               onChange={e => setFileLiv(e.target.files?.[0] ?? null)} />
             {fileLiv && <p style={{ fontSize: 11, color: 'var(--abed-muted)', marginTop: 4 }}>{fileLiv.name}</p>}
           </div>
-          <div className="field">
-            <label className="label">🧾 Facture PDF *</label>
-            <input ref={facRef} className="input" type="file" accept=".pdf"
-              onChange={e => setFileFac(e.target.files?.[0] ?? null)} />
-            {fileFac && <p style={{ fontSize: 11, color: 'var(--abed-muted)', marginTop: 4 }}>{fileFac.name}</p>}
-          </div>
+          {!estDirect && (
+            <div className="field">
+              <label className="label">🧾 Facture PDF *</label>
+              <input ref={facRef} className="input" type="file" accept=".pdf"
+                onChange={e => setFileFac(e.target.files?.[0] ?? null)} />
+              {fileFac && <p style={{ fontSize: 11, color: 'var(--abed-muted)', marginTop: 4 }}>{fileFac.name}</p>}
+            </div>
+          )}
         </div>
 
         {msg && (
@@ -331,17 +354,10 @@ export default function SoumissionForm({ managerId, typeEmploi }: { managerId: s
                       {s.montant_caf != null ? `${s.montant_caf.toLocaleString('fr-FR')} F` : '—'}
                     </td>
                     <td>
-                      {s.paye ? (
-                        <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 999,
-                          fontSize: 11, fontWeight: 600, background: '#dcfce7', color: '#166534' }}>
-                          💳 Payé
-                        </span>
-                      ) : (
-                        <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 999,
-                          fontSize: 11, fontWeight: 600, background: st.color + '22', color: st.color }}>
-                          {st.label}
-                        </span>
-                      )}
+                      <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 999,
+                        fontSize: 11, fontWeight: 600, background: st.color + '22', color: st.color }}>
+                        {st.label}
+                      </span>
                     </td>
                   </tr>
                 )
