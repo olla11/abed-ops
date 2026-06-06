@@ -16,6 +16,7 @@ export default function AppHeader({ userName, userRole, showAdmin }: Props) {
   const tabs = [
     { href: '/dashboard', label: 'OM', match: ['/dashboard', '/missions'] },
     { href: '/timesheets', label: 'Timesheets', match: ['/timesheets'] },
+    { href: '/demandes', label: 'Demandes', match: ['/demandes'] },
     { href: '/profile', label: 'Mon profil', match: ['/profile'] },
     ...(showAdmin ? [{ href: '/admin', label: 'Admin', match: ['/admin'] }] : []),
   ]
