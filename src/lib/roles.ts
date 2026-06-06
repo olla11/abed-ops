@@ -35,8 +35,7 @@ export const TITRES = [
 ] as const
 export type Titre = (typeof TITRES)[number]
 
-// --- Niveaux d'accès système ---
-export type AccessRole = 'missionnaire' | 'manager' | 'rh' | 'caf' | 'de' | 'admin'
+export type AccessRole = 'missionnaire' | 'manager' | 'rh' | 'aaf' | 'caf' | 'de' | 'admin' | 'administrateur'
 
 // --- Libellés lisibles ---
 export const TITRE_LABELS: Record<Titre, string> = {
@@ -74,7 +73,7 @@ export const TITRE_TO_ACCESS: Record<Titre, AccessRole> = {
   charge_projet: 'manager',     // peut superviser des agents/prestataires
   agent_projet: 'missionnaire',
   animateur: 'missionnaire',
-  aaf: 'missionnaire',          // traite mais ne valide pas financièrement (c'est la CAF)
+  aaf: 'aaf',
   assistant_admin: 'missionnaire',
   conducteur: 'missionnaire',
   agent_entretien: 'missionnaire',

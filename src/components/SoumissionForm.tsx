@@ -39,8 +39,10 @@ async function openSignedFile(path: string) {
   else alert('Impossible d\'ouvrir le fichier : ' + (json.error ?? 'erreur inconnue'))
 }
 
-export default function SoumissionForm({ managerId }: { managerId: string }) {
+export default function SoumissionForm({ managerId, typeEmploi }: { managerId: string; typeEmploi?: string | null }) {
   const supabase = createClient()
+  const estCredit = typeEmploi === 'prestataire_credit'
+  const estDirect = typeEmploi === 'prestataire_direct' || typeEmploi === 'cdd'
   const [titre, setTitre] = useState('')
   const [mois, setMois] = useState(new Date().getMonth() + 1)
   const [annee, setAnnee] = useState(new Date().getFullYear())
@@ -74,16 +76,17 @@ export default function SoumissionForm({ managerId }: { managerId: string }) {
     if (!titre.trim()) { setMsg('Donnez un titre à votre soumission.'); return }
     if (!heures || heures <= 0) { setMsg('Saisissez le nombre d\'heures déclarées.'); return }
     if (!fileTS) { setMsg('Le fichier Excel timesheet est obligatoire.'); return }
-    if (!fileLiv) { setMsg('Le fichier PDF livrable est obligatoire.'); return }
-    if (!fileFac) { setMsg('Le fichier PDF facture est obligatoire.'); return }
+    if (!estDirect && !fileLiv) { setMsg('Le fichier PDF livrable est obligatoire.'); return }
+    if (!estDirect && !fileFac) { setMsg('Le fichier PDF facture est obligatoire.'); return }
 
     setLoading(true); setMsg('Envoi des fichiers…')
     try {
-      const [urlTS, urlLiv, urlFac] = await Promise.all([
+      const uploads = await Promise.all([
         uploadFile(fileTS, 'timesheet'),
-        uploadFile(fileLiv, 'livrable'),
-        uploadFile(fileFac, 'facture'),
+        fileLiv ? uploadFile(fileLiv, 'livrable') : Promise.resolve(''),
+        fileFac ? uploadFile(fileFac, 'facture') : Promise.resolve(''),
       ])
+      const [urlTS, urlLiv, urlFac] = uploads
       setMsg('Création de la soumission…')
       const res = await fetch('/api/timesheets', {
         method: 'POST',
@@ -142,9 +145,45 @@ export default function SoumissionForm({ managerId }: { managerId: string }) {
 
   const toCorrect = history.filter(s => CORRECTABLE.includes(s.status))
   const others = history.filter(s => !CORRECTABLE.includes(s.status))
+  const avecDemande = estDirect && history.filter(s => s.status === 'valide_tech')
 
   return (
     <div style={{ display: 'grid', gap: 24 }}>
+      {/* ---- Solde crédit ---- */}
+      {estCredit && totalValide > 0 && (
+        <div className="card" style={{ borderLeft: '4px solid #1e40af', background: '#eff6ff' }}>
+          <h3 style={{ marginBottom: 8, color: '#1e40af' }}>📊 Votre solde cumulatif</h3>
+          <p style={{ fontSize: 14 }}>
+            Montant total validé par la CAF :{' '}
+            <strong style={{ fontSize: 18, color: '#1e40af' }}>{totalValide.toLocaleString('fr-FR')} FCFA</strong>
+          </p>
+          <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginTop: 4 }}>
+            La CAF effectuera un versement à sa convenance. Vous recevrez un email à chaque paiement.
+          </p>
+        </div>
+      )}
+
+      {/* ---- Demandes de paiement disponibles (directs validés) ---- */}
+      {avecDemande && (avecDemande as typeof history).length > 0 && (
+        <div className="card" style={{ borderLeft: '4px solid var(--abed-green)', background: '#f0fdf4' }}>
+          <h3 style={{ marginBottom: 8, color: '#166534' }}>💳 Demandes de paiement disponibles</h3>
+          <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: 12 }}>
+            Vos timesheets suivants sont validés techniquement. Vous pouvez maintenant soumettre une demande de paiement.
+          </p>
+          {(avecDemande as typeof history).map(s => (
+            <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '8px 0', borderBottom: '1px solid #bbf7d0' }}>
+              <span style={{ fontSize: 13 }}><strong>{s.titre}</strong> — {s.periode_mois}/{s.periode_annee}
+                {s.heures_retenues != null && ` — ${s.heures_retenues} h`}
+              </span>
+              <a href="/demandes" className="btn" style={{ fontSize: 12, textDecoration: 'none', padding: '4px 12px' }}>
+                Faire une demande →
+              </a>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* ---- Dossiers à corriger ---- */}
       {toCorrect.length > 0 && (
         <div className="card" style={{ borderLeft: '4px solid #c0392b' }}>
@@ -225,7 +264,9 @@ export default function SoumissionForm({ managerId }: { managerId: string }) {
       <div className="card">
         <h3 style={{ marginBottom: 4 }}>Soumettre un dossier mensuel</h3>
         <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: 20 }}>
-          Joignez obligatoirement les trois fichiers. Taux : <strong>1 h = 1 500 FCFA</strong> (défini par la CAF).
+          {estDirect
+            ? 'Joignez votre timesheet (obligatoire) et éventuellement un livrable. La facture sera soumise via une demande de paiement séparée.'
+            : 'Joignez les trois fichiers obligatoires.'}
         </p>
 
         <div className="field">
@@ -267,12 +308,14 @@ export default function SoumissionForm({ managerId }: { managerId: string }) {
               onChange={e => setFileLiv(e.target.files?.[0] ?? null)} />
             {fileLiv && <p style={{ fontSize: 11, color: 'var(--abed-muted)', marginTop: 4 }}>{fileLiv.name}</p>}
           </div>
-          <div className="field">
-            <label className="label">🧾 Facture PDF *</label>
-            <input ref={facRef} className="input" type="file" accept=".pdf"
-              onChange={e => setFileFac(e.target.files?.[0] ?? null)} />
-            {fileFac && <p style={{ fontSize: 11, color: 'var(--abed-muted)', marginTop: 4 }}>{fileFac.name}</p>}
-          </div>
+          {!estDirect && (
+            <div className="field">
+              <label className="label">🧾 Facture PDF *</label>
+              <input ref={facRef} className="input" type="file" accept=".pdf"
+                onChange={e => setFileFac(e.target.files?.[0] ?? null)} />
+              {fileFac && <p style={{ fontSize: 11, color: 'var(--abed-muted)', marginTop: 4 }}>{fileFac.name}</p>}
+            </div>
+          )}
         </div>
 
         {msg && (
