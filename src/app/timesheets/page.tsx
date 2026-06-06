@@ -37,7 +37,7 @@ export default async function TimesheetsPage() {
       />
 
       {/* Titre dynamique — affiché si l'utilisateur a un formulaire à remplir */}
-      {(estRapportMensuel || (!estManager && !estCAF)) && (
+      {(estRapportMensuel || ['prestataire_direct','prestataire_credit'].includes(typeEmploi ?? '')) && (
         <div>
           <h1 style={{ color: 'var(--abed-green)', marginBottom: 6 }}>
             {estRapportMensuel ? 'Rapport mensuel' : 'Timesheet & livrables'}
@@ -57,8 +57,8 @@ export default async function TimesheetsPage() {
         <RapportAllocationForm typeEmploi={typeEmploi} />
       )}
 
-      {/* Prestataire direct/crédit : formulaire timesheet */}
-      {!estRapportMensuel && !estManager && !estCAF && (
+      {/* Prestataire direct/crédit : formulaire timesheet — affiché selon type_emploi, pas le rôle */}
+      {['prestataire_direct','prestataire_credit'].includes(typeEmploi ?? '') && (
         profile?.manager_id
           ? <SoumissionForm managerId={profile.manager_id} typeEmploi={profile.type_emploi} />
           : <div className="card" style={{ borderLeft: '4px solid var(--abed-amber)' }}>
