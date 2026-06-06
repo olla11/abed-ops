@@ -36,8 +36,8 @@ export default async function TimesheetsPage() {
         showAdmin={role === 'admin'}
       />
 
-      {/* Titre dynamique pour les non-gestionnaires */}
-      {!estManager && !estCAF && (
+      {/* Titre dynamique — affiché si l'utilisateur a un formulaire à remplir */}
+      {(estRapportMensuel || (!estManager && !estCAF)) && (
         <div>
           <h1 style={{ color: 'var(--abed-green)', marginBottom: 6 }}>
             {estRapportMensuel ? 'Rapport mensuel' : 'Timesheet & livrables'}
@@ -52,8 +52,8 @@ export default async function TimesheetsPage() {
         </div>
       )}
 
-      {/* Bénévole / Stagiaire / CDD / CDI : rapport mensuel — affiché sans condition de manager */}
-      {estRapportMensuel && !estManager && !estCAF && (
+      {/* Bénévole / Stagiaire / CDD / CDI : rapport mensuel — affiché pour tous ayant ce type_emploi, même si gestionnaire */}
+      {estRapportMensuel && (
         <RapportAllocationForm typeEmploi={typeEmploi} />
       )}
 
