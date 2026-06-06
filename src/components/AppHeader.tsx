@@ -38,11 +38,11 @@ export default function AppHeader({ userName, userRole, showAdmin }: Props) {
             <div style={{ fontSize: 11, color: 'var(--abed-green)', fontWeight: 700, lineHeight: 1.2, maxWidth: 340 }}>
               AGRICULTURE POUR LE BIEN ÊTRE ET LE DÉVELOPPEMENT DURABLE
             </div>
-            <div style={{ fontSize: 18, color: 'var(--abed-green)', fontWeight: 800, letterSpacing: 1 }}>
-              ABED-ONG
+            <div style={{ fontSize: 20, color: 'var(--abed-green)', fontWeight: 900, letterSpacing: 1 }}>
+              My ABED
             </div>
-            <div style={{ fontSize: 11, color: 'var(--abed-muted)' }}>
-              Système de Gestion des Opérations
+            <div style={{ fontSize: 11, color: 'var(--abed-muted)', fontStyle: 'italic' }}>
+              Chers collègues, tout se passe ici à ABED 🌿
             </div>
           </div>
         </div>
