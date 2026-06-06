@@ -12,13 +12,14 @@ type Soumission = {
 }
 
 const STATUS_LABEL: Record<string, { label: string; color: string }> = {
-  soumis:           { label: 'En attente manager',          color: '#92660b' },
-  valide_tech:      { label: 'Validé techn. — attente CAF', color: '#1e40af' },
-  valide_caf:       { label: 'Validé ✓',                   color: '#166534' },
-  corrections_tech: { label: '⚠ Corrections demandées',     color: '#9a3412' },
-  corrections_caf:  { label: '⚠ Corrections CAF',           color: '#9a3412' },
-  rejete_tech:      { label: '✗ Rejeté (manager)',           color: '#991b1b' },
-  rejete_caf:       { label: '✗ Rejeté (CAF)',               color: '#991b1b' },
+  soumis:              { label: 'En attente manager',           color: '#92660b' },
+  valide_tech:         { label: '✓ Validé — demande de paiement requise', color: '#1e40af' },
+  demande_soumise:     { label: 'Demande de paiement soumise',  color: '#6d28d9' },
+  valide_caf:          { label: 'Validé ✓',                    color: '#166534' },
+  corrections_tech:    { label: '⚠ Corrections demandées',      color: '#9a3412' },
+  corrections_caf:     { label: '⚠ Corrections CAF',            color: '#9a3412' },
+  rejete_tech:         { label: '✗ Rejeté (manager)',            color: '#991b1b' },
+  rejete_caf:          { label: '✗ Rejeté (CAF)',                color: '#991b1b' },
 }
 
 const CORRECTABLE = ['corrections_tech', 'corrections_caf', 'rejete_tech', 'rejete_caf']
@@ -44,6 +45,7 @@ export default function SoumissionForm({ managerId, typeEmploi }: { managerId: s
   const supabase = createClient()
   const estCredit = typeEmploi === 'prestataire_credit'
   const estDirect = typeEmploi === 'prestataire_direct'
+
   const [titre, setTitre] = useState('')
   const [mois, setMois] = useState(new Date().getMonth() + 1)
   const [annee, setAnnee] = useState(new Date().getFullYear())
@@ -83,12 +85,11 @@ export default function SoumissionForm({ managerId, typeEmploi }: { managerId: s
 
     setLoading(true); setMsg('Envoi des fichiers…')
     try {
-      const uploads = await Promise.all([
+      const [urlTS, urlLiv, urlFac] = await Promise.all([
         uploadFile(fileTS, 'timesheet'),
         fileLiv ? uploadFile(fileLiv, 'livrable') : Promise.resolve(''),
         fileFac ? uploadFile(fileFac, 'facture') : Promise.resolve(''),
       ])
-      const [urlTS, urlLiv, urlFac] = uploads
       setMsg('Création de la soumission…')
       const res = await fetch('/api/timesheets', {
         method: 'POST',
@@ -97,13 +98,13 @@ export default function SoumissionForm({ managerId, typeEmploi }: { managerId: s
           titre, periode_mois: mois, periode_annee: annee,
           heures_declarees: heures,
           fichier_timesheet_url: urlTS,
-          fichier_livrable_url: urlLiv,
-          fichier_facture_url: urlFac,
+          fichier_livrable_url: urlLiv || undefined,
+          fichier_facture_url: urlFac || undefined,
         }),
       })
       const json = await res.json()
-      if (!res.ok) { setMsg('Erreur : ' + json.error); setLoading(false); return }
-      setMsg('✓ Soumission envoyée à votre responsable technique.')
+      if (!res.ok) { setMsg('Erreur : ' + json.error); return }
+      setMsg('✓ Timesheet envoyé à votre responsable pour validation.')
       setTitre(''); setHeures('')
       setFileTS(null); setFileLiv(null); setFileFac(null)
       if (tsRef.current) tsRef.current.value = ''
@@ -112,9 +113,7 @@ export default function SoumissionForm({ managerId, typeEmploi }: { managerId: s
       loadHistory()
     } catch (e: any) {
       setMsg('Erreur : ' + e.message)
-    } finally {
-      setLoading(false)
-    }
+    } finally { setLoading(false) }
   }
 
   async function resoumettre(soumId: string) {
@@ -125,7 +124,6 @@ export default function SoumissionForm({ managerId, typeEmploi }: { managerId: s
       if (rf.ts) uploads.fichier_timesheet_url = await uploadFile(rf.ts, 'timesheet')
       if (rf.liv) uploads.fichier_livrable_url = await uploadFile(rf.liv, 'livrable')
       if (rf.fac) uploads.fichier_facture_url = await uploadFile(rf.fac, 'facture')
-
       const res = await fetch(`/api/timesheets/${soumId}/resoumettre`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -137,68 +135,107 @@ export default function SoumissionForm({ managerId, typeEmploi }: { managerId: s
       loadHistory()
     } catch (e: any) {
       alert('Erreur : ' + e.message)
-    } finally {
-      setResubmitting(null)
-    }
+    } finally { setResubmitting(null) }
   }
 
-  const msgBg = msg.startsWith('✓') ? '#dcfce7' : (msg.startsWith('Envoi') || msg.startsWith('Création')) ? '#e0f2fe' : '#fee2e2'
-  const msgColor = msg.startsWith('✓') ? '#166534' : (msg.startsWith('Envoi') || msg.startsWith('Création')) ? '#1e40af' : '#991b1b'
+  const msgBg = msg.startsWith('✓') ? '#dcfce7' : msg.startsWith('Erreur') ? '#fee2e2' : '#e0f2fe'
+  const msgColor = msg.startsWith('✓') ? '#166534' : msg.startsWith('Erreur') ? '#991b1b' : '#1e40af'
 
   const toCorrect = history.filter(s => CORRECTABLE.includes(s.status))
-  const others = history.filter(s => !CORRECTABLE.includes(s.status))
-  const avecDemande = estDirect && history.filter(s => s.status === 'valide_tech')
+  const prets = estDirect ? history.filter(s => s.status === 'valide_tech') : []
+  const others = history.filter(s => !CORRECTABLE.includes(s.status) && s.status !== 'valide_tech')
+
+  // Si le formulaire de demande de paiement est ouvert, on l'affiche seul
+  if (demandeForSoum) {
+    return (
+      <div className="card" style={{ borderLeft: '4px solid var(--abed-green)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <div>
+            <h3 style={{ color: 'var(--abed-green)', marginBottom: 4 }}>💳 Demande de paiement</h3>
+            <p style={{ fontSize: 13, color: 'var(--abed-muted)' }}>
+              Timesheet validé : <strong>{demandeForSoum.titre}</strong> — {demandeForSoum.periode_mois}/{demandeForSoum.periode_annee}
+              {demandeForSoum.montant_caf != null && (
+                <> — <strong style={{ color: 'var(--abed-green)' }}>{demandeForSoum.montant_caf.toLocaleString('fr-FR')} FCFA</strong></>
+              )}
+            </p>
+          </div>
+          <button className="btn secondary" style={{ fontSize: 12 }}
+            onClick={() => setDemandeForSoum(null)}>
+            ← Retour
+          </button>
+        </div>
+        <DemandePaiementForm
+          onClose={() => { setDemandeForSoum(null); loadHistory() }}
+          prefill={{
+            objet: `Paiement timesheet : ${demandeForSoum.titre} (${demandeForSoum.periode_mois}/${demandeForSoum.periode_annee})`,
+            montant: demandeForSoum.montant_caf != null ? String(demandeForSoum.montant_caf) : '',
+            nature_depense: 'Prestation directe',
+          }}
+        />
+      </div>
+    )
+  }
 
   return (
     <div style={{ display: 'grid', gap: 24 }}>
-      {/* ---- Solde crédit ---- */}
-      {estCredit && totalValide > 0 && (
-        <div className="card" style={{ borderLeft: '4px solid #1e40af', background: '#eff6ff' }}>
-          <h3 style={{ marginBottom: 8, color: '#1e40af' }}>📊 Votre solde cumulatif</h3>
-          <p style={{ fontSize: 14 }}>
-            Montant total validé par la CAF :{' '}
-            <strong style={{ fontSize: 18, color: '#1e40af' }}>{totalValide.toLocaleString('fr-FR')} FCFA</strong>
-          </p>
-          <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginTop: 4 }}>
-            La CAF effectuera un versement à sa convenance. Vous recevrez un email à chaque paiement.
-          </p>
-        </div>
-      )}
 
-      {/* ---- Demandes de paiement disponibles (directs validés) ---- */}
-      {!demandeForSoum && avecDemande && (avecDemande as typeof history).length > 0 && (
-        <div className="card" style={{ borderLeft: '4px solid var(--abed-green)', background: '#f0fdf4' }}>
-          <h3 style={{ marginBottom: 8, color: '#166534' }}>💳 Timesheets prêts pour paiement</h3>
-          <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: 12 }}>
-            Ces timesheets sont validés techniquement. Soumettez une demande de paiement pour chacun.
+      {/* ── Solde cumulatif (crédit seulement) ── */}
+      {estCredit && (() => {
+        const total = history.filter(s => s.status === 'valide_caf' && s.montant_caf != null)
+          .reduce((sum, s) => sum + (s.montant_caf ?? 0), 0)
+        return total > 0 ? (
+          <div className="card" style={{ borderLeft: '4px solid #1e40af', background: '#eff6ff' }}>
+            <h3 style={{ marginBottom: 8, color: '#1e40af' }}>📊 Votre solde cumulatif</h3>
+            <p style={{ fontSize: 14 }}>
+              Montant total validé par la CAF :{' '}
+              <strong style={{ fontSize: 18, color: '#1e40af' }}>{total.toLocaleString('fr-FR')} FCFA</strong>
+            </p>
+            <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginTop: 4 }}>
+              La CAF effectuera un versement à sa convenance. Vous recevrez un email à chaque paiement.
+            </p>
+          </div>
+        ) : null
+      })()}
+
+      {/* ── Timesheets validés — demande de paiement à faire (directs seulement) ── */}
+      {prets.length > 0 && (
+        <div className="card" style={{ borderLeft: '4px solid #166534', background: '#f0fdf4' }}>
+          <h3 style={{ color: '#166534', marginBottom: 6 }}>
+            ✅ Timesheet{prets.length > 1 ? 's' : ''} validé{prets.length > 1 ? 's' : ''} — demande de paiement à soumettre
+          </h3>
+          <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: 14 }}>
+            Votre responsable a validé ce timesheet. Cliquez sur le bouton ci-dessous pour soumettre votre demande de paiement.
           </p>
-          {(avecDemande as typeof history).map(s => (
-            <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              padding: '8px 0', borderBottom: '1px solid #bbf7d0' }}>
-              <span style={{ fontSize: 13 }}>
-                <strong>{s.titre}</strong> — {s.periode_mois}/{s.periode_annee}
-                {s.heures_retenues != null && ` — ${s.heures_retenues} h retenues`}
+          {prets.map(s => (
+            <div key={s.id} style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '10px 0', borderBottom: '1px solid #bbf7d0', flexWrap: 'wrap', gap: 8,
+            }}>
+              <div>
+                <span style={{ fontWeight: 600, fontSize: 14 }}>{s.titre}</span>
+                <span style={{ fontSize: 12, color: 'var(--abed-muted)', marginLeft: 10 }}>
+                  {s.periode_mois}/{s.periode_annee}
+                  {s.heures_retenues != null && ` · ${s.heures_retenues} h retenues`}
+                </span>
                 {s.montant_caf != null && (
-                  <strong style={{ color: 'var(--abed-green)', marginLeft: 6 }}>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: '#166534', marginLeft: 10 }}>
                     {s.montant_caf.toLocaleString('fr-FR')} FCFA
-                  </strong>
+                  </span>
                 )}
-              </span>
-              <button className="btn" style={{ fontSize: 12, padding: '4px 14px' }}
+              </div>
+              <button className="btn" style={{ fontSize: 13, background: '#166534' }}
                 onClick={() => setDemandeForSoum(s)}>
-                💳 Faire une demande de paiement
+                💳 Faire la demande de paiement
               </button>
             </div>
           ))}
         </div>
       )}
 
-      {/* ---- Dossiers à corriger ---- */}
+      {/* ── Dossiers à corriger ── */}
       {toCorrect.length > 0 && (
         <div className="card" style={{ borderLeft: '4px solid #c0392b' }}>
-          <h3 style={{ marginBottom: 12, color: '#991b1b' }}>
-            Dossiers à corriger ({toCorrect.length})
-          </h3>
+          <h3 style={{ marginBottom: 12, color: '#991b1b' }}>Dossiers à corriger ({toCorrect.length})</h3>
           {toCorrect.map(s => {
             const st = STATUS_LABEL[s.status]
             const rf = reFiles[s.id] ?? {}
@@ -210,11 +247,11 @@ export default function SoumissionForm({ managerId, typeEmploi }: { managerId: s
                   <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 999,
                     background: st.color + '22', color: st.color }}>{st.label}</span>
                 </div>
-                <p style={{ fontSize: 12, color: '#991b1b', marginBottom: 10, fontStyle: 'italic' }}>
-                  Commentaire : {comment ?? '—'}
-                </p>
-
-                {/* Fichiers actuels */}
+                {comment && (
+                  <p style={{ fontSize: 12, color: '#991b1b', marginBottom: 10, fontStyle: 'italic' }}>
+                    Commentaire : {comment}
+                  </p>
+                )}
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
                   {s.fichier_timesheet_url && (
                     <button className="btn secondary" style={{ fontSize: 11 }}
@@ -228,40 +265,28 @@ export default function SoumissionForm({ managerId, typeEmploi }: { managerId: s
                       📄 Voir livrable actuel
                     </button>
                   )}
-                  {s.fichier_facture_url && (
-                    <button className="btn secondary" style={{ fontSize: 11 }}
-                      onClick={() => openSignedFile(s.fichier_facture_url!)}>
-                      🧾 Voir facture actuelle
-                    </button>
-                  )}
                 </div>
-
-                {/* Upload nouveaux fichiers */}
                 <p style={{ fontSize: 12, color: 'var(--abed-muted)', marginBottom: 8 }}>
-                  Téléversez uniquement les fichiers à remplacer (les autres restent inchangés) :
+                  Téléversez uniquement les fichiers à remplacer :
                 </p>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 10 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
                   <div>
-                    <label style={{ fontSize: 11, fontWeight: 600 }}>📊 Nouveau timesheet</label>
+                    <label style={{ fontSize: 11, fontWeight: 600 }}>📊 Nouveau timesheet Excel</label>
                     <input type="file" accept=".xlsx,.xls,.csv" style={{ display: 'block', fontSize: 11, marginTop: 4 }}
                       onChange={e => setReFiles(r => ({ ...r, [s.id]: { ...r[s.id], ts: e.target.files?.[0] } }))} />
                   </div>
-                  <div>
-                    <label style={{ fontSize: 11, fontWeight: 600 }}>📄 Nouveau livrable</label>
-                    <input type="file" accept=".pdf,.doc,.docx" style={{ display: 'block', fontSize: 11, marginTop: 4 }}
-                      onChange={e => setReFiles(r => ({ ...r, [s.id]: { ...r[s.id], liv: e.target.files?.[0] } }))} />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: 11, fontWeight: 600 }}>🧾 Nouvelle facture</label>
-                    <input type="file" accept=".pdf" style={{ display: 'block', fontSize: 11, marginTop: 4 }}
-                      onChange={e => setReFiles(r => ({ ...r, [s.id]: { ...r[s.id], fac: e.target.files?.[0] } }))} />
-                  </div>
+                  {!estDirect && (
+                    <div>
+                      <label style={{ fontSize: 11, fontWeight: 600 }}>📄 Nouveau livrable</label>
+                      <input type="file" accept=".pdf,.doc,.docx" style={{ display: 'block', fontSize: 11, marginTop: 4 }}
+                        onChange={e => setReFiles(r => ({ ...r, [s.id]: { ...r[s.id], liv: e.target.files?.[0] } }))} />
+                    </div>
+                  )}
                 </div>
-
                 <button className="btn" style={{ fontSize: 12 }}
                   disabled={resubmitting === s.id}
                   onClick={() => resoumettre(s.id)}>
-                  {resubmitting === s.id ? '⏳ Resoumission…' : '↩ Resoumettre pour validation'}
+                  {resubmitting === s.id ? '⏳ Resoumission…' : '↩ Resoumettre'}
                 </button>
               </div>
             )
@@ -269,13 +294,15 @@ export default function SoumissionForm({ managerId, typeEmploi }: { managerId: s
         </div>
       )}
 
-      {/* ---- Nouvelle soumission ---- */}
+      {/* ── Nouvelle soumission ── */}
       <div className="card">
-        <h3 style={{ marginBottom: 4 }}>Soumettre un dossier mensuel</h3>
+        <h3 style={{ marginBottom: 4 }}>
+          {estDirect ? 'Soumettre un timesheet' : 'Soumettre un dossier mensuel'}
+        </h3>
         <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: 20 }}>
           {estDirect
-            ? 'Joignez votre timesheet (obligatoire) et éventuellement un livrable. La facture sera soumise via une demande de paiement séparée.'
-            : 'Joignez les trois fichiers obligatoires.'}
+            ? 'Le timesheet Excel est obligatoire. Un livrable est optionnel. La demande de paiement se fera après validation de votre responsable.'
+            : 'Joignez les trois fichiers obligatoires (timesheet, livrable, facture).'}
         </p>
 
         <div className="field">
@@ -304,25 +331,22 @@ export default function SoumissionForm({ managerId, typeEmploi }: { managerId: s
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: estDirect ? '1fr 1fr' : '1fr 1fr 1fr', gap: 12 }}>
           <div className="field">
             <label className="label">📊 Timesheet Excel *</label>
             <input ref={tsRef} className="input" type="file" accept=".xlsx,.xls,.csv"
               onChange={e => setFileTS(e.target.files?.[0] ?? null)} />
-            {fileTS && <p style={{ fontSize: 11, color: 'var(--abed-muted)', marginTop: 4 }}>{fileTS.name}</p>}
           </div>
           <div className="field">
-            <label className="label">📄 Livrable PDF {estDirect ? '(optionnel)' : '*'}</label>
+            <label className="label">📄 Livrable {estDirect ? '(optionnel)' : '*'}</label>
             <input ref={livRef} className="input" type="file" accept=".pdf,.doc,.docx"
               onChange={e => setFileLiv(e.target.files?.[0] ?? null)} />
-            {fileLiv && <p style={{ fontSize: 11, color: 'var(--abed-muted)', marginTop: 4 }}>{fileLiv.name}</p>}
           </div>
           {!estDirect && (
             <div className="field">
               <label className="label">🧾 Facture PDF *</label>
               <input ref={facRef} className="input" type="file" accept=".pdf"
                 onChange={e => setFileFac(e.target.files?.[0] ?? null)} />
-              {fileFac && <p style={{ fontSize: 11, color: 'var(--abed-muted)', marginTop: 4 }}>{fileFac.name}</p>}
             </div>
           )}
         </div>
@@ -336,43 +360,38 @@ export default function SoumissionForm({ managerId, typeEmploi }: { managerId: s
         </button>
       </div>
 
-      {/* ---- Historique ---- */}
+      {/* ── Historique ── */}
       {others.length > 0 && (
         <div className="card">
           <h3 style={{ marginBottom: 16 }}>Mes soumissions</h3>
           <div className="table-wrap">
-          <table style={{ minWidth: 680 }}>
-            <colgroup>
-              <col style={{ width: '28%' }} /><col style={{ width: '9%' }} />
-              <col style={{ width: '9%' }} /><col style={{ width: '9%' }} />
-              <col style={{ width: '13%' }} /><col />
-            </colgroup>
-            <thead>
-              <tr><th>Titre</th><th>Période</th><th>H déc.</th><th>H ret.</th><th>Montant</th><th>Statut</th></tr>
-            </thead>
-            <tbody>
-              {others.map(s => {
-                const st = STATUS_LABEL[s.status] ?? { label: s.status, color: '#374151' }
-                return (
-                  <tr key={s.id}>
-                    <td title={s.titre} style={{ fontWeight: 500 }}>{s.titre}</td>
-                    <td style={{ fontSize: 12 }}>{s.periode_mois}/{s.periode_annee}</td>
-                    <td style={{ fontSize: 12 }}>{s.heures_declarees} h</td>
-                    <td style={{ fontSize: 12 }}>{s.heures_retenues != null ? `${s.heures_retenues} h` : '—'}</td>
-                    <td style={{ fontSize: 12 }}>
-                      {s.montant_caf != null ? `${s.montant_caf.toLocaleString('fr-FR')} F` : '—'}
-                    </td>
-                    <td>
-                      <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 999,
-                        fontSize: 11, fontWeight: 600, background: st.color + '22', color: st.color }}>
-                        {st.label}
-                      </span>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+            <table style={{ minWidth: 600 }}>
+              <thead>
+                <tr><th>Titre</th><th>Période</th><th>H décl.</th><th>H ret.</th><th>Montant</th><th>Statut</th></tr>
+              </thead>
+              <tbody>
+                {others.map(s => {
+                  const st = STATUS_LABEL[s.status] ?? { label: s.status, color: '#374151' }
+                  return (
+                    <tr key={s.id}>
+                      <td style={{ fontWeight: 500 }}>{s.titre}</td>
+                      <td style={{ fontSize: 12 }}>{s.periode_mois}/{s.periode_annee}</td>
+                      <td style={{ fontSize: 12 }}>{s.heures_declarees} h</td>
+                      <td style={{ fontSize: 12 }}>{s.heures_retenues != null ? `${s.heures_retenues} h` : '—'}</td>
+                      <td style={{ fontSize: 12 }}>
+                        {s.montant_caf != null ? `${s.montant_caf.toLocaleString('fr-FR')} F` : '—'}
+                      </td>
+                      <td>
+                        <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 999,
+                          fontSize: 11, fontWeight: 600, background: st.color + '22', color: st.color }}>
+                          {st.label}
+                        </span>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
