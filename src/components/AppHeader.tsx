@@ -10,13 +10,17 @@ type Props = {
   showAdmin?: boolean
 }
 
+const OVERVIEW_ROLES = ['aaf','caf','de','admin','administrateur']
+
 export default function AppHeader({ userName, userRole, showAdmin }: Props) {
   const pathname = usePathname()
+  const showOverview = OVERVIEW_ROLES.includes(userRole ?? '')
 
   const tabs = [
     { href: '/dashboard', label: 'OM', match: ['/dashboard', '/missions'] },
     { href: '/timesheets', label: 'Timesheets', match: ['/timesheets'] },
     { href: '/demandes', label: 'Demandes', match: ['/demandes'] },
+    ...(showOverview ? [{ href: '/overview', label: 'Vue d\'ensemble', match: ['/overview'] }] : []),
     { href: '/profile', label: 'Mon profil', match: ['/profile'] },
     ...(showAdmin ? [{ href: '/admin', label: 'Admin', match: ['/admin'] }] : []),
   ]
