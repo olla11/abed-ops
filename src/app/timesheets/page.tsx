@@ -25,31 +25,49 @@ export default async function TimesheetsPage() {
   const estManager = ['manager', 'caf', 'admin', 'de', 'aaf'].includes(role)
   const estCAF = ['caf', 'admin'].includes(role)
   const estAAF = ['aaf', 'admin'].includes(role)
+  const estSalarie = ['cdd', 'cdi'].includes(typeEmploi ?? '')
 
   return (
     <div style={{ maxWidth: 1000, margin: '0 auto', padding: 32, display: 'grid', gap: 28 }}>
       <AppHeader
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={role}
+        typeEmploi={typeEmploi}
         showAdmin={role === 'admin'}
       />
 
-      <h1 style={{ color: 'var(--abed-green)', marginBottom: 0 }}>Timesheets &amp; livrables</h1>
+      {/* Titre dynamique pour les non-gestionnaires */}
+      {!estManager && !estCAF && (
+        <div>
+          <h1 style={{ color: 'var(--abed-green)', marginBottom: 6 }}>
+            {estRapportMensuel ? 'Rapport mensuel' : 'Timesheet & livrables'}
+          </h1>
+          {estRapportMensuel && (
+            <p style={{ fontSize: 13, color: 'var(--abed-muted)', margin: 0 }}>
+              {estSalarie
+                ? "Soumettez votre rapport mensuel. L'AAF génèrera votre fiche de paie, validée par la CAF et autorisée par le DE."
+                : "Soumettez votre rapport mensuel. Une fois validé (AAF → CAF → DE), vous recevrez votre état de paiement d'allocation par email."}
+            </p>
+          )}
+        </div>
+      )}
 
-      {/* Bénévole / Stagiaire / CDD / CDI : rapport mensuel */}
-      {estRapportMensuel && profile?.manager_id && <RapportAllocationForm typeEmploi={typeEmploi} />}
+      {/* Bénévole / Stagiaire / CDD / CDI : rapport mensuel — affiché sans condition de manager */}
+      {estRapportMensuel && !estManager && !estCAF && (
+        <RapportAllocationForm typeEmploi={typeEmploi} />
+      )}
 
       {/* Prestataire direct/crédit : formulaire timesheet */}
-      {!estRapportMensuel && profile?.manager_id ? (
-        <SoumissionForm managerId={profile.manager_id} typeEmploi={profile.type_emploi} />
-      ) : !estRapportMensuel && !estManager && !estCAF ? (
-        <div className="card" style={{ borderLeft: '4px solid var(--abed-amber)' }}>
-          <p style={{ fontSize: 14 }}>
-            Aucun responsable direct n'est défini sur votre profil.
-            Contactez l'administration pour qu'un manager vous soit attribué avant de soumettre.
-          </p>
-        </div>
-      ) : null}
+      {!estRapportMensuel && !estManager && !estCAF && (
+        profile?.manager_id
+          ? <SoumissionForm managerId={profile.manager_id} typeEmploi={profile.type_emploi} />
+          : <div className="card" style={{ borderLeft: '4px solid var(--abed-amber)' }}>
+              <p style={{ fontSize: 14 }}>
+                Aucun responsable direct n'est défini sur votre profil.
+                Contactez l'administration pour qu'un manager vous soit attribué avant de soumettre.
+              </p>
+            </div>
+      )}
 
       {/* Manager : validation technique */}
       {estManager && <ValidationManager />}

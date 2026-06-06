@@ -25,8 +25,13 @@ export default function LoginPage() {
     <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 20 }}>
       <div className="card" style={{ width: 380, maxWidth: '100%' }}>
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--abed-green)' }}>ABED-ONG</div>
-          <div style={{ color: 'var(--abed-muted)', fontSize: 14 }}>Gestion des opérations</div>
+          <div style={{ fontSize: 24, fontWeight: 900, color: 'var(--abed-green)', letterSpacing: 1 }}>My ABED</div>
+          <div style={{ fontSize: 13, color: 'var(--abed-green)', fontWeight: 600, marginTop: 2 }}>
+            Bienvenue sur My ABED
+          </div>
+          <div style={{ color: 'var(--abed-muted)', fontSize: 12, marginTop: 4, fontStyle: 'italic' }}>
+            Chers collègues, tout se passe ici à ABED 🌿
+          </div>
         </div>
         <form onSubmit={signIn}>
           <div className="field">
