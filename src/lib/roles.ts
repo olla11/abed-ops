@@ -9,6 +9,7 @@ export const TYPES_EMPLOI = [
   'prestataire_direct',
   'prestataire_credit',
   'cdd',
+  'cdi',
 ] as const
 export type TypeEmploi = (typeof TYPES_EMPLOI)[number]
 
@@ -31,7 +32,7 @@ export const TITRES = [
 ] as const
 export type Titre = (typeof TITRES)[number]
 
-export type AccessRole = 'missionnaire' | 'manager' | 'rh' | 'caf' | 'de' | 'admin' | 'administrateur'
+export type AccessRole = 'missionnaire' | 'manager' | 'rh' | 'aaf' | 'caf' | 'de' | 'admin' | 'administrateur'
 
 export const TITRE_LABELS: Record<Titre, string> = {
   directeur_executif: 'Directeur Exécutif',
@@ -84,6 +85,7 @@ export const TYPE_EMPLOI_LABELS: Record<TypeEmploi, string> = {
   prestataire_direct: 'Prestataire direct (PD)',
   prestataire_credit: 'Prestataire à crédit (PC)',
   cdd: 'Contrat à durée déterminée (CDD)',
+  cdi: 'Contrat à durée indéterminée (CDI)',
 }
 
 export const TITRE_TO_ACCESS: Record<Titre, AccessRole> = {
@@ -95,7 +97,7 @@ export const TITRE_TO_ACCESS: Record<Titre, AccessRole> = {
   charge_projet: 'manager',
   agent_projet: 'missionnaire',
   animateur: 'missionnaire',
-  aaf: 'missionnaire',
+  aaf: 'aaf',
   assistant_admin: 'missionnaire',
   conducteur: 'missionnaire',
   agent_entretien: 'missionnaire',

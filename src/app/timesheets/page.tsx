@@ -4,6 +4,8 @@ import { redirect } from 'next/navigation'
 import SoumissionForm from '@/components/SoumissionForm'
 import ValidationManager from '@/components/ValidationManager'
 import ValidationCAF from '@/components/ValidationCAF'
+import RapportAllocationForm from '@/components/RapportAllocationForm'
+import ValidationRapportsAAF from '@/components/ValidationRapportsAAF'
 import AppHeader from '@/components/AppHeader'
 
 export default async function TimesheetsPage() {
@@ -13,12 +15,15 @@ export default async function TimesheetsPage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, nom, prenoms, manager_id, type_emploi')
+    .select('role, nom, prenoms, manager_id, type_emploi, email')
     .eq('id', user.id).single()
 
   const role = profile?.role ?? 'missionnaire'
-  const estManager = ['manager', 'caf', 'admin', 'de'].includes(role)
+  const typeEmploi = profile?.type_emploi ?? null
+  const estRapportMensuel = ['benevole', 'stagiaire_n1', 'stagiaire_n2', 'cdd', 'cdi'].includes(typeEmploi ?? '')
+  const estManager = ['manager', 'caf', 'admin', 'de', 'aaf'].includes(role)
   const estCAF = ['caf', 'admin'].includes(role)
+  const estAAF = ['aaf', 'admin'].includes(role)
 
   return (
     <div style={{ maxWidth: 1000, margin: '0 auto', padding: 32, display: 'grid', gap: 28 }}>
@@ -30,10 +35,13 @@ export default async function TimesheetsPage() {
 
       <h1 style={{ color: 'var(--abed-green)', marginBottom: 0 }}>Timesheets &amp; livrables</h1>
 
-      {/* Prestataire : formulaire de soumission (si responsable assigné) */}
-      {profile?.manager_id ? (
+      {/* Bénévole / Stagiaire / CDD / CDI : rapport mensuel */}
+      {estRapportMensuel && profile?.manager_id && <RapportAllocationForm typeEmploi={typeEmploi} />}
+
+      {/* Prestataire direct/crédit : formulaire timesheet */}
+      {!estRapportMensuel && profile?.manager_id ? (
         <SoumissionForm managerId={profile.manager_id} typeEmploi={profile.type_emploi} />
-      ) : !estManager && !estCAF ? (
+      ) : !estRapportMensuel && !estManager && !estCAF ? (
         <div className="card" style={{ borderLeft: '4px solid var(--abed-amber)' }}>
           <p style={{ fontSize: 14 }}>
             Aucun responsable direct n'est défini sur votre profil.
@@ -42,10 +50,13 @@ export default async function TimesheetsPage() {
         </div>
       ) : null}
 
-      {/* Manager : validation technique (Excel + livrable) */}
+      {/* Manager : validation technique */}
       {estManager && <ValidationManager />}
 
-      {/* CAF : validation financière (facture) */}
+      {/* AAF/CAF/DE : validation des rapports d'allocations */}
+      {(estAAF || estCAF || ['de', 'administrateur'].includes(role)) && <ValidationRapportsAAF role={role} />}
+
+      {/* CAF : validation financière */}
       {estCAF && <ValidationCAF />}
     </div>
   )
