@@ -40,8 +40,11 @@ export async function DELETE(
     .or(`prestataire_id.eq.${id},manager_id.eq.${id}`)
   if (e2) return NextResponse.json({ error: 'Erreur suppression timesheets : ' + e2.message }, { status: 400 })
 
-  // 3. Nullifier valide_par dans soumissions (FK nullable)
-  await admin.from('soumissions').update({ valide_par: null }).eq('valide_par', id)
+  // 3. Nullifier les FK nullables dans soumissions (valide_par, paye_par)
+  await Promise.all([
+    admin.from('soumissions').update({ valide_par: null }).eq('valide_par', id),
+    admin.from('soumissions').update({ paye_par: null }).eq('paye_par', id),
+  ])
 
   // 4. Supprimer les soumissions où il est prestataire ou manager (NOT NULL)
   const { error: e4 } = await admin
@@ -52,6 +55,13 @@ export async function DELETE(
 
   // 5. Supprimer les alertes envoyées (NOT NULL, pas de cascade)
   await admin.from('alertes_envoyees').delete().eq('user_id', id)
+
+  // 5b. Nullifier caf_id dans paiements_prestataires + supprimer ceux où il est prestataire
+  await admin.from('paiements_prestataires').update({ caf_id: null }).eq('caf_id', id)
+  await admin.from('paiements_prestataires').delete().eq('prestataire_id', id)
+
+  // 5c. Nullifier paye_par dans payments (table payments du schema.sql)
+  await admin.from('payments').update({ paye_par: null }).eq('paye_par', id)
 
   // 6. Nullifier les FK nullables dans demandes_paiement (aaf_id, caf_id, de_id)
   await Promise.all([
