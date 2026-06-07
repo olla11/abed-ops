@@ -14,9 +14,10 @@ const MODE_PAIEMENT = [
   'Espèces', 'Chèque',
 ]
 
-export default function DemandePaiementForm({ onClose, prefill }: {
+export default function DemandePaiementForm({ onClose, prefill, soumissionId }: {
   onClose: () => void
   prefill?: Partial<Record<string, string>>
+  soumissionId?: string
 }) {
   const [form, setForm] = useState({
     nom_complet: '', email_contact: '', departement: '',
@@ -67,7 +68,12 @@ export default function DemandePaiementForm({ onClose, prefill }: {
       const res = await fetch('/api/demandes-paiement', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, montant: +form.montant, fichier_justificatif_url: fichier_url || undefined }),
+        body: JSON.stringify({
+          ...form,
+          montant: +form.montant,
+          fichier_justificatif_url: fichier_url || undefined,
+          soumission_id: soumissionId,
+        }),
       })
       const json = await res.json()
       if (!res.ok) { setMsg('Erreur : ' + json.error); setLoading(false); return }

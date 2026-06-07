@@ -175,6 +175,7 @@ export default function SoumissionForm({ managerId, typeEmploi }: { managerId: s
         </div>
         <DemandePaiementForm
           onClose={() => { setDemandeForSoum(null); loadHistory() }}
+          soumissionId={demandeForSoum.id}
           prefill={{
             objet: `Paiement timesheet : ${demandeForSoum.titre} (${demandeForSoum.periode_mois}/${demandeForSoum.periode_annee})`,
             montant: demandeForSoum.montant_caf != null ? String(demandeForSoum.montant_caf) : '',

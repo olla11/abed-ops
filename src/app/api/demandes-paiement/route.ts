@@ -38,13 +38,24 @@ export async function POST(req: NextRequest) {
     if (!body[f]) return NextResponse.json({ error: `Champ requis : ${f}` }, { status: 400 })
   }
 
+  const { soumission_id, ...demandeBody } = body
+
   const { data, error } = await supabase.from('demandes_paiement').insert({
     demandeur_id: user.id,
-    ...body,
+    ...demandeBody,
     montant: +body.montant,
   }).select().single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+
+  // Marquer la soumission associée comme "demande soumise" pour masquer la bannière
+  if (soumission_id) {
+    await supabase
+      .from('soumissions')
+      .update({ status: 'demande_soumise' })
+      .eq('id', soumission_id)
+      .eq('prestataire_id', user.id)
+  }
 
   // Notifier les AAF par email
   const { data: aafs } = await supabase
