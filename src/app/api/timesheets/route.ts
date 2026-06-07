@@ -7,7 +7,7 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'non authentifie' }, { status: 401 })
 
   const { data: profile } = await supabase
-    .from('profiles').select('manager_id').eq('id', user.id).single()
+    .from('profiles').select('manager_id, type_emploi').eq('id', user.id).single()
 
   if (!profile?.manager_id) {
     return NextResponse.json({ error: 'Aucun responsable technique assigné à votre profil.' }, { status: 400 })
@@ -20,7 +20,13 @@ export async function POST(req: NextRequest) {
   if (!titre || !periode_mois || !periode_annee || !heures_declarees) {
     return NextResponse.json({ error: 'Titre, période et heures déclarées sont obligatoires.' }, { status: 400 })
   }
-  if (!fichier_timesheet_url || !fichier_livrable_url || !fichier_facture_url) {
+
+  // Timesheet toujours obligatoire ; livrable et facture uniquement pour les autres types (pas direct ni crédit)
+  const estDirectOuCredit = ['prestataire_direct', 'prestataire_credit'].includes(profile.type_emploi ?? '')
+  if (!fichier_timesheet_url) {
+    return NextResponse.json({ error: 'Le fichier timesheet Excel est obligatoire.' }, { status: 400 })
+  }
+  if (!estDirectOuCredit && (!fichier_livrable_url || !fichier_facture_url)) {
     return NextResponse.json({ error: 'Les trois fichiers sont obligatoires (timesheet Excel, livrable PDF, facture PDF).' }, { status: 400 })
   }
 
