@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
       .limit(50),
 
     supabase.from('missions')
-      .select('id, reference, objet, status, date_debut, montant_avance, created_at')
+      .select('id, reference, objet, status, date_depart, created_at')
       .eq('missionnaire_id', user.id)
       .order('created_at', { ascending: false })
       .limit(50),
@@ -31,6 +31,12 @@ export async function GET(req: NextRequest) {
       .order('created_at', { ascending: false })
       .limit(50),
   ])
+
+  // Log silencieux des erreurs Supabase (ne bloque pas la réponse)
+  if (souRes.error) console.error('[statut] soumissions:', souRes.error.message)
+  if (rapRes.error) console.error('[statut] rapports_allocations:', rapRes.error.message)
+  if (omRes.error)  console.error('[statut] missions:', omRes.error.message)
+  if (demRes.error) console.error('[statut] demandes_paiement:', demRes.error.message)
 
   const items: any[] = []
 
@@ -60,8 +66,8 @@ export async function GET(req: NextRequest) {
     items.push({
       id: m.id, type: 'om',
       reference: m.reference ?? m.objet,
-      periode: m.date_debut ? new Date(m.date_debut).toLocaleDateString('fr-FR') : '—',
-      montant: m.montant_avance,
+      periode: m.date_depart ? new Date(m.date_depart).toLocaleDateString('fr-FR') : '—',
+      montant: null,
       status: m.status,
       created_at: m.created_at,
     })
