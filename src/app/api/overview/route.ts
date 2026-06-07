@@ -90,7 +90,7 @@ export async function GET(req: NextRequest) {
 
     // Missions / OM
     supabase.from('missions')
-      .select('id, objet, status, lieu, date_debut, date_fin, montant_avance, reference, created_at, missionnaire:profiles!missions_missionnaire_id_fkey(nom,prenoms)')
+      .select('id, objet, status, lieu, date_depart, date_retour, reference, created_at, missionnaire:profiles!missions_missionnaire_id_fkey(nom,prenoms)')
       .order('created_at', { ascending: false })
       .limit(300),
 
@@ -100,6 +100,12 @@ export async function GET(req: NextRequest) {
       .order('created_at', { ascending: false })
       .limit(300),
   ])
+
+  // Log silencieux des erreurs Supabase
+  if (souRes.error) console.error('[overview] soumissions:', souRes.error.message)
+  if (rapRes.error) console.error('[overview] rapports_allocations:', rapRes.error.message)
+  if (omRes.error)  console.error('[overview] missions:', omRes.error.message)
+  if (demRes.error) console.error('[overview] demandes_paiement:', demRes.error.message)
 
   const items: any[] = []
 
@@ -143,13 +149,13 @@ export async function GET(req: NextRequest) {
       id: m.id, type: 'om',
       reference: m.reference ?? m.objet,
       concerne: `${p?.prenoms} ${p?.nom}`,
-      periode: m.date_debut ? new Date(m.date_debut).toLocaleDateString('fr-FR') : '—',
-      montant: m.montant_avance,
+      periode: m.date_depart ? new Date(m.date_depart).toLocaleDateString('fr-FR') : '—',
+      montant: null,
       status: m.status,
       chez_qui: chezQui('om', m.status),
       clos: isClos('om', m.status),
       created_at: m.created_at,
-      meta: { lieu: m.lieu, date_fin: m.date_fin },
+      meta: { lieu: m.lieu, date_fin: m.date_retour },
     })
   }
 
