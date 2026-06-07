@@ -1,13 +1,8 @@
 export const dynamic = 'force-dynamic'
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
-import SoumissionForm from '@/components/SoumissionForm'
-import ValidationManager from '@/components/ValidationManager'
-import ValidationCAF from '@/components/ValidationCAF'
-import RapportAllocationForm from '@/components/RapportAllocationForm'
-import ValidationRapportsAAF from '@/components/ValidationRapportsAAF'
-import GestionCAF from '@/components/GestionCAF'
 import AppHeader from '@/components/AppHeader'
+import TimesheetsClient from '@/components/TimesheetsClient'
 
 export default async function TimesheetsPage() {
   const supabase = await createClient()
@@ -21,11 +16,6 @@ export default async function TimesheetsPage() {
 
   const role = profile?.role ?? 'missionnaire'
   const typeEmploi = profile?.type_emploi ?? null
-  const estRapportMensuel = ['benevole', 'stagiaire_n1', 'stagiaire_n2', 'cdd', 'cdi'].includes(typeEmploi ?? '')
-  const estManager = ['manager', 'caf', 'admin', 'de', 'aaf'].includes(role)
-  const estCAF = ['caf', 'admin'].includes(role)
-  const estAAF = ['aaf', 'admin'].includes(role)
-  const estSalarie = ['cdd', 'cdi'].includes(typeEmploi ?? '')
 
   return (
     <div style={{ maxWidth: 1000, margin: '0 auto', padding: 32, display: 'grid', gap: 28 }}>
@@ -35,51 +25,16 @@ export default async function TimesheetsPage() {
         typeEmploi={typeEmploi}
         showAdmin={role === 'admin'}
       />
-
-      {/* Titre dynamique — affiché si l'utilisateur a un formulaire à remplir */}
-      {(estRapportMensuel || ['prestataire_direct','prestataire_credit'].includes(typeEmploi ?? '')) && (
-        <div>
-          <h1 style={{ color: 'var(--abed-green)', marginBottom: 6 }}>
-            {estRapportMensuel ? 'Rapport mensuel' : 'Timesheet & livrables'}
-          </h1>
-          {estRapportMensuel && (
-            <p style={{ fontSize: 13, color: 'var(--abed-muted)', margin: 0 }}>
-              {estSalarie
-                ? "Soumettez votre rapport mensuel. L'AAF génèrera votre fiche de paie, validée par la CAF et autorisée par le DE."
-                : "Soumettez votre rapport mensuel. Une fois validé (AAF → CAF → DE), vous recevrez votre état de paiement d'allocation par email."}
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* Bénévole / Stagiaire / CDD / CDI : rapport mensuel — affiché pour tous ayant ce type_emploi, même si gestionnaire */}
-      {estRapportMensuel && (
-        <RapportAllocationForm typeEmploi={typeEmploi} />
-      )}
-
-      {/* Prestataire direct/crédit : formulaire timesheet — affiché selon type_emploi, pas le rôle */}
-      {['prestataire_direct','prestataire_credit'].includes(typeEmploi ?? '') && (
-        profile?.manager_id
-          ? <SoumissionForm managerId={profile.manager_id} typeEmploi={profile.type_emploi} />
-          : <div className="card" style={{ borderLeft: '4px solid var(--abed-amber)' }}>
-              <p style={{ fontSize: 14 }}>
-                Aucun responsable direct n'est défini sur votre profil.
-                Contactez l'administration pour qu'un manager vous soit attribué avant de soumettre.
-              </p>
-            </div>
-      )}
-
-      {/* Manager : validation technique */}
-      {estManager && <ValidationManager />}
-
-      {/* AAF/CAF/DE : validation des rapports d'allocations */}
-      {(estAAF || estCAF || ['de', 'administrateur'].includes(role)) && <ValidationRapportsAAF role={role} />}
-
-      {/* CAF : validation financière */}
-      {estCAF && <ValidationCAF />}
-
-      {/* CAF : paramètres financiers (taux + listes formulaires) */}
-      {estCAF && <GestionCAF />}
+      <TimesheetsClient
+        role={role}
+        typeEmploi={typeEmploi}
+        managerId={profile?.manager_id ?? null}
+        estRapportMensuel={['benevole', 'stagiaire_n1', 'stagiaire_n2', 'cdd', 'cdi'].includes(typeEmploi ?? '')}
+        estManager={['manager', 'caf', 'admin', 'de', 'aaf'].includes(role)}
+        estCAF={['caf', 'admin'].includes(role)}
+        estAAF={['aaf', 'admin'].includes(role)}
+        estSalarie={['cdd', 'cdi'].includes(typeEmploi ?? '')}
+      />
     </div>
   )
 }

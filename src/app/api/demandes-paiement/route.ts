@@ -7,6 +7,8 @@ export async function GET(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
 
+  const mine = req.nextUrl.searchParams.get('mine') === 'true'
+
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
   const role = profile?.role ?? ''
   const isTraiteur = ['aaf', 'caf', 'de', 'admin', 'administrateur'].includes(role)
@@ -16,7 +18,7 @@ export async function GET(req: NextRequest) {
     .select('*, demandeur:profiles!demandes_paiement_demandeur_id_fkey(nom,prenoms,email)')
     .order('created_at', { ascending: false })
 
-  if (!isTraiteur) {
+  if (!isTraiteur || mine) {
     query = query.eq('demandeur_id', user.id)
   }
 
