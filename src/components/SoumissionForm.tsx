@@ -89,8 +89,8 @@ export default function SoumissionForm({ managerId, typeEmploi }: { managerId: s
     if (!titre.trim()) { setMsg('Donnez un titre à votre soumission.'); return }
     if (!heures || heures <= 0) { setMsg('Saisissez le nombre d\'heures déclarées.'); return }
     if (!fileTS) { setMsg('Le fichier Excel timesheet est obligatoire.'); return }
-    if (!estDirect && !fileLiv) { setMsg('Le fichier PDF livrable est obligatoire.'); return }
-    if (!estDirect && !fileFac) { setMsg('Le fichier PDF facture est obligatoire.'); return }
+    if (!estDirect && !estCredit && !fileLiv) { setMsg('Le fichier PDF livrable est obligatoire.'); return }
+    if (!estDirect && !estCredit && !fileFac) { setMsg('Le fichier PDF facture est obligatoire.'); return }
 
     setLoading(true); setMsg('Envoi des fichiers…')
     try {
@@ -387,8 +387,8 @@ export default function SoumissionForm({ managerId, typeEmploi }: { managerId: s
           {estDirect ? 'Soumettre un timesheet' : 'Soumettre un dossier mensuel'}
         </h3>
         <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: 20 }}>
-          {estDirect
-            ? 'Le timesheet Excel est obligatoire. Un livrable est optionnel. La demande de paiement se fera après validation de votre responsable.'
+          {estDirect || estCredit
+            ? 'Le timesheet Excel est obligatoire. Un livrable est optionnel.'
             : 'Joignez les trois fichiers obligatoires (timesheet, livrable, facture).'}
         </p>
 
@@ -418,18 +418,18 @@ export default function SoumissionForm({ managerId, typeEmploi }: { managerId: s
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: estDirect ? '1fr 1fr' : '1fr 1fr 1fr', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: (estDirect || estCredit) ? '1fr 1fr' : '1fr 1fr 1fr', gap: 12 }}>
           <div className="field">
             <label className="label">📊 Timesheet Excel *</label>
             <input ref={tsRef} className="input" type="file" accept=".xlsx,.xls,.csv"
               onChange={e => setFileTS(e.target.files?.[0] ?? null)} />
           </div>
           <div className="field">
-            <label className="label">📄 Livrable {estDirect ? '(optionnel)' : '*'}</label>
+            <label className="label">📄 Livrable {(estDirect || estCredit) ? '(optionnel)' : '*'}</label>
             <input ref={livRef} className="input" type="file" accept=".pdf,.doc,.docx"
               onChange={e => setFileLiv(e.target.files?.[0] ?? null)} />
           </div>
-          {!estDirect && (
+          {!estDirect && !estCredit && (
             <div className="field">
               <label className="label">🧾 Facture PDF *</label>
               <input ref={facRef} className="input" type="file" accept=".pdf"
