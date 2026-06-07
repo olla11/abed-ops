@@ -86,15 +86,20 @@ export default function TraitementDemandes({ role }: { role: string }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', cursor: 'pointer', gap: 8 }}
           onClick={() => setExpanded(isOpen ? null : d.id)}>
           <div style={{ flex: 1 }}>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-              <strong>{d.nom_complet}</strong>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 4 }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6,
+                background: '#e8f5e9', border: '1px solid #a5d6a7', borderRadius: 6,
+                padding: '3px 10px', fontSize: 13, fontWeight: 700, color: '#1b5e20' }}>
+                👤 {d.nom_complet}
+              </span>
               <span style={{ fontSize: 11, fontWeight: 600, color: URGENCE_COLOR[d.urgence] ?? '#374151',
                 background: (URGENCE_COLOR[d.urgence] ?? '#374151') + '15', padding: '1px 6px', borderRadius: 999 }}>
                 {d.urgence === 'urgente' ? '⚠️ Urgente' : d.urgence === 'peut_attendre' ? '🔵 Peut attendre' : '🔶 Normale'}
               </span>
             </div>
+            <div style={{ fontSize: 13, fontWeight: 500, color: '#111827' }}>{d.objet}</div>
             <div style={{ fontSize: 12, color: 'var(--abed-muted)', marginTop: 2 }}>
-              {d.objet} — <strong style={{ color: 'var(--abed-green)' }}>{Number(d.montant).toLocaleString('fr-FR')} FCFA</strong>
+              <strong style={{ color: 'var(--abed-green)' }}>{Number(d.montant).toLocaleString('fr-FR')} FCFA</strong>
               {' '}— {d.departement} — {new Date(d.created_at).toLocaleDateString('fr-FR')}
             </div>
           </div>
