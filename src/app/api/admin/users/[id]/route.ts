@@ -30,30 +30,46 @@ export async function DELETE(
 
   // Supprimer dans l'ordre des dépendances FK pour éviter les erreurs de contrainte
 
-  // 1. Timesheets où cet utilisateur est prestataire ou manager
-  const { error: e1 } = await admin
+  // 1. Nullifier les FK nullables dans timesheets
+  await admin.from('timesheets').update({ caf_valide_par: null }).eq('caf_valide_par', id)
+
+  // 2. Timesheets où cet utilisateur est prestataire ou manager (NOT NULL)
+  const { error: e2 } = await admin
     .from('timesheets')
     .delete()
     .or(`prestataire_id.eq.${id},manager_id.eq.${id}`)
-  if (e1) return NextResponse.json({ error: 'Erreur suppression timesheets : ' + e1.message }, { status: 400 })
+  if (e2) return NextResponse.json({ error: 'Erreur suppression timesheets : ' + e2.message }, { status: 400 })
 
-  // 2. Nullifier signe_par sur les missions signées par cet utilisateur (FK nullable)
+  // 3. Nullifier valide_par dans soumissions (FK nullable)
+  await admin.from('soumissions').update({ valide_par: null }).eq('valide_par', id)
+
+  // 4. Supprimer les soumissions où il est prestataire ou manager (NOT NULL)
+  const { error: e4 } = await admin
+    .from('soumissions')
+    .delete()
+    .or(`prestataire_id.eq.${id},manager_id.eq.${id}`)
+  if (e4) return NextResponse.json({ error: 'Erreur suppression soumissions : ' + e4.message }, { status: 400 })
+
+  // 5. Supprimer les alertes envoyées (NOT NULL, pas de cascade)
+  await admin.from('alertes_envoyees').delete().eq('user_id', id)
+
+  // 6. Nullifier signe_par sur les missions signées par cet utilisateur (FK nullable)
   await admin.from('missions').update({ signe_par: null }).eq('signe_par', id)
 
-  // 3. Supprimer les missions dont il est missionnaire (cascade vers payments)
-  const { error: e3 } = await admin
+  // 7. Supprimer les missions dont il est missionnaire (cascade vers payments)
+  const { error: e7 } = await admin
     .from('missions')
     .delete()
     .eq('missionnaire_id', id)
-  if (e3) return NextResponse.json({ error: 'Erreur suppression missions : ' + e3.message }, { status: 400 })
+  if (e7) return NextResponse.json({ error: 'Erreur suppression missions : ' + e7.message }, { status: 400 })
 
-  // 4. Détacher les profils dont il est manager
+  // 8. Détacher les profils dont il est manager
   await admin.from('profiles').update({ manager_id: null }).eq('manager_id', id)
 
-  // 5. Supprimer le profil explicitement
+  // 9. Supprimer le profil explicitement
   await admin.from('profiles').delete().eq('id', id)
 
-  // 6. Supprimer le compte Auth
+  // 10. Supprimer le compte Auth
   const { error: authErr } = await admin.auth.admin.deleteUser(id)
   if (authErr) return NextResponse.json({ error: authErr.message }, { status: 400 })
 
