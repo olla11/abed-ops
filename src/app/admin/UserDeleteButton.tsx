@@ -17,7 +17,12 @@ export default function UserDeleteButton({ userId, name }: { userId: string; nam
     else { setErr(data.error ?? 'Erreur inconnue'); setConfirm(false) }
   }
 
-  if (err) return <span style={{ fontSize: 12, color: 'var(--abed-danger)' }}>{err}</span>
+  if (err) return (
+    <span style={{ fontSize: 11, color: 'var(--abed-danger)', display: 'block', maxWidth: 280, wordBreak: 'break-word' }}
+      title={err}>
+      {err}
+    </span>
+  )
 
   if (!confirm) {
     return (

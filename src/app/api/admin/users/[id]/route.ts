@@ -28,88 +28,69 @@ export async function DELETE(
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
+  // Helper : retourne une erreur 400 avec le contexte exact de l'échec
+  function fail(step: string, msg: string) {
+    return NextResponse.json({ error: `[${step}] ${msg}` }, { status: 400 })
+  }
+
   // Supprimer dans l'ordre des dépendances FK pour éviter les erreurs de contrainte
 
-  // 1. Nullifier les FK nullables dans timesheets
+  // ── timesheets ──
   await admin.from('timesheets').update({ caf_valide_par: null }).eq('caf_valide_par', id)
-
-  // 2. Timesheets où cet utilisateur est prestataire ou manager (NOT NULL)
-  const { error: e2 } = await admin
-    .from('timesheets')
-    .delete()
+  const { error: eTs } = await admin.from('timesheets').delete()
     .or(`prestataire_id.eq.${id},manager_id.eq.${id}`)
-  if (e2) return NextResponse.json({ error: 'Erreur suppression timesheets : ' + e2.message }, { status: 400 })
+  if (eTs) return fail('timesheets', eTs.message)
 
-  // 3. Nullifier les FK nullables dans soumissions (valide_par, paye_par)
-  await Promise.all([
-    admin.from('soumissions').update({ valide_par: null }).eq('valide_par', id),
-    admin.from('soumissions').update({ paye_par: null }).eq('paye_par', id),
-  ])
-
-  // 4. Supprimer les soumissions où il est prestataire ou manager (NOT NULL)
-  const { error: e4 } = await admin
-    .from('soumissions')
-    .delete()
+  // ── soumissions ──
+  await admin.from('soumissions').update({ valide_par: null }).eq('valide_par', id)
+  await admin.from('soumissions').update({ paye_par: null }).eq('paye_par', id)
+  const { error: eSoum } = await admin.from('soumissions').delete()
     .or(`prestataire_id.eq.${id},manager_id.eq.${id}`)
-  if (e4) return NextResponse.json({ error: 'Erreur suppression soumissions : ' + e4.message }, { status: 400 })
+  if (eSoum) return fail('soumissions', eSoum.message)
 
-  // 5. Supprimer les alertes envoyées (NOT NULL, pas de cascade)
+  // ── alertes_envoyees ──
   await admin.from('alertes_envoyees').delete().eq('user_id', id)
 
-  // 5b. Nullifier caf_id dans paiements_prestataires + supprimer ceux où il est prestataire
+  // ── paiements_prestataires ──
   await admin.from('paiements_prestataires').update({ caf_id: null }).eq('caf_id', id)
-  await admin.from('paiements_prestataires').delete().eq('prestataire_id', id)
+  const { error: ePaiPrest } = await admin.from('paiements_prestataires').delete()
+    .eq('prestataire_id', id)
+  if (ePaiPrest) return fail('paiements_prestataires', ePaiPrest.message)
 
-  // 5c. Nullifier paye_par dans payments (table payments du schema.sql)
-  await admin.from('payments').update({ paye_par: null }).eq('paye_par', id)
-
-  // 6. Nullifier les FK nullables dans demandes_paiement (aaf_id, caf_id, de_id)
+  // ── demandes_paiement ──
   await Promise.all([
     admin.from('demandes_paiement').update({ aaf_id: null }).eq('aaf_id', id),
     admin.from('demandes_paiement').update({ caf_id: null }).eq('caf_id', id),
     admin.from('demandes_paiement').update({ de_id: null }).eq('de_id', id),
   ])
-
-  // 7. Supprimer les demandes de paiement où il est demandeur (NOT NULL)
-  const { error: e7 } = await admin
-    .from('demandes_paiement')
-    .delete()
+  const { error: eDem } = await admin.from('demandes_paiement').delete()
     .eq('demandeur_id', id)
-  if (e7) return NextResponse.json({ error: 'Erreur suppression demandes_paiement : ' + e7.message }, { status: 400 })
+  if (eDem) return fail('demandes_paiement', eDem.message)
 
-  // 8. Nullifier les FK nullables dans rapports_allocations (aaf_id, caf_id, de_id)
+  // ── rapports_allocations ──
   await Promise.all([
     admin.from('rapports_allocations').update({ aaf_id: null }).eq('aaf_id', id),
     admin.from('rapports_allocations').update({ caf_id: null }).eq('caf_id', id),
     admin.from('rapports_allocations').update({ de_id: null }).eq('de_id', id),
   ])
-
-  // 9. Supprimer les rapports d'allocations où il est prestataire ou manager (NOT NULL)
-  const { error: e9 } = await admin
-    .from('rapports_allocations')
-    .delete()
+  const { error: eRap } = await admin.from('rapports_allocations').delete()
     .or(`prestataire_id.eq.${id},manager_id.eq.${id}`)
-  if (e9) return NextResponse.json({ error: 'Erreur suppression rapports_allocations : ' + e9.message }, { status: 400 })
+  if (eRap) return fail('rapports_allocations', eRap.message)
 
-  // 10. Nullifier signe_par sur les missions signées par cet utilisateur (FK nullable)
+  // ── missions ──
   await admin.from('missions').update({ signe_par: null }).eq('signe_par', id)
-
-  // 11. Supprimer les missions dont il est missionnaire (cascade vers payments)
-  const { error: e11 } = await admin
-    .from('missions')
-    .delete()
+  const { error: eMis } = await admin.from('missions').delete()
     .eq('missionnaire_id', id)
-  if (e11) return NextResponse.json({ error: 'Erreur suppression missions : ' + e11.message }, { status: 400 })
+  if (eMis) return fail('missions', eMis.message)
 
-  // 12. Détacher les profils dont il est manager
+  // ── profiles ──
   await admin.from('profiles').update({ manager_id: null }).eq('manager_id', id)
+  const { error: eProf } = await admin.from('profiles').delete().eq('id', id)
+  if (eProf) return fail('profiles', eProf.message)
 
-  // 13. Supprimer le profil explicitement
-  await admin.from('profiles').delete().eq('id', id)
-
-  // 14. Supprimer le compte Auth
+  // ── compte Auth ──
   const { error: authErr } = await admin.auth.admin.deleteUser(id)
-  if (authErr) return NextResponse.json({ error: authErr.message }, { status: 400 })
+  if (authErr) return fail('auth.deleteUser', authErr.message)
 
   return NextResponse.json({ ok: true })
 }
