@@ -30,8 +30,9 @@ export default function TimesheetsClient({
   const tabs = []
   if (hasOwnForm) tabs.push({ key: 'mes', label: estRapportMensuel ? 'Mon rapport mensuel' : 'Mon timesheet' })
   if (hasValidation) tabs.push({ key: 'valider', label: 'À valider' })
+  if (estCAF) tabs.push({ key: 'params', label: '⚙️ Paramètres' })
 
-  const defaultTab = hasOwnForm ? 'mes' : 'valider'
+  const defaultTab = hasOwnForm ? 'mes' : hasValidation ? 'valider' : 'params'
   const [activeTab, setActiveTab] = useState(defaultTab)
 
   return (
@@ -94,28 +95,24 @@ export default function TimesheetsClient({
           )}
 
           {estCAF && (
-            <>
-              <div>
-                <h3 style={{ color: 'var(--abed-green)', marginBottom: 4 }}>Validation financière CAF</h3>
-                <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: 12 }}>
-                  Vérification des montants et validation financière des timesheets.
-                </p>
-                <ValidationCAF />
-              </div>
-              <div>
-                <h3 style={{ color: 'var(--abed-green)', marginBottom: 4 }}>Paramètres financiers</h3>
-                <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: 12 }}>
-                  Taux et listes de configuration pour les allocations.
-                </p>
-                <GestionCAF />
-              </div>
-            </>
+            <div>
+              <h3 style={{ color: 'var(--abed-green)', marginBottom: 4 }}>Validation financière CAF</h3>
+              <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: 12 }}>
+                Vérification des montants et validation financière des timesheets.
+              </p>
+              <ValidationCAF />
+            </div>
           )}
         </div>
       )}
 
+      {/* ── Onglet : paramètres (CAF seulement) ── */}
+      {activeTab === 'params' && estCAF && (
+        <GestionCAF />
+      )}
+
       {/* Cas utilisateur sans formulaire ni validation */}
-      {!hasOwnForm && !hasValidation && (
+      {!hasOwnForm && !hasValidation && !estCAF && (
         <div className="card" style={{ textAlign: 'center', padding: 40 }}>
           <p style={{ color: 'var(--abed-muted)' }}>
             Aucune action disponible pour votre profil sur cette page.

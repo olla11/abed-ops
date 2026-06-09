@@ -3,11 +3,12 @@ import { useState, useEffect } from 'react'
 
 type Item = { id: string; nom?: string; code?: string; libelle?: string; ordre?: number }
 
-const LISTES = [
-  { key: 'departements',     label: 'Départements / Équipes',   fields: ['nom'] },
-  { key: 'codes_budgetaires',label: 'Codes budgétaires',         fields: ['code', 'libelle'] },
-  { key: 'projets',          label: 'Projets / Programmes',      fields: ['nom'] },
-  { key: 'natures',          label: 'Natures de dépense',        fields: ['nom'] },
+// Listes partagées timesheet + demande de paiement
+const LISTES_COMMUNES = [
+  { key: 'departements',      label: 'Départements / Équipes',  fields: ['nom'] },
+  { key: 'codes_budgetaires', label: 'Codes budgétaires',        fields: ['code', 'libelle'] },
+  { key: 'projets',           label: 'Projets / Programmes',     fields: ['nom'] },
+  { key: 'natures',           label: 'Natures de dépense',       fields: ['nom'] },
 ]
 
 function itemLabel(item: Item) {
@@ -53,10 +54,11 @@ function ListeSection({ listKey, label, fields }: { listKey: string; label: stri
 
   return (
     <div style={{ marginBottom: 28 }}>
-      <h4 style={{ marginBottom: 8, color: 'var(--abed-green)' }}>{label}</h4>
+      <h4 style={{ marginBottom: 8, color: 'var(--abed-green)', fontSize: 14 }}>{label}</h4>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
         {fields.map(f => (
-          <input key={f} className="input" placeholder={f === 'code' ? 'Code (ex: ADM01)' : f === 'libelle' ? 'Libellé' : 'Nom'}
+          <input key={f} className="input"
+            placeholder={f === 'code' ? 'Code (ex: ADM01)' : f === 'libelle' ? 'Libellé' : 'Nom'}
             value={form[f] ?? ''} style={{ maxWidth: 220 }}
             onChange={e => setForm(prev => ({ ...prev, [f]: e.target.value }))} />
         ))}
@@ -67,9 +69,11 @@ function ListeSection({ listKey, label, fields }: { listKey: string; label: stri
       {msg && <p style={{ fontSize: 12, color: '#991b1b', marginBottom: 8 }}>{msg}</p>}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
         {items.map(item => (
-          <span key={item.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6,
+          <span key={item.id} style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
             fontSize: 12, padding: '3px 10px', borderRadius: 999,
-            background: '#f3f4f6', border: '1px solid #e5e7eb' }}>
+            background: '#f3f4f6', border: '1px solid #e5e7eb',
+          }}>
             {itemLabel(item)}
             <button onClick={() => remove(item.id)} disabled={deleting === item.id}
               style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#991b1b',
@@ -113,7 +117,10 @@ function TauxSection() {
 
   return (
     <div style={{ marginBottom: 28 }}>
-      <h4 style={{ marginBottom: 8, color: 'var(--abed-green)' }}>Taux horaires (FCFA/heure)</h4>
+      <h4 style={{ marginBottom: 8, color: 'var(--abed-green)', fontSize: 14 }}>Taux horaires (FCFA/heure)</h4>
+      <p style={{ fontSize: 12, color: 'var(--abed-muted)', marginBottom: 10 }}>
+        Utilisés pour le calcul automatique des montants dans les timesheets et compteurs crédit.
+      </p>
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
         <div className="field" style={{ marginBottom: 0 }}>
           <label className="label">Prestataire direct</label>
@@ -137,22 +144,61 @@ function TauxSection() {
   )
 }
 
+type SubTab = 'taux' | 'formulaires'
+
 export default function GestionCAF() {
+  const [subTab, setSubTab] = useState<SubTab>('taux')
+
+  const subTabs = [
+    { key: 'taux', label: 'Taux horaires' },
+    { key: 'formulaires', label: 'Formulaires (listes)' },
+  ]
+
   return (
     <div className="card" style={{ borderLeft: '4px solid #1e40af' }}>
-      <h3 style={{ marginBottom: 4 }}>⚙️ Paramètres financiers</h3>
+      <h3 style={{ marginBottom: 4 }}>⚙️ Paramètres financiers & formulaires</h3>
       <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: 20 }}>
-        Gérez les taux horaires et les listes utilisées dans les formulaires de demande de paiement.
+        Configurez les taux horaires et les listes déroulantes utilisées dans les timesheets et les demandes de paiement.
       </p>
 
-      <TauxSection />
+      {/* Sous-onglets */}
+      <div style={{ display: 'flex', gap: 0, borderBottom: '2px solid var(--abed-border)', marginBottom: 24 }}>
+        {subTabs.map(t => {
+          const active = t.key === subTab
+          return (
+            <button key={t.key} onClick={() => setSubTab(t.key as SubTab)}
+              style={{
+                padding: '8px 20px', fontSize: 13, fontWeight: active ? 700 : 500,
+                color: active ? '#1e40af' : 'var(--abed-muted)',
+                background: 'none', border: 'none',
+                borderBottom: active ? '3px solid #1e40af' : '3px solid transparent',
+                marginBottom: -2, cursor: 'pointer', transition: 'color .15s',
+              }}>
+              {t.label}
+            </button>
+          )
+        })}
+      </div>
 
-      <hr style={{ margin: '20px 0', borderColor: 'var(--abed-border)' }} />
-      <h4 style={{ marginBottom: 16, color: '#374151' }}>Listes du formulaire de demande de paiement</h4>
+      {/* Taux horaires */}
+      {subTab === 'taux' && <TauxSection />}
 
-      {LISTES.map(l => (
-        <ListeSection key={l.key} listKey={l.key} label={l.label} fields={l.fields} />
-      ))}
+      {/* Listes formulaires */}
+      {subTab === 'formulaires' && (
+        <div>
+          <div style={{
+            background: '#eff6ff', border: '1px solid #bfdbfe',
+            borderRadius: 8, padding: '10px 14px', marginBottom: 20, fontSize: 13,
+          }}>
+            <strong>Ces listes sont partagées</strong> entre le formulaire de timesheet et le formulaire de demande de paiement.
+            Toute modification s'applique immédiatement aux deux formulaires.
+          </div>
+
+          {LISTES_COMMUNES.map(l => (
+            <ListeSection key={l.key} listKey={l.key} label={l.label} fields={l.fields} />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
