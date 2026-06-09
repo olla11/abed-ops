@@ -4,9 +4,14 @@ import { useState, useEffect } from 'react'
 // ── Types ────────────────────────────────────────────────────────────────────
 
 type ListeItem = { id: string; nom?: string; code?: string; libelle?: string }
-type ChampDemande = {
-  id: string; label: string; type: string; required: boolean
-  options: string[]; ordre: number
+
+type ChampLocal = {
+  _key: string          // identifiant local unique (uuid temporaire pour les nouveaux)
+  label: string
+  type: 'text' | 'textarea' | 'select' | 'number'
+  required: boolean
+  options: string[]     // pour type=select
+  optionsRaw: string    // texte brut séparé par virgules pour l'édition
 }
 
 const LISTES = [
@@ -16,17 +21,33 @@ const LISTES = [
   { key: 'natures',           label: 'Natures de dépense',       fields: ['nom'] },
 ]
 
-const CHAMPS_FIXES = [
-  'Nom et prénom complets', 'Adresse email', 'Département / Équipe',
-  'Objet de la dépense', 'Code budgétaire', 'Projet / Programme',
-  'Nature de la dépense', 'Montant demandé (FCFA)', 'Mode de paiement',
-  'Fournisseur / Bénéficiaire', 'Référence pièce justificative',
-  'Justification de la demande', "Niveau d'urgence", 'Date souhaitée de paiement',
-  'Pièce justificative (fichier)',
+const TYPE_OPTS = [
+  { value: 'text',     label: 'Texte court' },
+  { value: 'textarea', label: 'Texte long' },
+  { value: 'select',   label: 'Liste déroulante' },
+  { value: 'number',   label: 'Nombre' },
 ]
 
-const TYPE_LABELS: Record<string, string> = {
-  text: 'Texte court', textarea: 'Texte long', select: 'Liste déroulante', number: 'Nombre',
+const CHAMPS_FIXES = [
+  { label: 'Nom et prénom complets',             type: 'text' },
+  { label: 'Adresse email',                      type: 'text' },
+  { label: 'Département / Équipe',               type: 'select' },
+  { label: 'Objet de la dépense',                type: 'textarea' },
+  { label: 'Code budgétaire',                    type: 'select' },
+  { label: 'Projet / Programme',                 type: 'select' },
+  { label: 'Nature de la dépense',               type: 'select' },
+  { label: 'Montant demandé (FCFA)',             type: 'number' },
+  { label: 'Mode de paiement',                   type: 'select' },
+  { label: 'Fournisseur / Bénéficiaire',         type: 'text' },
+  { label: 'Référence pièce justificative',      type: 'text' },
+  { label: 'Justification de la demande',        type: 'textarea' },
+  { label: "Niveau d'urgence",                   type: 'select' },
+  { label: 'Date souhaitée de paiement',         type: 'date' },
+  { label: 'Pièce justificative (fichier)',       type: 'file' },
+]
+
+function uid() {
+  return Math.random().toString(36).slice(2)
 }
 
 // ── Sous-composant : liste configurable ─────────────────────────────────────
@@ -39,8 +60,7 @@ function ListeSection({ listKey, label, fields }: { listKey: string; label: stri
   const [msg, setMsg] = useState('')
 
   function itemLabel(item: ListeItem) {
-    if (item.code) return `${item.code} — ${item.libelle}`
-    return item.nom ?? '—'
+    return item.code ? `${item.code} — ${item.libelle}` : (item.nom ?? '—')
   }
 
   async function load() {
@@ -59,8 +79,7 @@ function ListeSection({ listKey, label, fields }: { listKey: string; label: stri
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: listKey, ...form }),
     })
-    const j = await r.json()
-    if (!r.ok) { setMsg('Erreur : ' + j.error); setSaving(false); return }
+    if (!(await r.json()).ok && !r.ok) { setMsg('Erreur'); setSaving(false); return }
     setForm({}); load(); setSaving(false)
   }
 
@@ -125,7 +144,8 @@ function TauxSection() {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ taux_direct: +tauxDirect, taux_credit: +tauxCredit }),
     })
-    setMsg((await r.json()).error ? 'Erreur' : '✓ Taux mis à jour')
+    const j = await r.json()
+    setMsg(r.ok ? '✓ Taux mis à jour' : 'Erreur : ' + j.error)
     setSaving(false)
   }
 
@@ -155,189 +175,245 @@ function TauxSection() {
   )
 }
 
-// ── Sous-composant : champs personnalisés du formulaire de demande ────────────
+// ── Éditeur complet du formulaire de demande ─────────────────────────────────
 
-function ChampsDemandeSection() {
-  const [champs, setChamps] = useState<ChampDemande[]>([])
+function EditeurFormulaire() {
+  const [champs, setChamps] = useState<ChampLocal[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [editing, setEditing] = useState<string | null>(null)
-  const [msg, setMsg] = useState('')
-
-  // Nouveau champ
-  const [newLabel, setNewLabel] = useState('')
-  const [newType, setNewType] = useState('text')
-  const [newRequired, setNewRequired] = useState(false)
-  const [newOptions, setNewOptions] = useState('') // CSV pour select
-
-  // Édition
-  const [editLabel, setEditLabel] = useState('')
-  const [editRequired, setEditRequired] = useState(false)
-  const [editOptions, setEditOptions] = useState('')
+  const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null)
+  const [dirty, setDirty] = useState(false)
 
   async function load() {
     const r = await fetch('/api/config/champs-demande')
-    setChamps((await r.json()).data ?? [])
+    const data = (await r.json()).data ?? []
+    setChamps(data.map((c: any) => ({
+      _key: uid(),
+      label: c.label,
+      type: c.type,
+      required: c.required,
+      options: c.options ?? [],
+      optionsRaw: (c.options ?? []).join(', '),
+    })))
     setLoading(false)
+    setDirty(false)
   }
 
   useEffect(() => { load() }, [])
 
-  async function add() {
-    if (!newLabel.trim()) { setMsg('Le libellé est requis.'); return }
-    if (newType === 'select' && !newOptions.trim()) { setMsg('Saisissez au moins une option (séparées par des virgules).'); return }
-    setSaving(true); setMsg('')
-    const options = newType === 'select' ? newOptions.split(',').map(s => s.trim()).filter(Boolean) : []
+  function update(key: string, patch: Partial<ChampLocal>) {
+    setChamps(cs => cs.map(c => c._key === key ? { ...c, ...patch } : c))
+    setDirty(true)
+  }
+
+  function addChamp() {
+    setChamps(cs => [...cs, { _key: uid(), label: '', type: 'text', required: false, options: [], optionsRaw: '' }])
+    setDirty(true)
+  }
+
+  function remove(key: string) {
+    setChamps(cs => cs.filter(c => c._key !== key))
+    setDirty(true)
+  }
+
+  function move(key: string, dir: -1 | 1) {
+    setChamps(cs => {
+      const idx = cs.findIndex(c => c._key === key)
+      if (idx + dir < 0 || idx + dir >= cs.length) return cs
+      const next = [...cs]
+      ;[next[idx], next[idx + dir]] = [next[idx + dir], next[idx]]
+      return next
+    })
+    setDirty(true)
+  }
+
+  async function save() {
+    for (const c of champs) {
+      if (!c.label.trim()) { setMsg({ text: 'Tous les champs doivent avoir un libellé.', ok: false }); return }
+      if (c.type === 'select' && !c.optionsRaw.trim()) {
+        setMsg({ text: `Le champ "${c.label}" (liste) doit avoir au moins une option.`, ok: false }); return
+      }
+    }
+    setSaving(true); setMsg(null)
+    const payload = champs.map((c, i) => ({
+      label: c.label.trim(),
+      type: c.type,
+      required: c.required,
+      options: c.type === 'select' ? c.optionsRaw.split(',').map(s => s.trim()).filter(Boolean) : [],
+      ordre: i,
+    }))
     const r = await fetch('/api/config/champs-demande', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ label: newLabel, type: newType, required: newRequired, options, ordre: champs.length }),
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ champs: payload }),
     })
-    if (!r.ok) { setMsg('Erreur : ' + (await r.json()).error); setSaving(false); return }
-    setNewLabel(''); setNewType('text'); setNewRequired(false); setNewOptions('')
-    load(); setSaving(false)
+    const j = await r.json()
+    if (r.ok) {
+      setMsg({ text: '✓ Formulaire mis à jour pour tous les utilisateurs.', ok: true })
+      setDirty(false)
+      load()
+    } else {
+      setMsg({ text: 'Erreur : ' + j.error, ok: false })
+    }
+    setSaving(false)
   }
 
-  async function startEdit(c: ChampDemande) {
-    setEditing(c.id)
-    setEditLabel(c.label)
-    setEditRequired(c.required)
-    setEditOptions((c.options ?? []).join(', '))
-  }
-
-  async function saveEdit(id: string) {
-    const c = champs.find(x => x.id === id)!
-    const options = c.type === 'select' ? editOptions.split(',').map(s => s.trim()).filter(Boolean) : c.options
-    setSaving(true)
-    await fetch('/api/config/champs-demande', {
-      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, label: editLabel, required: editRequired, options }),
-    })
-    setEditing(null); load(); setSaving(false)
-  }
-
-  async function remove(id: string) {
-    if (!confirm('Supprimer ce champ ? Les demandes existantes conservent leurs données.')) return
-    await fetch(`/api/config/champs-demande?id=${id}`, { method: 'DELETE' })
-    load()
-  }
+  if (loading) return <p style={{ color: 'var(--abed-muted)', fontSize: 13 }}>Chargement…</p>
 
   return (
     <div>
-      {/* Champs fixes (lecture seule) */}
+      {/* Rappel des champs fixes */}
       <div style={{ marginBottom: 24 }}>
-        <h4 style={{ marginBottom: 8, color: '#374151', fontSize: 14 }}>Champs fixes (non modifiables)</h4>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          {CHAMPS_FIXES.map(f => (
-            <span key={f} style={{
-              fontSize: 12, padding: '3px 10px', borderRadius: 999,
-              background: '#f3f4f6', border: '1px solid #e5e7eb', color: '#6b7280',
-            }}>{f}</span>
+        <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 10, color: '#374151' }}>
+          Champs fixes du formulaire (non modifiables — structure de base)
+        </p>
+        <div style={{ display: 'grid', gap: 4 }}>
+          {CHAMPS_FIXES.map((f, i) => (
+            <div key={i} style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '6px 12px', background: '#f9fafb',
+              border: '1px solid #e5e7eb', borderRadius: 6,
+              fontSize: 13, color: '#6b7280',
+            }}>
+              <span style={{ fontSize: 11, background: '#e5e7eb', padding: '1px 6px', borderRadius: 4, minWidth: 20, textAlign: 'center' }}>
+                {i + 1}
+              </span>
+              <span style={{ flex: 1 }}>{f.label}</span>
+              <span style={{ fontSize: 11, color: '#9ca3af' }}>{f.type}</span>
+              <span style={{ fontSize: 10, color: '#d1d5db', border: '1px solid #e5e7eb', borderRadius: 4, padding: '1px 5px' }}>fixe</span>
+            </div>
           ))}
         </div>
       </div>
 
       <hr style={{ borderColor: 'var(--abed-border)', marginBottom: 20 }} />
 
-      {/* Champs personnalisés existants */}
-      <h4 style={{ marginBottom: 12, color: 'var(--abed-green)', fontSize: 14 }}>
-        Champs personnalisés ({champs.length})
-      </h4>
+      {/* Éditeur des champs personnalisés */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+        <div>
+          <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--abed-green)', margin: 0 }}>
+            Questions supplémentaires ({champs.length})
+          </p>
+          <p style={{ fontSize: 12, color: 'var(--abed-muted)', margin: '2px 0 0' }}>
+            Ces champs s'ajoutent après les champs fixes pour tous les utilisateurs.
+          </p>
+        </div>
+        <button onClick={addChamp} className="btn secondary" style={{ fontSize: 13 }}>
+          + Ajouter une question
+        </button>
+      </div>
 
-      {loading ? <p style={{ fontSize: 13, color: 'var(--abed-muted)' }}>Chargement…</p> : (
-        champs.length === 0
-          ? <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: 16 }}>Aucun champ personnalisé pour le moment.</p>
-          : (
-            <div style={{ display: 'grid', gap: 10, marginBottom: 20 }}>
-              {champs.map((c, i) => (
-                <div key={c.id} style={{
-                  background: '#f9fafb', border: '1px solid var(--abed-border)',
-                  borderRadius: 8, padding: '12px 16px',
-                }}>
-                  {editing === c.id ? (
-                    <div style={{ display: 'grid', gap: 8 }}>
-                      <input className="input" value={editLabel} onChange={e => setEditLabel(e.target.value)}
-                        placeholder="Libellé du champ" />
-                      {c.type === 'select' && (
-                        <input className="input" value={editOptions}
-                          onChange={e => setEditOptions(e.target.value)}
-                          placeholder="Options séparées par des virgules" />
-                      )}
-                      <label style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <input type="checkbox" checked={editRequired} onChange={e => setEditRequired(e.target.checked)} />
-                        Champ obligatoire
-                      </label>
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <button className="btn" style={{ fontSize: 12 }} disabled={saving}
-                          onClick={() => saveEdit(c.id)}>Enregistrer</button>
-                        <button className="btn secondary" style={{ fontSize: 12 }}
-                          onClick={() => setEditing(null)}>Annuler</button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-                      <div>
-                        <span style={{ fontSize: 13, fontWeight: 600 }}>
-                          {i + 1 + CHAMPS_FIXES.length}. {c.label}
-                          {c.required && <span style={{ color: '#991b1b', marginLeft: 4 }}>*</span>}
-                        </span>
-                        <span style={{ fontSize: 11, color: 'var(--abed-muted)', marginLeft: 10 }}>
-                          {TYPE_LABELS[c.type] ?? c.type}
-                          {c.type === 'select' && c.options?.length > 0 && ` — ${c.options.join(', ')}`}
-                        </span>
-                      </div>
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <button className="btn secondary" style={{ fontSize: 12, padding: '4px 10px' }}
-                          onClick={() => startEdit(c)}>Modifier</button>
-                        <button onClick={() => remove(c.id)}
-                          style={{ fontSize: 12, padding: '4px 10px', background: 'none', border: '1px solid #fca5a5',
-                            color: '#991b1b', borderRadius: 6, cursor: 'pointer' }}>
-                          Supprimer
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )
+      {champs.length === 0 && (
+        <div style={{ textAlign: 'center', padding: '28px 0', color: 'var(--abed-muted)', fontSize: 13,
+          background: '#f9fafb', borderRadius: 8, border: '1px dashed var(--abed-border)', marginBottom: 16 }}>
+          Aucune question supplémentaire. Cliquez sur "+ Ajouter une question" pour commencer.
+        </div>
       )}
 
-      {/* Ajouter un champ */}
-      <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: 16 }}>
-        <h4 style={{ marginBottom: 12, color: 'var(--abed-green)', fontSize: 14 }}>+ Ajouter un champ</h4>
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 10, marginBottom: 10 }}>
-          <div className="field" style={{ marginBottom: 0 }}>
-            <label className="label">Libellé de la question *</label>
-            <input className="input" placeholder="ex : Numéro de compte bancaire"
-              value={newLabel} onChange={e => setNewLabel(e.target.value)} />
+      <div style={{ display: 'grid', gap: 10, marginBottom: 20 }}>
+        {champs.map((c, i) => (
+          <div key={c._key} style={{
+            background: 'white', border: '1px solid var(--abed-border)',
+            borderLeft: '4px solid var(--abed-green)',
+            borderRadius: 8, padding: '14px 16px',
+          }}>
+            {/* En-tête de la ligne */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              {/* Numéro */}
+              <span style={{
+                fontSize: 11, fontWeight: 700, background: 'var(--abed-green)', color: 'white',
+                borderRadius: 4, padding: '2px 7px', minWidth: 28, textAlign: 'center',
+              }}>
+                {CHAMPS_FIXES.length + i + 1}
+              </span>
+
+              {/* Boutons haut/bas */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <button onClick={() => move(c._key, -1)} disabled={i === 0}
+                  style={{ fontSize: 10, lineHeight: 1, padding: '2px 5px', background: '#f3f4f6',
+                    border: '1px solid #e5e7eb', borderRadius: 3, cursor: i === 0 ? 'not-allowed' : 'pointer',
+                    opacity: i === 0 ? 0.4 : 1 }}>▲</button>
+                <button onClick={() => move(c._key, 1)} disabled={i === champs.length - 1}
+                  style={{ fontSize: 10, lineHeight: 1, padding: '2px 5px', background: '#f3f4f6',
+                    border: '1px solid #e5e7eb', borderRadius: 3,
+                    cursor: i === champs.length - 1 ? 'not-allowed' : 'pointer',
+                    opacity: i === champs.length - 1 ? 0.4 : 1 }}>▼</button>
+              </div>
+
+              {/* Label (pleine largeur) */}
+              <input
+                className="input"
+                placeholder="Libellé de la question *"
+                value={c.label}
+                onChange={e => update(c._key, { label: e.target.value })}
+                style={{ flex: 1, fontWeight: 600 }}
+              />
+
+              {/* Supprimer */}
+              <button onClick={() => remove(c._key)}
+                style={{ padding: '6px 10px', fontSize: 13, background: 'none',
+                  border: '1px solid #fca5a5', color: '#991b1b', borderRadius: 6, cursor: 'pointer',
+                  flexShrink: 0 }}>
+                ✕
+              </button>
+            </div>
+
+            {/* Options de configuration */}
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start', paddingLeft: 72 }}>
+              {/* Type */}
+              <div className="field" style={{ marginBottom: 0, minWidth: 160 }}>
+                <label className="label" style={{ fontSize: 11 }}>Type de réponse</label>
+                <select className="select" value={c.type}
+                  onChange={e => update(c._key, { type: e.target.value as ChampLocal['type'] })}>
+                  {TYPE_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
+
+              {/* Options pour select */}
+              {c.type === 'select' && (
+                <div className="field" style={{ marginBottom: 0, flex: 1, minWidth: 200 }}>
+                  <label className="label" style={{ fontSize: 11 }}>Options (séparées par des virgules)</label>
+                  <input className="input" placeholder="Option A, Option B, Option C"
+                    value={c.optionsRaw}
+                    onChange={e => update(c._key, { optionsRaw: e.target.value })} />
+                </div>
+              )}
+
+              {/* Obligatoire */}
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13,
+                marginTop: 22, cursor: 'pointer', flexShrink: 0 }}>
+                <input type="checkbox" checked={c.required}
+                  onChange={e => update(c._key, { required: e.target.checked })} />
+                Obligatoire
+              </label>
+            </div>
           </div>
-          <div className="field" style={{ marginBottom: 0 }}>
-            <label className="label">Type de champ *</label>
-            <select className="select" value={newType} onChange={e => setNewType(e.target.value)}>
-              <option value="text">Texte court</option>
-              <option value="textarea">Texte long</option>
-              <option value="select">Liste déroulante</option>
-              <option value="number">Nombre</option>
-            </select>
-          </div>
-        </div>
-        {newType === 'select' && (
-          <div className="field" style={{ marginBottom: 10 }}>
-            <label className="label">Options (séparées par des virgules) *</label>
-            <input className="input" placeholder="Option A, Option B, Option C"
-              value={newOptions} onChange={e => setNewOptions(e.target.value)} />
-          </div>
+        ))}
+      </div>
+
+      {/* Barre de sauvegarde */}
+      <div style={{
+        position: 'sticky', bottom: 0, background: 'white',
+        borderTop: dirty ? '2px solid var(--abed-green)' : '2px solid transparent',
+        padding: '14px 0', display: 'flex', alignItems: 'center', gap: 16,
+        transition: 'border-color .2s',
+      }}>
+        <button
+          className="btn"
+          onClick={save}
+          disabled={saving || !dirty}
+          style={{ fontSize: 14, padding: '10px 28px', opacity: dirty ? 1 : 0.5 }}>
+          {saving ? '⏳ Enregistrement…' : '💾 Mettre à jour pour tous'}
+        </button>
+        {dirty && !saving && (
+          <span style={{ fontSize: 13, color: '#92660b' }}>
+            ⚠️ Modifications non enregistrées
+          </span>
         )}
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-          <label style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <input type="checkbox" checked={newRequired} onChange={e => setNewRequired(e.target.checked)} />
-            Champ obligatoire
-          </label>
-          <button className="btn" style={{ fontSize: 13 }} disabled={saving} onClick={add}>
-            {saving ? '⏳ Ajout…' : 'Ajouter ce champ'}
-          </button>
-        </div>
-        {msg && <p style={{ fontSize: 13, color: '#991b1b', marginTop: 8 }}>{msg}</p>}
+        {msg && (
+          <span style={{ fontSize: 13, fontWeight: 600, color: msg.ok ? '#166534' : '#991b1b' }}>
+            {msg.text}
+          </span>
+        )}
       </div>
     </div>
   )
@@ -360,10 +436,9 @@ export default function GestionCAF() {
     <div className="card" style={{ borderLeft: '4px solid #1e40af' }}>
       <h3 style={{ marginBottom: 4 }}>⚙️ Paramètres financiers & formulaires</h3>
       <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: 20 }}>
-        Configurez les taux, les listes déroulantes et les questions du formulaire de demande de paiement.
+        Configurez les taux horaires, les listes déroulantes et les questions du formulaire de demande de paiement.
       </p>
 
-      {/* Sous-onglets */}
       <div style={{ display: 'flex', gap: 0, borderBottom: '2px solid var(--abed-border)', marginBottom: 24 }}>
         {subTabs.map(t => {
           const active = t.key === subTab
@@ -398,7 +473,7 @@ export default function GestionCAF() {
         </div>
       )}
 
-      {subTab === 'formulaire' && <ChampsDemandeSection />}
+      {subTab === 'formulaire' && <EditeurFormulaire />}
     </div>
   )
 }
