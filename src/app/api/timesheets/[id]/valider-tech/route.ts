@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { sendEmail } from '@/lib/resend'
+import { LOGO_PNG_B64 } from '@/lib/logo-b64'
+
+const LOGO_DATA_URI = `data:image/png;base64,${LOGO_PNG_B64}`
 
 // ── Templates email ──────────────────────────────────────────────────────────
 
@@ -14,7 +17,7 @@ function emailDirectValide({
 <!DOCTYPE html><html lang="fr"><body style="margin:0;font-family:Arial,sans-serif;background:#f9fafb">
 <div style="max-width:560px;margin:32px auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08)">
   <div style="background:#2d6a4f;padding:24px 32px">
-    <img src="${appUrl}/logo.png" alt="ABED" height="40" style="height:40px" onerror="this.style.display='none'" />
+    <img src="${LOGO_DATA_URI}" alt="ABED" height="40" style="height:40px;display:block" />
     <h1 style="color:white;margin:12px 0 0;font-size:20px">Timesheet validé ✅</h1>
   </div>
   <div style="padding:32px">
@@ -53,7 +56,7 @@ function emailCreditValide({
 <!DOCTYPE html><html lang="fr"><body style="margin:0;font-family:Arial,sans-serif;background:#f9fafb">
 <div style="max-width:560px;margin:32px auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08)">
   <div style="background:#2d6a4f;padding:24px 32px">
-    <img src="${appUrl}/logo.png" alt="ABED" height="40" style="height:40px" onerror="this.style.display='none'" />
+    <img src="${LOGO_DATA_URI}" alt="ABED" height="40" style="height:40px;display:block" />
     <h1 style="color:white;margin:12px 0 0;font-size:20px">Timesheet validé ✅</h1>
   </div>
   <div style="padding:32px">
