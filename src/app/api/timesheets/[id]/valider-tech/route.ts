@@ -117,20 +117,37 @@ export async function POST(
       }, { status: 422 })
     }
 
-    await supabase.from('soumissions').update({
-      status: 'valide_tech',
-      heures_retenues,
-      justification_heures: justification_heures || null,
-      valide_par: user.id,
-      valide_le: new Date().toISOString(),
-      commentaire_manager: null,
-    }).eq('id', id)
-
     // Récupérer le profil du prestataire (email + type_emploi)
     const { data: prestataire } = await supabase
       .from('profiles')
       .select('email, prenoms, nom, type_emploi')
       .eq('id', soum.prestataire_id).single()
+
+    const estCredit = prestataire?.type_emploi === 'prestataire_credit'
+
+    // Pour prestataire_credit : calculer montant et passer directement à valide_caf
+    let montant_caf: number | null = null
+    if (estCredit) {
+      const { data: tauxRows } = await supabase
+        .from('parametres').select('cle, valeur')
+        .eq('cle', 'taux_horaire_credit_fcfa')
+      const taux = Number(tauxRows?.[0]?.valeur ?? 1500)
+      montant_caf = Math.round(heures_retenues * taux)
+    }
+
+    await supabase.from('soumissions').update({
+      status: estCredit ? 'valide_caf' : 'valide_tech',
+      heures_retenues,
+      justification_heures: justification_heures || null,
+      valide_par: user.id,
+      valide_le: new Date().toISOString(),
+      commentaire_manager: null,
+      ...(estCredit ? {
+        montant_caf,
+        montant: montant_caf,
+        caf_valide_le: new Date().toISOString(),
+      } : {}),
+    }).eq('id', id)
 
     // Notification in-app au prestataire
     await supabase.from('notifications').insert({

@@ -158,7 +158,7 @@ export default function DemandePaiementForm({ onClose, prefill, soumissionId }: 
       <strong style={{ fontSize: 13 }}>Détails financiers</strong>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 8 }}>
-        {inp('montant', 'Montant demandé (FCFA)', 'number')}
+        {inp('montant', 'Montant demandé (XOF)', 'number')}
         {sel('mode_paiement', 'Mode de paiement',
           MODE_PAIEMENT.map(m => ({ value: m, label: m })))}
       </div>

@@ -231,7 +231,7 @@ export default function RapportAllocationForm({ typeEmploi }: { typeEmploi?: str
                   <strong>{r.periode_mois}/{r.periode_annee}</strong>
                   {r.montant_allocation != null && (
                     <span style={{ fontSize: 12, color: '#166534', marginLeft: 10, fontWeight: 600 }}>
-                      {estSalarie ? 'Salaire net : ' : ''}{r.montant_allocation.toLocaleString('fr-FR')} FCFA
+                      {estSalarie ? 'Salaire net : ' : ''}{r.montant_allocation.toLocaleString('fr-FR')} XOF
                     </span>
                   )}
                 </div>

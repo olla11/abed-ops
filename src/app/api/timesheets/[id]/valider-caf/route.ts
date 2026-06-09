@@ -55,7 +55,7 @@ export async function POST(
     await supabase.from('notifications').insert({
       user_id: soum.prestataire_id,
       titre: 'Timesheet validé par la CAF ✓',
-      message: `${soum.titre} : ${soum.heures_retenues} h × ${taux.toLocaleString('fr-FR')} F = ${montant_caf.toLocaleString('fr-FR')} FCFA.`,
+      message: `${soum.titre} : ${soum.heures_retenues} h × ${taux.toLocaleString('fr-FR')} F = ${montant_caf.toLocaleString('fr-FR')} XOF.`,
       lien: '/timesheets',
     })
   } else {

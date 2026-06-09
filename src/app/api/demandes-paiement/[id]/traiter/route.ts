@@ -116,7 +116,7 @@ export async function POST(
       await supabase.from('notifications').insert({
         user_id: u.id,
         titre: `Demande de paiement à traiter`,
-        message: `${demande.nom_complet} — ${demande.objet} — ${Number(demande.montant).toLocaleString('fr-FR')} FCFA`,
+        message: `${demande.nom_complet} — ${demande.objet} — ${Number(demande.montant).toLocaleString('fr-FR')} XOF`,
         lien: '/demandes',
       })
       if (u.email) {
@@ -146,7 +146,7 @@ function buildEmailDemandeur({ demande, status, commentaire, profile }: any) {
       <p>Votre demande de paiement a été <strong>${status}</strong>.</p>
       <table style="width:100%;border-collapse:collapse;margin:12px 0;">
         <tr><td style="font-weight:600;padding:5px 0;width:160px;">Objet</td><td>${demande.objet}</td></tr>
-        <tr><td style="font-weight:600;padding:5px 0;">Montant</td><td>${Number(demande.montant).toLocaleString('fr-FR')} FCFA</td></tr>
+        <tr><td style="font-weight:600;padding:5px 0;">Montant</td><td>${Number(demande.montant).toLocaleString('fr-FR')} XOF</td></tr>
         ${commentaire ? `<tr><td style="font-weight:600;padding:5px 0;">Motif</td><td>${commentaire}</td></tr>` : ''}
         ${status === 'autorisée' ? `<tr><td colspan="2" style="padding-top:12px;color:#166534;font-weight:600;">L'AAF procédera au paiement dans les meilleurs délais.</td></tr>` : ''}
       </table>
@@ -169,7 +169,7 @@ function buildEmailTraiteur({ demande, msg, nom }: any) {
       <table style="width:100%;border-collapse:collapse;margin:12px 0;">
         <tr><td style="font-weight:600;padding:5px 0;width:160px;">Demandeur</td><td>${demande.nom_complet}</td></tr>
         <tr><td style="font-weight:600;padding:5px 0;">Objet</td><td>${demande.objet}</td></tr>
-        <tr><td style="font-weight:600;padding:5px 0;">Montant</td><td><strong>${Number(demande.montant).toLocaleString('fr-FR')} FCFA</strong></td></tr>
+        <tr><td style="font-weight:600;padding:5px 0;">Montant</td><td><strong>${Number(demande.montant).toLocaleString('fr-FR')} XOF</strong></td></tr>
       </table>
       <a href="${appUrl}/demandes" style="display:inline-block;background:#63a521;color:white;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;margin-top:8px;">Traiter →</a>
       <p style="font-size:12px;color:#6b7280;margin-top:20px;">ABED-ONG · contact@abedong.org</p>

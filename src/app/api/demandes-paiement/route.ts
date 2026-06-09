@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
     await supabase.from('notifications').insert({
       user_id: aaf.id,
       titre: 'Nouvelle demande de paiement',
-      message: `${body.nom_complet} — ${body.objet} — ${Number(body.montant).toLocaleString('fr-FR')} FCFA`,
+      message: `${body.nom_complet} — ${body.objet} — ${Number(body.montant).toLocaleString('fr-FR')} XOF`,
       lien: '/demandes',
     })
     if (aaf.email) {
@@ -97,7 +97,7 @@ function buildEmailAAF({ body, aafNom, id }: any) {
       <table style="width:100%;border-collapse:collapse;margin:12px 0;">
         <tr><td style="font-weight:600;padding:5px 0;width:160px;">Demandeur</td><td>${body.nom_complet}</td></tr>
         <tr><td style="font-weight:600;padding:5px 0;">Objet</td><td>${body.objet}</td></tr>
-        <tr><td style="font-weight:600;padding:5px 0;">Montant</td><td><strong>${Number(body.montant).toLocaleString('fr-FR')} FCFA</strong></td></tr>
+        <tr><td style="font-weight:600;padding:5px 0;">Montant</td><td><strong>${Number(body.montant).toLocaleString('fr-FR')} XOF</strong></td></tr>
         <tr><td style="font-weight:600;padding:5px 0;">Urgence</td><td>${body.urgence}</td></tr>
       </table>
       <a href="${appUrl}/demandes" style="display:inline-block;background:#63a521;color:white;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;margin-top:8px;">

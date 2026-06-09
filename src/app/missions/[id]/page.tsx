@@ -130,13 +130,13 @@ export default async function MissionDetail({ params }: { params: Promise<{ id: 
             {mission.mode_financement && (
               <Row label="Mode financement" value={MODE_LABELS[mission.mode_financement] ?? mission.mode_financement} />
             )}
-            <Row label="Montant reçu" value={mission.montant_recu != null ? `${Number(mission.montant_recu).toLocaleString('fr-FR')} FCFA` : '—'} />
-            <Row label="Total dépenses" value={mission.total_depenses != null ? `${Number(mission.total_depenses).toLocaleString('fr-FR')} FCFA` : '—'} />
+            <Row label="Montant reçu" value={mission.montant_recu != null ? `${Number(mission.montant_recu).toLocaleString('fr-FR')} XOF` : '—'} />
+            <Row label="Total dépenses" value={mission.total_depenses != null ? `${Number(mission.total_depenses).toLocaleString('fr-FR')} XOF` : '—'} />
             {mission.a_charge_partenaire && (
-              <Row label="Prélèvement 20 %" value={mission.prelevement_20 != null ? `${Number(mission.prelevement_20).toLocaleString('fr-FR')} FCFA` : '—'} />
+              <Row label="Prélèvement 20 %" value={mission.prelevement_20 != null ? `${Number(mission.prelevement_20).toLocaleString('fr-FR')} XOF` : '—'} />
             )}
             {mission.a_charge_partenaire && (
-              <Row label="Solde missionnaire" value={mission.solde_missionnaire != null ? `${Number(mission.solde_missionnaire).toLocaleString('fr-FR')} FCFA` : '—'} />
+              <Row label="Solde missionnaire" value={mission.solde_missionnaire != null ? `${Number(mission.solde_missionnaire).toLocaleString('fr-FR')} XOF` : '—'} />
             )}
           </tbody></table>
         </div>

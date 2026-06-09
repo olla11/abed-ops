@@ -133,7 +133,7 @@ export default function DemandesClient({ role, userEmail, userName }: {
                         <strong style={{ fontSize: 14 }}>{d.objet}</strong>
                         <div style={{ fontSize: 12, color: 'var(--abed-muted)', marginTop: 2 }}>
                           {d.departement} — <strong style={{ color: 'var(--abed-green)' }}>
-                            {Number(d.montant).toLocaleString('fr-FR')} FCFA
+                            {Number(d.montant).toLocaleString('fr-FR')} XOF
                           </strong>
                           {' '}— {new Date(d.created_at).toLocaleDateString('fr-FR')}
                         </div>

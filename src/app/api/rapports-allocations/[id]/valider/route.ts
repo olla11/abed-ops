@@ -87,8 +87,8 @@ export async function POST(
   if (update.status === 'autorise') {
     const notifTitre = estSalarie ? '✓ Fiche de paie disponible' : '✓ Allocation autorisée'
     const notifMsg = estSalarie
-      ? `Votre fiche de paie de ${mois} est disponible. Salaire net : ${Number(rapport.montant_allocation).toLocaleString('fr-FR')} FCFA.`
-      : `Votre rapport de ${mois} a été autorisé. Montant : ${Number(rapport.montant_allocation).toLocaleString('fr-FR')} FCFA.`
+      ? `Votre fiche de paie de ${mois} est disponible. Salaire net : ${Number(rapport.montant_allocation).toLocaleString('fr-FR')} XOF.`
+      : `Votre rapport de ${mois} a été autorisé. Montant : ${Number(rapport.montant_allocation).toLocaleString('fr-FR')} XOF.`
     await supabase.from('notifications').insert({
       user_id: prest.id, titre: notifTitre, message: notifMsg, lien: '/timesheets',
     })
@@ -126,7 +126,7 @@ export async function POST(
       await supabase.from('notifications').insert({
         user_id: u.id,
         titre: `Rapport mensuel à traiter`,
-        message: `${prest.prenoms} ${prest.nom} — ${mois}${rapport.montant_allocation ? ` — ${Number(rapport.montant_allocation).toLocaleString('fr-FR')} FCFA` : ''}`,
+        message: `${prest.prenoms} ${prest.nom} — ${mois}${rapport.montant_allocation ? ` — ${Number(rapport.montant_allocation).toLocaleString('fr-FR')} XOF` : ''}`,
         lien: '/timesheets',
       })
       if (u.email) {
@@ -158,7 +158,7 @@ function buildEmailAutorise({ rapport, mois, prest, id, estSalarie }: any) {
       <p>${estSalarie ? 'Votre bulletin de paie mensuel a été établi et autorisé par le Directeur Exécutif.' : 'Votre rapport mensuel a été validé et votre allocation autorisée.'}</p>
       <div style="background:#f0fdf4;border:1.5px solid #63a521;border-radius:8px;padding:16px 20px;margin:16px 0;">
         <div style="font-size:12px;color:#166534;font-weight:600;margin-bottom:4px;">${montantLabel}</div>
-        <div style="font-size:28px;font-weight:700;color:#166534;">${Number(rapport.montant_allocation).toLocaleString('fr-FR')} FCFA</div>
+        <div style="font-size:28px;font-weight:700;color:#166534;">${Number(rapport.montant_allocation).toLocaleString('fr-FR')} XOF</div>
         <div style="font-size:12px;color:#374151;margin-top:4px;">Période : ${mois}</div>
       </div>
       <p style="color:#374151;">L'AAF va faire le nécessaire pour que vous receviez votre paiement dans les meilleurs délais.</p>
@@ -190,7 +190,7 @@ function buildEmailEtape({ prest, mois, rapport, msg, nom, estSalarie }: any) {
       <table style="width:100%;border-collapse:collapse;margin:12px 0;">
         <tr><td style="font-weight:600;padding:5px 0;width:160px;">Bénéficiaire</td><td>${prest.prenoms} ${prest.nom}</td></tr>
         <tr><td style="font-weight:600;padding:5px 0;">Période</td><td>${mois}</td></tr>
-        ${rapport.montant_allocation ? `<tr><td style="font-weight:600;padding:5px 0;">${estSalarie ? 'Salaire net' : 'Allocation'}</td><td><strong>${Number(rapport.montant_allocation).toLocaleString('fr-FR')} FCFA</strong></td></tr>` : ''}
+        ${rapport.montant_allocation ? `<tr><td style="font-weight:600;padding:5px 0;">${estSalarie ? 'Salaire net' : 'Allocation'}</td><td><strong>${Number(rapport.montant_allocation).toLocaleString('fr-FR')} XOF</strong></td></tr>` : ''}
       </table>
       <a href="${appUrl}/timesheets" style="display:inline-block;background:#63a521;color:white;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;margin-top:8px;">
         Traiter le rapport →

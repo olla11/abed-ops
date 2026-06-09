@@ -41,7 +41,7 @@ export async function POST(
   await supabase.from('notifications').insert({
     user_id: soum.prestataire_id,
     titre: 'Paiement effectué ✓',
-    message: `${soum.titre} — ${soum.montant_caf!.toLocaleString('fr-FR')} FCFA payés pour ${moisNom}.`,
+    message: `${soum.titre} — ${soum.montant_caf!.toLocaleString('fr-FR')} XOF payés pour ${moisNom}.`,
     lien: '/timesheets',
   })
 
@@ -75,7 +75,7 @@ function buildRecu({ prest, soum, moisNom, payePar }: any) {
           <tr><td style="font-weight:600;padding:6px 0;width:180px;">Dossier</td><td>${soum.titre}</td></tr>
           <tr><td style="font-weight:600;padding:6px 0;">Période</td><td>${moisNom}</td></tr>
           <tr><td style="font-weight:600;padding:6px 0;">Heures retenues</td><td>${soum.heures_retenues} h</td></tr>
-          <tr><td style="font-weight:600;padding:6px 0;">Montant payé</td><td><strong style="color:#166534;font-size:16px;">${soum.montant_caf.toLocaleString('fr-FR')} FCFA</strong></td></tr>
+          <tr><td style="font-weight:600;padding:6px 0;">Montant payé</td><td><strong style="color:#166534;font-size:16px;">${soum.montant_caf.toLocaleString('fr-FR')} XOF</strong></td></tr>
           <tr><td style="font-weight:600;padding:6px 0;">Date de paiement</td><td>${now}</td></tr>
           <tr><td style="font-weight:600;padding:6px 0;">Validé par</td><td>${payePar.prenoms} ${payePar.nom} (CAF)</td></tr>
         </table>

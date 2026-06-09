@@ -31,6 +31,8 @@ export default function ValidationCAF() {
   const [credits, setCredits] = useState<PrestataireCredit[]>([])
 
   const [loading, setLoading] = useState(true)
+  const [tauxDirect, setTauxDirect] = useState(1500)
+  const [tauxCredit, setTauxCredit] = useState(1500)
   const [expanded, setExpanded] = useState<string | null>(null)
   const [commentMap, setCommentMap] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState<string | null>(null)
@@ -53,6 +55,8 @@ export default function ValidationCAF() {
     const tauxMap = Object.fromEntries((tauxData ?? []).map((r: any) => [r.cle, Number(r.valeur)]))
     const td = tauxMap['taux_horaire_direct_fcfa'] ?? 1500
     const tc = tauxMap['taux_horaire_credit_fcfa'] ?? 1500
+    setTauxDirect(td)
+    setTauxCredit(tc)
 
     const all = (valides as any[]) ?? []
 
@@ -176,7 +180,7 @@ export default function ValidationCAF() {
                     </span>
                     {' '}— {s.periode_mois}/{s.periode_annee}
                     {' '}— <strong>{s.heures_retenues} h</strong>
-                    {' '}→ <strong style={{ color: 'var(--abed-green)' }}>{montant.toLocaleString('fr-FR')} FCFA</strong>
+                    {' '}→ <strong style={{ color: 'var(--abed-green)' }}>{montant.toLocaleString('fr-FR')} XOF</strong>
                   </span>
                 </div>
                 <span style={{ fontSize: 13 }}>{isOpen ? '▲' : '▼'}</span>
@@ -185,7 +189,7 @@ export default function ValidationCAF() {
                 <div style={{ marginTop: 16, display: 'grid', gap: 14 }}>
                   <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: 12 }}>
                     <p style={{ fontSize: 13, fontWeight: 600 }}>
-                      Montant : {montant.toLocaleString('fr-FR')} FCFA ({s.heures_retenues} h × {taux.toLocaleString('fr-FR')} F)
+                      Montant : {montant.toLocaleString('fr-FR')} XOF ({s.heures_retenues} h × {taux.toLocaleString('fr-FR')} F)
                     </p>
                     {s.justification_heures && (
                       <p style={{ fontSize: 12, color: 'var(--abed-muted)', marginTop: 4, fontStyle: 'italic' }}>
@@ -210,7 +214,7 @@ export default function ValidationCAF() {
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     <button className="btn" style={{ background: '#166534', fontSize: 13 }}
                       disabled={submitting === s.id} onClick={() => decider(s.id, 'valider')}>
-                      ✓ Valider — {montant.toLocaleString('fr-FR')} FCFA
+                      ✓ Valider — {montant.toLocaleString('fr-FR')} XOF
                     </button>
                     <button className="btn danger" style={{ fontSize: 13 }}
                       disabled={submitting === s.id} onClick={() => decider(s.id, 'corriger')}>
@@ -243,7 +247,7 @@ export default function ValidationCAF() {
                 <span style={{ fontSize: 12, color: 'var(--abed-muted)', marginLeft: 8 }}>
                   {s.titre} — {s.periode_mois}/{s.periode_annee} —{' '}
                   <strong style={{ color: 'var(--abed-green)' }}>
-                    {(s.montant_caf ?? 0).toLocaleString('fr-FR')} FCFA
+                    {(s.montant_caf ?? 0).toLocaleString('fr-FR')} XOF
                   </strong>
                 </span>
               </div>
@@ -284,7 +288,7 @@ export default function ValidationCAF() {
                 {reste > 0 && (
                   <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: '1fr 1fr 2fr auto', gap: 8, alignItems: 'end' }}>
                     <div>
-                      <label style={{ fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 4 }}>Montant (FCFA) *</label>
+                      <label style={{ fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 4 }}>Montant (XOF) *</label>
                       <input className="input" type="number" min={1} step={500} placeholder={String(reste)}
                         value={form.montant}
                         onChange={e => setCreditForm(f => ({ ...f, [p.id]: { ...form, montant: e.target.value } }))} />

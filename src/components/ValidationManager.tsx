@@ -133,7 +133,7 @@ export default function ValidationManager() {
       <div className="card">
         <h3 style={{ marginBottom: 4 }}>Timesheets à valider ({items.length})</h3>
         <p style={{ fontSize: 12, color: 'var(--abed-muted)', marginBottom: 16 }}>
-          Vérifiez le timesheet Excel et le livrable. Taux en vigueur : <strong>{taux.toLocaleString('fr-FR')} FCFA/h</strong>.
+          Vérifiez le timesheet Excel et le livrable. Taux en vigueur : <strong>{taux.toLocaleString('fr-FR')} XOF/h</strong>.
         </p>
 
         {items.length === 0 && (
@@ -191,7 +191,7 @@ export default function ValidationManager() {
                         }} />
                     </div>
                     <span style={{ fontSize: 13, color: 'var(--abed-muted)' }}>
-                      → <strong>{montantEstimé} FCFA</strong> (× {taux.toLocaleString('fr-FR')} F/h)
+                      → <strong>{montantEstimé} XOF</strong> (× {taux.toLocaleString('fr-FR')} F/h)
                     </span>
                   </div>
 

@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
   await supabase.from('notifications').insert({
     user_id: prestataire_id,
     titre: 'Paiement crédit reçu ✓',
-    message: `${(+montant).toLocaleString('fr-FR')} FCFA${heures_payees ? ` (${heures_payees} h)` : ''} ont été versés sur votre solde.`,
+    message: `${(+montant).toLocaleString('fr-FR')} XOF${heures_payees ? ` (${heures_payees} h)` : ''} ont été versés sur votre solde.`,
     lien: '/timesheets',
   })
 
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     try {
       await sendEmail({
         to: prest.email,
-        subject: `[ABED-ONG] Versement sur votre solde — ${(+montant).toLocaleString('fr-FR')} FCFA`,
+        subject: `[ABED-ONG] Versement sur votre solde — ${(+montant).toLocaleString('fr-FR')} XOF`,
         html: buildRecuCredit({ prest, montant: +montant, heures_payees, note, cafProfile }),
       })
     } catch (e: any) {
@@ -69,7 +69,7 @@ function buildRecuCredit({ prest, montant, heures_payees, note, cafProfile }: an
         <p>Un versement a été effectué sur votre solde ABED-ONG.</p>
         <table style="width:100%;border-collapse:collapse;margin:16px 0;">
           <tr><td style="font-weight:600;padding:6px 0;width:180px;">Montant versé</td>
-              <td><strong style="color:#166534;font-size:16px;">${montant.toLocaleString('fr-FR')} FCFA</strong></td></tr>
+              <td><strong style="color:#166534;font-size:16px;">${montant.toLocaleString('fr-FR')} XOF</strong></td></tr>
           ${heures_payees ? `<tr><td style="font-weight:600;padding:6px 0;">Heures payées</td><td>${heures_payees} h</td></tr>` : ''}
           ${note ? `<tr><td style="font-weight:600;padding:6px 0;">Note</td><td>${note}</td></tr>` : ''}
           <tr><td style="font-weight:600;padding:6px 0;">Date</td><td>${now}</td></tr>

@@ -83,7 +83,7 @@ export async function GET(
     // En-tête tableau
     page.drawRectangle({ x: 40, y: y - 4, width: width - 80, height: 18, color: GREEN })
     page.drawText('Désignation', { x: 50, y: y + 1, size: 9, font: bold, color: WHITE })
-    page.drawText('Montant (FCFA)', { x: width - 180, y: y + 1, size: 9, font: bold, color: WHITE })
+    page.drawText('Montant (XOF)', { x: width - 180, y: y + 1, size: 9, font: bold, color: WHITE })
     y -= 20
 
     function tableRow(label: string, value: string, shade = false) {
@@ -93,15 +93,15 @@ export async function GET(
       y -= 20
     }
 
-    tableRow('Salaire de base / Rémunération brute', `${Number(rapport.montant_allocation).toLocaleString('fr-FR')} FCFA`, false)
-    tableRow('Cotisations sociales', '0 FCFA (à la charge de l\'employeur)', true)
-    tableRow('Retenues diverses', '0 FCFA', false)
+    tableRow('Salaire de base / Rémunération brute', `${Number(rapport.montant_allocation).toLocaleString('fr-FR')} XOF`, false)
+    tableRow('Cotisations sociales', '0 XOF (à la charge de l\'employeur)', true)
+    tableRow('Retenues diverses', '0 XOF', false)
 
     y -= 4
     // Ligne nette
     page.drawRectangle({ x: 40, y: y - 8, width: width - 80, height: 28, color: GREEN })
     page.drawText('NET À PAYER', { x: 50, y: y + 6, size: 11, font: bold, color: WHITE })
-    page.drawText(`${Number(rapport.montant_allocation).toLocaleString('fr-FR')} FCFA`,
+    page.drawText(`${Number(rapport.montant_allocation).toLocaleString('fr-FR')} XOF`,
       { x: width - 190, y: y + 6, size: 12, font: bold, color: WHITE })
     y -= 32
 
@@ -111,7 +111,7 @@ export async function GET(
     page.drawRectangle({ x: 40, y: y - 16, width: width - 80, height: 52, color: LGREEN, borderColor: GREEN, borderWidth: 1.5 })
     page.drawText('MONTANT DE L\'ALLOCATION AUTORISÉE',
       { x: 56, y: y + 20, size: 9, font: bold, color: GREEN })
-    page.drawText(`${Number(rapport.montant_allocation).toLocaleString('fr-FR')} FCFA`,
+    page.drawText(`${Number(rapport.montant_allocation).toLocaleString('fr-FR')} XOF`,
       { x: 56, y: y - 8, size: 22, font: bold, color: GREEN })
     y -= 40
   }

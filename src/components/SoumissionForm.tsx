@@ -164,7 +164,7 @@ export default function SoumissionForm({ managerId, typeEmploi }: { managerId: s
             <p style={{ fontSize: 13, color: 'var(--abed-muted)' }}>
               Timesheet validé : <strong>{demandeForSoum.titre}</strong> — {demandeForSoum.periode_mois}/{demandeForSoum.periode_annee}
               {demandeForSoum.montant_caf != null && (
-                <> — <strong style={{ color: 'var(--abed-green)' }}>{demandeForSoum.montant_caf.toLocaleString('fr-FR')} FCFA</strong></>
+                <> — <strong style={{ color: 'var(--abed-green)' }}>{demandeForSoum.montant_caf.toLocaleString('fr-FR')} XOF</strong></>
               )}
             </p>
           </div>
@@ -307,7 +307,7 @@ export default function SoumissionForm({ managerId, typeEmploi }: { managerId: s
                 </span>
                 {s.montant_caf != null && (
                   <span style={{ fontSize: 14, fontWeight: 700, color: '#166534', marginLeft: 10 }}>
-                    {s.montant_caf.toLocaleString('fr-FR')} FCFA
+                    {s.montant_caf.toLocaleString('fr-FR')} XOF
                   </span>
                 )}
               </div>

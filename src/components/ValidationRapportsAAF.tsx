@@ -81,7 +81,7 @@ export default function ValidationRapportsAAF({ role }: { role: string }) {
                   {mois} — {r.prestataire?.type_emploi}
                   {r.montant_allocation != null && (
                     <strong style={{ color: 'var(--abed-green)', marginLeft: 8 }}>
-                      {r.montant_allocation.toLocaleString('fr-FR')} FCFA
+                      {r.montant_allocation.toLocaleString('fr-FR')} XOF
                     </strong>
                   )}
                 </span>
@@ -101,7 +101,7 @@ export default function ValidationRapportsAAF({ role }: { role: string }) {
                 {['aaf', 'admin'].includes(role) && (
                   <div className="field" style={{ marginBottom: 0 }}>
                     <label className="label">
-                      {['cdd','cdi'].includes(r.prestataire?.type_emploi ?? '') ? 'Salaire net (FCFA) *' : 'Montant allocation (FCFA) *'}
+                      {['cdd','cdi'].includes(r.prestataire?.type_emploi ?? '') ? 'Salaire net (XOF) *' : 'Montant allocation (XOF) *'}
                     </label>
                     <input className="input" type="number" min={0} style={{ maxWidth: 200 }}
                       value={montantMap[r.id] ?? ''}

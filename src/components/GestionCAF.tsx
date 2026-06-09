@@ -36,7 +36,7 @@ const CHAMPS_FIXES = [
   { label: 'Code budgétaire',                    type: 'select' },
   { label: 'Projet / Programme',                 type: 'select' },
   { label: 'Nature de la dépense',               type: 'select' },
-  { label: 'Montant demandé (FCFA)',             type: 'number' },
+  { label: 'Montant demandé (XOF)',             type: 'number' },
   { label: 'Mode de paiement',                   type: 'select' },
   { label: 'Fournisseur / Bénéficiaire',         type: 'text' },
   { label: 'Référence pièce justificative',      type: 'text' },
@@ -151,7 +151,7 @@ function TauxSection() {
 
   return (
     <div>
-      <h4 style={{ marginBottom: 6, color: 'var(--abed-green)', fontSize: 14 }}>Taux horaires (FCFA/heure)</h4>
+      <h4 style={{ marginBottom: 6, color: 'var(--abed-green)', fontSize: 14 }}>Taux horaires (XOF/heure)</h4>
       <p style={{ fontSize: 12, color: 'var(--abed-muted)', marginBottom: 12 }}>
         Utilisés pour le calcul automatique des montants dans les timesheets et compteurs crédit.
       </p>

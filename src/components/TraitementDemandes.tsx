@@ -99,7 +99,7 @@ export default function TraitementDemandes({ role }: { role: string }) {
             </div>
             <div style={{ fontSize: 13, fontWeight: 500, color: '#111827' }}>{d.objet}</div>
             <div style={{ fontSize: 12, color: 'var(--abed-muted)', marginTop: 2 }}>
-              <strong style={{ color: 'var(--abed-green)' }}>{Number(d.montant).toLocaleString('fr-FR')} FCFA</strong>
+              <strong style={{ color: 'var(--abed-green)' }}>{Number(d.montant).toLocaleString('fr-FR')} XOF</strong>
               {' '}— {d.departement} — {new Date(d.created_at).toLocaleDateString('fr-FR')}
             </div>
           </div>
