@@ -30,7 +30,7 @@ export default async function TimesheetsPage() {
         typeEmploi={typeEmploi}
         managerId={profile?.manager_id ?? null}
         estRapportMensuel={['benevole', 'stagiaire_n1', 'stagiaire_n2', 'cdd', 'cdi'].includes(typeEmploi ?? '')}
-        estManager={['manager', 'caf', 'admin', 'de', 'aaf'].includes(role)}
+        estManager={['manager', 'admin'].includes(role)}
         estCAF={['caf', 'admin'].includes(role)}
         estAAF={['aaf', 'admin'].includes(role)}
         estSalarie={['cdd', 'cdi'].includes(typeEmploi ?? '')}
