@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
       ].join(' | ')
 
       const pointFinancier = pf.map((l: any) =>
-        `${l.libelle} × ${l.quantite} à ${l.pu} F = ${l.montant} F`
+        `${l.libelle} × ${l.quantite} à ${l.pu} XOF = ${l.montant} XOF`
       ).join(', ')
 
       const msgComplet =
@@ -60,14 +60,14 @@ export async function POST(req: NextRequest) {
         `Période : ${fmtDate(mission.date_depart)} → ${fmtDate(mission.date_retour)}\n` +
         `Rapport : ${rapportResume}\n` +
         `Point financier : ${pointFinancier}\n` +
-        `Montant reçu : ${mission.montant_recu ?? 0} F — Total dépenses : ${mission.total_depenses ?? 0} F\n` +
-        `Prélèvement ABED 20% : ${montant} F — Solde missionnaire : ${mission.solde_missionnaire ?? 0} F`
+        `Montant reçu : ${mission.montant_recu ?? 0} XOF — Total dépenses : ${mission.total_depenses ?? 0} XOF\n` +
+        `Prélèvement ABED 20% : ${montant} XOF — Solde missionnaire : ${mission.solde_missionnaire ?? 0} XOF`
 
       // Notifier le missionnaire
       await supabase.from('notifications').insert({
         user_id: mission.missionnaire_id,
         titre: 'Mission clôturée — prélèvement confirmé',
-        message: `Votre mission ${mission.reference ?? ''} est définitivement clôturée. Prélèvement de ${montant.toLocaleString()} F confirmé.`,
+        message: `Votre mission ${mission.reference ?? ''} est définitivement clôturée. Prélèvement de ${montant.toLocaleString()} XOF confirmé.`,
         lien: `/missions/${missionId}`,
       })
 

@@ -44,7 +44,7 @@ export async function POST(
   }
   const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString('fr-FR') : '—'
   const pfHtml = pf.map((l: any) =>
-    `<tr><td>${l.libelle}</td><td>${l.quantite}</td><td>${Number(l.pu).toLocaleString('fr-FR')} F</td><td><strong>${Number(l.montant).toLocaleString('fr-FR')} F</strong></td></tr>`
+    `<tr><td>${l.libelle}</td><td>${l.quantite}</td><td>${Number(l.pu).toLocaleString('fr-FR')} XOF</td><td><strong>${Number(l.montant).toLocaleString('fr-FR')} XOF</strong></td></tr>`
   ).join('')
 
   const html = `
@@ -65,7 +65,7 @@ export async function POST(
           <thead><tr style="background:#f3f4f6"><th style="padding:8px;text-align:left">Libellé</th><th style="padding:8px">Qté</th><th style="padding:8px">P.U.</th><th style="padding:8px">Montant</th></tr></thead>
           <tbody>${pfHtml}</tbody>
         </table>
-        <div style="text-align:right;font-weight:700">Total : ${totalDepenses.toLocaleString('fr-FR')} F CFA</div>
+        <div style="text-align:right;font-weight:700">Total : ${totalDepenses.toLocaleString('fr-FR')} XOF</div>
         <p style="margin-top:24px;font-size:12px;color:#6b7280">Renvoyé le ${new Date().toLocaleDateString('fr-FR')}.</p>
       </div>
     </div>`

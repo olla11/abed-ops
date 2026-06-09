@@ -79,7 +79,7 @@ export async function POST(
   }
 
   const pointFinancierHtml = pf.map((l: any) =>
-    `<tr><td>${l.libelle}</td><td>${l.quantite}</td><td>${Number(l.pu).toLocaleString('fr-FR')} F</td><td><strong>${Number(l.montant).toLocaleString('fr-FR')} F</strong></td></tr>`
+    `<tr><td>${l.libelle}</td><td>${l.quantite}</td><td>${Number(l.pu).toLocaleString('fr-FR')} XOF</td><td><strong>${Number(l.montant).toLocaleString('fr-FR')} XOF</strong></td></tr>`
   ).join('')
 
   const emailHtml = `
@@ -112,7 +112,7 @@ export async function POST(
           <tbody>${pointFinancierHtml}</tbody>
         </table>
         <table style="width:100%; max-width:400px; border-collapse:collapse; margin-left:auto;">
-          <tr><td style="padding:6px 0;">Total dépenses</td><td style="text-align:right; font-weight:600;">${Number(mission.total_depenses ?? 0).toLocaleString('fr-FR')} F CFA</td></tr>
+          <tr><td style="padding:6px 0;">Total dépenses</td><td style="text-align:right; font-weight:600;">${Number(mission.total_depenses ?? 0).toLocaleString('fr-FR')} XOF</td></tr>
         </table>
 
         <p style="margin-top:24px; font-size:12px; color:#6b7280;">
