@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase-server'
 import AdminUserCreate from '../AdminUserCreate'
 import UserDeleteButton from '../UserDeleteButton'
 import ManagerAssignSelect from '@/components/ManagerAssignSelect'
+import AdminResetButton from '../AdminResetButton'
 
 export default async function ComptesPage() {
   const supabase = await createClient()
@@ -25,6 +26,16 @@ export default async function ComptesPage() {
         <h3 style={{ marginBottom: 16, fontSize: 15 }}>Créer un compte</h3>
         <AdminUserCreate />
       </div>
+
+      {isAdmin && (
+        <div className="card" style={{ borderLeft: '4px solid #ef4444' }}>
+          <h3 style={{ marginBottom: 6, fontSize: 15, color: '#7f1d1d' }}>Zone dangereuse</h3>
+          <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: 16 }}>
+            Ces actions sont irréversibles. Les comptes utilisateurs ne seront pas supprimés.
+          </p>
+          <AdminResetButton />
+        </div>
+      )}
 
       <div className="card">
         <h3 style={{ marginBottom: 4, fontSize: 15 }}>Tous les comptes ({users?.length ?? 0})</h3>

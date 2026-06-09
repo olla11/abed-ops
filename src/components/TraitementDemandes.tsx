@@ -1,5 +1,8 @@
 'use client'
 import { useEffect, useState } from 'react'
+import Paginator from './Paginator'
+
+const PER_PAGE = 10
 
 type Demande = {
   id: string; nom_complet: string; email_contact: string; departement: string
@@ -40,6 +43,8 @@ export default function TraitementDemandes({ role }: { role: string }) {
   const [expanded, setExpanded] = useState<string | null>(null)
   const [commentMap, setCommentMap] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState<string | null>(null)
+  const [pageATraiter, setPageATraiter] = useState(1)
+  const [pageHistorique, setPageHistorique] = useState(1)
 
   async function load() {
     const res = await fetch('/api/demandes-paiement')
@@ -197,13 +202,15 @@ export default function TraitementDemandes({ role }: { role: string }) {
           <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: 12 }}>
             Demandes en attente de votre action.
           </p>
-          {aTraiter.map(d => renderDemande(d, true))}
+          {aTraiter.slice((pageATraiter - 1) * PER_PAGE, pageATraiter * PER_PAGE).map(d => renderDemande(d, true))}
+          <Paginator page={pageATraiter} total={aTraiter.length} perPage={PER_PAGE} onChange={setPageATraiter} />
         </div>
       )}
       {autres.length > 0 && (
         <div className="card">
           <h3 style={{ marginBottom: 4 }}>Historique ({autres.length})</h3>
-          {autres.map(d => renderDemande(d, false))}
+          {autres.slice((pageHistorique - 1) * PER_PAGE, pageHistorique * PER_PAGE).map(d => renderDemande(d, false))}
+          <Paginator page={pageHistorique} total={autres.length} perPage={PER_PAGE} onChange={setPageHistorique} />
         </div>
       )}
       {demandes.length === 0 && (

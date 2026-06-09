@@ -3,6 +3,9 @@ import { useState, useEffect } from 'react'
 import TabBar from './TabBar'
 import DemandePaiementForm from './DemandePaiementForm'
 import TraitementDemandes from './TraitementDemandes'
+import Paginator from './Paginator'
+
+const PER_PAGE = 10
 
 type Demande = {
   id: string; nom_complet: string; objet: string; montant: number
@@ -35,8 +38,10 @@ export default function DemandesClient({ role, userEmail, userName }: {
   const [pendingCount, setPendingCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'mes' | 'traiter'>('mes')
+  const [page, setPage] = useState(1)
 
   const traiteur = isTraiteur(role)
+  const pagedDemandes = mesDemandes.slice((page - 1) * PER_PAGE, page * PER_PAGE)
 
   async function load() {
     // Pour les traiteurs, on récupère uniquement leurs propres demandes pour l'onglet "Mes demandes"
@@ -122,7 +127,7 @@ export default function DemandesClient({ role, userEmail, userName }: {
               <h3 style={{ marginBottom: 12, fontSize: 15 }}>
                 Mes demandes ({mesDemandes.length})
               </h3>
-              {mesDemandes.map(d => {
+              {pagedDemandes.map(d => {
                 const st = STATUS_LABEL[d.status] ?? { label: d.status, color: '#374151' }
                 const comment = d.commentaire_aaf || d.commentaire_caf || d.commentaire_de
                 const isPending = PENDING_STATUSES.includes(d.status)
@@ -156,6 +161,7 @@ export default function DemandesClient({ role, userEmail, userName }: {
                   </div>
                 )
               })}
+              <Paginator page={page} total={mesDemandes.length} perPage={PER_PAGE} onChange={setPage} />
             </>
           )
         )}

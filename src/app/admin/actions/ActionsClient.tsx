@@ -1,6 +1,9 @@
 'use client'
 import { useState, useMemo } from 'react'
 import { TYPE_EMPLOI_LABELS } from '@/lib/roles'
+import Paginator from '@/components/Paginator'
+
+const PER_PAGE = 15
 
 type User = {
   id: string; civilite?: string; nom: string; prenoms: string
@@ -40,6 +43,8 @@ export default function ActionsClient({
 
   // ── Sélection ──
   const [selected, setSelected] = useState<Set<string>>(new Set())
+
+  const [page, setPage] = useState(1)
 
   // ── Email ──
   const [showEmail, setShowEmail] = useState(false)
@@ -254,7 +259,7 @@ export default function ActionsClient({
               </tr>
             </thead>
             <tbody>
-              {filtered.map(u => (
+              {filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE).map(u => (
                 <tr key={u.id}
                   onClick={() => toggle(u.id)}
                   style={{ cursor: 'pointer', background: selected.has(u.id) ? '#f0fdf4' : undefined }}>
@@ -278,6 +283,7 @@ export default function ActionsClient({
             </tbody>
           </table>
         </div>
+        <Paginator page={page} total={filtered.length} perPage={PER_PAGE} onChange={setPage} />
       </div>
     </div>
   )

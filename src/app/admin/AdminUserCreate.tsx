@@ -1,5 +1,6 @@
 ﻿'use client'
 import { useState } from 'react'
+import PasswordCriteria, { isPasswordStrong } from '@/components/PasswordCriteria'
 
 export default function AdminUserCreate() {
   const [form, setForm] = useState({
@@ -17,6 +18,10 @@ export default function AdminUserCreate() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
+    if (!isPasswordStrong(form.password)) {
+      setMsg({ ok: false, text: 'Le mot de passe ne respecte pas tous les critères requis.' })
+      return
+    }
     setLoading(true); setMsg(null)
     const res = await fetch('/api/admin/create-user', {
       method: 'POST',
@@ -63,8 +68,9 @@ export default function AdminUserCreate() {
 
       <div className="field">
         <label className="label">Mot de passe provisoire *</label>
-        <input className="input" type="password" minLength={8} value={form.password}
+        <input className="input" type="password" value={form.password}
           onChange={e => set('password', e.target.value)} required />
+        <PasswordCriteria password={form.password} />
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>

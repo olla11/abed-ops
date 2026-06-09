@@ -1,5 +1,7 @@
 'use client'
 import { useState } from 'react'
+import { createClient } from '@/lib/supabase-client'
+import PasswordCriteria, { isPasswordStrong } from './PasswordCriteria'
 
 type Profile = {
   nom: string
@@ -43,6 +45,48 @@ export default function ProfileEditForm({ profile }: { profile: Profile }) {
   const [msg, setMsg] = useState('')
   const [msgType, setMsgType] = useState<'ok' | 'err'>('ok')
   const [loading, setLoading] = useState(false)
+
+  // Password change
+  const [oldPwd, setOldPwd] = useState('')
+  const [newPwd, setNewPwd] = useState('')
+  const [confirmPwd, setConfirmPwd] = useState('')
+  const [pwdMsg, setPwdMsg] = useState('')
+  const [pwdMsgType, setPwdMsgType] = useState<'ok' | 'err'>('ok')
+  const [pwdLoading, setPwdLoading] = useState(false)
+  const supabase = createClient()
+
+  async function changePassword() {
+    setPwdMsg(''); setPwdLoading(true)
+    if (!isPasswordStrong(newPwd)) {
+      setPwdMsg('Le nouveau mot de passe ne respecte pas tous les critères.')
+      setPwdMsgType('err'); setPwdLoading(false); return
+    }
+    if (newPwd !== confirmPwd) {
+      setPwdMsg('Les deux mots de passe ne correspondent pas.')
+      setPwdMsgType('err'); setPwdLoading(false); return
+    }
+    if (newPwd === oldPwd) {
+      setPwdMsg('Le nouveau mot de passe doit être différent de l\'ancien.')
+      setPwdMsgType('err'); setPwdLoading(false); return
+    }
+    // Verify old password by signing in
+    const { error: signInErr } = await supabase.auth.signInWithPassword({
+      email: profile.email, password: oldPwd,
+    })
+    if (signInErr) {
+      setPwdMsg('Mot de passe actuel incorrect.')
+      setPwdMsgType('err'); setPwdLoading(false); return
+    }
+    const { error } = await supabase.auth.updateUser({ password: newPwd })
+    setPwdLoading(false)
+    if (error) {
+      setPwdMsg(error.message); setPwdMsgType('err')
+    } else {
+      setPwdMsg('Mot de passe modifié avec succès.')
+      setPwdMsgType('ok')
+      setOldPwd(''); setNewPwd(''); setConfirmPwd('')
+    }
+  }
 
   async function save() {
     setLoading(true); setMsg('')
@@ -145,6 +189,47 @@ export default function ProfileEditForm({ profile }: { profile: Profile }) {
       <button className="btn" onClick={save} disabled={loading}>
         {loading ? 'Enregistrement…' : 'Enregistrer les modifications'}
       </button>
+
+      {/* ── Changer le mot de passe ── */}
+      <div style={{ borderTop: '1px solid var(--abed-border)', paddingTop: 24, marginTop: 8 }}>
+        <h3 style={{ fontSize: 15, marginBottom: 16, color: '#374151' }}>🔒 Modifier le mot de passe</h3>
+
+        <div className="field">
+          <label className="label">Mot de passe actuel *</label>
+          <input className="input" type="password" value={oldPwd}
+            onChange={e => setOldPwd(e.target.value)} placeholder="••••••••" />
+        </div>
+
+        <div className="field">
+          <label className="label">Nouveau mot de passe *</label>
+          <input className="input" type="password" value={newPwd}
+            onChange={e => setNewPwd(e.target.value)} placeholder="••••••••" />
+          <PasswordCriteria password={newPwd} />
+        </div>
+
+        <div className="field">
+          <label className="label">Confirmer le nouveau mot de passe *</label>
+          <input className="input" type="password" value={confirmPwd}
+            onChange={e => setConfirmPwd(e.target.value)} placeholder="••••••••"
+            style={{ borderColor: confirmPwd && confirmPwd !== newPwd ? '#ef4444' : undefined }} />
+          {confirmPwd && confirmPwd !== newPwd && (
+            <p style={{ fontSize: 12, color: '#ef4444', marginTop: 4 }}>Les mots de passe ne correspondent pas.</p>
+          )}
+        </div>
+
+        {pwdMsg && (
+          <div style={{
+            padding: '10px 14px', borderRadius: 8, fontSize: 13, marginBottom: 12,
+            background: pwdMsgType === 'ok' ? '#dcfce7' : '#fee2e2',
+            color: pwdMsgType === 'ok' ? '#166534' : '#991b1b',
+          }}>{pwdMsg}</div>
+        )}
+
+        <button className="btn secondary" onClick={changePassword}
+          disabled={pwdLoading || !oldPwd || !newPwd || !confirmPwd}>
+          {pwdLoading ? 'Modification…' : '🔒 Changer le mot de passe'}
+        </button>
+      </div>
     </div>
   )
 }

@@ -25,6 +25,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Champs requis : email, password, nom, prenoms' }, { status: 400 })
   }
 
+  // Validation du mot de passe
+  const pwdRules = [
+    { test: password.length >= 8, msg: 'Au moins 8 caractères' },
+    { test: /[A-Z]/.test(password), msg: 'Au moins 1 majuscule' },
+    { test: /[a-z]/.test(password), msg: 'Au moins 1 minuscule' },
+    { test: /\d/.test(password), msg: 'Au moins 1 chiffre' },
+    { test: /[^A-Za-z0-9]/.test(password), msg: 'Au moins 1 caractère spécial' },
+  ]
+  const failed = pwdRules.filter(r => !r.test).map(r => r.msg)
+  if (failed.length > 0) {
+    return NextResponse.json({ error: `Mot de passe invalide : ${failed.join(', ')}.` }, { status: 400 })
+  }
+
   const admin = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
