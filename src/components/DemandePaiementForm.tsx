@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 
 type Liste = { id: string; nom?: string; code?: string; libelle?: string }
+type ChampDemande = { id: string; label: string; type: string; required: boolean; options: string[] }
 
 const URGENCE_OPTS = [
   { value: 'urgente', label: '⚠️ Urgente (à traiter sous 72h)' },
@@ -31,6 +32,8 @@ export default function DemandePaiementForm({ onClose, prefill, soumissionId }: 
   const [codes, setCodes] = useState<Liste[]>([])
   const [projets, setProjets] = useState<Liste[]>([])
   const [natures, setNatures] = useState<Liste[]>([])
+  const [champsPerso, setChampsPerso] = useState<ChampDemande[]>([])
+  const [champsValues, setChampsValues] = useState<Record<string, string>>({})
   const [msg, setMsg] = useState('')
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
@@ -41,19 +44,26 @@ export default function DemandePaiementForm({ onClose, prefill, soumissionId }: 
       fetch('/api/config/listes?type=codes_budgetaires').then(r => r.json()),
       fetch('/api/config/listes?type=projets').then(r => r.json()),
       fetch('/api/config/listes?type=natures').then(r => r.json()),
-    ]).then(([d, c, p, n]) => {
+      fetch('/api/config/champs-demande').then(r => r.json()),
+    ]).then(([d, c, p, n, ch]) => {
       setDepts(d.data ?? []); setCodes(c.data ?? [])
       setProjets(p.data ?? []); setNatures(n.data ?? [])
+      setChampsPerso(ch.data ?? [])
     })
   }, [])
 
   function set(k: string, v: string) { setForm(f => ({ ...f, [k]: v })) }
+  function setChamp(id: string, v: string) { setChampsValues(p => ({ ...p, [id]: v })) }
 
   async function submit() {
     const required = ['nom_complet','email_contact','departement','objet','code_budgetaire',
       'projet','nature_depense','montant','mode_paiement','beneficiaire','reference_piece','justification','urgence']
     for (const f of required) {
       if (!form[f as keyof typeof form]) { setMsg(`Champ requis : ${f}`); return }
+    }
+    // Valider les champs personnalisés obligatoires
+    for (const c of champsPerso) {
+      if (c.required && !champsValues[c.id]?.trim()) { setMsg(`Champ requis : ${c.label}`); return }
     }
     setLoading(true); setMsg('')
     try {
@@ -73,6 +83,7 @@ export default function DemandePaiementForm({ onClose, prefill, soumissionId }: 
           montant: +form.montant,
           fichier_justificatif_url: fichier_url || undefined,
           soumission_id: soumissionId,
+          champs_supplementaires: champsPerso.length > 0 ? champsValues : undefined,
         }),
       })
       const json = await res.json()
@@ -179,6 +190,35 @@ export default function DemandePaiementForm({ onClose, prefill, soumissionId }: 
           PDF, image, document. Max 10 Mo.
         </p>
       </div>
+
+      {/* Champs personnalisés ajoutés par la CAF */}
+      {champsPerso.length > 0 && (
+        <>
+          <hr style={{ margin: '12px 0', borderColor: 'var(--abed-border)' }} />
+          <strong style={{ fontSize: 13 }}>Informations complémentaires</strong>
+          <div style={{ marginTop: 8, display: 'grid', gap: 10 }}>
+            {champsPerso.map(c => (
+              <div key={c.id} className="field" style={{ marginBottom: 0 }}>
+                <label className="label">{c.label} {c.required && '*'}</label>
+                {c.type === 'textarea' ? (
+                  <textarea className="input" rows={3} value={champsValues[c.id] ?? ''}
+                    onChange={e => setChamp(c.id, e.target.value)} />
+                ) : c.type === 'select' ? (
+                  <select className="select" value={champsValues[c.id] ?? ''}
+                    onChange={e => setChamp(c.id, e.target.value)}>
+                    <option value="">— Sélectionner —</option>
+                    {(c.options ?? []).map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                ) : (
+                  <input className="input" type={c.type === 'number' ? 'number' : 'text'}
+                    value={champsValues[c.id] ?? ''}
+                    onChange={e => setChamp(c.id, e.target.value)} />
+                )}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
 
       {msg && (
         <p style={{ fontSize: 13, padding: '10px 14px', borderRadius: 8, marginBottom: 12,

@@ -30,12 +30,6 @@ export default function ValidationCAF() {
   const [directs, setDirects] = useState<Soumission[]>([])
   const [credits, setCredits] = useState<PrestataireCredit[]>([])
 
-  const [tauxDirect, setTauxDirect] = useState(1500)
-  const [tauxCredit, setTauxCredit] = useState(1500)
-  const [newTauxDirect, setNewTauxDirect] = useState('')
-  const [newTauxCredit, setNewTauxCredit] = useState('')
-  const [tauxMsg, setTauxMsg] = useState('')
-
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState<string | null>(null)
   const [commentMap, setCommentMap] = useState<Record<string, string>>({})
@@ -59,8 +53,6 @@ export default function ValidationCAF() {
     const tauxMap = Object.fromEntries((tauxData ?? []).map((r: any) => [r.cle, Number(r.valeur)]))
     const td = tauxMap['taux_horaire_direct_fcfa'] ?? 1500
     const tc = tauxMap['taux_horaire_credit_fcfa'] ?? 1500
-    setTauxDirect(td); setNewTauxDirect(String(td))
-    setTauxCredit(tc); setNewTauxCredit(String(tc))
 
     const all = (valides as any[]) ?? []
 
@@ -102,22 +94,6 @@ export default function ValidationCAF() {
   }
 
   useEffect(() => { load() }, [])
-
-  async function saveTaux() {
-    const res = await fetch('/api/config/taux', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ taux_direct: newTauxDirect, taux_credit: newTauxCredit }),
-    })
-    const json = await res.json()
-    if (res.ok) {
-      setTauxDirect(+newTauxDirect); setTauxCredit(+newTauxCredit)
-      setTauxMsg('✓ Taux mis à jour')
-    } else {
-      setTauxMsg('Erreur : ' + json.error)
-    }
-    setTimeout(() => setTauxMsg(''), 3000)
-  }
 
   async function decider(id: string, action: 'valider' | 'corriger' | 'rejeter') {
     if (action !== 'valider' && !commentMap[id]?.trim()) {
@@ -171,37 +147,6 @@ export default function ValidationCAF() {
 
   return (
     <div style={{ display: 'grid', gap: 20 }}>
-
-      {/* ── Taux horaires ── */}
-      <div className="card" style={{ borderLeft: '4px solid var(--abed-green)' }}>
-        <h3 style={{ marginBottom: 12, fontSize: 14 }}>⚙️ Taux horaires</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 12 }}>
-          <div>
-            <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>
-              Prestataire direct (FCFA/h)
-            </label>
-            <input className="input" type="number" min={100} step={50}
-              value={newTauxDirect} onChange={e => setNewTauxDirect(e.target.value)} />
-            <p style={{ fontSize: 11, color: 'var(--abed-muted)', marginTop: 2 }}>
-              Actuel : <strong>{tauxDirect.toLocaleString('fr-FR')} FCFA/h</strong>
-            </p>
-          </div>
-          <div>
-            <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>
-              Prestataire à crédit (FCFA/h)
-            </label>
-            <input className="input" type="number" min={100} step={50}
-              value={newTauxCredit} onChange={e => setNewTauxCredit(e.target.value)} />
-            <p style={{ fontSize: 11, color: 'var(--abed-muted)', marginTop: 2 }}>
-              Actuel : <strong>{tauxCredit.toLocaleString('fr-FR')} FCFA/h</strong>
-            </p>
-          </div>
-        </div>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          <button className="btn" style={{ fontSize: 13 }} onClick={saveTaux}>Enregistrer les taux</button>
-          {tauxMsg && <span style={{ fontSize: 13, color: tauxMsg.startsWith('✓') ? '#166534' : '#991b1b' }}>{tauxMsg}</span>}
-        </div>
-      </div>
 
       {/* ── Validation CAF ── */}
       <div className="card">
