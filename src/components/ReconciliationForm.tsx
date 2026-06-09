@@ -195,7 +195,7 @@ export default function ReconciliationForm({
                       onChange={e => updateLigne(i, { quantite: +e.target.value })} /></td>
                     <td><input className="input" type="number" value={l.pu} style={{ width: 110 }}
                       onChange={e => updateLigne(i, { pu: +e.target.value })} /></td>
-                    <td style={{ whiteSpace: 'nowrap' }}>{l.montant.toLocaleString('fr-FR')} F</td>
+                    <td style={{ whiteSpace: 'nowrap' }}>{l.montant.toLocaleString('fr-FR')} XOF</td>
                   </tr>
                 ))}
               </tbody>
@@ -256,7 +256,7 @@ export default function ReconciliationForm({
 
       {aChargePartenaire && prelevement > 0 && !submitted && (
         <p style={{ fontSize: 13, color: 'var(--abed-amber)', background: '#fef3c7', padding: '10px 14px', borderRadius: 8 }}>
-          ⚠ À la validation, un push MTN Mobile Money de <strong>{prelevement.toLocaleString('fr-FR')} F CFA</strong> sera
+          ⚠ À la validation, un push MTN Mobile Money de <strong>{prelevement.toLocaleString('fr-FR')} XOF</strong> sera
           envoyé sur votre téléphone. Confirmez-le pour clôturer la mission.
         </p>
       )}
@@ -320,7 +320,7 @@ function Row({ label, value, bold, accent }: { label: string; value: number; bol
       display: 'flex', justifyContent: 'space-between', padding: '4px 0',
       fontWeight: bold ? 700 : 400, color: accent ? 'var(--abed-amber)' : 'inherit',
     }}>
-      <span>{label}</span><span>{value.toLocaleString('fr-FR')} F CFA</span>
+      <span>{label}</span><span>{value.toLocaleString('fr-FR')} XOF</span>
     </div>
   )
 }

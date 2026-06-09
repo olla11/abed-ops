@@ -189,7 +189,7 @@ export default function ValidationCAF() {
                 <div style={{ marginTop: 16, display: 'grid', gap: 14 }}>
                   <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: 12 }}>
                     <p style={{ fontSize: 13, fontWeight: 600 }}>
-                      Montant : {montant.toLocaleString('fr-FR')} XOF ({s.heures_retenues} h × {taux.toLocaleString('fr-FR')} F)
+                      Montant : {montant.toLocaleString('fr-FR')} XOF ({s.heures_retenues} h × {taux.toLocaleString('fr-FR')} XOF)
                     </p>
                     {s.justification_heures && (
                       <p style={{ fontSize: 12, color: 'var(--abed-muted)', marginTop: 4, fontStyle: 'italic' }}>
@@ -277,10 +277,10 @@ export default function ValidationCAF() {
                   <div>
                     <strong style={{ fontSize: 15 }}>{p.prenoms} {p.nom}</strong>
                     <div style={{ display: 'flex', gap: 16, marginTop: 6, fontSize: 13 }}>
-                      <span>Total validé : <strong>{p.total_valide.toLocaleString('fr-FR')} F</strong></span>
-                      <span>Déjà payé : <strong style={{ color: '#166534' }}>{p.total_paye.toLocaleString('fr-FR')} F</strong></span>
+                      <span>Total validé : <strong>{p.total_valide.toLocaleString('fr-FR')} XOF</strong></span>
+                      <span>Déjà payé : <strong style={{ color: '#166534' }}>{p.total_paye.toLocaleString('fr-FR')} XOF</strong></span>
                       <span>Reste dû : <strong style={{ color: reste > 0 ? '#991b1b' : '#166534' }}>
-                        {reste.toLocaleString('fr-FR')} F</strong>
+                        {reste.toLocaleString('fr-FR')} XOF</strong>
                       </span>
                     </div>
                   </div>

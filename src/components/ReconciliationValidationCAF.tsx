@@ -89,14 +89,14 @@ export default function ReconciliationValidationCAF({
                 <td>{l.libelle}</td>
                 <td>{l.quantite}</td>
                 <td>{Number(l.pu).toLocaleString('fr-FR')}</td>
-                <td style={{ fontWeight: 600 }}>{Number(l.montant).toLocaleString('fr-FR')} F</td>
+                <td style={{ fontWeight: 600 }}>{Number(l.montant).toLocaleString('fr-FR')} XOF</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
       <div style={{ fontSize: 13, fontWeight: 700, textAlign: 'right', marginBottom: 16 }}>
-        Total dépenses : {Number(mission.total_depenses ?? 0).toLocaleString('fr-FR')} F CFA
+        Total dépenses : {Number(mission.total_depenses ?? 0).toLocaleString('fr-FR')} XOF
       </div>
 
       {/* Actions */}

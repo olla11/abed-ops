@@ -191,7 +191,7 @@ export default function ValidationManager() {
                         }} />
                     </div>
                     <span style={{ fontSize: 13, color: 'var(--abed-muted)' }}>
-                      → <strong>{montantEstimé} XOF</strong> (× {taux.toLocaleString('fr-FR')} F/h)
+                      → <strong>{montantEstimé} XOF</strong> (× {taux.toLocaleString('fr-FR')} XOF/h)
                     </span>
                   </div>
 

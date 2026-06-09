@@ -197,9 +197,9 @@ export default function SoumissionForm({ managerId, typeEmploi }: { managerId: s
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
             {[
               { label: 'Heures totales validées', value: `${solde.totalHeures} h`, color: '#1e40af' },
-              { label: 'Montant total validé', value: `${solde.totalMontant.toLocaleString('fr-FR')} F`, color: '#0f766e' },
-              { label: 'Total payé', value: `${solde.totalPaye.toLocaleString('fr-FR')} F`, color: '#166534' },
-              { label: 'Reste à percevoir', value: `${solde.resteADevoir.toLocaleString('fr-FR')} F`, color: solde.resteADevoir > 0 ? '#92660b' : '#166534' },
+              { label: 'Montant total validé', value: `${solde.totalMontant.toLocaleString('fr-FR')} XOF`, color: '#0f766e' },
+              { label: 'Total payé', value: `${solde.totalPaye.toLocaleString('fr-FR')} XOF`, color: '#166534' },
+              { label: 'Reste à percevoir', value: `${solde.resteADevoir.toLocaleString('fr-FR')} XOF`, color: solde.resteADevoir > 0 ? '#92660b' : '#166534' },
             ].map(c => (
               <div key={c.label} style={{ background: 'white', border: `2px solid ${c.color}22`,
                 borderRadius: 10, padding: '14px 16px', textAlign: 'center' }}>
@@ -239,7 +239,7 @@ export default function SoumissionForm({ managerId, typeEmploi }: { managerId: s
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                         {e.montant > 0 && (
                           <span style={{ fontSize: 13, fontWeight: 700, color: '#0f766e' }}>
-                            {e.montant.toLocaleString('fr-FR')} F
+                            {e.montant.toLocaleString('fr-FR')} XOF
                           </span>
                         )}
                         {estValide ? (
@@ -272,7 +272,7 @@ export default function SoumissionForm({ managerId, typeEmploi }: { managerId: s
                 <div key={i} style={{ display: 'flex', justifyContent: 'space-between',
                   padding: '8px 0', borderBottom: '1px solid var(--abed-border)', fontSize: 13 }}>
                   <span>
-                    <strong style={{ color: '#166534' }}>{Number(p.montant).toLocaleString('fr-FR')} F</strong>
+                    <strong style={{ color: '#166534' }}>{Number(p.montant).toLocaleString('fr-FR')} XOF</strong>
                     {p.note && <span style={{ color: 'var(--abed-muted)', marginLeft: 8 }}>— {p.note}</span>}
                   </span>
                   <span style={{ fontSize: 11, color: 'var(--abed-muted)' }}>
@@ -467,7 +467,7 @@ export default function SoumissionForm({ managerId, typeEmploi }: { managerId: s
                       <td style={{ fontSize: 12 }}>{s.heures_declarees} h</td>
                       <td style={{ fontSize: 12 }}>{s.heures_retenues != null ? `${s.heures_retenues} h` : '—'}</td>
                       <td style={{ fontSize: 12 }}>
-                        {s.montant_caf != null ? `${s.montant_caf.toLocaleString('fr-FR')} F` : '—'}
+                        {s.montant_caf != null ? `${s.montant_caf.toLocaleString('fr-FR')} XOF` : '—'}
                       </td>
                       <td>
                         <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 999,

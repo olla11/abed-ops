@@ -169,7 +169,7 @@ export default function StatutPersonnel() {
                     </div>
                     {item.montant != null && (
                       <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--abed-green)', marginTop: 4 }}>
-                        {Number(item.montant).toLocaleString('fr-FR')} F
+                        {Number(item.montant).toLocaleString('fr-FR')} XOF
                       </div>
                     )}
                     <div style={{ fontSize: 11, color: 'var(--abed-muted)', marginTop: 4 }}>

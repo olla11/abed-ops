@@ -204,7 +204,7 @@ export default function OverviewOperations() {
 
                     {/* Montant */}
                     <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--abed-green)' }}>
-                      {it.montant != null ? `${Number(it.montant).toLocaleString('fr-FR')} F` : '—'}
+                      {it.montant != null ? `${Number(it.montant).toLocaleString('fr-FR')} XOF` : '—'}
                     </div>
 
                     {/* Date */}
