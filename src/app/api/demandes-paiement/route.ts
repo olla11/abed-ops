@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { sendEmail } from '@/lib/resend'
+import { escapeHtml } from '@/lib/html'
 
 export async function GET(req: NextRequest) {
   const supabase = await createClient()
@@ -92,13 +93,13 @@ function buildEmailAAF({ body, aafNom, id }: any) {
       <h1 style="margin:0;font-size:18px;">ABED-ONG — Demande de paiement en attente</h1>
     </div>
     <div style="padding:24px 28px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
-      <p>Bonjour <strong>${aafNom}</strong>,</p>
+      <p>Bonjour <strong>${escapeHtml(aafNom)}</strong>,</p>
       <p>Une nouvelle demande de paiement attend votre traitement.</p>
       <table style="width:100%;border-collapse:collapse;margin:12px 0;">
-        <tr><td style="font-weight:600;padding:5px 0;width:160px;">Demandeur</td><td>${body.nom_complet}</td></tr>
-        <tr><td style="font-weight:600;padding:5px 0;">Objet</td><td>${body.objet}</td></tr>
+        <tr><td style="font-weight:600;padding:5px 0;width:160px;">Demandeur</td><td>${escapeHtml(body.nom_complet)}</td></tr>
+        <tr><td style="font-weight:600;padding:5px 0;">Objet</td><td>${escapeHtml(body.objet)}</td></tr>
         <tr><td style="font-weight:600;padding:5px 0;">Montant</td><td><strong>${Number(body.montant).toLocaleString('fr-FR')} XOF</strong></td></tr>
-        <tr><td style="font-weight:600;padding:5px 0;">Urgence</td><td>${body.urgence}</td></tr>
+        <tr><td style="font-weight:600;padding:5px 0;">Urgence</td><td>${escapeHtml(body.urgence)}</td></tr>
       </table>
       <a href="${appUrl}/demandes" style="display:inline-block;background:#63a521;color:white;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;margin-top:8px;">
         Traiter la demande →

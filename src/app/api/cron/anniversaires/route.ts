@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase-server'
 import { sendEmail } from '@/lib/resend'
+import { escapeHtml } from '@/lib/html'
 
 // Cron job — tous les jours à 7h (UTC). Envoie un email d'anniversaire à chaque agent
 // dont la date de naissance correspond au jour courant.
@@ -47,7 +48,7 @@ export async function GET(req: Request) {
               <h1 style="margin:0;font-size:22px">🎂 Joyeux Anniversaire !</h1>
             </div>
             <div style="background:#f9fafb;padding:24px 28px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px">
-              <p style="font-size:16px">${salutation},</p>
+              <p style="font-size:16px">${escapeHtml(salutation)},</p>
               <p style="font-size:15px">
                 Toute l'équipe d'<strong>ABED-ONG</strong> vous souhaite un très joyeux anniversaire en ce beau jour.
                 ${age > 0 ? `Nous vous souhaitons une excellente ${age}ème année pleine de succès et de joie.` : ''}

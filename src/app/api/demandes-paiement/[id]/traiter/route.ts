@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { sendEmail } from '@/lib/resend'
+import { escapeHtml } from '@/lib/html'
 
 // action: valider | rejeter | refuser
 // etape déduite du rôle: aaf → valide_aaf, caf → valide_caf, de → autorise
@@ -142,12 +143,12 @@ function buildEmailDemandeur({ demande, status, commentaire, profile }: any) {
       <h1 style="margin:0;font-size:18px;">ABED-ONG — Demande ${status}</h1>
     </div>
     <div style="padding:24px 28px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
-      <p>Bonjour <strong>${demande.nom_complet}</strong>,</p>
+      <p>Bonjour <strong>${escapeHtml(demande.nom_complet)}</strong>,</p>
       <p>Votre demande de paiement a été <strong>${status}</strong>.</p>
       <table style="width:100%;border-collapse:collapse;margin:12px 0;">
-        <tr><td style="font-weight:600;padding:5px 0;width:160px;">Objet</td><td>${demande.objet}</td></tr>
+        <tr><td style="font-weight:600;padding:5px 0;width:160px;">Objet</td><td>${escapeHtml(demande.objet)}</td></tr>
         <tr><td style="font-weight:600;padding:5px 0;">Montant</td><td>${Number(demande.montant).toLocaleString('fr-FR')} XOF</td></tr>
-        ${commentaire ? `<tr><td style="font-weight:600;padding:5px 0;">Motif</td><td>${commentaire}</td></tr>` : ''}
+        ${commentaire ? `<tr><td style="font-weight:600;padding:5px 0;">Motif</td><td>${escapeHtml(commentaire)}</td></tr>` : ''}
         ${status === 'autorisée' ? `<tr><td colspan="2" style="padding-top:12px;color:#166534;font-weight:600;">L'AAF procédera au paiement dans les meilleurs délais.</td></tr>` : ''}
       </table>
       <a href="${appUrl}/demandes" style="display:inline-block;background:#63a521;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:600;margin-top:8px;">Voir mes demandes →</a>
@@ -164,11 +165,11 @@ function buildEmailTraiteur({ demande, msg, nom }: any) {
       <h1 style="margin:0;font-size:18px;">ABED-ONG — Demande de paiement</h1>
     </div>
     <div style="padding:24px 28px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
-      <p>Bonjour <strong>${nom}</strong>,</p>
+      <p>Bonjour <strong>${escapeHtml(nom)}</strong>,</p>
       <p>Une demande de paiement a été ${msg} et attend votre action.</p>
       <table style="width:100%;border-collapse:collapse;margin:12px 0;">
-        <tr><td style="font-weight:600;padding:5px 0;width:160px;">Demandeur</td><td>${demande.nom_complet}</td></tr>
-        <tr><td style="font-weight:600;padding:5px 0;">Objet</td><td>${demande.objet}</td></tr>
+        <tr><td style="font-weight:600;padding:5px 0;width:160px;">Demandeur</td><td>${escapeHtml(demande.nom_complet)}</td></tr>
+        <tr><td style="font-weight:600;padding:5px 0;">Objet</td><td>${escapeHtml(demande.objet)}</td></tr>
         <tr><td style="font-weight:600;padding:5px 0;">Montant</td><td><strong>${Number(demande.montant).toLocaleString('fr-FR')} XOF</strong></td></tr>
       </table>
       <a href="${appUrl}/demandes" style="display:inline-block;background:#63a521;color:white;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;margin-top:8px;">Traiter →</a>

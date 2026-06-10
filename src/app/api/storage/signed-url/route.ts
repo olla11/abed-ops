@@ -7,18 +7,27 @@ export async function GET(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'non authentifie' }, { status: 401 })
 
+  const ALLOWED_BUCKETS = ['timesheets', 'assets', 'livrables']
   const bucket = req.nextUrl.searchParams.get('bucket') ?? 'timesheets'
   const path = req.nextUrl.searchParams.get('path')
   if (!path) return NextResponse.json({ error: 'path manquant' }, { status: 400 })
+  if (!ALLOWED_BUCKETS.includes(bucket)) {
+    return NextResponse.json({ error: 'bucket non autorisé' }, { status: 400 })
+  }
+  if (path.includes('..')) {
+    return NextResponse.json({ error: 'chemin invalide' }, { status: 400 })
+  }
 
-  // Vérifier que l'utilisateur est bien autorisé : prestataire (owner) ou manager/caf/admin
+  // Autorisé : le propriétaire du fichier (préfixe = son id) ou un rôle gestionnaire
+  // impliqué dans la validation des justificatifs/timesheets/paiements.
   const { data: profile } = await supabase
     .from('profiles').select('role').eq('id', user.id).single()
 
-  const canAccess = ['manager', 'aaf', 'caf', 'de', 'admin', 'administrateur', 'rh'].includes(profile?.role ?? '') ||
-    path.startsWith(user.id + '/')
-
-  if (!canAccess) return NextResponse.json({ error: 'acces refuse' }, { status: 403 })
+  const isGestionnaire = ['manager', 'aaf', 'caf', 'de', 'admin', 'administrateur'].includes(profile?.role ?? '')
+  const isOwner = path.startsWith(user.id + '/')
+  if (!isGestionnaire && !isOwner) {
+    return NextResponse.json({ error: 'acces refuse' }, { status: 403 })
+  }
 
   const admin = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

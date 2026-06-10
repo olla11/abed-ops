@@ -112,6 +112,17 @@ export async function GET(req: NextRequest) {
   const missionId = req.nextUrl.searchParams.get('missionId')
   if (!missionId) return NextResponse.json({ error: 'missionId requis' }, { status: 400 })
 
+  // Authentification + autorisation : le PDF expose des données personnelles
+  // (date/lieu de naissance, IFU, adresse, téléphone du missionnaire).
+  // Seuls le missionnaire, le signataire ou un rôle gestionnaire peuvent y accéder.
+  const sessionClient = await createClient()
+  const { data: { user } } = await sessionClient.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
+
+  const { data: me } = await sessionClient
+    .from('profiles').select('role').eq('id', user.id).single()
+  const role = me?.role ?? ''
+
   const admin = createAdminClient()
   const { data: m, error } = await admin
     .from('missions')
@@ -130,6 +141,12 @@ export async function GET(req: NextRequest) {
   if (error || !m) return NextResponse.json({ error: 'introuvable' }, { status: 404 })
   if (m.status === 'brouillon' || m.status === 'soumis') {
     return NextResponse.json({ error: 'OM non encore signe' }, { status: 403 })
+  }
+
+  const isGestionnaire = ['caf', 'de', 'admin', 'administrateur'].includes(role)
+  const isConcerne = m.missionnaire_id === user.id || m.signe_par === user.id
+  if (!isGestionnaire && !isConcerne) {
+    return NextResponse.json({ error: 'accès refusé' }, { status: 403 })
   }
 
   const pdf = await PDFDocument.create()

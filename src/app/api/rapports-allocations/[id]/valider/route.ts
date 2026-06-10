@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { sendEmail } from '@/lib/resend'
+import { escapeHtml } from '@/lib/html'
 
 export async function POST(
   req: NextRequest,
@@ -154,7 +155,7 @@ function buildEmailAutorise({ rapport, mois, prest, id, estSalarie }: any) {
       <h1 style="margin:0;font-size:20px;">✓ ABED-ONG — ${estSalarie ? 'Fiche de paie disponible' : 'Allocation autorisée'}</h1>
     </div>
     <div style="padding:24px 28px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
-      <p>Bonjour <strong>${prest.prenoms} ${prest.nom}</strong>,</p>
+      <p>Bonjour <strong>${escapeHtml(prest.prenoms)} ${escapeHtml(prest.nom)}</strong>,</p>
       <p>${estSalarie ? 'Votre bulletin de paie mensuel a été établi et autorisé par le Directeur Exécutif.' : 'Votre rapport mensuel a été validé et votre allocation autorisée.'}</p>
       <div style="background:#f0fdf4;border:1.5px solid #63a521;border-radius:8px;padding:16px 20px;margin:16px 0;">
         <div style="font-size:12px;color:#166534;font-weight:600;margin-bottom:4px;">${montantLabel}</div>
@@ -185,10 +186,10 @@ function buildEmailEtape({ prest, mois, rapport, msg, nom, estSalarie }: any) {
       <h1 style="margin:0;font-size:18px;">ABED-ONG — Rapport mensuel à traiter</h1>
     </div>
     <div style="padding:24px 28px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
-      <p>Bonjour <strong>${nom}</strong>,</p>
+      <p>Bonjour <strong>${escapeHtml(nom)}</strong>,</p>
       <p>Un rapport mensuel ${estSalarie ? '(fiche de paie)' : "(allocation)"} a été <strong>${msg}</strong> et attend votre action.</p>
       <table style="width:100%;border-collapse:collapse;margin:12px 0;">
-        <tr><td style="font-weight:600;padding:5px 0;width:160px;">Bénéficiaire</td><td>${prest.prenoms} ${prest.nom}</td></tr>
+        <tr><td style="font-weight:600;padding:5px 0;width:160px;">Bénéficiaire</td><td>${escapeHtml(prest.prenoms)} ${escapeHtml(prest.nom)}</td></tr>
         <tr><td style="font-weight:600;padding:5px 0;">Période</td><td>${mois}</td></tr>
         ${rapport.montant_allocation ? `<tr><td style="font-weight:600;padding:5px 0;">${estSalarie ? 'Salaire net' : 'Allocation'}</td><td><strong>${Number(rapport.montant_allocation).toLocaleString('fr-FR')} XOF</strong></td></tr>` : ''}
       </table>
@@ -208,9 +209,9 @@ function buildEmailRejete({ mois, prest, commentaire }: any) {
       <h1 style="margin:0;font-size:18px;">ABED-ONG — Rapport rejeté</h1>
     </div>
     <div style="padding:24px 28px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
-      <p>Bonjour <strong>${prest.prenoms} ${prest.nom}</strong>,</p>
+      <p>Bonjour <strong>${escapeHtml(prest.prenoms)} ${escapeHtml(prest.nom)}</strong>,</p>
       <p>Votre rapport mensuel de <strong>${mois}</strong> a été rejeté.</p>
-      ${commentaire ? `<div style="background:#fef2f2;border-left:3px solid #991b1b;padding:12px;margin:12px 0;border-radius:0 6px 6px 0;"><strong>Motif :</strong> ${commentaire}</div>` : ''}
+      ${commentaire ? `<div style="background:#fef2f2;border-left:3px solid #991b1b;padding:12px;margin:12px 0;border-radius:0 6px 6px 0;"><strong>Motif :</strong> ${escapeHtml(commentaire)}</div>` : ''}
       <p>Veuillez corriger et resoumettre votre rapport.</p>
       <a href="${appUrl}/timesheets" style="display:inline-block;background:#63a521;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:600;margin-top:8px;">Voir mes rapports →</a>
       <p style="font-size:12px;color:#6b7280;margin-top:20px;">ABED-ONG · contact@abedong.org</p>

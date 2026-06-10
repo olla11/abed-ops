@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { validateUpload, IMAGE_EXTS } from '@/lib/upload'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -22,6 +23,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'fichier et type requis (signature|cachet)' }, { status: 400 })
   }
 
+  // Signature/cachet : images uniquement, limite 5 Mo
+  const check = validateUpload(file, { allowed: IMAGE_EXTS, maxBytes: 5 * 1024 * 1024 })
+  if (!check.ok) return NextResponse.json({ error: check.error }, { status: 400 })
+
   const admin = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -29,15 +34,14 @@ export async function POST(req: NextRequest) {
 
   const bytes = await file.arrayBuffer()
   const buffer = Buffer.from(bytes)
-  const ext = file.name.split('.').pop()?.toLowerCase() || 'png'
-  const path = `${user.id}/${type}.${ext}`
+  const path = `${user.id}/${type}.${check.ext}`
 
   // Ensure bucket exists
   await admin.storage.createBucket('assets', { public: false }).catch(() => {})
 
   const { error: upErr } = await admin.storage
     .from('assets')
-    .upload(path, buffer, { contentType: file.type, upsert: true })
+    .upload(path, buffer, { contentType: check.contentType, upsert: true })
 
   if (upErr) return NextResponse.json({ error: upErr.message }, { status: 400 })
 

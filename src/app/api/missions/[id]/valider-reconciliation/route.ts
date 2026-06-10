@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { createAdminClient } from '@/lib/supabase-server'
 import { sendEmail } from '@/lib/resend'
+import { escapeHtml } from '@/lib/html'
 
 // POST /api/missions/[id]/valider-reconciliation
 // body: { action: 'valider' | 'rejeter', commentaire?: string }
@@ -79,7 +80,7 @@ export async function POST(
   }
 
   const pointFinancierHtml = pf.map((l: any) =>
-    `<tr><td>${l.libelle}</td><td>${l.quantite}</td><td>${Number(l.pu).toLocaleString('fr-FR')} XOF</td><td><strong>${Number(l.montant).toLocaleString('fr-FR')} XOF</strong></td></tr>`
+    `<tr><td>${escapeHtml(l.libelle)}</td><td>${escapeHtml(l.quantite)}</td><td>${Number(l.pu).toLocaleString('fr-FR')} XOF</td><td><strong>${Number(l.montant).toLocaleString('fr-FR')} XOF</strong></td></tr>`
   ).join('')
 
   const emailHtml = `
@@ -90,20 +91,20 @@ export async function POST(
       <div style="background: #f9fafb; padding: 24px 28px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
         <table style="width:100%; border-collapse:collapse; margin-bottom:20px;">
           <tr><td style="font-weight:600; width:200px; padding:6px 0;">Référence</td><td>${mission.reference ?? mission.id}</td></tr>
-          <tr><td style="font-weight:600; padding:6px 0;">Objet</td><td>${mission.objet}</td></tr>
-          <tr><td style="font-weight:600; padding:6px 0;">Lieu</td><td>${mission.lieu}</td></tr>
-          <tr><td style="font-weight:600; padding:6px 0;">Missionnaire</td><td>${missionnaire?.prenoms} ${missionnaire?.nom}</td></tr>
+          <tr><td style="font-weight:600; padding:6px 0;">Objet</td><td>${escapeHtml(mission.objet)}</td></tr>
+          <tr><td style="font-weight:600; padding:6px 0;">Lieu</td><td>${escapeHtml(mission.lieu)}</td></tr>
+          <tr><td style="font-weight:600; padding:6px 0;">Missionnaire</td><td>${escapeHtml(missionnaire?.prenoms)} ${escapeHtml(missionnaire?.nom)}</td></tr>
           <tr><td style="font-weight:600; padding:6px 0;">Période</td><td>${fmtDate(mission.date_depart)} → ${fmtDate(mission.date_retour)}</td></tr>
           <tr><td style="font-weight:600; padding:6px 0;">Mode financement</td><td>${modeLabel[mission.mode_financement ?? ''] ?? '—'}</td></tr>
         </table>
 
         <h3 style="color:#63a521; border-bottom:1px solid #e5e7eb; padding-bottom:8px;">Rapport de mission</h3>
         <table style="width:100%; border-collapse:collapse; margin-bottom:20px;">
-          <tr><td style="font-weight:600; width:200px; padding:6px 0; vertical-align:top;">Objectifs</td><td>${rapport.objectifs ?? '—'}</td></tr>
-          <tr><td style="font-weight:600; padding:6px 0; vertical-align:top;">Activités</td><td>${rapport.activites ?? '—'}</td></tr>
-          <tr><td style="font-weight:600; padding:6px 0; vertical-align:top;">Résultats</td><td>${rapport.resultats ?? '—'}</td></tr>
-          <tr><td style="font-weight:600; padding:6px 0; vertical-align:top;">Difficultés</td><td>${rapport.difficultes ?? '—'}</td></tr>
-          <tr><td style="font-weight:600; padding:6px 0; vertical-align:top;">Suite à donner</td><td>${rapport.suite ?? '—'}</td></tr>
+          <tr><td style="font-weight:600; width:200px; padding:6px 0; vertical-align:top;">Objectifs</td><td>${escapeHtml(rapport.objectifs ?? '—')}</td></tr>
+          <tr><td style="font-weight:600; padding:6px 0; vertical-align:top;">Activités</td><td>${escapeHtml(rapport.activites ?? '—')}</td></tr>
+          <tr><td style="font-weight:600; padding:6px 0; vertical-align:top;">Résultats</td><td>${escapeHtml(rapport.resultats ?? '—')}</td></tr>
+          <tr><td style="font-weight:600; padding:6px 0; vertical-align:top;">Difficultés</td><td>${escapeHtml(rapport.difficultes ?? '—')}</td></tr>
+          <tr><td style="font-weight:600; padding:6px 0; vertical-align:top;">Suite à donner</td><td>${escapeHtml(rapport.suite ?? '—')}</td></tr>
         </table>
 
         <h3 style="color:#63a521; border-bottom:1px solid #e5e7eb; padding-bottom:8px;">Point financier</h3>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { sendEmail } from '@/lib/resend'
+import { escapeHtml } from '@/lib/html'
 import { LOGO_PNG_B64 } from '@/lib/logo-b64'
 
 const LOGO_DATA_URI = `data:image/png;base64,${LOGO_PNG_B64}`
@@ -21,12 +22,12 @@ function emailDirectValide({
     <h1 style="color:white;margin:12px 0 0;font-size:20px">Timesheet validé ✅</h1>
   </div>
   <div style="padding:32px">
-    <p style="margin:0 0 16px;font-size:15px">Bonjour <strong>${prenom}</strong>,</p>
+    <p style="margin:0 0 16px;font-size:15px">Bonjour <strong>${escapeHtml(prenom)}</strong>,</p>
     <p style="margin:0 0 24px;font-size:14px;color:#374151;line-height:1.6">
       Votre responsable a <strong>validé techniquement</strong> votre timesheet :
     </p>
     <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px 20px;margin-bottom:24px">
-      <p style="margin:0;font-size:14px"><strong>${titre}</strong></p>
+      <p style="margin:0;font-size:14px"><strong>${escapeHtml(titre)}</strong></p>
       <p style="margin:4px 0 0;font-size:13px;color:#4b5563">${heures}h retenues — ${mois}/${annee}</p>
     </div>
     <p style="margin:0 0 24px;font-size:14px;color:#374151;line-height:1.6">
@@ -60,12 +61,12 @@ function emailCreditValide({
     <h1 style="color:white;margin:12px 0 0;font-size:20px">Timesheet validé ✅</h1>
   </div>
   <div style="padding:32px">
-    <p style="margin:0 0 16px;font-size:15px">Bonjour <strong>${prenom}</strong>,</p>
+    <p style="margin:0 0 16px;font-size:15px">Bonjour <strong>${escapeHtml(prenom)}</strong>,</p>
     <p style="margin:0 0 24px;font-size:14px;color:#374151;line-height:1.6">
       Votre responsable a <strong>validé techniquement</strong> votre timesheet :
     </p>
     <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px 20px;margin-bottom:24px">
-      <p style="margin:0;font-size:14px"><strong>${titre}</strong></p>
+      <p style="margin:0;font-size:14px"><strong>${escapeHtml(titre)}</strong></p>
       <p style="margin:4px 0 0;font-size:13px;color:#4b5563">${heures}h retenues — ${mois}/${annee}</p>
     </div>
     <p style="margin:0 0 24px;font-size:14px;color:#374151;line-height:1.6">

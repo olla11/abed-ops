@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { sendEmail } from '@/lib/resend'
+import { escapeHtml } from '@/lib/html'
 
 export async function POST(
   _req: NextRequest,
@@ -69,15 +70,15 @@ function buildRecu({ prest, soum, moisNom, payePar }: any) {
         <h1 style="margin:0;font-size:20px;">ABED-ONG — Reçu de paiement</h1>
       </div>
       <div style="background:#f9fafb;padding:24px 28px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
-        <p>Bonjour <strong>${prest.prenoms} ${prest.nom}</strong>,</p>
+        <p>Bonjour <strong>${escapeHtml(prest.prenoms)} ${escapeHtml(prest.nom)}</strong>,</p>
         <p>Votre paiement pour la période <strong>${moisNom}</strong> a été effectué.</p>
         <table style="width:100%;border-collapse:collapse;margin:16px 0;">
-          <tr><td style="font-weight:600;padding:6px 0;width:180px;">Dossier</td><td>${soum.titre}</td></tr>
+          <tr><td style="font-weight:600;padding:6px 0;width:180px;">Dossier</td><td>${escapeHtml(soum.titre)}</td></tr>
           <tr><td style="font-weight:600;padding:6px 0;">Période</td><td>${moisNom}</td></tr>
           <tr><td style="font-weight:600;padding:6px 0;">Heures retenues</td><td>${soum.heures_retenues} h</td></tr>
           <tr><td style="font-weight:600;padding:6px 0;">Montant payé</td><td><strong style="color:#166534;font-size:16px;">${soum.montant_caf.toLocaleString('fr-FR')} XOF</strong></td></tr>
           <tr><td style="font-weight:600;padding:6px 0;">Date de paiement</td><td>${now}</td></tr>
-          <tr><td style="font-weight:600;padding:6px 0;">Validé par</td><td>${payePar.prenoms} ${payePar.nom} (CAF)</td></tr>
+          <tr><td style="font-weight:600;padding:6px 0;">Validé par</td><td>${escapeHtml(payePar.prenoms)} ${escapeHtml(payePar.nom)} (CAF)</td></tr>
         </table>
         <p style="font-size:12px;color:#6b7280;">Ce document vaut reçu de paiement. Conservez-le pour vos archives.</p>
         <p style="font-size:12px;color:#6b7280;">ABED-ONG · contact@abedong.org · +229 0167779141</p>

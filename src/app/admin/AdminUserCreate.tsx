@@ -1,10 +1,9 @@
 ﻿'use client'
 import { useState } from 'react'
-import PasswordCriteria, { isPasswordStrong } from '@/components/PasswordCriteria'
 
 export default function AdminUserCreate() {
   const [form, setForm] = useState({
-    email: '', password: '', nom: '', prenoms: '', civilite: 'M.',
+    email: '', nom: '', prenoms: '', civilite: 'M.',
     telephone: '', fonction: '', ifu: '',
     grade_indice: '', adresse: '',
     date_naissance: '', lieu_naissance: '', nationalite: 'Béninoise',
@@ -18,10 +17,6 @@ export default function AdminUserCreate() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
-    if (!isPasswordStrong(form.password)) {
-      setMsg({ ok: false, text: 'Le mot de passe ne respecte pas tous les critères requis.' })
-      return
-    }
     setLoading(true); setMsg(null)
     const res = await fetch('/api/admin/create-user', {
       method: 'POST',
@@ -31,8 +26,8 @@ export default function AdminUserCreate() {
     const data = await res.json()
     setLoading(false)
     if (data.ok) {
-      setMsg({ ok: true, text: `Compte créé pour ${form.prenoms} ${form.nom}` })
-      setForm({ email: '', password: '', nom: '', prenoms: '', civilite: 'M.', telephone: '', fonction: '',
+      setMsg({ ok: true, text: `Compte créé. Une invitation a été envoyée à ${form.email} pour définir le mot de passe.` })
+      setForm({ email: '', nom: '', prenoms: '', civilite: 'M.', telephone: '', fonction: '',
         ifu: '', grade_indice: '', adresse: '', date_naissance: '', lieu_naissance: '', nationalite: 'Béninoise' })
     } else {
       setMsg({ ok: false, text: data.error ?? 'Erreur inconnue' })
@@ -66,12 +61,10 @@ export default function AdminUserCreate() {
         <input className="input" type="email" value={form.email} onChange={e => set('email', e.target.value)} required />
       </div>
 
-      <div className="field">
-        <label className="label">Mot de passe provisoire *</label>
-        <input className="input" type="password" value={form.password}
-          onChange={e => set('password', e.target.value)} required />
-        <PasswordCriteria password={form.password} />
-      </div>
+      <p style={{ fontSize: 12, color: 'var(--abed-muted)', margin: '0 0 12px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '10px 14px' }}>
+        🔒 Aucun mot de passe à saisir : un email d'invitation sera envoyé à l'utilisateur
+        pour qu'il définisse lui-même son mot de passe en toute sécurité.
+      </p>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <div className="field">

@@ -86,7 +86,12 @@ export async function createMomoDebit(p: CreateDebitParams) {
 export function verifyWebhookSignature(rawBody: string, signature: string | null): boolean {
   if (!signature) return false
   const secret = process.env.FEDAPAY_WEBHOOK_SECRET ?? ''
-  if (!secret) return true // désactivé si pas de secret configuré
+  // Fail-closed : sans secret configuré, on refuse tout webhook (sinon
+  // n'importe qui pourrait forger une notification de paiement « réussi »).
+  if (!secret) {
+    console.error('[FedaPay] FEDAPAY_WEBHOOK_SECRET non configuré — webhook rejeté')
+    return false
+  }
   const expected = crypto.createHmac('sha256', secret).update(rawBody).digest('hex')
   try {
     return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))

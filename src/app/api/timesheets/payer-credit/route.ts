@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { sendEmail } from '@/lib/resend'
+import { escapeHtml } from '@/lib/html'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -65,15 +66,15 @@ function buildRecuCredit({ prest, montant, heures_payees, note, cafProfile }: an
         <h1 style="margin:0;font-size:20px;">ABED-ONG — Versement prestataire</h1>
       </div>
       <div style="background:#f9fafb;padding:24px 28px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
-        <p>Bonjour <strong>${prest.prenoms} ${prest.nom}</strong>,</p>
+        <p>Bonjour <strong>${escapeHtml(prest.prenoms)} ${escapeHtml(prest.nom)}</strong>,</p>
         <p>Un versement a été effectué sur votre solde ABED-ONG.</p>
         <table style="width:100%;border-collapse:collapse;margin:16px 0;">
           <tr><td style="font-weight:600;padding:6px 0;width:180px;">Montant versé</td>
               <td><strong style="color:#166534;font-size:16px;">${montant.toLocaleString('fr-FR')} XOF</strong></td></tr>
           ${heures_payees ? `<tr><td style="font-weight:600;padding:6px 0;">Heures payées</td><td>${heures_payees} h</td></tr>` : ''}
-          ${note ? `<tr><td style="font-weight:600;padding:6px 0;">Note</td><td>${note}</td></tr>` : ''}
+          ${note ? `<tr><td style="font-weight:600;padding:6px 0;">Note</td><td>${escapeHtml(note)}</td></tr>` : ''}
           <tr><td style="font-weight:600;padding:6px 0;">Date</td><td>${now}</td></tr>
-          <tr><td style="font-weight:600;padding:6px 0;">Validé par</td><td>${cafProfile.prenoms} ${cafProfile.nom} (CAF)</td></tr>
+          <tr><td style="font-weight:600;padding:6px 0;">Validé par</td><td>${escapeHtml(cafProfile.prenoms)} ${escapeHtml(cafProfile.nom)} (CAF)</td></tr>
         </table>
         <p>Connectez-vous pour vérifier votre solde mis à jour.</p>
         <p style="font-size:12px;color:#6b7280;">ABED-ONG · contact@abedong.org · +229 0167779141</p>
