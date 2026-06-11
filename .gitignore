@@ -9,3 +9,7 @@ npm-debug.log*
 
 # Gitlink auto-référencé accidentel (cassait le déploiement Cloudflare)
 /abed-ops
+
+# OpenNext (Cloudflare) — sorties de build
+.open-next
+.wrangler

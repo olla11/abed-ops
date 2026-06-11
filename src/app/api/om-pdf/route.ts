@@ -3,8 +3,7 @@ import { createClient, createAdminClient } from "@/lib/supabase-server"
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { PDFDocument, StandardFonts, rgb, degrees } from 'pdf-lib'
 import QRCode from 'qrcode'
-import fs from 'fs'
-import path from 'path'
+import { LOGO_ABED_BASE64 } from '@/lib/logo-abed'
 
 const fmt = (d: string | null | undefined) =>
   d ? new Date(d).toLocaleDateString('fr-FR') : '—'
@@ -172,8 +171,7 @@ export async function GET(req: NextRequest) {
 
   // ---- EN-TÊTE ----
   try {
-    const logoPath = path.join(process.cwd(), 'public', 'logoabed2.png')
-    const logoBytes = fs.readFileSync(logoPath)
+    const logoBytes = Buffer.from(LOGO_ABED_BASE64, 'base64')
     const logoImg = await pdf.embedPng(logoBytes)
     const logoH = 88
     const logoW = logoImg.width * (logoH / logoImg.height)

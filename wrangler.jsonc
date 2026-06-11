@@ -1,0 +1,16 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "main": ".open-next/worker.js",
+  "name": "abed-ops",
+  "compatibility_date": "2025-03-25",
+  "compatibility_flags": [
+    // Active les API Node.js (crypto, zlib, etc.) — requis par l'app
+    "nodejs_compat",
+    // Autorise le fetch des assets/URLs publiques depuis le Worker
+    "global_fetch_strictly_public"
+  ],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  }
+}
