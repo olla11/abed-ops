@@ -6,3 +6,6 @@
 .vercel
 npm-debug.log*
 .DS_Store
+
+# Gitlink auto-référencé accidentel (cassait le déploiement Cloudflare)
+/abed-ops
