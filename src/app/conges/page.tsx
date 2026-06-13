@@ -42,7 +42,7 @@ export default async function MesCongesPage() {
         avatarUrl={profile?.avatar_url ?? null}
       />
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}
-      <div style={{ maxWidth: 900, margin: '0 auto', padding: '24px 32px' }}>
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '24px 32px' }}>
         <MesCongesClient
           conges={conges ?? []}
           typesConge={typesConge ?? []}

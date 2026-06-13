@@ -31,7 +31,7 @@ export default async function StatutPage() {
         avatarUrl={profile?.avatar_url ?? null}
       />
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}
-      <div style={{ maxWidth: 900, margin: '0 auto', padding: '24px 32px', display: 'grid', gap: 28 }}>
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '24px 32px', display: 'grid', gap: 28 }}>
 
       <div>
         <h1 style={{ color: 'var(--abed-green)', marginBottom: 4 }}>Suivi de mes dossiers</h1>
