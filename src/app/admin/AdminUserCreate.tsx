@@ -10,7 +10,7 @@ export default function AdminUserCreate() {
     date_naissance: '', lieu_naissance: '', nationalite: 'Béninoise',
   })
   const [loading, setLoading] = useState(false)
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [msg, setMsg] = useState<{ ok: boolean; text: string; warn?: string } | null>(null)
 
   function set(k: keyof typeof form, v: string) {
     setForm(f => ({ ...f, [k]: v }))
@@ -27,7 +27,10 @@ export default function AdminUserCreate() {
     const data = await res.json()
     setLoading(false)
     if (data.ok) {
-      setMsg({ ok: true, text: `Compte créé pour ${form.prenoms} ${form.nom}` })
+      const warn = !data.emailSent
+        ? `Email non envoyé (${data.emailError ?? 'vérifiez RESEND_API_KEY et le domaine expéditeur'}). Communiquez le mot de passe manuellement : ${form.password}`
+        : undefined
+      setMsg({ ok: true, text: `Compte créé pour ${form.prenoms} ${form.nom}. ${data.emailSent ? 'Email envoyé.' : ''}`, warn })
       setForm({ email: '', password: '', nom: '', prenoms: '', civilite: 'M.', role: 'missionnaire', type_emploi: '',
         telephone: '', fonction: '', ifu: '', grade_indice: '', adresse: '', date_naissance: '', lieu_naissance: '', nationalite: 'Béninoise' })
     } else {
@@ -149,9 +152,19 @@ export default function AdminUserCreate() {
       </div>
 
       {msg && (
-        <p style={{ fontSize: 13, marginBottom: 12, color: msg.ok ? 'var(--abed-green)' : 'var(--abed-danger)' }}>
+        <>
+        <p style={{ fontSize: 13, marginBottom: 8, color: msg.ok ? 'var(--abed-green)' : 'var(--abed-danger)' }}>
           {msg.text}
         </p>
+        {msg.warn && (
+          <div style={{
+            fontSize: 13, marginBottom: 12, padding: '10px 14px', borderRadius: 8,
+            background: '#fffbeb', border: '1px solid #fde68a', color: '#92400e',
+          }}>
+            ⚠️ {msg.warn}
+          </div>
+        )}
+        </>
       )}
       <button className="btn" disabled={loading}>{loading ? 'Création…' : 'Créer le compte'}</button>
     </form>

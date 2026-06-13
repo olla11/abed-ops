@@ -8,7 +8,9 @@ export async function sendEmail({
   html: string
 }) {
   const apiKey = process.env.RESEND_API_KEY
-  const fromEmail = process.env.RESEND_FROM_EMAIL ?? 'ABED-ONG <noreply@abedong.org>'
+  // Resend free plan: only verified domains work. Use onboarding@resend.dev as safe fallback
+  // (can only send to the Resend account owner's email on free plan with this sender)
+  const fromEmail = process.env.RESEND_FROM_EMAIL ?? 'My ABED <onboarding@resend.dev>'
 
   if (!apiKey) {
     console.warn('[Resend] RESEND_API_KEY non défini — email non envoyé')

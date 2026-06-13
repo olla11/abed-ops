@@ -72,40 +72,48 @@ export async function POST(req: NextRequest) {
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://myabed.vercel.app'
-  await sendEmail({
-    to: email,
-    subject: 'Bienvenue sur My ABED — Vos identifiants de connexion',
-    html: `
-      <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#f9fafb;border-radius:12px">
-        <div style="text-align:center;margin-bottom:24px">
-          <img src="${appUrl}/logoabed2.png" alt="ABED" width="56" height="56" style="object-fit:contain" />
-          <h1 style="color:#16a34a;font-size:22px;margin:12px 0 4px">My ABED</h1>
-          <p style="color:#6b7280;font-size:13px;margin:0">Plateforme de gestion ABED ONG</p>
-        </div>
-        <div style="background:white;border-radius:10px;padding:28px 24px;border:1px solid #e5e7eb">
-          <p style="font-size:15px;color:#111827;margin:0 0 16px">Bonjour <strong>${civilite || 'M.'} ${prenoms} ${nom}</strong>,</p>
-          <p style="font-size:14px;color:#374151;margin:0 0 20px">
-            Votre compte a été créé sur la plateforme <strong>My ABED</strong>. Voici vos identifiants de connexion :
-          </p>
-          <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px 20px;margin-bottom:20px">
-            <p style="margin:0 0 8px;font-size:13px;color:#6b7280">Email</p>
-            <p style="margin:0 0 16px;font-size:15px;font-weight:700;color:#111827">${email}</p>
-            <p style="margin:0 0 8px;font-size:13px;color:#6b7280">Mot de passe provisoire</p>
-            <p style="margin:0;font-size:18px;font-weight:800;color:#16a34a;letter-spacing:2px">${password}</p>
-          </div>
-          <p style="font-size:13px;color:#f59e0b;margin:0 0 20px">
-            ⚠️ Vous serez invité(e) à changer ce mot de passe lors de votre première connexion.
-          </p>
-          <a href="${appUrl}/login" style="display:block;text-align:center;background:#16a34a;color:white;padding:12px 0;border-radius:8px;font-size:15px;font-weight:700;text-decoration:none">
-            Se connecter →
-          </a>
-        </div>
-        <p style="text-align:center;font-size:12px;color:#9ca3af;margin-top:20px">
-          My ABED — ABED ONG · Cotonou, Bénin
-        </p>
-      </div>
-    `,
-  }).catch(e => console.error('[create-user] email error:', e))
+  let emailSent = false
+  let emailError = ''
 
-  return NextResponse.json({ ok: true, userId: newUser.user.id })
+  try {
+    await sendEmail({
+      to: email,
+      subject: 'Bienvenue sur My ABED — Vos identifiants de connexion',
+      html: `
+        <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#f9fafb;border-radius:12px">
+          <div style="text-align:center;margin-bottom:24px">
+            <h1 style="color:#16a34a;font-size:22px;margin:12px 0 4px">My ABED</h1>
+            <p style="color:#6b7280;font-size:13px;margin:0">Plateforme de gestion ABED ONG</p>
+          </div>
+          <div style="background:white;border-radius:10px;padding:28px 24px;border:1px solid #e5e7eb">
+            <p style="font-size:15px;color:#111827;margin:0 0 16px">Bonjour <strong>${civilite || 'M.'} ${prenoms} ${nom}</strong>,</p>
+            <p style="font-size:14px;color:#374151;margin:0 0 20px">
+              Votre compte a été créé sur la plateforme <strong>My ABED</strong>. Voici vos identifiants de connexion :
+            </p>
+            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px 20px;margin-bottom:20px">
+              <p style="margin:0 0 8px;font-size:13px;color:#6b7280">Email</p>
+              <p style="margin:0 0 16px;font-size:15px;font-weight:700;color:#111827">${email}</p>
+              <p style="margin:0 0 8px;font-size:13px;color:#6b7280">Mot de passe provisoire</p>
+              <p style="margin:0;font-size:18px;font-weight:800;color:#16a34a;letter-spacing:2px">${password}</p>
+            </div>
+            <p style="font-size:13px;color:#f59e0b;margin:0 0 20px">
+              ⚠️ Vous serez invité(e) à changer ce mot de passe lors de votre première connexion.
+            </p>
+            <a href="${appUrl}/login" style="display:block;text-align:center;background:#16a34a;color:white;padding:12px 0;border-radius:8px;font-size:15px;font-weight:700;text-decoration:none">
+              Se connecter →
+            </a>
+          </div>
+          <p style="text-align:center;font-size:12px;color:#9ca3af;margin-top:20px">
+            My ABED — ABED ONG · Cotonou, Bénin
+          </p>
+        </div>
+      `,
+    })
+    emailSent = true
+  } catch (e: any) {
+    emailError = e?.message ?? 'Erreur inconnue'
+    console.error('[create-user] email error:', emailError)
+  }
+
+  return NextResponse.json({ ok: true, userId: newUser.user.id, emailSent, emailError: emailSent ? undefined : emailError })
 }
