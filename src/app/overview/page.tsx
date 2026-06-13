@@ -2,6 +2,8 @@ export const dynamic = 'force-dynamic'
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import AppHeader from '@/components/AppHeader'
+import RolePreviewBanner from '@/components/RolePreviewBanner'
+import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
 import OverviewOperations from '@/components/OverviewOperations'
 
 export default async function OverviewPage() {
@@ -12,7 +14,9 @@ export default async function OverviewPage() {
   const { data: profile } = await supabase
     .from('profiles').select('role, nom, prenoms, type_emploi, avatar_url').eq('id', user.id).single()
 
-  const role = profile?.role ?? ''
+  const realRole = profile?.role ?? ''
+  const role = await getEffectiveRole(realRole)
+  const previewRole = await getRolePreview()
   if (!['aaf','caf','de','admin','administrateur'].includes(role)) redirect('/timesheets')
 
   return (
@@ -21,10 +25,11 @@ export default async function OverviewPage() {
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={role}
         typeEmploi={profile?.type_emploi}
-        showAdmin={role === 'admin'}
+        showAdmin={realRole === 'admin' && !previewRole}
         showRH={['rh','admin'].includes(role)}
         avatarUrl={profile?.avatar_url ?? null}
       />
+      {previewRole && <RolePreviewBanner previewRole={previewRole} />}
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 32px", display: "grid", gap: 28 }}>
 
       <div>

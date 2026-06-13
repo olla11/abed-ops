@@ -8,6 +8,8 @@ import RapportAllocationForm from '@/components/RapportAllocationForm'
 import ValidationRapportsAAF from '@/components/ValidationRapportsAAF'
 import GestionCAF from '@/components/GestionCAF'
 import AppHeader from '@/components/AppHeader'
+import RolePreviewBanner from '@/components/RolePreviewBanner'
+import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
 
 export default async function TimesheetsPage() {
   const supabase = await createClient()
@@ -19,7 +21,9 @@ export default async function TimesheetsPage() {
     .select('role, nom, prenoms, manager_id, type_emploi, email, avatar_url')
     .eq('id', user.id).single()
 
-  const role = profile?.role ?? 'missionnaire'
+  const realRole = profile?.role ?? 'missionnaire'
+  const role = await getEffectiveRole(realRole)
+  const previewRole = await getRolePreview()
   const typeEmploi = profile?.type_emploi ?? null
   const estRapportMensuel = ['benevole', 'stagiaire_n1', 'stagiaire_n2', 'cdd', 'cdi'].includes(typeEmploi ?? '')
   const estManager = ['manager', 'caf', 'admin', 'de', 'aaf'].includes(role)
@@ -33,10 +37,11 @@ export default async function TimesheetsPage() {
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={role}
         typeEmploi={typeEmploi}
-        showAdmin={role === 'admin'}
+        showAdmin={realRole === 'admin' && !previewRole}
         showRH={['rh','admin'].includes(role)}
         avatarUrl={profile?.avatar_url ?? null}
       />
+      {previewRole && <RolePreviewBanner previewRole={previewRole} />}
       <div style={{ maxWidth: 1000, margin: "0 auto", padding: "24px 32px", display: "grid", gap: 28 }}>
 
       {/* Titre dynamique — affiché si l'utilisateur a un formulaire à remplir */}

@@ -2,6 +2,8 @@ export const dynamic = 'force-dynamic'
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import AppHeader from '@/components/AppHeader'
+import RolePreviewBanner from '@/components/RolePreviewBanner'
+import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
 import MesCongesClient from './MesCongesClient'
 
 export default async function MesCongesPage() {
@@ -12,7 +14,9 @@ export default async function MesCongesPage() {
   const { data: profile } = await supabase
     .from('profiles').select('role, nom, prenoms, avatar_url, type_emploi, manager_id').eq('id', user.id).single()
 
-  const role = profile?.role ?? 'missionnaire'
+  const realRole = profile?.role ?? 'missionnaire'
+  const role = await getEffectiveRole(realRole)
+  const previewRole = await getRolePreview()
 
   const [{ data: conges }, { data: typesConge }, { data: soldes }] = await Promise.all([
     supabase.from('conges')
@@ -33,10 +37,11 @@ export default async function MesCongesPage() {
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={role}
         typeEmploi={profile?.type_emploi}
-        showAdmin={role === 'admin'}
+        showAdmin={realRole === 'admin' && !previewRole}
         showRH={['rh', 'admin'].includes(role)}
         avatarUrl={profile?.avatar_url ?? null}
       />
+      {previewRole && <RolePreviewBanner previewRole={previewRole} />}
       <div style={{ maxWidth: 900, margin: '0 auto', padding: '24px 32px' }}>
         <MesCongesClient
           conges={conges ?? []}

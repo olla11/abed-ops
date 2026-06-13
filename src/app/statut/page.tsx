@@ -2,6 +2,8 @@ export const dynamic = 'force-dynamic'
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import AppHeader from '@/components/AppHeader'
+import RolePreviewBanner from '@/components/RolePreviewBanner'
+import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
 import StatutPersonnel from '@/components/StatutPersonnel'
 
 export default async function StatutPage() {
@@ -14,7 +16,9 @@ export default async function StatutPage() {
 
   if (profile?.must_change_password) redirect('/auth/changer-mot-de-passe')
 
-  const role = profile?.role ?? 'missionnaire'
+  const realRole = profile?.role ?? 'missionnaire'
+  const role = await getEffectiveRole(realRole)
+  const previewRole = await getRolePreview()
 
   return (
     <>
@@ -22,10 +26,11 @@ export default async function StatutPage() {
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={role}
         typeEmploi={profile?.type_emploi}
-        showAdmin={role === 'admin'}
+        showAdmin={realRole === 'admin' && !previewRole}
         showRH={['rh','admin'].includes(role)}
         avatarUrl={profile?.avatar_url ?? null}
       />
+      {previewRole && <RolePreviewBanner previewRole={previewRole} />}
       <div style={{ maxWidth: 900, margin: '0 auto', padding: '24px 32px', display: 'grid', gap: 28 }}>
 
       <div>

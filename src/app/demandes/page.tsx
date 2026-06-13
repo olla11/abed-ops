@@ -2,6 +2,8 @@ export const dynamic = 'force-dynamic'
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import AppHeader from '@/components/AppHeader'
+import RolePreviewBanner from '@/components/RolePreviewBanner'
+import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
 import DemandesClient from '@/components/DemandesClient'
 
 export default async function DemandesPage() {
@@ -14,7 +16,9 @@ export default async function DemandesPage() {
     .select('role, nom, prenoms, email, type_emploi, avatar_url')
     .eq('id', user.id).single()
 
-  const role = profile?.role ?? 'missionnaire'
+  const realRole = profile?.role ?? 'missionnaire'
+  const role = await getEffectiveRole(realRole)
+  const previewRole = await getRolePreview()
 
   return (
     <>
@@ -22,10 +26,11 @@ export default async function DemandesPage() {
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={role}
         typeEmploi={profile?.type_emploi}
-        showAdmin={role === 'admin'}
+        showAdmin={realRole === 'admin' && !previewRole}
         showRH={['rh','admin'].includes(role)}
         avatarUrl={profile?.avatar_url ?? null}
       />
+      {previewRole && <RolePreviewBanner previewRole={previewRole} />}
       <div style={{ maxWidth: 1000, margin: "0 auto", padding: "24px 32px", display: "grid", gap: 28 }}>
       <DemandesClient
         role={role}

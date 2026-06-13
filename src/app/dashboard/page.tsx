@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import AppHeader from '@/components/AppHeader'
+import RolePreviewBanner from '@/components/RolePreviewBanner'
+import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
 
 export default async function Dashboard() {
   const supabase = await createClient()
@@ -14,7 +16,9 @@ export default async function Dashboard() {
 
   if (profile?.must_change_password) redirect('/auth/changer-mot-de-passe')
 
-  const role = profile?.role ?? 'missionnaire'
+  const realRole = profile?.role ?? 'missionnaire'
+  const role = await getEffectiveRole(realRole)
+  const previewRole = await getRolePreview()
   const isManager = ['admin', 'rh', 'caf', 'de', 'administrateur'].includes(role)
 
   // caf/de/admin voient toutes les missions (RLS le gère, mais on trie différemment)
@@ -46,10 +50,11 @@ export default async function Dashboard() {
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={role}
         typeEmploi={profile?.type_emploi}
-        showAdmin={role === 'admin'}
+        showAdmin={realRole === 'admin' && !previewRole}
         showRH={['rh','admin'].includes(role)}
         avatarUrl={profile?.avatar_url ?? null}
       />
+      {previewRole && <RolePreviewBanner previewRole={previewRole} />}
       <div style={{ maxWidth: 1100, margin: '0 auto', padding: '24px 32px' }}>
 
       {notifs && notifs.length > 0 && (
