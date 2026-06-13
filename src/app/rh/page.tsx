@@ -21,7 +21,7 @@ export default async function RHDashboardPage() {
   ] = await Promise.all([
     service.from('profiles')
       .select('id, nom, prenoms, role, type_emploi, direction, fonction')
-      .not('role', 'in', '("admin","rh")')
+      .neq('role', 'admin')
       .order('prenoms'),
     service.from('contrats')
       .select('id, type_contrat, statut, date_fin, date_debut, direction, poste, profile_id, profile:profiles!profile_id(nom, prenoms)')
