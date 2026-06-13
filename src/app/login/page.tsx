@@ -29,9 +29,6 @@ export default function LoginPage() {
           <div style={{ fontSize: 13, color: 'var(--abed-green)', fontWeight: 600, marginTop: 2 }}>
             Bienvenue sur My ABED
           </div>
-          <div style={{ color: 'var(--abed-muted)', fontSize: 12, marginTop: 4, fontStyle: 'italic' }}>
-            Chers collègues, tout se passe ici à ABED 🌿
-          </div>
         </div>
         <form onSubmit={signIn}>
           <div className="field">
@@ -48,6 +45,11 @@ export default function LoginPage() {
           <button className="btn" style={{ width: '100%', justifyContent: 'center' }} disabled={loading}>
             {loading ? 'Connexion…' : 'Se connecter'}
           </button>
+          <div style={{ textAlign: 'center', marginTop: 14 }}>
+            <a href="/auth/mot-de-passe-oublie" style={{ fontSize: 13, color: 'var(--abed-green)', textDecoration: 'none' }}>
+              Mot de passe oublié ?
+            </a>
+          </div>
         </form>
       </div>
     </div>
