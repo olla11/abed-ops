@@ -1,5 +1,6 @@
 'use client'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
+import Image from 'next/image'
 
 type Profile = {
   nom: string
@@ -44,6 +45,20 @@ export default function ProfileEditForm({ profile }: { profile: Profile }) {
   const [msg, setMsg] = useState('')
   const [msgType, setMsgType] = useState<'ok' | 'err'>('ok')
   const [loading, setLoading] = useState(false)
+  const [avatarUrl, setAvatarUrl] = useState(profile.avatar_url ?? null)
+  const [avatarLoading, setAvatarLoading] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  async function uploadAvatar(file: File) {
+    setAvatarLoading(true)
+    const fd = new FormData()
+    fd.append('file', file)
+    const res = await fetch('/api/profile/upload-avatar', { method: 'POST', body: fd })
+    const data = await res.json()
+    setAvatarLoading(false)
+    if (data.ok) setAvatarUrl(data.url)
+    else { setMsg(data.error ?? 'Erreur upload'); setMsgType('err') }
+  }
 
   async function save() {
     setLoading(true); setMsg('')
@@ -58,8 +73,43 @@ export default function ProfileEditForm({ profile }: { profile: Profile }) {
     else { setMsg('Profil mis à jour.'); setMsgType('ok') }
   }
 
+  const initials = `${prenoms} ${nom}`.trim().split(' ').filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('')
+
   return (
     <div style={{ display: 'grid', gap: 16 }}>
+
+      {/* Avatar */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 20, padding: '16px 0', borderBottom: '1px solid var(--abed-border)' }}>
+        <div style={{ position: 'relative', width: 80, height: 80, flexShrink: 0 }}>
+          {avatarUrl ? (
+            <Image src={avatarUrl} alt="avatar" width={80} height={80}
+              style={{ borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--abed-border)' }} />
+          ) : (
+            <div style={{
+              width: 80, height: 80, borderRadius: '50%', background: 'var(--abed-green)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 26, fontWeight: 800, color: 'white',
+            }}>{initials || '?'}</div>
+          )}
+          {avatarLoading && (
+            <div style={{
+              position: 'absolute', inset: 0, borderRadius: '50%', background: 'rgba(0,0,0,.4)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 20,
+            }}>⟳</div>
+          )}
+        </div>
+        <div>
+          <p style={{ fontSize: 13, color: 'var(--abed-muted)', margin: '0 0 8px' }}>
+            Photo de profil (jpg, png, webp — max 2 Mo)
+          </p>
+          <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }}
+            onChange={e => { const f = e.target.files?.[0]; if (f) uploadAvatar(f) }} />
+          <button type="button" className="btn" style={{ fontSize: 13, padding: '6px 16px' }}
+            onClick={() => fileRef.current?.click()} disabled={avatarLoading}>
+            {avatarLoading ? 'Envoi…' : avatarUrl ? 'Changer la photo' : 'Choisir une photo'}
+          </button>
+        </div>
+      </div>
       {/* Infos non modifiables */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <div className="field">

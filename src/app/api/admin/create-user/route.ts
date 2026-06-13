@@ -20,6 +20,7 @@ export async function POST(req: NextRequest) {
   const {
     email, password, nom, prenoms, civilite, telephone, fonction,
     ifu, grade_indice, adresse, date_naissance, lieu_naissance, nationalite,
+    role, type_emploi,
   } = body
 
   if (!email || !password || !nom || !prenoms) {
@@ -58,6 +59,8 @@ export async function POST(req: NextRequest) {
       lieu_naissance:        lieu_naissance || null,
       nationalite:           nationalite    || null,
       must_change_password:  true,
+      role:                  role            || 'missionnaire',
+      type_emploi:           type_emploi     || null,
     })
     .eq('id', newUser.user.id)
 

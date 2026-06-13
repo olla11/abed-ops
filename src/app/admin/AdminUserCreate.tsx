@@ -4,6 +4,7 @@ import { useState } from 'react'
 export default function AdminUserCreate() {
   const [form, setForm] = useState({
     email: '', password: '', nom: '', prenoms: '', civilite: 'M.',
+    role: 'missionnaire', type_emploi: '',
     telephone: '', fonction: '', ifu: '',
     grade_indice: '', adresse: '',
     date_naissance: '', lieu_naissance: '', nationalite: 'Béninoise',
@@ -27,8 +28,8 @@ export default function AdminUserCreate() {
     setLoading(false)
     if (data.ok) {
       setMsg({ ok: true, text: `Compte créé pour ${form.prenoms} ${form.nom}` })
-      setForm({ email: '', password: '', nom: '', prenoms: '', civilite: 'M.', telephone: '', fonction: '',
-        ifu: '', grade_indice: '', adresse: '', date_naissance: '', lieu_naissance: '', nationalite: 'Béninoise' })
+      setForm({ email: '', password: '', nom: '', prenoms: '', civilite: 'M.', role: 'missionnaire', type_emploi: '',
+        telephone: '', fonction: '', ifu: '', grade_indice: '', adresse: '', date_naissance: '', lieu_naissance: '', nationalite: 'Béninoise' })
     } else {
       setMsg({ ok: false, text: data.error ?? 'Erreur inconnue' })
     }
@@ -59,6 +60,36 @@ export default function AdminUserCreate() {
       <div className="field">
         <label className="label">Email *</label>
         <input className="input" type="email" value={form.email} onChange={e => set('email', e.target.value)} required />
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div className="field">
+          <label className="label">Rôle *</label>
+          <select className="input" value={form.role} onChange={e => set('role', e.target.value)}>
+            <option value="missionnaire">Missionnaire</option>
+            <option value="prestataire">Prestataire</option>
+            <option value="manager">Manager</option>
+            <option value="aaf">AAF</option>
+            <option value="caf">CAF</option>
+            <option value="de">Directeur Exécutif</option>
+            <option value="rh">RH</option>
+            <option value="administrateur">Administrateur (CA)</option>
+            <option value="admin">Admin système</option>
+          </select>
+        </div>
+        <div className="field">
+          <label className="label">Type d&apos;emploi</label>
+          <select className="input" value={form.type_emploi} onChange={e => set('type_emploi', e.target.value)}>
+            <option value="">— Aucun —</option>
+            <option value="cdi">CDI</option>
+            <option value="cdd">CDD</option>
+            <option value="benevole">Bénévole</option>
+            <option value="stagiaire_n1">Stagiaire N1</option>
+            <option value="stagiaire_n2">Stagiaire N2</option>
+            <option value="prestataire_direct">Prestataire direct</option>
+            <option value="prestataire_credit">Prestataire crédit</option>
+          </select>
+        </div>
       </div>
 
       <div className="field">
