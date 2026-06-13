@@ -12,23 +12,42 @@ export default async function RHDashboardPage() {
   const today = new Date().toISOString().split('T')[0]
   const in30 = new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0]
 
+  // Personnel : select only base columns that always exist
+  // Columns like direction/matricule require migration_022 to be run
+  const { data: personnel, error: personnelError } = await service
+    .from('profiles')
+    .select('id, nom, prenoms, role, type_emploi, fonction')
+    .neq('role', 'admin')
+    .order('prenoms')
+
+  if (personnelError) {
+    console.error('[RH dashboard] personnel error:', personnelError.message)
+  }
+
+  // Try to add direction column — may not exist before migration_022
+  let personnelWithDirection = personnel ?? []
+  if (!personnelError) {
+    const { data: withDir } = await service
+      .from('profiles')
+      .select('id, nom, prenoms, role, type_emploi, fonction, direction')
+      .neq('role', 'admin')
+      .order('prenoms')
+    if (withDir) personnelWithDirection = withDir
+  }
+
+  // These tables require migrations 023/024/025 to exist
   const [
-    { data: personnel },
     { data: contrats },
     { data: congesRecents },
     { data: evaluations },
-    { data: congesEnAttente },
+    { count: congesEnAttenteCount },
   ] = await Promise.all([
-    service.from('profiles')
-      .select('id, nom, prenoms, role, type_emploi, direction, fonction')
-      .neq('role', 'admin')
-      .order('prenoms'),
     service.from('contrats')
-      .select('id, type_contrat, statut, date_fin, date_debut, direction, poste, profile_id, profile:profiles!profile_id(nom, prenoms)')
+      .select('id, type_contrat, statut, date_fin, date_debut, poste, profile_id, profile:profiles!profile_id(nom, prenoms)')
       .order('date_fin', { ascending: true })
       .limit(200),
     service.from('conges')
-      .select('id, statut, date_debut, date_fin, nb_jours, created_at, profile:profiles!profile_id(nom, prenoms, direction), type_conge:types_conge(nom)')
+      .select('id, statut, date_debut, date_fin, nb_jours, created_at, profile:profiles!profile_id(nom, prenoms), type_conge:types_conge(nom)')
       .order('created_at', { ascending: false })
       .limit(15),
     service.from('evaluations')
@@ -36,7 +55,7 @@ export default async function RHDashboardPage() {
       .order('declenchee_le', { ascending: false })
       .limit(10),
     service.from('conges')
-      .select('id', { count: 'exact', head: true })
+      .select('*', { count: 'exact', head: true })
       .eq('statut', 'en_attente'),
   ])
 
@@ -46,11 +65,11 @@ export default async function RHDashboardPage() {
 
   return (
     <RHDashboardClient
-      personnel={(personnel ?? []) as any[]}
+      personnel={personnelWithDirection as any[]}
       contrats={(contrats ?? []) as any[]}
       contratsExpirants={contratsExpirants as any[]}
       congesRecents={(congesRecents ?? []) as any[]}
-      congesEnAttenteCount={typeof congesEnAttente === 'number' ? congesEnAttente : 0}
+      congesEnAttenteCount={congesEnAttenteCount ?? 0}
       evaluations={(evaluations ?? []) as any[]}
     />
   )
