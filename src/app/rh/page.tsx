@@ -46,12 +46,12 @@ export default async function RHDashboardPage() {
 
   return (
     <RHDashboardClient
-      personnel={personnel ?? []}
-      contrats={contrats ?? []}
-      contratsExpirants={contratsExpirants}
-      congesRecents={congesRecents ?? []}
-      congesEnAttenteCount={congesEnAttente ?? 0}
-      evaluations={evaluations ?? []}
+      personnel={(personnel ?? []) as any[]}
+      contrats={(contrats ?? []) as any[]}
+      contratsExpirants={contratsExpirants as any[]}
+      congesRecents={(congesRecents ?? []) as any[]}
+      congesEnAttenteCount={typeof congesEnAttente === 'number' ? congesEnAttente : 0}
+      evaluations={(evaluations ?? []) as any[]}
     />
   )
 }

@@ -14,6 +14,7 @@ type Profile = {
   date_naissance: string | null
   lieu_naissance: string | null
   nationalite: string | null
+  avatar_url?: string | null
 }
 
 const CIVILITES = ['M.', 'Mme', 'Dr', 'Pr']

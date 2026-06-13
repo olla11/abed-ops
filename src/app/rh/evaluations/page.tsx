@@ -34,8 +34,8 @@ export default async function EvaluationsRHPage() {
 
   return (
     <EvaluationsRHClient
-      evaluations={evaluations ?? []}
-      contratsActifs={contratsActifs ?? []}
+      evaluations={(evaluations ?? []) as any[]}
+      contratsActifs={(contratsActifs ?? []) as any[]}
     />
   )
 }
