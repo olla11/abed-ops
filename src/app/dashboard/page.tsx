@@ -12,6 +12,8 @@ export default async function Dashboard() {
   const { data: profile } = await supabase
     .from('profiles').select('*').eq('id', user.id).single()
 
+  if (profile?.must_change_password) redirect('/auth/changer-mot-de-passe')
+
   const role = profile?.role ?? 'missionnaire'
   const isManager = ['admin', 'rh', 'caf', 'de', 'administrateur'].includes(role)
 

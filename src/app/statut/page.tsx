@@ -10,7 +10,9 @@ export default async function StatutPage() {
   if (!user) redirect('/login')
 
   const { data: profile } = await supabase
-    .from('profiles').select('role, nom, prenoms, type_emploi').eq('id', user.id).single()
+    .from('profiles').select('role, nom, prenoms, type_emploi, must_change_password').eq('id', user.id).single()
+
+  if (profile?.must_change_password) redirect('/auth/changer-mot-de-passe')
 
   const role = profile?.role ?? 'missionnaire'
 

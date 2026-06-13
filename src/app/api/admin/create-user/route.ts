@@ -45,17 +45,18 @@ export async function POST(req: NextRequest) {
   const { error: profileError } = await admin
     .from('profiles')
     .update({
-      nom:            nom,
-      prenoms:        prenoms,
-      civilite:       civilite       || 'M.',
-      telephone:      telephone      || null,
-      fonction:       fonction       || null,
-      ifu:            ifu            || null,
-      grade_indice:   grade_indice   || null,
-      adresse:        adresse        || null,
-      date_naissance: date_naissance || null,
-      lieu_naissance: lieu_naissance || null,
-      nationalite:    nationalite    || null,
+      nom:                   nom,
+      prenoms:               prenoms,
+      civilite:              civilite       || 'M.',
+      telephone:             telephone      || null,
+      fonction:              fonction       || null,
+      ifu:                   ifu            || null,
+      grade_indice:          grade_indice   || null,
+      adresse:               adresse        || null,
+      date_naissance:        date_naissance || null,
+      lieu_naissance:        lieu_naissance || null,
+      nationalite:           nationalite    || null,
+      must_change_password:  true,
     })
     .eq('id', newUser.user.id)
 
