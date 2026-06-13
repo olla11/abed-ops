@@ -160,10 +160,10 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
       if (employe?.email) {
         await sendEmail({
           to: employe.email,
-          subject: 'Votre fiche d'évaluation est disponible',
+          subject: "Votre fiche d'évaluation est disponible",
           html: emailBlock(`${employe.prenoms} ${employe.nom}`,
-            'Évaluation à compléter',
-            `Votre évaluateur a renseigné votre fiche d'évaluation de fin de contrat. Connectez-vous pour ajouter vos commentaires et observations.`),
+            "Évaluation à compléter",
+            "Votre évaluateur a renseigné votre fiche d'évaluation de fin de contrat. Connectez-vous pour ajouter vos commentaires et observations."),
         }).catch(() => {})
       }
     } else if (newStatut === 'evalue_complete') {
@@ -173,7 +173,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
           to: evaluateur.email,
           subject: `${nomEmploye} a commenté son évaluation`,
           html: emailBlock(`${evaluateur.prenoms} ${evaluateur.nom}`,
-            'Commentaires de l\'évalué(e)',
+            "Commentaires de l'évalué(e)",
             `<strong>${nomEmploye}</strong> a ajouté ses commentaires sur sa fiche d'évaluation. Votre avis de responsable est maintenant requis.`),
         }).catch(() => {})
       }
@@ -195,7 +195,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
       if (employe?.email) {
         await sendEmail({
           to: employe.email,
-          subject: 'Votre évaluation de fin de contrat est clôturée',
+          subject: "Votre évaluation de fin de contrat est clôturée",
           html: emailBlock(`${employe.prenoms} ${employe.nom}`,
             'Évaluation clôturée',
             `Votre évaluation de fin de contrat a été finalisée et clôturée par les RH. Vous pouvez consulter le résumé complet sur My ABED.`),
