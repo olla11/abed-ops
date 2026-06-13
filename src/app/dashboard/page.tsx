@@ -41,13 +41,16 @@ export default async function Dashboard() {
   }
 
   return (
-    <div style={{ maxWidth: 1100, margin: '0 auto', padding: 32 }}>
+    <>
       <AppHeader
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={role}
         typeEmploi={profile?.type_emploi}
         showAdmin={role === 'admin'}
+        showRH={['rh','admin'].includes(role)}
+        avatarUrl={profile?.avatar_url ?? null}
       />
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '24px 32px' }}>
 
       {notifs && notifs.length > 0 && (
         <div className="card" style={{ marginBottom: 24, borderLeft: '4px solid var(--abed-amber)' }}>
@@ -115,6 +118,7 @@ export default async function Dashboard() {
         </table>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   )
 }

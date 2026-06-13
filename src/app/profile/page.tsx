@@ -12,7 +12,7 @@ export default async function ProfilePage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, nom, prenoms, email, civilite, telephone, ifu, fonction, signature_url, cachet_url, adresse, date_naissance, lieu_naissance, nationalite, type_emploi')
+    .select('role, nom, prenoms, email, civilite, telephone, ifu, fonction, signature_url, cachet_url, adresse, date_naissance, lieu_naissance, nationalite, type_emploi, avatar_url')
     .eq('id', user.id)
     .single()
 
@@ -20,43 +20,47 @@ export default async function ProfilePage() {
   const canUpload = ['de', 'caf', 'admin', 'administrateur'].includes(role)
 
   return (
-    <div style={{ maxWidth: 760, margin: '0 auto', padding: 32 }}>
+    <>
       <AppHeader
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={role}
         typeEmploi={profile?.type_emploi}
         showAdmin={role === 'admin'}
+        showRH={['rh', 'admin'].includes(role)}
+        avatarUrl={profile?.avatar_url ?? null}
       />
+      <div style={{ maxWidth: 760, margin: '0 auto', padding: '24px 32px' }}>
+        <h2 style={{ color: 'var(--abed-green)', marginBottom: 24 }}>Mon profil</h2>
 
-      <h2 style={{ color: 'var(--abed-green)', marginBottom: 24 }}>Mon profil</h2>
-
-      <div className="card" style={{ marginBottom: 24 }}>
-        <h3 style={{ marginBottom: 20, fontSize: 15 }}>Informations personnelles</h3>
-        <ProfileEditForm profile={{
-          nom: profile?.nom ?? '',
-          prenoms: profile?.prenoms ?? '',
-          civilite: profile?.civilite ?? 'M.',
-          email: profile?.email ?? user.email ?? '',
-          telephone: profile?.telephone ?? null,
-          ifu: profile?.ifu ?? null,
-          fonction: profile?.fonction ?? null,
-          role,
-          adresse: profile?.adresse ?? null,
-          date_naissance: profile?.date_naissance ?? null,
-          lieu_naissance: profile?.lieu_naissance ?? null,
-          nationalite: profile?.nationalite ?? null,
-        }} />
-      </div>
-
-      {canUpload && (
-        <div className="card">
-          <h3 style={{ marginBottom: 20, fontSize: 15 }}>Signature &amp; Cachet (pour les PDF)</h3>
-          <ProfileAssetForm
-            hasSignature={!!profile?.signature_url}
-            hasCachet={!!profile?.cachet_url}
-          />
+        <div className="card" style={{ marginBottom: 24 }}>
+          <h3 style={{ marginBottom: 20, fontSize: 15 }}>Informations personnelles</h3>
+          <ProfileEditForm profile={{
+            nom: profile?.nom ?? '',
+            prenoms: profile?.prenoms ?? '',
+            civilite: profile?.civilite ?? 'M.',
+            email: profile?.email ?? user.email ?? '',
+            telephone: profile?.telephone ?? null,
+            ifu: profile?.ifu ?? null,
+            fonction: profile?.fonction ?? null,
+            role,
+            adresse: profile?.adresse ?? null,
+            date_naissance: profile?.date_naissance ?? null,
+            lieu_naissance: profile?.lieu_naissance ?? null,
+            nationalite: profile?.nationalite ?? null,
+            avatar_url: profile?.avatar_url ?? null,
+          }} />
         </div>
-      )}
-    </div>
+
+        {canUpload && (
+          <div className="card">
+            <h3 style={{ marginBottom: 20, fontSize: 15 }}>Signature &amp; Cachet (pour les PDF)</h3>
+            <ProfileAssetForm
+              hasSignature={!!profile?.signature_url}
+              hasCachet={!!profile?.cachet_url}
+            />
+          </div>
+        )}
+      </div>
+    </>
   )
 }

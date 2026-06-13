@@ -16,7 +16,7 @@ export default async function TimesheetsPage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, nom, prenoms, manager_id, type_emploi, email')
+    .select('role, nom, prenoms, manager_id, type_emploi, email, avatar_url')
     .eq('id', user.id).single()
 
   const role = profile?.role ?? 'missionnaire'
@@ -28,13 +28,16 @@ export default async function TimesheetsPage() {
   const estSalarie = ['cdd', 'cdi'].includes(typeEmploi ?? '')
 
   return (
-    <div style={{ maxWidth: 1000, margin: '0 auto', padding: 32, display: 'grid', gap: 28 }}>
+    <>
       <AppHeader
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={role}
         typeEmploi={typeEmploi}
         showAdmin={role === 'admin'}
+        showRH={['rh','admin'].includes(role)}
+        avatarUrl={profile?.avatar_url ?? null}
       />
+      <div style={{ maxWidth: 1000, margin: "0 auto", padding: "24px 32px", display: "grid", gap: 28 }}>
 
       {/* Titre dynamique — affiché si l'utilisateur a un formulaire à remplir */}
       {(estRapportMensuel || ['prestataire_direct','prestataire_credit'].includes(typeEmploi ?? '')) && (
@@ -80,6 +83,7 @@ export default async function TimesheetsPage() {
 
       {/* CAF : paramètres financiers (taux + listes formulaires) */}
       {estCAF && <GestionCAF />}
-    </div>
+      </div>
+    </>
   )
 }

@@ -11,19 +11,23 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (!user) redirect('/login')
 
   const { data: profile } = await supabase
-    .from('profiles').select('role, nom, prenoms').eq('id', user.id).single()
+    .from('profiles').select('role, nom, prenoms, avatar_url').eq('id', user.id).single()
 
   if (!profile || !['admin', 'rh', 'caf'].includes(profile.role)) redirect('/dashboard')
 
   return (
-    <div style={{ maxWidth: 1200, margin: '0 auto', padding: 32 }}>
+    <>
       <AppHeader
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={profile?.role}
-        showAdmin={true}
+        showAdmin={profile.role === 'admin'}
+        showRH={['rh', 'admin'].includes(profile.role)}
+        avatarUrl={profile?.avatar_url ?? null}
       />
-      <AdminNav role={profile.role} />
-      {children}
-    </div>
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '24px 32px' }}>
+        <AdminNav role={profile.role} />
+        {children}
+      </div>
+    </>
   )
 }
