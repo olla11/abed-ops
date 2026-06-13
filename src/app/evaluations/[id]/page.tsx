@@ -47,7 +47,7 @@ export default async function EvaluationPage({ params }: { params: Promise<{ id:
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={role}
         typeEmploi={profile?.type_emploi}
-        showRH={['rh', 'admin'].includes(role)}
+        showRH={role === 'rh'}
         showAdmin={role === 'admin'}
         avatarUrl={profile?.avatar_url}
       />

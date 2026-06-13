@@ -21,7 +21,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={profile?.role}
         showAdmin={profile.role === 'admin'}
-        showRH={['rh', 'admin'].includes(profile.role)}
+        showRH={profile.role === 'rh'}
         avatarUrl={profile?.avatar_url ?? null}
       />
       <div style={{ maxWidth: 1200, margin: '0 auto', padding: '24px 32px' }}>

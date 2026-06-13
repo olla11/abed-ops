@@ -38,7 +38,7 @@ export default async function MesCongesPage() {
         userRole={role}
         typeEmploi={profile?.type_emploi}
         showAdmin={realRole === 'admin' && !previewRole}
-        showRH={['rh', 'admin'].includes(role)}
+        showRH={role === 'rh'}
         avatarUrl={profile?.avatar_url ?? null}
       />
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}

@@ -40,7 +40,7 @@ export default async function MesEvaluationsPage() {
     .or(`profile_id.eq.${user.id},evaluateur_id.eq.${user.id}`)
     .order('declenchee_le', { ascending: false })
 
-  const showRH = ['rh', 'admin'].includes(profile?.role ?? '')
+  const showRH = profile?.role === 'rh'
   const showAdmin = profile?.role === 'admin'
   const showOverview = ['aaf', 'caf', 'de', 'admin', 'administrateur'].includes(profile?.role ?? '')
 
