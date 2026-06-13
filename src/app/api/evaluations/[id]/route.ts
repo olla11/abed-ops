@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase-server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+import { sendEmail } from '@/lib/resend'
 
 export const dynamic = 'force-dynamic'
 
@@ -133,6 +134,74 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
       message: notifMessage,
       lien: notifLien,
     })
+  }
+
+  // Emails selon la transition
+  if (newStatut && soumettre) {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://myabed.vercel.app'
+    const lien = `${appUrl}/evaluations/${id}`
+
+    const emailBlock = (dest: string, titre: string, corps: string) => `
+      <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#f9fafb;border-radius:12px">
+        <h2 style="color:#16a34a;margin:0 0 20px">📝 ${titre}</h2>
+        <div style="background:white;border-radius:10px;padding:24px;border:1px solid #e5e7eb">
+          <p style="margin:0 0 16px;font-size:14px;color:#374151">Bonjour <strong>${dest}</strong>,</p>
+          <p style="margin:0 0 20px;font-size:14px;color:#374151;line-height:1.6">${corps}</p>
+          <a href="${lien}" style="display:block;text-align:center;background:#16a34a;color:white;padding:12px 0;border-radius:8px;font-size:14px;font-weight:700;text-decoration:none">
+            Accéder à l'évaluation →
+          </a>
+        </div>
+        <p style="text-align:center;font-size:12px;color:#9ca3af;margin-top:20px">My ABED — ABED ONG</p>
+      </div>
+    `
+
+    if (newStatut === 'evaluateur_complete') {
+      const { data: employe } = await service.from('profiles').select('email, prenoms, nom').eq('id', ev.profile_id).single()
+      if (employe?.email) {
+        await sendEmail({
+          to: employe.email,
+          subject: 'Votre fiche d'évaluation est disponible',
+          html: emailBlock(`${employe.prenoms} ${employe.nom}`,
+            'Évaluation à compléter',
+            `Votre évaluateur a renseigné votre fiche d'évaluation de fin de contrat. Connectez-vous pour ajouter vos commentaires et observations.`),
+        }).catch(() => {})
+      }
+    } else if (newStatut === 'evalue_complete') {
+      const { data: evaluateur } = await service.from('profiles').select('email, prenoms, nom').eq('id', ev.evaluateur_id).single()
+      if (evaluateur?.email) {
+        await sendEmail({
+          to: evaluateur.email,
+          subject: `${nomEmploye} a commenté son évaluation`,
+          html: emailBlock(`${evaluateur.prenoms} ${evaluateur.nom}`,
+            'Commentaires de l\'évalué(e)',
+            `<strong>${nomEmploye}</strong> a ajouté ses commentaires sur sa fiche d'évaluation. Votre avis de responsable est maintenant requis.`),
+        }).catch(() => {})
+      }
+    } else if (newStatut === 'responsable_complete') {
+      const { data: rhUsers } = await service.from('profiles').select('email, prenoms, nom').in('role', ['rh', 'admin'])
+      for (const rh of rhUsers ?? []) {
+        if (rh.email) {
+          await sendEmail({
+            to: rh.email,
+            subject: `Évaluation ${nomEmploye} — décision finale requise`,
+            html: emailBlock(`${rh.prenoms} ${rh.nom}`,
+              'Décision finale requise',
+              `L'évaluation de <strong>${nomEmploye}</strong> a été complétée par toutes les parties. Votre décision finale (RH/DE) est requise pour clôturer le dossier.`),
+          }).catch(() => {})
+        }
+      }
+    } else if (newStatut === 'cloture') {
+      const { data: employe } = await service.from('profiles').select('email, prenoms, nom').eq('id', ev.profile_id).single()
+      if (employe?.email) {
+        await sendEmail({
+          to: employe.email,
+          subject: 'Votre évaluation de fin de contrat est clôturée',
+          html: emailBlock(`${employe.prenoms} ${employe.nom}`,
+            'Évaluation clôturée',
+            `Votre évaluation de fin de contrat a été finalisée et clôturée par les RH. Vous pouvez consulter le résumé complet sur My ABED.`),
+        }).catch(() => {})
+      }
+    }
   }
 
   return NextResponse.json({ evaluation: updated })
