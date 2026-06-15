@@ -7,7 +7,7 @@ type Contrat = {
   statut: string; salaire_brut: number | null; observations: string | null
   profile: { id: string; nom: string; prenoms: string; email: string | null; role: string } | null
 }
-type Personnel = { id: string; nom: string; prenoms: string; role: string }
+type Personnel = { id: string; nom: string; prenoms: string; role: string; fonction: string | null }
 
 const inputStyle: React.CSSProperties = {
   width: '100%', padding: '8px 12px', borderRadius: 8, fontSize: 14,
@@ -27,6 +27,28 @@ function statutBadge(statut: string, dateFin: string | null) {
   return { label: 'Actif', bg: '#dcfce7', color: '#166534' }
 }
 
+// Modal défini HORS du composant parent pour éviter le démontage à chaque frappe
+function Modal({ title, onSubmit, onClose, loading, err, children }: {
+  title: string; onSubmit: () => void; onClose: () => void
+  loading: boolean; err: string | null; children: React.ReactNode
+}) {
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ background: 'white', borderRadius: 12, padding: 28, width: 460, maxHeight: '85vh', overflowY: 'auto' }}>
+        <h3 style={{ marginBottom: 20, fontSize: 16 }}>{title}</h3>
+        {children}
+        {err && <div style={{ color: '#c0392b', fontSize: 13, marginBottom: 12 }}>{err}</div>}
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>
+          <button onClick={onClose} style={{ padding: '8px 18px', borderRadius: 8, cursor: 'pointer', background: 'white', border: '1px solid var(--abed-border)', fontSize: 13 }}>Annuler</button>
+          <button onClick={onSubmit} disabled={loading} style={{ padding: '8px 18px', borderRadius: 8, cursor: 'pointer', background: 'var(--abed-green)', color: 'white', border: 'none', fontSize: 13, fontWeight: 700, opacity: loading ? .6 : 1 }}>
+            {loading ? '...' : 'Confirmer'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function ContratsClient({ contrats: initial, personnel }: { contrats: Contrat[]; personnel: Personnel[] }) {
   const [contrats, setContrats] = useState(initial)
   const [showNew, setShowNew] = useState(false)
@@ -43,6 +65,11 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
     return (!q || name.includes(q) || (c.poste ?? '').toLowerCase().includes(q)) &&
       (!filterStatut || c.statut === filterStatut)
   })
+
+  function handleEmployeChange(profileId: string) {
+    const p = personnel.find(x => x.id === profileId)
+    setForm((f: any) => ({ ...f, profile_id: profileId, poste: p?.fonction ?? f.poste ?? '' }))
+  }
 
   async function createContrat() {
     setLoading(true); setErr(null)
@@ -75,22 +102,6 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
       const d = await res.json(); setErr(d.error ?? 'Erreur')
     }
   }
-
-  const Modal = ({ title, onSubmit, children }: any) => (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ background: 'white', borderRadius: 12, padding: 28, width: 460, maxHeight: '85vh', overflowY: 'auto' }}>
-        <h3 style={{ marginBottom: 20, fontSize: 16 }}>{title}</h3>
-        {children}
-        {err && <div style={{ color: '#c0392b', fontSize: 13, marginBottom: 12 }}>{err}</div>}
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>
-          <button onClick={() => { setShowNew(false); setRenewTarget(null); setErr(null) }} style={{ padding: '8px 18px', borderRadius: 8, cursor: 'pointer', background: 'white', border: '1px solid var(--abed-border)', fontSize: 13 }}>Annuler</button>
-          <button onClick={onSubmit} disabled={loading} style={{ padding: '8px 18px', borderRadius: 8, cursor: 'pointer', background: 'var(--abed-green)', color: 'white', border: 'none', fontSize: 13, fontWeight: 700, opacity: loading ? .6 : 1 }}>
-            {loading ? '...' : 'Confirmer'}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
 
   return (
     <div>
@@ -150,27 +161,29 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
       </div>
 
       {showNew && (
-        <Modal title="Nouveau contrat" onSubmit={createContrat}>
+        <Modal title="Nouveau contrat" onSubmit={createContrat} onClose={() => { setShowNew(false); setErr(null) }} loading={loading} err={err}>
           <div style={{ marginBottom: 12 }}>
             <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Employé *</label>
-            <select value={form.profile_id ?? ''} onChange={e => setForm((f: any) => ({ ...f, profile_id: e.target.value }))} style={inputStyle}>
+            <select value={form.profile_id ?? ''} onChange={e => handleEmployeChange(e.target.value)} style={inputStyle}>
               <option value="">— Choisir —</option>
               {personnel.map(p => <option key={p.id} value={p.id}>{p.prenoms} {p.nom}</option>)}
             </select>
           </div>
-          {[['type_contrat', 'Type *', TYPES], ['poste', 'Poste'], ['direction', 'Direction']].map(([key, label, opts]: any) => (
-            <div key={key} style={{ marginBottom: 12 }}>
-              <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>{label}</label>
-              {opts ? (
-                <select value={form[key] ?? ''} onChange={e => setForm((f: any) => ({ ...f, [key]: e.target.value }))} style={inputStyle}>
-                  <option value="">— Choisir —</option>
-                  {opts.map((o: string) => <option key={o} value={o}>{o}</option>)}
-                </select>
-              ) : (
-                <input value={form[key] ?? ''} onChange={e => setForm((f: any) => ({ ...f, [key]: e.target.value }))} style={inputStyle} />
-              )}
-            </div>
-          ))}
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Type *</label>
+            <select value={form.type_contrat ?? ''} onChange={e => setForm((f: any) => ({ ...f, type_contrat: e.target.value }))} style={inputStyle}>
+              <option value="">— Choisir —</option>
+              {TYPES.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Poste</label>
+            <input value={form.poste ?? ''} onChange={e => setForm((f: any) => ({ ...f, poste: e.target.value }))} style={inputStyle} />
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Direction</label>
+            <input value={form.direction ?? ''} onChange={e => setForm((f: any) => ({ ...f, direction: e.target.value }))} style={inputStyle} />
+          </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
             <div>
               <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Date début *</label>
@@ -189,7 +202,7 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
       )}
 
       {renewTarget && (
-        <Modal title={`Renouveler — ${renewTarget.profile?.prenoms} ${renewTarget.profile?.nom}`} onSubmit={renouveler}>
+        <Modal title={`Renouveler — ${renewTarget.profile?.prenoms} ${renewTarget.profile?.nom}`} onSubmit={renouveler} onClose={() => { setRenewTarget(null); setErr(null) }} loading={loading} err={err}>
           <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 16 }}>Contrat {renewTarget.type_contrat} — Expiré le {renewTarget.date_fin}</p>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>

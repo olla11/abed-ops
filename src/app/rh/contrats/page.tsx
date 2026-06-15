@@ -14,7 +14,7 @@ export default async function ContratsPage() {
       .select('*, profile:profiles!profile_id(id, nom, prenoms, email, role)')
       .order('date_fin', { ascending: true }),
     service.from('profiles')
-      .select('id, nom, prenoms, role')
+      .select('id, nom, prenoms, role, fonction')
       .order('prenoms'),
   ])
 
