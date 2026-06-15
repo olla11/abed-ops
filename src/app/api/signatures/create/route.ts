@@ -34,7 +34,9 @@ export async function POST(req: NextRequest) {
   // Upload file if provided
   let fichier_url: string | null = null
   if (fichier && fichier.size > 0) {
-    const ext = fichier.name.split('.').pop() ?? 'pdf'
+    // Create bucket if it doesn't exist
+    await admin.storage.createBucket('documents', { public: true }).catch(() => {})
+
     const path = `${user.id}/${Date.now()}_${fichier.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
     const arrayBuffer = await fichier.arrayBuffer()
     const { error: uploadErr } = await admin.storage
@@ -42,8 +44,8 @@ export async function POST(req: NextRequest) {
       .upload(path, arrayBuffer, { contentType: fichier.type || 'application/pdf', upsert: false })
 
     if (uploadErr) {
-      console.error('[Signatures] Upload error:', uploadErr)
-      return NextResponse.json({ error: 'Erreur lors du téléchargement du fichier' }, { status: 500 })
+      console.error('[Signatures] Upload error:', uploadErr.message)
+      return NextResponse.json({ error: `Erreur upload : ${uploadErr.message}` }, { status: 500 })
     }
 
     const { data: publicData } = admin.storage.from('documents').getPublicUrl(path)
