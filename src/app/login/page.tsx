@@ -15,10 +15,19 @@ export default function LoginPage() {
   async function signIn(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true); setErr('')
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     setLoading(false)
-    if (error) setErr(error.message)
-    else router.push('/dashboard')
+    if (error) { setErr(error.message); return }
+
+    // Vérifier si l'utilisateur doit changer son mot de passe
+    const { data: profile } = await supabase
+      .from('profiles').select('must_change_password').eq('id', data.user.id).single()
+
+    if (profile?.must_change_password) {
+      router.push('/auth/changer-mot-de-passe')
+    } else {
+      router.push('/dashboard')
+    }
   }
 
   return (
