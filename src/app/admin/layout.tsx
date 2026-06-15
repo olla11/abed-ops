@@ -24,7 +24,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         showRH={profile.role === 'rh'}
         avatarUrl={profile?.avatar_url ?? null}
       />
-      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '24px 32px' }}>
+      <div className="page-content" style={{ maxWidth: 1200, margin: '0 auto', padding: '24px 32px' }}>
         <AdminNav role={profile.role} />
         {children}
       </div>

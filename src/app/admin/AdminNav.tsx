@@ -20,7 +20,7 @@ export default function AdminNav({ role }: { role: string }) {
         <Link href="/dashboard" style={{ fontSize: 13, color: 'var(--abed-muted)' }}>← Retour</Link>
         <h2 style={{ color: 'var(--abed-green)', margin: 0 }}>Administration</h2>
       </div>
-      <div style={{ display: 'flex', gap: 4, borderBottom: '2px solid var(--abed-border)', paddingBottom: 0 }}>
+      <div style={{ display: 'flex', gap: 4, borderBottom: '2px solid var(--abed-border)', paddingBottom: 0, overflowX: 'auto', WebkitOverflowScrolling: 'touch' as any }}>
         {tabs.map(t => {
           const active = path === t.href || (path === '/admin' && t.href === '/admin/comptes')
           return (

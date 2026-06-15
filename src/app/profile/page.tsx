@@ -34,7 +34,7 @@ export default async function ProfilePage() {
         avatarUrl={profile?.avatar_url ?? null}
       />
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}
-      <div style={{ maxWidth: 760, margin: '0 auto', padding: '24px 32px' }}>
+      <div className="page-content" style={{ maxWidth: 760, margin: '0 auto', padding: '24px 32px' }}>
         <h2 style={{ color: 'var(--abed-green)', marginBottom: 24 }}>Mon profil</h2>
 
         <div className="card" style={{ marginBottom: 24 }}>
