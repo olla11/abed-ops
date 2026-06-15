@@ -9,10 +9,56 @@ type Props = {
   userName: string
 }
 
+// Generate a short hash-like ID from string
+function shortHash(s: string): string {
+  let h = 0
+  for (let i = 0; i < s.length; i++) { h = (Math.imul(31, h) + s.charCodeAt(i)) | 0 }
+  return Math.abs(h).toString(16).toUpperCase().padStart(8, '0')
+}
+
+function SignatureBlock({ name, date, hash }: { name: string; date: string; hash: string }) {
+  return (
+    <div style={{
+      border: '2px solid #1a4fa0',
+      borderRadius: 6,
+      background: 'white',
+      width: 220,
+      fontFamily: 'sans-serif',
+      boxShadow: '0 2px 10px rgba(0,0,0,0.15)',
+      overflow: 'hidden',
+    }}>
+      <div style={{
+        background: '#1a4fa0', color: 'white',
+        fontSize: 10, fontWeight: 700, letterSpacing: 0.5,
+        padding: '4px 10px',
+      }}>
+        MyABED signed by:
+      </div>
+      <div style={{ padding: '6px 10px 8px' }}>
+        <div style={{
+          fontFamily: '"Dancing Script", "Brush Script MT", cursive',
+          fontSize: 26,
+          color: '#1a4fa0',
+          lineHeight: 1.1,
+          marginBottom: 4,
+          letterSpacing: 1,
+        }}>
+          {name}
+        </div>
+        <div style={{ fontSize: 9, color: '#6b7280', borderTop: '1px solid #e5e7eb', paddingTop: 4, display: 'flex', justifyContent: 'space-between' }}>
+          <span>{date}</span>
+          <span style={{ letterSpacing: 0.3 }}>{hash.slice(0, 12)}...</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function SignerClient({ demandeId, titre, fichierUrl, userName }: Props) {
   const router = useRouter()
   const [docUrl, setDocUrl] = useState<string | null>(null)
   const [loadingDoc, setLoadingDoc] = useState(!!fichierUrl)
+  const [placingMode, setPlacingMode] = useState(false) // true = overlay actif pour cliquer
   const [sigPos, setSigPos] = useState<{ x: number; y: number } | null>(null)
   const [signed, setSigned] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -20,15 +66,13 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName }:
   const overlayRef = useRef<HTMLDivElement>(null)
 
   const today = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  const sigHash = shortHash(userName + demandeId + today)
 
   useEffect(() => {
     if (!fichierUrl) return
     fetch(`/api/signatures/${demandeId}/document`)
       .then(r => r.json())
-      .then(data => {
-        setDocUrl(data.url ?? null)
-        setLoadingDoc(false)
-      })
+      .then(data => { setDocUrl(data.url ?? null); setLoadingDoc(false) })
       .catch(() => setLoadingDoc(false))
   }, [demandeId, fichierUrl])
 
@@ -38,46 +82,33 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName }:
     const x = ((e.clientX - rect.left) / rect.width) * 100
     const y = ((e.clientY - rect.top) / rect.height) * 100
     setSigPos({ x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 })
+    setPlacingMode(false) // désactive l'overlay une fois placé
   }
 
   async function confirmSign() {
-    if (!sigPos) return
-    setLoading(true)
-    setErr(null)
+    setLoading(true); setErr(null)
     const res = await fetch(`/api/signatures/${demandeId}/sign`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sig_x: sigPos.x, sig_y: sigPos.y, sig_page: 1 }),
+      body: JSON.stringify({ sig_x: sigPos?.x ?? 50, sig_y: sigPos?.y ?? 80, sig_page: 1 }),
     })
     setLoading(false)
-    if (res.ok) {
-      setSigned(true)
-    } else {
-      const data = await res.json().catch(() => ({}))
-      setErr(data.error ?? 'Erreur lors de la signature')
-    }
+    if (res.ok) setSigned(true)
+    else { const d = await res.json().catch(() => ({})); setErr(d.error ?? 'Erreur lors de la signature') }
   }
 
   if (signed) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: 16 }}>
-        <div style={{
-          background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 12,
-          padding: '32px 40px', textAlign: 'center', maxWidth: 480,
-        }}>
+        <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 12, padding: '32px 40px', textAlign: 'center', maxWidth: 480 }}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>✅</div>
           <h2 style={{ color: '#166534', marginBottom: 8, fontSize: 20 }}>Document signé avec succès !</h2>
-          <p style={{ color: '#374151', fontSize: 14 }}>
-            Vous avez signé <strong>{titre}</strong> le {today}.
-          </p>
-          <button
-            onClick={() => router.push('/signatures')}
-            style={{
-              marginTop: 20, padding: '10px 24px', borderRadius: 8,
-              background: '#16a34a', color: 'white', border: 'none',
-              fontSize: 14, fontWeight: 700, cursor: 'pointer',
-            }}
-          >
+          <p style={{ color: '#374151', fontSize: 14 }}>Vous avez signé <strong>{titre}</strong> le {today}.</p>
+          <div style={{ margin: '20px auto', display: 'inline-block' }}>
+            <SignatureBlock name={userName} date={today} hash={sigHash} />
+          </div>
+          <button onClick={() => router.push('/signatures')}
+            style={{ marginTop: 20, padding: '10px 24px', borderRadius: 8, background: '#16a34a', color: 'white', border: 'none', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'block', width: '100%' }}>
             ← Retour aux signatures
           </button>
         </div>
@@ -86,173 +117,135 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName }:
   }
 
   return (
-    <div style={{ display: 'flex', height: 'calc(100vh - 64px)', overflow: 'hidden' }}>
-      {/* Left: PDF viewer */}
-      <div style={{ flex: '0 0 60%', position: 'relative', background: '#f3f4f6', borderRight: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ padding: '12px 16px', background: 'white', borderBottom: '1px solid #e5e7eb', fontSize: 14, fontWeight: 600, color: '#374151' }}>
-          📄 {titre}
-        </div>
-        <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-          {loadingDoc ? (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#9ca3af', fontSize: 14 }}>
-              Chargement du document...
-            </div>
-          ) : !docUrl ? (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#9ca3af', fontSize: 14, textAlign: 'center', padding: 32 }}>
-              Ce document n&apos;a pas de fichier joint
-            </div>
-          ) : (
-            <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-              <iframe
-                src={docUrl}
-                style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
-                title="Document à signer"
-              />
-              {/* Transparent overlay for click capture */}
-              <div
-                ref={overlayRef}
-                onClick={handleOverlayClick}
-                style={{
-                  position: 'absolute', inset: 0,
-                  cursor: 'crosshair',
-                  background: 'transparent',
-                }}
-              >
-                {/* Signature placement */}
-                {sigPos && (
+    <>
+      {/* Load cursive font */}
+      <link rel="preconnect" href="https://fonts.googleapis.com" />
+      <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&display=swap" rel="stylesheet" />
+
+      <div style={{ display: 'flex', height: 'calc(100vh - 64px)', overflow: 'hidden' }}>
+        {/* Left: PDF viewer */}
+        <div style={{ flex: '0 0 62%', position: 'relative', background: '#525659', borderRight: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ padding: '10px 16px', background: '#3d4043', borderBottom: '1px solid #2a2d30', fontSize: 13, fontWeight: 600, color: '#e5e7eb', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span>📄</span> <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{titre}</span>
+            {docUrl && !placingMode && !sigPos && (
+              <button onClick={() => setPlacingMode(true)}
+                style={{ padding: '5px 14px', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer', background: '#16a34a', color: 'white', border: 'none', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                ✍️ Placer ma signature
+              </button>
+            )}
+            {placingMode && (
+              <span style={{ fontSize: 12, color: '#fbbf24', fontWeight: 600, flexShrink: 0 }}>
+                👆 Cliquez pour placer · <button onClick={() => setPlacingMode(false)} style={{ background: 'none', border: 'none', color: '#fca5a5', cursor: 'pointer', fontSize: 12, fontWeight: 700, padding: 0 }}>Annuler</button>
+              </span>
+            )}
+            {sigPos && !placingMode && (
+              <button onClick={() => { setSigPos(null); setPlacingMode(true) }}
+                style={{ padding: '5px 12px', borderRadius: 6, fontSize: 12, cursor: 'pointer', background: '#374151', color: '#d1d5db', border: '1px solid #4b5563', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                Repositionner
+              </button>
+            )}
+          </div>
+
+          <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+            {loadingDoc ? (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#9ca3af', fontSize: 14 }}>Chargement...</div>
+            ) : !docUrl ? (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#9ca3af', fontSize: 14, textAlign: 'center', padding: 32 }}>
+                Ce document n&apos;a pas de fichier joint
+              </div>
+            ) : (
+              <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                {/* PDF iframe — scrollable quand overlay inactif */}
+                <iframe
+                  src={docUrl}
+                  style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
+                  title="Document à signer"
+                />
+                {/* Overlay UNIQUEMENT en mode placement */}
+                {placingMode && (
+                  <div
+                    ref={overlayRef}
+                    onClick={handleOverlayClick}
+                    style={{ position: 'absolute', inset: 0, cursor: 'crosshair', background: 'rgba(26,79,160,0.08)', zIndex: 10 }}
+                  />
+                )}
+                {/* Signature block flottant (lecture seule, ne bloque pas le scroll) */}
+                {sigPos && !placingMode && (
                   <div style={{
                     position: 'absolute',
-                    left: `${sigPos.x}%`,
-                    top: `${sigPos.y}%`,
+                    left: `${sigPos.x}%`, top: `${sigPos.y}%`,
                     transform: 'translate(-50%, -50%)',
-                    border: '2px solid #16a34a',
-                    background: 'rgba(240,253,244,0.95)',
-                    padding: '8px 14px',
-                    borderRadius: 6,
-                    pointerEvents: 'none',
-                    whiteSpace: 'nowrap',
-                    zIndex: 10,
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+                    zIndex: 20, pointerEvents: 'none',
                   }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: '#166534' }}>✍️ Signé par {userName}</div>
-                    <div style={{ fontSize: 11, color: '#4b7c5b', marginTop: 2 }}>{today}</div>
+                    <SignatureBlock name={userName} date={today} hash={sigHash} />
                   </div>
                 )}
               </div>
-              {/* Instruction below */}
-              {!sigPos && (
-                <div style={{
-                  position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)',
-                  background: 'rgba(0,0,0,0.65)', color: 'white',
-                  padding: '8px 16px', borderRadius: 20, fontSize: 13, pointerEvents: 'none',
-                  whiteSpace: 'nowrap',
-                }}>
-                  👆 Cliquez sur le document pour placer votre signature
-                </div>
-              )}
+            )}
+          </div>
+        </div>
+
+        {/* Right: Signature panel */}
+        <div style={{ flex: '0 0 38%', padding: '28px 24px', background: 'white', display: 'flex', flexDirection: 'column', gap: 18, overflowY: 'auto' }}>
+          <h2 style={{ margin: 0, fontSize: 19, color: '#111827', fontWeight: 700 }}>Votre signature</h2>
+
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4, color: '#6b7280' }}>Nom complet</label>
+            <input value={userName} readOnly style={{ width: '100%', padding: '10px 14px', borderRadius: 8, fontSize: 14, border: '1px solid #e5e7eb', background: '#f9fafb', color: '#374151', boxSizing: 'border-box', outline: 'none' }} />
+          </div>
+
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4, color: '#6b7280' }}>Date de signature</label>
+            <input value={today} readOnly style={{ width: '100%', padding: '10px 14px', borderRadius: 8, fontSize: 14, border: '1px solid #e5e7eb', background: '#f9fafb', color: '#374151', boxSizing: 'border-box', outline: 'none' }} />
+          </div>
+
+          {/* Preview */}
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 8, color: '#6b7280' }}>Aperçu de la signature</label>
+            <SignatureBlock name={userName} date={today} hash={sigHash} />
+          </div>
+
+          {/* State messages */}
+          {!docUrl && !loadingDoc && (
+            <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '12px 14px', fontSize: 13, color: '#1e40af' }}>
+              Aucun fichier joint — vous pouvez signer directement.
             </div>
           )}
-        </div>
-      </div>
-
-      {/* Right: Signature panel */}
-      <div style={{ flex: '0 0 40%', padding: '32px 28px', background: 'white', display: 'flex', flexDirection: 'column', gap: 20, overflowY: 'auto' }}>
-        <h2 style={{ margin: 0, fontSize: 20, color: '#111827', fontWeight: 700 }}>Votre signature</h2>
-
-        <div>
-          <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4, color: '#6b7280' }}>Signataire</label>
-          <input
-            type="text"
-            value={userName}
-            readOnly
-            style={{
-              width: '100%', padding: '10px 14px', borderRadius: 8, fontSize: 14,
-              border: '1px solid #e5e7eb', background: '#f9fafb', color: '#374151',
-              boxSizing: 'border-box', outline: 'none',
-            }}
-          />
-        </div>
-
-        <div>
-          <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4, color: '#6b7280' }}>Date</label>
-          <input
-            type="text"
-            value={today}
-            readOnly
-            style={{
-              width: '100%', padding: '10px 14px', borderRadius: 8, fontSize: 14,
-              border: '1px solid #e5e7eb', background: '#f9fafb', color: '#374151',
-              boxSizing: 'border-box', outline: 'none',
-            }}
-          />
-        </div>
-
-        {sigPos ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: '12px 16px', fontSize: 13, color: '#166534' }}>
-              ✅ Position définie : x={sigPos.x.toFixed(1)}%, y={sigPos.y.toFixed(1)}%
+          {docUrl && !sigPos && !placingMode && (
+            <div style={{ background: '#fef9ec', border: '1px solid #fde68a', borderRadius: 8, padding: '12px 14px', fontSize: 13, color: '#92400e' }}>
+              Cliquez sur <strong>« ✍️ Placer ma signature »</strong> puis cliquez à l&apos;endroit voulu sur le document.
             </div>
-            {err && (
-              <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#c0392b' }}>
-                {err}
-              </div>
+          )}
+          {placingMode && (
+            <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '12px 14px', fontSize: 13, color: '#1e40af' }}>
+              Cliquez sur le document à l&apos;endroit où vous souhaitez apposer votre signature.
+            </div>
+          )}
+          {sigPos && (
+            <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#166534' }}>
+              ✅ Signature placée sur le document
+            </div>
+          )}
+
+          {err && (
+            <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#c0392b' }}>{err}</div>
+          )}
+
+          {/* Actions */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 'auto' }}>
+            {(sigPos || (!docUrl && !loadingDoc)) && (
+              <button onClick={confirmSign} disabled={loading}
+                style={{ padding: '12px 20px', borderRadius: 8, fontSize: 14, fontWeight: 700, background: '#16a34a', color: 'white', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1 }}>
+                {loading ? 'Signature en cours...' : '✅ Confirmer la signature'}
+              </button>
             )}
-            <button
-              onClick={confirmSign}
-              disabled={loading}
-              style={{
-                padding: '12px 20px', borderRadius: 8, fontSize: 14, fontWeight: 700,
-                background: '#16a34a', color: 'white', border: 'none',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                opacity: loading ? 0.7 : 1,
-              }}
-            >
-              {loading ? 'Signature en cours...' : '✅ Confirmer la signature'}
-            </button>
-            <button
-              onClick={() => setSigPos(null)}
-              style={{
-                padding: '10px 20px', borderRadius: 8, fontSize: 13,
-                background: 'white', border: '1px solid #e5e7eb', color: '#374151',
-                cursor: 'pointer',
-              }}
-            >
-              Repositionner la signature
+            <button onClick={() => router.push('/signatures')}
+              style={{ padding: '10px 20px', borderRadius: 8, fontSize: 13, background: 'white', border: '1px solid #e5e7eb', color: '#374151', cursor: 'pointer' }}>
+              ← Retour
             </button>
           </div>
-        ) : (
-          <div style={{ background: '#fef9ec', border: '1px solid #fde68a', borderRadius: 8, padding: '14px 16px', fontSize: 13, color: '#92400e' }}>
-            {docUrl
-              ? 'Placez votre signature sur le document d\'abord'
-              : 'Aucun document joint — vous pouvez signer directement'}
-          </div>
-        )}
-
-        {!docUrl && !loadingDoc && !sigPos && (
-          <button
-            onClick={() => setSigPos({ x: 50, y: 50 })}
-            style={{
-              padding: '12px 20px', borderRadius: 8, fontSize: 14, fontWeight: 700,
-              background: '#16a34a', color: 'white', border: 'none', cursor: 'pointer',
-            }}
-          >
-            ✍️ Signer maintenant
-          </button>
-        )}
-
-        <div style={{ marginTop: 'auto' }}>
-          <button
-            onClick={() => router.push('/signatures')}
-            style={{
-              padding: '10px 20px', borderRadius: 8, fontSize: 13,
-              background: 'white', border: '1px solid #e5e7eb', color: '#374151',
-              cursor: 'pointer',
-            }}
-          >
-            ← Retour
-          </button>
         </div>
       </div>
-    </div>
+    </>
   )
 }
