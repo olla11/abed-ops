@@ -15,27 +15,43 @@ function shortHash(s: string): string {
   return Math.abs(h).toString(16).toUpperCase().padStart(8, '0')
 }
 
-const SIG_FONT = '"Dancing Script", cursive'
 const BRACKET_COLOR = '#2563eb'
 
+// Deterministic slight rotation from name (-2° to +2°) for natural handwritten feel
+function sigRotation(name: string): number {
+  let h = 0
+  for (let i = 0; i < name.length; i++) h = (Math.imul(31, h) + name.charCodeAt(i)) | 0
+  return ((Math.abs(h) % 40) - 20) / 10  // -2.0 to +2.0 degrees
+}
+
 function SignatureBlock({ name, date, hash, small }: { name: string; date: string; hash: string; small?: boolean }) {
-  const bw = small ? 168 : 210
-  const bh = small ? 54 : 66
+  const bw = small ? 180 : 220
+  const bh = small ? 58 : 72
   const barW = 2
   const hookLen = small ? 8 : 11
+  const rot = sigRotation(name)
   return (
     <div style={{ position: 'relative', width: bw, height: bh, userSelect: 'none', background: 'white' }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&display=swap');`}</style>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap');`}</style>
       <svg width={hookLen + 4} height={bh} style={{ position: 'absolute', left: 0, top: 0, overflow: 'visible' }}>
         <line x1={2} y1={2} x2={2 + hookLen} y2={2} stroke={BRACKET_COLOR} strokeWidth={barW} strokeLinecap="round" />
         <line x1={2} y1={2} x2={2} y2={bh - 2} stroke={BRACKET_COLOR} strokeWidth={barW} strokeLinecap="round" />
         <line x1={2} y1={bh - 2} x2={2 + hookLen} y2={bh - 2} stroke={BRACKET_COLOR} strokeWidth={barW} strokeLinecap="round" />
       </svg>
       <div style={{ position: 'absolute', left: hookLen + 8, top: 0, right: 4, bottom: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', paddingTop: 5, paddingBottom: 5 }}>
-        <div style={{ fontSize: small ? 7.5 : 9, fontWeight: 700, color: '#374151', letterSpacing: 0.2, fontFamily: 'Arial, sans-serif', textTransform: 'uppercase' }}>
+        <div style={{ fontSize: small ? 7.5 : 9, fontWeight: 700, color: '#374151', letterSpacing: 0.5, fontFamily: 'Arial, sans-serif', textTransform: 'uppercase' }}>
           MyABED signed by:
         </div>
-        <div style={{ fontFamily: SIG_FONT, fontSize: small ? 22 : 28, color: '#111', lineHeight: 1, fontWeight: 700 }}>
+        <div style={{
+          fontFamily: '"Great Vibes", cursive',
+          fontSize: small ? 26 : 34,
+          color: '#000',
+          lineHeight: 1,
+          letterSpacing: '0.03em',
+          transform: `rotate(${rot}deg)`,
+          transformOrigin: 'left center',
+          display: 'inline-block',
+        }}>
           {name}
         </div>
         <div style={{ borderTop: '1px solid #d1d5db', paddingTop: 3, fontSize: small ? 7 : 8, color: '#6b7280', display: 'flex', justifyContent: 'space-between', fontFamily: 'Arial, sans-serif' }}>
