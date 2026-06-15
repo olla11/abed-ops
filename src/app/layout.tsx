@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import type { Viewport } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -9,6 +10,11 @@ export const metadata: Metadata = {
     shortcut: '/logoabed2.png',
     apple: '/logoabed2.png',
   },
+}
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

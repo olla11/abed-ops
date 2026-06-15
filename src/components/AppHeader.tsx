@@ -2,7 +2,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import UserAvatar from './UserAvatar'
 
 type Props = {
@@ -22,6 +22,8 @@ export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, s
   const showOverview = OVERVIEW_ROLES.includes(userRole ?? '')
   const estRapport = RAPPORT_TYPES.includes(typeEmploi ?? '')
   const [dossierOpen, setDossierOpen] = useState(false)
+  const [mobileOpen, setMobileOpen] = useState(false)
+  const mobileRef = useRef<HTMLDivElement>(null)
 
   const subTabs = [
     { href: '/dashboard', label: 'Ordres de mission', match: ['/dashboard', '/missions'] },
@@ -43,6 +45,21 @@ export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, s
 
   const dossierActive = subTabs.some(s => isActive(s.match))
 
+  // Close mobile menu on route change
+  useEffect(() => { setMobileOpen(false) }, [pathname])
+
+  // Close mobile menu on outside click
+  useEffect(() => {
+    if (!mobileOpen) return
+    function handle(e: MouseEvent) {
+      if (mobileRef.current && !mobileRef.current.contains(e.target as Node)) {
+        setMobileOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handle)
+    return () => document.removeEventListener('mousedown', handle)
+  }, [mobileOpen])
+
   return (
     <nav style={{
       position: 'sticky', top: 0, zIndex: 100,
@@ -54,19 +71,19 @@ export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, s
     }}>
       <div style={{
         maxWidth: 1200, margin: '0 auto',
-        padding: '0 24px',
+        padding: '0 16px',
         display: 'flex', alignItems: 'center',
         height: 60, gap: 8,
       }}>
 
         {/* Logo */}
-        <Link href="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none', flexShrink: 0, marginRight: 16 }}>
-          <Image src="/logoabed2.png" alt="Logo ABED" width={36} height={36} style={{ objectFit: 'contain' }} />
-          <span style={{ fontSize: 17, fontWeight: 900, color: 'var(--abed-green)', letterSpacing: 0.5 }}>My ABED</span>
+        <Link href="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none', flexShrink: 0, marginRight: 8 }}>
+          <Image src="/logoabed2.png" alt="Logo ABED" width={34} height={34} style={{ objectFit: 'contain' }} />
+          <span style={{ fontSize: 16, fontWeight: 900, color: 'var(--abed-green)', letterSpacing: 0.5 }}>My ABED</span>
         </Link>
 
-        {/* Onglets */}
-        <div style={{ display: 'flex', alignItems: 'stretch', flex: 1, height: '100%', gap: 2 }}>
+        {/* Onglets desktop */}
+        <div className="nav-desktop" style={{ display: 'flex', alignItems: 'stretch', flex: 1, height: '100%', gap: 2 }}>
 
           {/* Mon espace (dropdown) */}
           <div
@@ -116,9 +133,77 @@ export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, s
           ))}
         </div>
 
-        {/* Avatar */}
-        <UserAvatar userName={userName} userRole={userRole} avatarUrl={avatarUrl} />
+        {/* Avatar + hamburger */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
+          <UserAvatar userName={userName} userRole={userRole} avatarUrl={avatarUrl} />
+
+          {/* Hamburger — visible only on mobile */}
+          <button
+            className="nav-hamburger"
+            onClick={() => setMobileOpen(o => !o)}
+            aria-label="Menu"
+            style={{
+              display: 'none',
+              background: 'none', border: 'none', cursor: 'pointer',
+              padding: 6, borderRadius: 6,
+              color: '#374151', fontSize: 22, lineHeight: 1,
+            }}
+          >
+            {mobileOpen ? '✕' : '☰'}
+          </button>
+        </div>
       </div>
+
+      {/* Mobile menu */}
+      {mobileOpen && (
+        <div ref={mobileRef} style={{
+          position: 'absolute', top: 60, left: 0, right: 0, zIndex: 300,
+          background: 'white', borderBottom: '1px solid var(--abed-border)',
+          boxShadow: '0 8px 24px rgba(0,0,0,.12)',
+        }}>
+          {/* Mon espace */}
+          <div style={{ padding: '8px 16px 4px', fontSize: 11, fontWeight: 700, color: 'var(--abed-muted)', textTransform: 'uppercase', letterSpacing: '.05em' }}>
+            Mon espace
+          </div>
+          {subTabs.map(s => {
+            const active = isActive(s.match)
+            return (
+              <Link key={s.href} href={s.href} style={{
+                display: 'block', padding: '12px 24px', fontSize: 14,
+                fontWeight: active ? 700 : 400,
+                color: active ? 'var(--abed-green)' : '#374151',
+                background: active ? '#f0fdf4' : 'white',
+                textDecoration: 'none',
+                borderBottom: '1px solid #f9fafb',
+              }}>
+                {s.label}
+              </Link>
+            )
+          })}
+
+          {/* Autres onglets */}
+          {mainTabs.length > 0 && (
+            <div style={{ padding: '8px 16px 4px', fontSize: 11, fontWeight: 700, color: 'var(--abed-muted)', textTransform: 'uppercase', letterSpacing: '.05em', borderTop: '1px solid var(--abed-border)', marginTop: 4 }}>
+              Navigation
+            </div>
+          )}
+          {mainTabs.map(tab => {
+            const active = isActive(tab.match)
+            return (
+              <Link key={tab.href} href={tab.href} style={{
+                display: 'block', padding: '12px 24px', fontSize: 14,
+                fontWeight: active ? 700 : 400,
+                color: active ? 'var(--abed-green)' : '#374151',
+                background: active ? '#f0fdf4' : 'white',
+                textDecoration: 'none',
+                borderBottom: '1px solid #f9fafb',
+              }}>
+                {tab.label}
+              </Link>
+            )
+          })}
+        </div>
+      )}
     </nav>
   )
 }
@@ -126,7 +211,7 @@ export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, s
 function tabStyle(active: boolean): React.CSSProperties {
   return {
     display: 'inline-flex', alignItems: 'center',
-    padding: '0 16px', height: '100%',
+    padding: '0 14px', height: '100%',
     fontSize: 14, fontWeight: active ? 700 : 500,
     color: active ? 'var(--abed-green)' : '#374151',
     textDecoration: 'none',
