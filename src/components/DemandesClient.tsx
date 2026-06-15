@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import DemandePaiementForm from './DemandePaiementForm'
 import TraitementDemandes from './TraitementDemandes'
+import Pagination, { paginate } from '@/components/Pagination'
 
 type Demande = {
   id: string; nom_complet: string; objet: string; montant: number
@@ -28,6 +29,7 @@ export default function DemandesClient({ role, userEmail, userName }: {
   const [showForm, setShowForm] = useState(false)
   const [mesDemandes, setMesDemandes] = useState<Demande[]>([])
   const [loading, setLoading] = useState(true)
+  const [page, setPage] = useState(1)
 
   async function load() {
     const res = await fetch('/api/demandes-paiement')
@@ -80,7 +82,7 @@ export default function DemandesClient({ role, userEmail, userName }: {
         ) : (
           <div className="card">
             <h3 style={{ marginBottom: 12 }}>Mes demandes ({mesDemandes.length})</h3>
-            {mesDemandes.map(d => {
+            {paginate(mesDemandes, page).map(d => {
               const st = STATUS_LABEL[d.status] ?? { label: d.status, color: '#374151' }
               const comment = d.commentaire_aaf || d.commentaire_caf || d.commentaire_de
               return (
@@ -108,6 +110,7 @@ export default function DemandesClient({ role, userEmail, userName }: {
                 </div>
               )
             })}
+            <Pagination page={page} total={mesDemandes.length} onChange={setPage} />
           </div>
         )
       )}

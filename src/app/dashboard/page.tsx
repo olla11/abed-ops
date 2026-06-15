@@ -5,6 +5,7 @@ import Link from 'next/link'
 import AppHeader from '@/components/AppHeader'
 import RolePreviewBanner from '@/components/RolePreviewBanner'
 import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
+import MissionsTable from './MissionsTable'
 
 export default async function Dashboard() {
   const supabase = await createClient()
@@ -26,7 +27,6 @@ export default async function Dashboard() {
     .from('missions')
     .select('id, reference, objet, lieu, date_depart, date_retour, status, missionnaire_id, missionnaire:profiles!missions_missionnaire_id_fkey(nom, prenoms)')
     .order('created_at', { ascending: false })
-    .limit(50)
 
   const { data: notifs } = await supabase
     .from('notifications').select('*').eq('lu', false)
@@ -83,52 +83,7 @@ export default async function Dashboard() {
           </h3>
           <Link href="/missions/nouveau" className="btn" style={{ fontSize: 13 }}>+ Nouvel OM</Link>
         </div>
-        <div className="table-wrap">
-        <table style={{ minWidth: isManager ? 900 : 750 }}>
-          <colgroup>
-            <col style={{ width: 160 }} />
-            {isManager && <col style={{ width: 160 }} />}
-            <col style={{ width: isManager ? 280 : 340 }} />
-            <col style={{ width: 100 }} />
-            <col style={{ width: 160 }} />
-            <col style={{ width: 140 }} />
-            <col style={{ width: 70 }} />
-          </colgroup>
-          <thead>
-            <tr>
-              <th>Référence</th>
-              {isManager && <th>Missionnaire</th>}
-              <th>Objet</th>
-              <th>Lieu</th>
-              <th>Période</th>
-              <th>Statut</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {(missions ?? []).map(m => (
-              <tr key={m.id}>
-                <td title={m.reference ?? '—'}>{m.reference ?? '—'}</td>
-                {isManager && (
-                  <td style={{ fontSize: 13 }} title={`${(m.missionnaire as any)?.prenoms} ${(m.missionnaire as any)?.nom}`}>
-                    {(m.missionnaire as any)?.prenoms} {(m.missionnaire as any)?.nom}
-                  </td>
-                )}
-                <td title={m.objet}>{m.objet}</td>
-                <td title={m.lieu}>{m.lieu}</td>
-                <td style={{ fontSize: 12 }}>
-                  {new Date(m.date_depart).toLocaleDateString('fr-FR')} → {new Date(m.date_retour).toLocaleDateString('fr-FR')}
-                </td>
-                <td><span className={`badge ${m.status}`}>{STATUS_LABELS[m.status] ?? m.status}</span></td>
-                <td><Link href={`/missions/${m.id}`} style={{ fontSize: 13 }}>Ouvrir</Link></td>
-              </tr>
-            ))}
-            {(!missions || missions.length === 0) && (
-              <tr><td colSpan={isManager ? 7 : 6} style={{ color: 'var(--abed-muted)' }}>Aucune mission.</td></tr>
-            )}
-          </tbody>
-        </table>
-        </div>
+        <MissionsTable missions={(missions ?? []) as any} isManager={isManager} />
       </div>
       </div>
     </>

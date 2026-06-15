@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase-client'
+import Pagination, { paginate } from '@/components/Pagination'
 
 type Soumission = {
   id: string; titre: string; status: string
@@ -29,6 +30,8 @@ export default function ValidationManager() {
   const [items, setItems] = useState<Soumission[]>([])
   const [rapports, setRapports] = useState<RapportManager[]>([])
   const [loading, setLoading] = useState(true)
+  const [pageItems, setPageItems] = useState(1)
+  const [pageRapports, setPageRapports] = useState(1)
   const [taux, setTaux] = useState(1500)
   const [expanded, setExpanded] = useState<string | null>(null)
   const [expandedRap, setExpandedRap] = useState<string | null>(null)
@@ -140,7 +143,7 @@ export default function ValidationManager() {
           <p style={{ color: 'var(--abed-muted)', fontSize: 14 }}>Aucun timesheet en attente.</p>
         )}
 
-        {items.map(s => {
+        {paginate(items, pageItems).map(s => {
           const isOpen = expanded === s.id
           const h = heuresMap[s.id]
           const montantEstimé = h ? Math.round(+h * taux).toLocaleString('fr-FR') : '—'
@@ -239,6 +242,7 @@ export default function ValidationManager() {
             </div>
           )
         })}
+        <Pagination page={pageItems} total={items.length} onChange={setPageItems} />
       </div>
 
       {/* ── Rapports mensuels ── */}
@@ -252,7 +256,7 @@ export default function ValidationManager() {
           <p style={{ color: 'var(--abed-muted)', fontSize: 14 }}>Aucun rapport en attente.</p>
         )}
 
-        {rapports.map(r => {
+        {paginate(rapports, pageRapports).map(r => {
           const isOpen = expandedRap === r.id
           const p = r.prestataire
           const estSalarie = ['cdd','cdi'].includes(p?.type_emploi ?? '')
@@ -310,6 +314,7 @@ export default function ValidationManager() {
             </div>
           )
         })}
+        <Pagination page={pageRapports} total={rapports.length} onChange={setPageRapports} />
       </div>
     </div>
   )

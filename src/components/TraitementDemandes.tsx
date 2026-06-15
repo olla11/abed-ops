@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import Pagination, { paginate } from '@/components/Pagination'
 
 type Demande = {
   id: string; nom_complet: string; email_contact: string; departement: string
@@ -38,6 +39,8 @@ export default function TraitementDemandes({ role }: { role: string }) {
   const [demandes, setDemandes] = useState<Demande[]>([])
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState<string | null>(null)
+  const [pageATraiter, setPageATraiter] = useState(1)
+  const [pageHistorique, setPageHistorique] = useState(1)
   const [commentMap, setCommentMap] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState<string | null>(null)
 
@@ -197,13 +200,15 @@ export default function TraitementDemandes({ role }: { role: string }) {
           <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: 12 }}>
             Demandes en attente de votre action.
           </p>
-          {aTraiter.map(d => renderDemande(d, true))}
+          {paginate(aTraiter, pageATraiter).map(d => renderDemande(d, true))}
+          <Pagination page={pageATraiter} total={aTraiter.length} onChange={setPageATraiter} />
         </div>
       )}
       {autres.length > 0 && (
         <div className="card">
           <h3 style={{ marginBottom: 4 }}>Historique ({autres.length})</h3>
-          {autres.map(d => renderDemande(d, false))}
+          {paginate(autres, pageHistorique).map(d => renderDemande(d, false))}
+          <Pagination page={pageHistorique} total={autres.length} onChange={setPageHistorique} />
         </div>
       )}
       {demandes.length === 0 && (

@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import Pagination, { paginate } from '@/components/Pagination'
 import { createClient } from '@/lib/supabase-client'
 
 type Soumission = {
@@ -38,6 +39,9 @@ export default function ValidationCAF() {
 
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState<string | null>(null)
+  const [pageItems, setPageItems] = useState(1)
+  const [pageDirects, setPageDirects] = useState(1)
+  const [pageCredits, setPageCredits] = useState(1)
   const [commentMap, setCommentMap] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState<string | null>(null)
 
@@ -210,7 +214,7 @@ export default function ValidationCAF() {
           Dossiers validés techniquement. Vérifiez la facture et validez le montant.
         </p>
         {items.length === 0 && <p style={{ color: 'var(--abed-muted)', fontSize: 14 }}>Aucun dossier en attente.</p>}
-        {items.map(s => {
+        {paginate(items, pageItems).map(s => {
           const isOpen = expanded === s.id
           const taux = s.prestataire?.type_emploi === 'prestataire_credit' ? tauxCredit : tauxDirect
           const montant = Math.round((s.heures_retenues ?? 0) * taux)
@@ -281,6 +285,7 @@ export default function ValidationCAF() {
             </div>
           )
         })}
+        <Pagination page={pageItems} total={items.length} onChange={setPageItems} />
       </div>
 
       {/* ── Paiements Directs ── */}
@@ -290,7 +295,7 @@ export default function ValidationCAF() {
           <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: 16 }}>
             Dossiers validés CAF en attente de paiement (mensuel).
           </p>
-          {directs.map(s => (
+          {paginate(directs, pageDirects).map(s => (
             <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
               borderBottom: '1px solid var(--abed-border)', padding: '12px 0', flexWrap: 'wrap', gap: 8 }}>
               <div>
@@ -309,6 +314,7 @@ export default function ValidationCAF() {
               </button>
             </div>
           ))}
+          <Pagination page={pageDirects} total={directs.length} onChange={setPageDirects} />
         </div>
       )}
 
@@ -319,7 +325,7 @@ export default function ValidationCAF() {
           <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: 16 }}>
             Solde cumulatif par prestataire. Effectuez un versement partiel ou total.
           </p>
-          {credits.map(p => {
+          {paginate(credits, pageCredits).map(p => {
             const reste = p.total_valide - p.total_paye
             const form = creditForm[p.id] ?? { montant: '', heures: '', note: '' }
             return (
@@ -369,6 +375,7 @@ export default function ValidationCAF() {
               </div>
             )
           })}
+          <Pagination page={pageCredits} total={credits.length} onChange={setPageCredits} />
         </div>
       )}
     </div>
