@@ -71,6 +71,7 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName }:
   const [sigPos, setSigPos] = useState<{ x: number; y: number } | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
+  const [sigPage, setSigPage] = useState(1)
   const [signed, setSigned] = useState(false)
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -140,7 +141,7 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName }:
     const res = await fetch(`/api/signatures/${demandeId}/sign`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sig_x: sigPos?.x ?? 50, sig_y: correctedY, sig_page: 1 }),
+      body: JSON.stringify({ sig_x: sigPos?.x ?? 50, sig_y: correctedY, sig_page: sigPage }),
     })
     setLoading(false)
     if (res.ok) setSigned(true)
@@ -257,6 +258,21 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName }:
             <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 8, color: '#6b7280' }}>Aperçu de la signature</label>
             <SignatureBlock name={userName} date={today} hash={sigHash} small />
           </div>
+
+          {/* Page selector */}
+          {docUrl && (
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 6, color: '#6b7280' }}>Page de signature</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button onClick={() => setSigPage(p => Math.max(1, p - 1))}
+                  style={{ width: 32, height: 32, borderRadius: 6, border: '1px solid #e5e7eb', background: 'white', fontSize: 16, cursor: 'pointer', fontWeight: 700, color: '#374151' }}>−</button>
+                <span style={{ fontSize: 15, fontWeight: 700, minWidth: 24, textAlign: 'center', color: '#111827' }}>{sigPage}</span>
+                <button onClick={() => setSigPage(p => p + 1)}
+                  style={{ width: 32, height: 32, borderRadius: 6, border: '1px solid #e5e7eb', background: 'white', fontSize: 16, cursor: 'pointer', fontWeight: 700, color: '#374151' }}>+</button>
+                <span style={{ fontSize: 12, color: '#9ca3af' }}>Naviguez jusqu'à la bonne page dans le document, puis indiquez-la ici.</span>
+              </div>
+            </div>
+          )}
 
           {/* Instructions */}
           {!docUrl && !loadingDoc && (
