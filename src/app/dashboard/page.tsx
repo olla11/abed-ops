@@ -61,9 +61,16 @@ export default async function Dashboard() {
         <div className="card" style={{ marginBottom: 24, borderLeft: '4px solid var(--abed-amber)' }}>
           <h3 style={{ fontSize: 15, marginBottom: 10 }}>Notifications</h3>
           {notifs.map(n => (
-            <div key={n.id} style={{ padding: '8px 0', borderBottom: '1px solid var(--abed-border)' }}>
-              <strong style={{ fontSize: 14 }}>{n.titre}</strong>
-              <p style={{ fontSize: 13, color: 'var(--abed-muted)' }}>{n.message}</p>
+            <div key={n.id} style={{ padding: '8px 0', borderBottom: '1px solid var(--abed-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+              <div>
+                <strong style={{ fontSize: 14 }}>{n.titre}</strong>
+                <p style={{ fontSize: 13, color: 'var(--abed-muted)', margin: '2px 0 0' }}>{n.message}</p>
+              </div>
+              {n.lien && (
+                <Link href={n.lien} style={{ padding: '5px 14px', borderRadius: 7, fontSize: 13, fontWeight: 600, background: 'var(--abed-green)', color: 'white', textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                  Ouvrir →
+                </Link>
+              )}
             </div>
           ))}
         </div>
