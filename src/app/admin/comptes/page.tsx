@@ -15,7 +15,7 @@ export default async function ComptesPage() {
     .select('id, civilite, nom, prenoms, email, telephone, role, fonction, type_emploi, manager_id')
     .order('nom')
 
-  const managers = (users ?? []).filter(u => ['manager', 'caf', 'de', 'admin'].includes(u.role ?? ''))
+  const managers = (users ?? []).filter(u => ['manager', 'caf', 'de', 'aaf', 'rh', 'admin', 'administrateur'].includes(u.role ?? ''))
   const canManage = ['admin', 'caf'].includes(profile?.role ?? '')
   const isAdmin = profile?.role === 'admin'
 

@@ -15,13 +15,22 @@ export default function ManagerAssignSelect({ userId, currentManagerId, managers
 
   async function save() {
     setStatus('…')
-    const res = await fetch(`/api/admin/users/${userId}/manager`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ manager_id: value || null }),
-    })
-    setStatus(res.ok ? '✓' : '✗')
-    setTimeout(() => setStatus(''), 2000)
+    try {
+      const res = await fetch(`/api/admin/users/${userId}/manager`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ manager_id: value || null }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setStatus('✓ Enregistré')
+      } else {
+        setStatus('✗ ' + (data.error ?? 'Erreur'))
+      }
+    } catch {
+      setStatus('✗ Réseau')
+    }
+    setTimeout(() => setStatus(''), 3000)
   }
 
   return (
