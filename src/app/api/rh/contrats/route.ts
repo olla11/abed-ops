@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase-server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { createClient, createAdminClient } from '@/lib/supabase-server'
+import { sendEmail } from '@/lib/resend'
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://myabed.app'
 
 export async function GET(_req: NextRequest) {
   const supabase = await createClient()
@@ -10,10 +12,7 @@ export async function GET(_req: NextRequest) {
   const { data: me } = await supabase.from('profiles').select('role').eq('id', user.id).single()
   if (!['rh', 'admin', 'de'].includes(me?.role ?? '')) return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
 
-  const service = createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
+  const service = createAdminClient()
 
   const { data, error } = await service.from('contrats')
     .select('*, profile:profiles!profile_id(id, nom, prenoms, email, role)')
@@ -38,18 +37,115 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Employé, type et date de début sont obligatoires.' }, { status: 400 })
   }
 
-  const service = createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
+  const service = createAdminClient()
 
-  const { data, error } = await service.from('contrats').insert({
+  // Insert the contract
+  const { data: contrat, error: insertError } = await service.from('contrats').insert({
     profile_id, type_contrat, date_debut, poste: poste || null,
     direction: direction || null, date_fin: date_fin || null,
     salaire_brut: salaire_brut || null, observations: observations || null,
     statut: 'actif',
-  }).select('*, profile:profiles!profile_id(id, nom, prenoms, email, role)').single()
+  }).select('*, profile:profiles!profile_id(id, nom, prenoms, email, role, civilite)').single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ contrat: data })
+  if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 })
+
+  // Generate contract number using nextval sequence
+  const year = new Date().getFullYear()
+  let numero: string
+
+  const { data: seqData, error: seqError } = await service
+    .rpc('nextval_contrats_seq' as Parameters<typeof service.rpc>[0])
+
+  if (!seqError && seqData != null) {
+    numero = `CONT-${year}-${String(Number(seqData)).padStart(4, '0')}`
+  } else {
+    // Fallback: count existing contracts
+    const { count } = await service.from('contrats').select('id', { count: 'exact', head: true })
+    numero = `CONT-${year}-${String(count ?? 1).padStart(4, '0')}`
+  }
+
+  // Update contrat with numero
+  await service.from('contrats').update({ numero }).eq('id', contrat.id)
+
+  type ProfileRow = {
+    id: string; nom: string; prenoms: string; email: string | null; role: string; civilite: string | null
+  }
+  const profile = contrat.profile as ProfileRow | null
+
+  // Determine signatory based on employee role
+  let signataireProfile: { id: string; nom: string; prenoms: string } | null = null
+  if (profile) {
+    const signatoryRole = profile.role === 'de' ? 'administrateur' : 'de'
+    const { data: signatories } = await service
+      .from('profiles')
+      .select('id, nom, prenoms')
+      .eq('role', signatoryRole)
+      .limit(1)
+    if (signatories && signatories.length > 0) {
+      signataireProfile = signatories[0] as { id: string; nom: string; prenoms: string }
+    }
+  }
+
+  // Create demande_signature and signataire
+  let demandeId: string | null = null
+  if (signataireProfile && profile) {
+    const titre = `Contrat ${type_contrat} — ${profile.prenoms} ${profile.nom}`
+    const { data: demande, error: demandeError } = await service.from('demandes_signature').insert({
+      titre,
+      description: `Contrat ${numero}`,
+      createur_id: user.id,
+      statut: 'en_attente',
+    }).select('id').single()
+
+    if (!demandeError && demande) {
+      demandeId = (demande as { id: string }).id
+
+      await service.from('signataires').insert({
+        demande_id: demandeId,
+        profile_id: signataireProfile.id,
+        signe: false,
+        ordre: 1,
+      })
+
+      await service.from('contrats').update({ demande_signature_id: demandeId }).eq('id', contrat.id)
+    }
+  }
+
+  // Send email to employee
+  if (profile?.email) {
+    const civilite = profile.civilite ?? ''
+    try {
+      await sendEmail({
+        to: profile.email,
+        subject: `Votre contrat ${type_contrat} — ABED ONG`,
+        html: `
+          <div style="font-family:sans-serif;max-width:600px;margin:0 auto;">
+            <h2 style="color:#16a34a;">ABED ONG — Nouveau contrat</h2>
+            <p>Bonjour ${civilite} ${profile.prenoms} ${profile.nom},</p>
+            <p>Un nouveau contrat a été établi à votre nom :</p>
+            <ul>
+              <li><strong>Référence :</strong> ${numero}</li>
+              <li><strong>Type :</strong> ${type_contrat}</li>
+              <li><strong>Poste :</strong> ${poste ?? '—'}</li>
+              <li><strong>Date de début :</strong> ${date_debut}</li>
+              ${date_fin ? `<li><strong>Date de fin :</strong> ${date_fin}</li>` : ''}
+            </ul>
+            <p>Ce contrat requiert votre signature électronique.</p>
+            <p>
+              <a href="${APP_URL}/signatures"
+                 style="display:inline-block;background:#16a34a;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold;">
+                Accéder aux signatures
+              </a>
+            </p>
+            <p style="color:#6b7280;font-size:12px;">ABED ONG — Système de gestion RH</p>
+          </div>
+        `,
+      })
+    } catch (emailErr) {
+      console.error('[POST /api/rh/contrats] Email error:', emailErr)
+    }
+  }
+
+  const finalContrat = { ...contrat, numero, demande_signature_id: demandeId }
+  return NextResponse.json({ contrat: finalContrat })
 }
