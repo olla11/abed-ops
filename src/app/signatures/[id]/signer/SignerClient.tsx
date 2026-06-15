@@ -15,36 +15,32 @@ function shortHash(s: string): string {
   return Math.abs(h).toString(16).toUpperCase().padStart(8, '0')
 }
 
+const SIG_FONT = '"Dancing Script", cursive'
+const BRACKET_COLOR = '#2563eb'
+
 function SignatureBlock({ name, date, hash, small }: { name: string; date: string; hash: string; small?: boolean }) {
-  const bw = small ? 160 : 200
-  const bh = small ? 48 : 58
-  const barW = 1.5
-  const hookLen = small ? 7 : 9
+  const bw = small ? 168 : 210
+  const bh = small ? 54 : 66
+  const barW = 2
+  const hookLen = small ? 8 : 11
   return (
-    <div style={{ position: 'relative', width: bw, height: bh, userSelect: 'none', background: 'transparent' }}>
-      {/* C-bracket left side */}
-      <svg width={bw} height={bh} style={{ position: 'absolute', inset: 0, overflow: 'visible', pointerEvents: 'none' }}>
-        {/* top hook */}
-        <line x1={2} y1={2} x2={2 + hookLen} y2={2} stroke="#111" strokeWidth={barW} />
-        {/* vertical bar */}
-        <line x1={2} y1={2} x2={2} y2={bh - 2} stroke="#111" strokeWidth={barW} />
-        {/* bottom hook */}
-        <line x1={2} y1={bh - 2} x2={2 + hookLen} y2={bh - 2} stroke="#111" strokeWidth={barW} />
+    <div style={{ position: 'relative', width: bw, height: bh, userSelect: 'none', background: 'white' }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&display=swap');`}</style>
+      <svg width={hookLen + 4} height={bh} style={{ position: 'absolute', left: 0, top: 0, overflow: 'visible' }}>
+        <line x1={2} y1={2} x2={2 + hookLen} y2={2} stroke={BRACKET_COLOR} strokeWidth={barW} strokeLinecap="round" />
+        <line x1={2} y1={2} x2={2} y2={bh - 2} stroke={BRACKET_COLOR} strokeWidth={barW} strokeLinecap="round" />
+        <line x1={2} y1={bh - 2} x2={2 + hookLen} y2={bh - 2} stroke={BRACKET_COLOR} strokeWidth={barW} strokeLinecap="round" />
       </svg>
-      {/* Content */}
-      <div style={{ position: 'absolute', left: 2 + hookLen + 4, top: 0, right: 0, bottom: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', paddingTop: 4, paddingBottom: 4 }}>
-        <div style={{ fontSize: small ? 7 : 8, fontWeight: 700, color: '#222', letterSpacing: 0.3, fontFamily: 'sans-serif' }}>MyABED signed by:</div>
-        <div style={{
-          fontFamily: '"Dancing Script", "Brush Script MT", cursive',
-          fontSize: small ? 20 : 26,
-          color: '#111',
-          lineHeight: 1,
-        }}>
+      <div style={{ position: 'absolute', left: hookLen + 8, top: 0, right: 4, bottom: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', paddingTop: 5, paddingBottom: 5 }}>
+        <div style={{ fontSize: small ? 7.5 : 9, fontWeight: 700, color: '#374151', letterSpacing: 0.2, fontFamily: 'Arial, sans-serif', textTransform: 'uppercase' }}>
+          MyABED signed by:
+        </div>
+        <div style={{ fontFamily: SIG_FONT, fontSize: small ? 22 : 28, color: '#111', lineHeight: 1, fontWeight: 700 }}>
           {name}
         </div>
-        <div style={{ borderTop: '1px solid #ccc', paddingTop: 2, fontSize: small ? 7 : 8, color: '#666', display: 'flex', justifyContent: 'space-between', fontFamily: 'sans-serif' }}>
+        <div style={{ borderTop: '1px solid #d1d5db', paddingTop: 3, fontSize: small ? 7 : 8, color: '#6b7280', display: 'flex', justifyContent: 'space-between', fontFamily: 'Arial, sans-serif' }}>
           <span>{date}</span>
-          <span>{hash.slice(0, 10)}...</span>
+          <span style={{ color: '#9ca3af' }}>{hash.slice(0, 12)}...</span>
         </div>
       </div>
     </div>
@@ -149,8 +145,6 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName }:
 
   return (
     <>
-      <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&display=swap" rel="stylesheet" />
-
       {/* Global drag capture overlay — prevents iframe from eating mouse events */}
       {isDragging && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, cursor: 'grabbing' }} />
