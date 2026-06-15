@@ -14,7 +14,7 @@ const inputStyle: React.CSSProperties = {
   border: '1px solid var(--abed-border)', outline: 'none', boxSizing: 'border-box',
 }
 
-const TYPES = ['CDD', 'CDI', 'Stage', 'Bénévolat', 'Prestataire', 'Consultant']
+const TYPES = ['CDD', 'CDI', 'Stage N1', 'Stage N2', 'Bénévolat', 'Prestataire direct', 'Prestataire à crédit', 'Consultant']
 
 function statutBadge(statut: string, dateFin: string | null) {
   const today = new Date().toISOString().split('T')[0]
@@ -73,17 +73,22 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
 
   async function createContrat() {
     setLoading(true); setErr(null)
-    const res = await fetch('/api/rh/contrats', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
-    })
-    setLoading(false)
-    if (res.ok) {
-      setShowNew(false); setForm({})
+    try {
+      const res = await fetch('/api/rh/contrats', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      })
       const d = await res.json()
-      setContrats(c => [d.contrat, ...c])
-    } else {
-      const d = await res.json(); setErr(d.error ?? 'Erreur')
+      if (res.ok) {
+        setShowNew(false); setForm({})
+        setContrats(c => [d.contrat, ...c])
+      } else {
+        setErr(d.error ?? 'Erreur lors de la création')
+      }
+    } catch {
+      setErr('Erreur réseau — veuillez réessayer')
+    } finally {
+      setLoading(false)
     }
   }
 
