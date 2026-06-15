@@ -1,5 +1,6 @@
 'use client'
 import { useState, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import type { DemandeRow, ProfileOption, SignataireRow } from './page'
 
 const inputStyle: React.CSSProperties = {
@@ -33,6 +34,7 @@ function SignataireChip({ s }: { s: SignataireRow }) {
 }
 
 function DemandeCard({ d, userId, onSigned }: { d: DemandeRow; userId: string; onSigned: (id: string) => void }) {
+  const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const createur = d.createur ? `${d.createur.prenoms} ${d.createur.nom}` : '—'
@@ -88,18 +90,31 @@ function DemandeCard({ d, userId, onSigned }: { d: DemandeRow; userId: string; o
         </div>
         {canSign && (
           <div style={{ flexShrink: 0 }}>
-            <button
-              onClick={sign}
-              disabled={loading}
-              style={{
-                padding: '9px 20px', borderRadius: 8, fontSize: 13, fontWeight: 700,
-                cursor: loading ? 'not-allowed' : 'pointer',
-                background: 'var(--abed-green)', color: 'white', border: 'none',
-                opacity: loading ? 0.7 : 1,
-              }}
-            >
-              {loading ? 'Signature...' : '✍️ Je signe'}
-            </button>
+            {d.fichier_url ? (
+              <button
+                onClick={() => router.push(`/signatures/${d.id}/signer`)}
+                style={{
+                  padding: '9px 20px', borderRadius: 8, fontSize: 13, fontWeight: 700,
+                  cursor: 'pointer',
+                  background: 'var(--abed-green)', color: 'white', border: 'none',
+                }}
+              >
+                📄 Ouvrir et signer
+              </button>
+            ) : (
+              <button
+                onClick={sign}
+                disabled={loading}
+                style={{
+                  padding: '9px 20px', borderRadius: 8, fontSize: 13, fontWeight: 700,
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  background: 'var(--abed-green)', color: 'white', border: 'none',
+                  opacity: loading ? 0.7 : 1,
+                }}
+              >
+                {loading ? 'Signature...' : '✍️ Je signe'}
+              </button>
+            )}
             {err && <div style={{ color: '#c0392b', fontSize: 12, marginTop: 6 }}>{err}</div>}
           </div>
         )}
