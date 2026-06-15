@@ -30,6 +30,7 @@ export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, s
     { href: '/timesheets', label: estRapport ? 'Rapport mensuel' : 'Timesheet', match: ['/timesheets'] },
     { href: '/demandes', label: 'Demande de paiement', match: ['/demandes'] },
     { href: '/conges', label: 'Mes congés', match: ['/conges'] },
+    { href: '/signatures', label: 'Signatures', match: ['/signatures'] },
   ]
 
   const mainTabs = [
