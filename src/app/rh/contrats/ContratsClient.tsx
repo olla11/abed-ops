@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import Pagination, { paginate } from '@/components/Pagination'
 
 type Article = { titre: string; contenu: string }
 
@@ -104,6 +105,7 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
   const [err, setErr] = useState<string | null>(null)
   const [filterStatut, setFilterStatut] = useState('')
   const [filterCat, setFilterCat] = useState('')
+  const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const [deleteStep, setDeleteStep] = useState<Record<string, number>>({})
   const deleteTimers = useState<Record<string, ReturnType<typeof setTimeout>>>(() => ({}))[0]
@@ -316,8 +318,8 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
         </button>
       </div>
       <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-        <input placeholder="Rechercher..." value={search} onChange={e => setSearch(e.target.value)} style={{ ...inputStyle, maxWidth: 240 }} />
-        <select value={filterCat} onChange={e => setFilterCat(e.target.value)} style={{ ...inputStyle, maxWidth: 160 }}>
+        <input placeholder="Rechercher..." value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} style={{ ...inputStyle, maxWidth: 240 }} />
+        <select value={filterCat} onChange={e => { setFilterCat(e.target.value); setPage(1) }} style={{ ...inputStyle, maxWidth: 160 }}>
           <option value="">Toutes catégories</option>
           {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
@@ -340,7 +342,7 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
               </tr>
             </thead>
             <tbody>
-              {filtered.map((c, i) => {
+              {paginate(filtered, page).map((c, i) => {
                 const badge = statutBadge(c.statut, c.date_fin)
                 const cat = c.categorie_document ?? 'Contrat'
                 const catStyle = categorieBadge(cat)
@@ -403,6 +405,7 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
               )}
             </tbody>
           </table>
+          <Pagination page={page} total={filtered.length} onChange={p => { setPage(p) }} />
         </div>
       </div>
 

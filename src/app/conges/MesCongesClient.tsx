@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import Pagination, { paginate } from '@/components/Pagination'
 
 type Conge = { id: string; statut: string; date_debut: string; date_fin: string; nb_jours: number | null; motif: string | null; created_at: string; type_conge: { nom: string } | null }
 type TypeConge = { id: string; nom: string; jours_annuels: number }
@@ -19,6 +20,7 @@ const inputStyle: React.CSSProperties = {
 
 export default function MesCongesClient({ conges: initial, typesConge, soldes, hasManager }: { conges: Conge[]; typesConge: TypeConge[]; soldes: Solde[]; hasManager: boolean }) {
   const [conges, setConges] = useState(initial)
+  const [page, setPage] = useState(1)
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ type_conge_id: '', date_debut: '', date_fin: '', motif: '' })
   const [loading, setLoading] = useState(false)
@@ -77,7 +79,7 @@ export default function MesCongesClient({ conges: initial, typesConge, soldes, h
             </tr>
           </thead>
           <tbody>
-            {conges.map((c, i) => {
+            {paginate(conges, page).map((c, i) => {
               const s = STATUT[c.statut] ?? { label: c.statut, color: '#374151', bg: '#f3f4f6' }
               return (
                 <tr key={c.id} style={{ background: i % 2 === 0 ? 'white' : '#fafafa' }}>
@@ -96,6 +98,7 @@ export default function MesCongesClient({ conges: initial, typesConge, soldes, h
             )}
           </tbody>
         </table>
+        <Pagination page={page} total={conges.length} onChange={setPage} />
       </div>
 
       {/* Formulaire */}

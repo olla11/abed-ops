@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import Pagination, { paginate } from '@/components/Pagination'
 
 type Conge = {
   id: string; statut: string; date_debut: string; date_fin: string; nb_jours: number | null
@@ -23,6 +24,7 @@ const inputStyle: React.CSSProperties = {
 export default function CongesRHClient({ conges: initial }: { conges: Conge[] }) {
   const [conges, setConges] = useState(initial)
   const [filterStatut, setFilterStatut] = useState('')
+  const [page, setPage] = useState(1)
   const [actionTarget, setActionTarget] = useState<Conge | null>(null)
   const [commentaire, setCommentaire] = useState('')
   const [loading, setLoading] = useState(false)
@@ -48,7 +50,7 @@ export default function CongesRHClient({ conges: initial }: { conges: Conge[] })
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <h2 style={{ color: 'var(--abed-green)', fontSize: 20, margin: 0 }}>Congés ({filtered.length})</h2>
-        <select value={filterStatut} onChange={e => setFilterStatut(e.target.value)} style={inputStyle}>
+        <select value={filterStatut} onChange={e => { setFilterStatut(e.target.value); setPage(1) }} style={inputStyle}>
           <option value="">Tous les statuts</option>
           {Object.entries(STATUT).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
         </select>
@@ -64,7 +66,7 @@ export default function CongesRHClient({ conges: initial }: { conges: Conge[] })
             </tr>
           </thead>
           <tbody>
-            {filtered.map((c, i) => {
+            {paginate(filtered, page).map((c, i) => {
               const s = STATUT[c.statut] ?? { label: c.statut, color: '#374151', bg: '#f3f4f6' }
               const canAct = c.statut === 'en_attente' || c.statut === 'approuve_n1'
               const niveau: 'n1' | 'final' = c.statut === 'en_attente' ? 'n1' : 'final'
@@ -93,6 +95,7 @@ export default function CongesRHClient({ conges: initial }: { conges: Conge[] })
             )}
           </tbody>
         </table>
+        <Pagination page={page} total={filtered.length} onChange={p => { setPage(p) }} />
       </div>
 
       {actionTarget && (

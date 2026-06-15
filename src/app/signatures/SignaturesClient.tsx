@@ -1,6 +1,7 @@
 'use client'
 import { useState, useRef } from 'react'
 import type { DemandeRow, ProfileOption, SignataireRow } from './page'
+import Pagination, { paginate, PAGE_SIZE } from '@/components/Pagination'
 
 const inputStyle: React.CSSProperties = {
   width: '100%', padding: '8px 12px', borderRadius: 8, fontSize: 14,
@@ -134,6 +135,8 @@ export default function SignaturesClient({ userId, mesDemandesASign: initialASig
   const [demandesASign, setDemandesASign] = useState(initialASign)
   const [mesCreations, setMesCreations] = useState(initialCreations)
   const [showModal, setShowModal] = useState(false)
+  const [pageASign, setPageASign] = useState(1)
+  const [pageCreations, setPageCreations] = useState(1)
 
   // Creation form state
   const [form, setForm] = useState({ titre: '', description: '' })
@@ -231,9 +234,12 @@ export default function SignaturesClient({ userId, mesDemandesASign: initialASig
               Aucun document en attente de votre signature.
             </div>
           ) : (
-            demandesASign.map(d => (
-              <DemandeCard key={d.id} d={d} userId={userId} onSigned={handleSigned} />
-            ))
+            <>
+              {paginate(demandesASign, pageASign).map(d => (
+                <DemandeCard key={d.id} d={d} userId={userId} onSigned={handleSigned} />
+              ))}
+              <Pagination page={pageASign} total={demandesASign.length} onChange={setPageASign} />
+            </>
           )}
         </div>
       )}
@@ -246,9 +252,12 @@ export default function SignaturesClient({ userId, mesDemandesASign: initialASig
               Vous n'avez pas encore créé de demande de signature.
             </div>
           ) : (
-            mesCreations.map(d => (
-              <DemandeCard key={d.id} d={d} userId={userId} onSigned={handleSigned} />
-            ))
+            <>
+              {paginate(mesCreations, pageCreations).map(d => (
+                <DemandeCard key={d.id} d={d} userId={userId} onSigned={handleSigned} />
+              ))}
+              <Pagination page={pageCreations} total={mesCreations.length} onChange={setPageCreations} />
+            </>
           )}
         </div>
       )}

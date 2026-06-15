@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import Pagination, { paginate } from '@/components/Pagination'
 
 type P = {
   id: string; nom: string; prenoms: string; role: string; type_emploi: string | null
@@ -30,6 +31,7 @@ const inputStyle: React.CSSProperties = {
 export default function PersonnelClient({ personnel, managers }: { personnel: P[]; managers: Manager[] }) {
   const [search, setSearch] = useState('')
   const [filterRole, setFilterRole] = useState('')
+  const [page, setPage] = useState(1)
   const [editTarget, setEditTarget] = useState<P | null>(null)
   const [form, setForm] = useState<Partial<P>>({})
   const [saving, setSaving] = useState(false)
@@ -88,10 +90,10 @@ export default function PersonnelClient({ personnel, managers }: { personnel: P[
       <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
         <input
           placeholder="Rechercher par nom, email, fonction..."
-          value={search} onChange={e => setSearch(e.target.value)}
+          value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
           style={{ ...inputStyle, maxWidth: 340 }}
         />
-        <select value={filterRole} onChange={e => setFilterRole(e.target.value)} style={{ ...inputStyle, maxWidth: 200 }}>
+        <select value={filterRole} onChange={e => { setFilterRole(e.target.value); setPage(1) }} style={{ ...inputStyle, maxWidth: 200 }}>
           <option value="">Tous les rôles</option>
           {roles.map(r => <option key={r} value={r}>{ROLE_LABELS[r] ?? r}</option>)}
           {['cdd', 'cdi', 'benevole', 'stagiaire_n1', 'stagiaire_n2', 'prestataire_direct', 'prestataire_credit'].map(t => (
@@ -110,7 +112,7 @@ export default function PersonnelClient({ personnel, managers }: { personnel: P[
             </tr>
           </thead>
           <tbody>
-            {filtered.map((p, i) => (
+            {paginate(filtered, page).map((p, i) => (
               <tr key={p.id} style={{ background: i % 2 === 0 ? 'white' : '#fafafa' }}>
                 <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 600 }}>{p.prenoms} {p.nom}</td>
                 <td style={{ padding: '10px 14px', fontSize: 12 }}>
@@ -134,6 +136,7 @@ export default function PersonnelClient({ personnel, managers }: { personnel: P[
             )}
           </tbody>
         </table>
+        <Pagination page={page} total={filtered.length} onChange={p => { setPage(p) }} />
       </div>
 
       {/* Edit Modal */}
