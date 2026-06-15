@@ -1,11 +1,16 @@
 'use client'
 import { useState } from 'react'
 
+type Article = { titre: string; contenu: string }
+
 type Contrat = {
   id: string; profile_id: string; type_contrat: string; poste: string | null
   direction: string | null; date_debut: string; date_fin: string | null
   statut: string; salaire_brut: number | null; observations: string | null
-  numero: string | null
+  numero: string | null; categorie_document: string | null
+  contrat_parent_id: string | null; objet: string | null
+  articles: Article[] | null
+  commentaires_employe: string | null; commentaires_rh: string | null
   profile: { id: string; nom: string; prenoms: string; email: string | null; role: string } | null
 }
 type Personnel = { id: string; nom: string; prenoms: string; role: string; fonction: string | null }
@@ -17,6 +22,7 @@ const inputStyle: React.CSSProperties = {
 
 const TYPES = ['CDD', 'CDI', 'Stage N1', 'Stage N2', 'Bénévolat', 'Prestataire direct', 'Prestataire à crédit', 'Consultant']
 const DIRECTIONS = ['Administration', 'Direction Exécutive', 'Direction des Programmes', 'Exploitation', 'Autre']
+const CATEGORIES = ['Contrat', 'Convention', 'Avenant']
 
 function statutBadge(statut: string, dateFin: string | null) {
   const today = new Date().toISOString().split('T')[0]
@@ -29,13 +35,19 @@ function statutBadge(statut: string, dateFin: string | null) {
   return { label: 'Actif', bg: '#dcfce7', color: '#166534' }
 }
 
-function Modal({ title, onSubmit, onClose, loading, err, children }: {
+function categorieBadge(cat: string | null) {
+  if (cat === 'Convention') return { bg: '#ede9fe', color: '#6d28d9' }
+  if (cat === 'Avenant') return { bg: '#fef3c7', color: '#92400e' }
+  return { bg: '#dbeafe', color: '#1e40af' }
+}
+
+function Modal({ title, onSubmit, onClose, loading, err, children, wide }: {
   title: string; onSubmit: () => void; onClose: () => void
-  loading: boolean; err: string | null; children: React.ReactNode
+  loading: boolean; err: string | null; children: React.ReactNode; wide?: boolean
 }) {
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div style={{ background: 'white', borderRadius: 12, padding: 28, width: '100%', maxWidth: 480, maxHeight: '90vh', overflowY: 'auto' }}>
+      <div style={{ background: 'white', borderRadius: 12, padding: 28, width: '100%', maxWidth: wide ? 680 : 500, maxHeight: '92vh', overflowY: 'auto' }}>
         <h3 style={{ marginBottom: 20, fontSize: 16 }}>{title}</h3>
         {children}
         {err && <div style={{ color: '#c0392b', fontSize: 13, marginBottom: 12 }}>{err}</div>}
@@ -50,17 +62,48 @@ function Modal({ title, onSubmit, onClose, loading, err, children }: {
   )
 }
 
+function ArticlesEditor({ articles, onChange }: { articles: Article[]; onChange: (a: Article[]) => void }) {
+  function addArticle() { onChange([...articles, { titre: '', contenu: '' }]) }
+  function removeArticle(i: number) { onChange(articles.filter((_, idx) => idx !== i)) }
+  function updateArticle(i: number, field: 'titre' | 'contenu', val: string) {
+    onChange(articles.map((a, idx) => idx === i ? { ...a, [field]: val } : a))
+  }
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+        <label style={{ fontSize: 12, fontWeight: 600 }}>Articles ({articles.length})</label>
+        <button type="button" onClick={addArticle} style={{ padding: '4px 12px', fontSize: 12, borderRadius: 6, cursor: 'pointer', background: 'var(--abed-green)', color: 'white', border: 'none', fontWeight: 700 }}>+ Article</button>
+      </div>
+      {articles.map((art, i) => (
+        <div key={i} style={{ border: '1px solid var(--abed-border)', borderRadius: 8, padding: 12, marginBottom: 10, background: '#f9fafb' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--abed-green)' }}>Article {i + 1}</span>
+            <button type="button" onClick={() => removeArticle(i)} style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, cursor: 'pointer', background: '#fee2e2', border: '1px solid #fecaca', color: '#dc2626' }}>✕</button>
+          </div>
+          <input placeholder="Titre de l'article..." value={art.titre} onChange={e => updateArticle(i, 'titre', e.target.value)} style={{ ...inputStyle, marginBottom: 6, fontSize: 13 }} />
+          <textarea placeholder="Contenu..." value={art.contenu} onChange={e => updateArticle(i, 'contenu', e.target.value)} rows={3} style={{ ...inputStyle, resize: 'vertical', fontSize: 13 }} />
+        </div>
+      ))}
+      {articles.length === 0 && <p style={{ fontSize: 12, color: 'var(--abed-muted)', marginBottom: 8 }}>Aucun article. Cliquez sur « + Article » pour en ajouter.</p>}
+    </div>
+  )
+}
+
 export default function ContratsClient({ contrats: initial, personnel }: { contrats: Contrat[]; personnel: Personnel[] }) {
   const [contrats, setContrats] = useState(initial)
   const [showNew, setShowNew] = useState(false)
   const [editTarget, setEditTarget] = useState<Contrat | null>(null)
   const [renewTarget, setRenewTarget] = useState<Contrat | null>(null)
   const [resilierTarget, setResilierTarget] = useState<Contrat | null>(null)
+  const [commentTarget, setCommentTarget] = useState<Contrat | null>(null)
   const [form, setForm] = useState<any>({})
+  const [articles, setArticles] = useState<Article[]>([])
   const [motif, setMotif] = useState('')
+  const [commentaire, setCommentaire] = useState('')
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [filterStatut, setFilterStatut] = useState('')
+  const [filterCat, setFilterCat] = useState('')
   const [search, setSearch] = useState('')
   const [deleteStep, setDeleteStep] = useState<Record<string, number>>({})
   const deleteTimers = useState<Record<string, ReturnType<typeof setTimeout>>>(() => ({}))[0]
@@ -69,61 +112,51 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
     const q = search.toLowerCase()
     const name = `${c.profile?.prenoms ?? ''} ${c.profile?.nom ?? ''}`.toLowerCase()
     return (!q || name.includes(q) || (c.poste ?? '').toLowerCase().includes(q) || (c.numero ?? '').toLowerCase().includes(q)) &&
-      (!filterStatut || c.statut === filterStatut)
+      (!filterStatut || c.statut === filterStatut) &&
+      (!filterCat || (c.categorie_document ?? 'Contrat') === filterCat)
   })
+
+  function activeContractsFor(profileId: string) {
+    return contrats.filter(c => c.profile_id === profileId && c.statut === 'actif' && (c.categorie_document ?? 'Contrat') !== 'Avenant')
+  }
 
   function handleEmployeChange(profileId: string) {
     const p = personnel.find(x => x.id === profileId)
-    setForm((f: any) => ({ ...f, profile_id: profileId, poste: p?.fonction ?? f.poste ?? '' }))
+    setForm((f: any) => ({ ...f, profile_id: profileId, poste: p?.fonction ?? f.poste ?? '', contrat_parent_id: '' }))
   }
+
+  function openNew() { setForm({ categorie_document: 'Contrat' }); setArticles([]); setErr(null); setShowNew(true) }
 
   function openEdit(c: Contrat) {
     setEditTarget(c)
-    setForm({ type_contrat: c.type_contrat, poste: c.poste ?? '', direction: c.direction ?? '', date_debut: c.date_debut, date_fin: c.date_fin ?? '', salaire_brut: c.salaire_brut ?? '', observations: c.observations ?? '' })
+    setForm({ type_contrat: c.type_contrat, poste: c.poste ?? '', direction: c.direction ?? '', date_debut: c.date_debut, date_fin: c.date_fin ?? '', salaire_brut: c.salaire_brut ?? '', observations: c.observations ?? '', objet: c.objet ?? '', commentaires_rh: c.commentaires_rh ?? '' })
+    setArticles(Array.isArray(c.articles) ? c.articles : [])
     setErr(null)
   }
+
+  function openComment(c: Contrat) { setCommentTarget(c); setCommentaire(c.commentaires_rh ?? ''); setErr(null) }
 
   async function createContrat() {
     setLoading(true); setErr(null)
     try {
-      const res = await fetch('/api/rh/contrats', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      })
+      const res = await fetch('/api/rh/contrats', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, articles }) })
       const d = await res.json()
-      if (res.ok) {
-        setShowNew(false); setForm({})
-        setContrats(c => [d.contrat, ...c])
-      } else {
-        setErr(d.error ?? 'Erreur lors de la création')
-      }
-    } catch {
-      setErr('Erreur réseau — veuillez réessayer')
-    } finally {
-      setLoading(false)
-    }
+      if (res.ok) { setShowNew(false); setForm({}); setArticles([]); setContrats(c => [d.contrat, ...c]) }
+      else setErr(d.error ?? 'Erreur lors de la création')
+    } catch { setErr('Erreur réseau — veuillez réessayer') }
+    finally { setLoading(false) }
   }
 
   async function updateContrat() {
     if (!editTarget) return
     setLoading(true); setErr(null)
     try {
-      const res = await fetch(`/api/rh/contrats/${editTarget.id}`, {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      })
+      const res = await fetch(`/api/rh/contrats/${editTarget.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, articles }) })
       const d = await res.json()
-      if (res.ok) {
-        setContrats(cs => cs.map(c => c.id === editTarget.id ? { ...c, ...d.contrat } : c))
-        setEditTarget(null); setForm({})
-      } else {
-        setErr(d.error ?? 'Erreur modification')
-      }
-    } catch {
-      setErr('Erreur réseau')
-    } finally {
-      setLoading(false)
-    }
+      if (res.ok) { setContrats(cs => cs.map(c => c.id === editTarget.id ? { ...c, ...d.contrat, articles } : c)); setEditTarget(null); setForm({}); setArticles([]) }
+      else setErr(d.error ?? 'Erreur modification')
+    } catch { setErr('Erreur réseau') }
+    finally { setLoading(false) }
   }
 
   async function resilier() {
@@ -131,52 +164,44 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
     if (!motif || motif.trim().length < 10) { setErr('Le motif est obligatoire (minimum 10 caractères).'); return }
     setLoading(true); setErr(null)
     try {
-      const res = await fetch(`/api/rh/contrats/${resilierTarget.id}`, {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'resilier', motif }),
-      })
+      const res = await fetch(`/api/rh/contrats/${resilierTarget.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'resilier', motif }) })
       const d = await res.json()
-      if (res.ok) {
-        setContrats(cs => cs.map(c => c.id === resilierTarget.id ? { ...c, statut: 'resilie' } : c))
-        setResilierTarget(null); setMotif('')
-      } else {
-        setErr(d.error ?? 'Erreur résiliation')
-      }
-    } catch {
-      setErr('Erreur réseau')
-    } finally {
-      setLoading(false)
-    }
+      if (res.ok) { setContrats(cs => cs.map(c => c.id === resilierTarget.id ? { ...c, statut: 'resilie' } : c)); setResilierTarget(null); setMotif('') }
+      else setErr(d.error ?? 'Erreur résiliation')
+    } catch { setErr('Erreur réseau') }
+    finally { setLoading(false) }
   }
 
   async function renouveler() {
     if (!renewTarget) return
     setLoading(true); setErr(null)
     try {
-      const res = await fetch(`/api/rh/contrats/${renewTarget.id}/renouveler`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date_debut: form.date_debut, date_fin: form.date_fin }),
-      })
+      const res = await fetch(`/api/rh/contrats/${renewTarget.id}/renouveler`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date_debut: form.date_debut, date_fin: form.date_fin }) })
       if (res.ok) { setRenewTarget(null); setForm({}); location.reload() }
       else { const d = await res.json(); setErr(d.error ?? 'Erreur') }
-    } catch {
-      setErr('Erreur réseau')
-    } finally {
-      setLoading(false)
-    }
+    } catch { setErr('Erreur réseau') }
+    finally { setLoading(false) }
+  }
+
+  async function saveComment() {
+    if (!commentTarget) return
+    if (!commentaire || commentaire.trim().length < 2) { setErr('Commentaire trop court.'); return }
+    setLoading(true); setErr(null)
+    try {
+      const res = await fetch(`/api/rh/contrats/${commentTarget.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'commenter', commentaire }) })
+      const d = await res.json()
+      if (res.ok) { setContrats(cs => cs.map(c => c.id === commentTarget.id ? { ...c, commentaires_rh: d.contrat.commentaires_rh } : c)); setCommentTarget(null); setCommentaire('') }
+      else setErr(d.error ?? 'Erreur')
+    } catch { setErr('Erreur réseau') }
+    finally { setLoading(false) }
   }
 
   function advanceDeleteStep(id: string) {
-    const current = deleteStep[id] ?? 1
-    const next = current + 1
+    const next = (deleteStep[id] ?? 1) + 1
     if (next > 3) return
     setDeleteStep(s => ({ ...s, [id]: next }))
-    // Clear existing timer
     if (deleteTimers[id]) clearTimeout(deleteTimers[id])
-    // Reset to step 1 after 5 seconds of inactivity on step 2/3
-    deleteTimers[id] = setTimeout(() => {
-      setDeleteStep(s => { const n = { ...s }; delete n[id]; return n })
-    }, 5000)
+    deleteTimers[id] = setTimeout(() => setDeleteStep(s => { const n = { ...s }; delete n[id]; return n }), 5000)
   }
 
   function resetDeleteStep(id: string) {
@@ -187,28 +212,67 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
   async function deleteContrat(id: string) {
     try {
       const res = await fetch(`/api/rh/contrats/${id}`, { method: 'DELETE' })
-      if (res.ok) {
-        setContrats(cs => cs.filter(c => c.id !== id))
-        resetDeleteStep(id)
-      } else {
-        const d = await res.json()
-        alert(d.error ?? 'Erreur lors de la suppression')
-        resetDeleteStep(id)
-      }
-    } catch {
-      alert('Erreur réseau')
-      resetDeleteStep(id)
-    }
+      if (res.ok) { setContrats(cs => cs.filter(c => c.id !== id)); resetDeleteStep(id) }
+      else { const d = await res.json(); alert(d.error ?? 'Erreur'); resetDeleteStep(id) }
+    } catch { alert('Erreur réseau'); resetDeleteStep(id) }
   }
 
-  const contractFields = (
+  const categorie = form.categorie_document ?? 'Contrat'
+
+  const formFields = (isNew: boolean) => (
     <>
+      {isNew && (
+        <>
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Employé *</label>
+            <select value={form.profile_id ?? ''} onChange={e => handleEmployeChange(e.target.value)} style={inputStyle}>
+              <option value="">— Choisir —</option>
+              {personnel.map(p => <option key={p.id} value={p.id}>{p.prenoms} {p.nom}</option>)}
+            </select>
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Catégorie *</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {CATEGORIES.map(cat => (
+                <button key={cat} type="button"
+                  onClick={() => setForm((f: any) => ({ ...f, categorie_document: cat, contrat_parent_id: '' }))}
+                  style={{ flex: 1, padding: '7px 0', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontWeight: 700, border: '2px solid', borderColor: categorie === cat ? 'var(--abed-green)' : 'var(--abed-border)', background: categorie === cat ? '#f0fdf4' : 'white', color: categorie === cat ? 'var(--abed-green)' : '#374151' }}>
+                  {cat}
+                </button>
+              ))}
+            </div>
+          </div>
+          {categorie === 'Avenant' && (
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Contrat parent (actif) *</label>
+              {!form.profile_id ? (
+                <p style={{ fontSize: 12, color: '#9ca3af' }}>Sélectionnez d'abord un employé.</p>
+              ) : activeContractsFor(form.profile_id).length > 0 ? (
+                <select value={form.contrat_parent_id ?? ''} onChange={e => setForm((f: any) => ({ ...f, contrat_parent_id: e.target.value }))} style={inputStyle}>
+                  <option value="">— Choisir le contrat —</option>
+                  {activeContractsFor(form.profile_id).map(c => (
+                    <option key={c.id} value={c.id}>{c.numero ?? c.id.slice(0, 8)} — {c.type_contrat} ({c.date_debut})</option>
+                  ))}
+                </select>
+              ) : (
+                <p style={{ fontSize: 12, color: '#dc2626', padding: '8px 12px', background: '#fef2f2', borderRadius: 6 }}>
+                  Cet employé n'a pas de contrat actif. Un avenant requiert un contrat parent actif.
+                </p>
+              )}
+            </div>
+          )}
+        </>
+      )}
       <div style={{ marginBottom: 12 }}>
         <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Type *</label>
         <select value={form.type_contrat ?? ''} onChange={e => setForm((f: any) => ({ ...f, type_contrat: e.target.value }))} style={inputStyle}>
           <option value="">— Choisir —</option>
           {TYPES.map(o => <option key={o} value={o}>{o}</option>)}
         </select>
+      </div>
+      <div style={{ marginBottom: 12 }}>
+        <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Objet du document</label>
+        <textarea value={form.objet ?? ''} onChange={e => setForm((f: any) => ({ ...f, objet: e.target.value }))} rows={2} placeholder="Décrivez l'objet de ce document..." style={{ ...inputStyle, resize: 'vertical' }} />
       </div>
       <div style={{ marginBottom: 12 }}>
         <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Poste</label>
@@ -235,29 +299,30 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
         <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Salaire brut (FCFA)</label>
         <input type="number" value={form.salaire_brut ?? ''} onChange={e => setForm((f: any) => ({ ...f, salaire_brut: e.target.value }))} style={inputStyle} />
       </div>
+      <div style={{ marginBottom: 16 }}>
+        <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Note RH (interne)</label>
+        <textarea value={form.commentaires_rh ?? ''} onChange={e => setForm((f: any) => ({ ...f, commentaires_rh: e.target.value }))} rows={2} placeholder="Observations internes RH..." style={{ ...inputStyle, resize: 'vertical' }} />
+      </div>
+      <ArticlesEditor articles={articles} onChange={setArticles} />
     </>
   )
 
-  function handleContainerClick(e: React.MouseEvent) {
-    // If the click target is not a delete button, reset all delete steps
-    const target = e.target as HTMLElement
-    if (!target.closest('[data-delete-btn]')) {
-      Object.keys(deleteStep).forEach(id => resetDeleteStep(id))
-    }
-  }
-
   return (
-    <div onClick={handleContainerClick}>
+    <div onClick={(e) => { if (!(e.target as HTMLElement).closest('[data-delete-btn]')) Object.keys(deleteStep).forEach(id => resetDeleteStep(id)) }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <h2 style={{ color: 'var(--abed-green)', fontSize: 20, margin: 0 }}>Contrats ({filtered.length})</h2>
-        <button onClick={() => { setShowNew(true); setForm({}); setErr(null) }} style={{ padding: '8px 18px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: 'var(--abed-green)', color: 'white', border: 'none' }}>
-          + Nouveau contrat
+        <h2 style={{ color: 'var(--abed-green)', fontSize: 20, margin: 0 }}>Documents RH ({filtered.length})</h2>
+        <button onClick={openNew} style={{ padding: '8px 18px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: 'var(--abed-green)', color: 'white', border: 'none' }}>
+          + Nouveau document
         </button>
       </div>
-      <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
-        <input placeholder="Rechercher..." value={search} onChange={e => setSearch(e.target.value)} style={{ ...inputStyle, maxWidth: 280 }} />
+      <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+        <input placeholder="Rechercher..." value={search} onChange={e => setSearch(e.target.value)} style={{ ...inputStyle, maxWidth: 240 }} />
+        <select value={filterCat} onChange={e => setFilterCat(e.target.value)} style={{ ...inputStyle, maxWidth: 160 }}>
+          <option value="">Toutes catégories</option>
+          {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
         <select value={filterStatut} onChange={e => setFilterStatut(e.target.value)} style={{ ...inputStyle, maxWidth: 160 }}>
-          <option value="">Tous les statuts</option>
+          <option value="">Tous statuts</option>
           <option value="actif">Actif</option>
           <option value="expire">Expiré</option>
           <option value="resilie">Résilié</option>
@@ -266,10 +331,10 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
 
       <div style={{ background: 'white', border: '1px solid var(--abed-border)', borderRadius: 10, overflow: 'hidden' }}>
         <div className="table-wrap">
-          <table style={{ minWidth: 900, width: '100%', borderCollapse: 'collapse' }}>
+          <table style={{ minWidth: 1000, width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#f9fafb' }}>
-                {['N°', 'Employé', 'Type', 'Poste', 'Début', 'Fin', 'Statut', 'Actions'].map(h => (
+                {['N°', 'Catégorie', 'Employé', 'Type', 'Poste', 'Début', 'Fin', 'Statut', 'Actions'].map(h => (
                   <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#6b7280', borderBottom: '1px solid var(--abed-border)', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -277,12 +342,17 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
             <tbody>
               {filtered.map((c, i) => {
                 const badge = statutBadge(c.statut, c.date_fin)
+                const cat = c.categorie_document ?? 'Contrat'
+                const catStyle = categorieBadge(cat)
                 return (
                   <tr key={c.id} style={{ background: i % 2 === 0 ? 'white' : '#fafafa' }}>
                     <td style={{ padding: '10px 12px', fontSize: 11, color: '#6b7280', whiteSpace: 'nowrap' }}>{c.numero ?? '—'}</td>
+                    <td style={{ padding: '10px 12px' }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: catStyle.bg, color: catStyle.color }}>{cat}</span>
+                    </td>
                     <td style={{ padding: '10px 12px', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}>{c.profile?.prenoms} {c.profile?.nom}</td>
                     <td style={{ padding: '10px 12px', fontSize: 12 }}>{c.type_contrat}</td>
-                    <td style={{ padding: '10px 12px', fontSize: 12, color: '#6b7280', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.poste ?? '—'}</td>
+                    <td style={{ padding: '10px 12px', fontSize: 12, color: '#6b7280', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.poste ?? '—'}</td>
                     <td style={{ padding: '10px 12px', fontSize: 12, whiteSpace: 'nowrap' }}>{c.date_debut}</td>
                     <td style={{ padding: '10px 12px', fontSize: 12, whiteSpace: 'nowrap' }}>{c.date_fin ?? 'Indéterminée'}</td>
                     <td style={{ padding: '10px 12px' }}>
@@ -300,6 +370,11 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
                               style={{ padding: '4px 10px', fontSize: 11, cursor: 'pointer', borderRadius: 6, background: 'white', border: '1px solid var(--abed-border)', color: '#374151', whiteSpace: 'nowrap' }}>
                               ✏️ Modifier
                             </button>
+                            <button onClick={() => openComment(c)}
+                              style={{ padding: '4px 10px', fontSize: 11, cursor: 'pointer', borderRadius: 6, background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#166534', whiteSpace: 'nowrap' }}
+                              title={c.commentaires_rh ? c.commentaires_rh : 'Ajouter une note RH'}>
+                              💬 {c.commentaires_rh ? '✓' : '+'} Note
+                            </button>
                             <button onClick={() => { setResilierTarget(c); setMotif(''); setErr(null) }}
                               style={{ padding: '4px 10px', fontSize: 11, cursor: 'pointer', borderRadius: 6, background: '#fff5f5', border: '1px solid #fecaca', color: '#dc2626', whiteSpace: 'nowrap' }}>
                               Résilier
@@ -314,24 +389,9 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
                         )}
                         {(() => {
                           const step = deleteStep[c.id] ?? 1
-                          if (step === 1) return (
-                            <button data-delete-btn onClick={() => advanceDeleteStep(c.id)}
-                              style={{ padding: '4px 10px', fontSize: 11, cursor: 'pointer', borderRadius: 6, background: 'white', border: '1px solid #e5e7eb', color: '#6b7280', whiteSpace: 'nowrap' }}>
-                              🗑 Supprimer
-                            </button>
-                          )
-                          if (step === 2) return (
-                            <button data-delete-btn onClick={() => advanceDeleteStep(c.id)}
-                              style={{ padding: '4px 10px', fontSize: 11, cursor: 'pointer', borderRadius: 6, background: '#fff7ed', border: '1px solid #fed7aa', color: '#c2410c', fontWeight: 700, whiteSpace: 'nowrap' }}>
-                              Confirmer ?
-                            </button>
-                          )
-                          return (
-                            <button data-delete-btn onClick={() => deleteContrat(c.id)}
-                              style={{ padding: '4px 10px', fontSize: 11, cursor: 'pointer', borderRadius: 6, background: '#dc2626', border: 'none', color: 'white', fontWeight: 700, whiteSpace: 'nowrap' }}>
-                              SUPPRIMER DÉFINITIVEMENT
-                            </button>
-                          )
+                          if (step === 1) return <button data-delete-btn onClick={() => advanceDeleteStep(c.id)} style={{ padding: '4px 10px', fontSize: 11, cursor: 'pointer', borderRadius: 6, background: 'white', border: '1px solid #e5e7eb', color: '#6b7280' }}>🗑</button>
+                          if (step === 2) return <button data-delete-btn onClick={() => advanceDeleteStep(c.id)} style={{ padding: '4px 10px', fontSize: 11, cursor: 'pointer', borderRadius: 6, background: '#fff7ed', border: '1px solid #fed7aa', color: '#c2410c', fontWeight: 700, whiteSpace: 'nowrap' }}>Confirmer ?</button>
+                          return <button data-delete-btn onClick={() => deleteContrat(c.id)} style={{ padding: '4px 10px', fontSize: 11, cursor: 'pointer', borderRadius: 6, background: '#dc2626', border: 'none', color: 'white', fontWeight: 700, whiteSpace: 'nowrap' }}>SUPPRIMER</button>
                         })()}
                       </div>
                     </td>
@@ -339,55 +399,58 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
                 )
               })}
               {filtered.length === 0 && (
-                <tr><td colSpan={8} style={{ padding: 24, textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>Aucun contrat</td></tr>
+                <tr><td colSpan={9} style={{ padding: 24, textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>Aucun document</td></tr>
               )}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* Nouveau contrat */}
       {showNew && (
-        <Modal title="Nouveau contrat" onSubmit={createContrat} onClose={() => { setShowNew(false); setErr(null) }} loading={loading} err={err}>
-          <div style={{ marginBottom: 12 }}>
-            <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Employé *</label>
-            <select value={form.profile_id ?? ''} onChange={e => handleEmployeChange(e.target.value)} style={inputStyle}>
-              <option value="">— Choisir —</option>
-              {personnel.map(p => <option key={p.id} value={p.id}>{p.prenoms} {p.nom}</option>)}
-            </select>
-          </div>
-          {contractFields}
+        <Modal title="Nouveau document RH" onSubmit={createContrat} onClose={() => { setShowNew(false); setErr(null) }} loading={loading} err={err} wide>
+          {formFields(true)}
         </Modal>
       )}
 
-      {/* Modifier contrat */}
       {editTarget && (
-        <Modal title={`Modifier — ${editTarget.profile?.prenoms} ${editTarget.profile?.nom}`} onSubmit={updateContrat} onClose={() => { setEditTarget(null); setErr(null) }} loading={loading} err={err}>
-          <p style={{ fontSize: 12, color: 'var(--abed-muted)', marginBottom: 12 }}>Réf. {editTarget.numero ?? '—'}</p>
-          {contractFields}
+        <Modal title={`Modifier — ${editTarget.profile?.prenoms} ${editTarget.profile?.nom}`} onSubmit={updateContrat} onClose={() => { setEditTarget(null); setErr(null) }} loading={loading} err={err} wide>
+          <p style={{ fontSize: 12, color: 'var(--abed-muted)', marginBottom: 12 }}>Réf. {editTarget.numero ?? '—'} · {editTarget.categorie_document ?? 'Contrat'}</p>
+          {formFields(false)}
         </Modal>
       )}
 
-      {/* Résilier contrat */}
+      {commentTarget && (
+        <Modal title={`Note RH — ${commentTarget.profile?.prenoms} ${commentTarget.profile?.nom}`} onSubmit={saveComment} onClose={() => { setCommentTarget(null); setErr(null) }} loading={loading} err={err}>
+          <p style={{ fontSize: 12, color: 'var(--abed-muted)', marginBottom: 12 }}>Réf. {commentTarget.numero ?? '—'}</p>
+          {commentTarget.commentaires_employe && (
+            <div style={{ fontSize: 12, color: '#374151', fontStyle: 'italic', background: '#f9fafb', border: '1px solid var(--abed-border)', borderRadius: 6, padding: '8px 12px', marginBottom: 12 }}>
+              <strong>Commentaire de l'employé :</strong><br />« {commentTarget.commentaires_employe} »
+            </div>
+          )}
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Note / commentaire RH</label>
+            <textarea value={commentaire} onChange={e => setCommentaire(e.target.value)} rows={4} placeholder="Observations, retours, demandes de modification..." style={{ ...inputStyle, resize: 'vertical' }} />
+          </div>
+        </Modal>
+      )}
+
       {resilierTarget && (
         <Modal title={`Résilier — ${resilierTarget.profile?.prenoms} ${resilierTarget.profile?.nom}`} onSubmit={resilier} onClose={() => { setResilierTarget(null); setErr(null) }} loading={loading} err={err}>
           <p style={{ fontSize: 13, color: '#374151', marginBottom: 12 }}>
-            Contrat <strong>{resilierTarget.type_contrat}</strong> ({resilierTarget.numero ?? '—'})<br />
+            {resilierTarget.categorie_document ?? 'Contrat'} <strong>{resilierTarget.type_contrat}</strong> ({resilierTarget.numero ?? '—'})<br />
             <span style={{ fontSize: 12, color: 'var(--abed-muted)' }}>Cette action est irréversible.</span>
           </p>
           <div>
             <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Motif de résiliation * <span style={{ color: '#9ca3af' }}>(min. 10 caractères)</span></label>
-            <textarea value={motif} onChange={e => setMotif(e.target.value)} rows={4} placeholder="Expliquez le motif de la résiliation..."
-              style={{ ...inputStyle, resize: 'vertical' }} />
+            <textarea value={motif} onChange={e => setMotif(e.target.value)} rows={4} placeholder="Expliquez le motif..." style={{ ...inputStyle, resize: 'vertical' }} />
             <div style={{ fontSize: 11, color: motif.length < 10 ? '#dc2626' : '#16a34a', marginTop: 4 }}>{motif.length} caractères</div>
           </div>
         </Modal>
       )}
 
-      {/* Renouveler contrat */}
       {renewTarget && (
         <Modal title={`Renouveler — ${renewTarget.profile?.prenoms} ${renewTarget.profile?.nom}`} onSubmit={renouveler} onClose={() => { setRenewTarget(null); setErr(null) }} loading={loading} err={err}>
-          <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 16 }}>Contrat {renewTarget.type_contrat} — Expiré le {renewTarget.date_fin}</p>
+          <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 16 }}>{renewTarget.categorie_document ?? 'Contrat'} {renewTarget.type_contrat} — Expiré le {renewTarget.date_fin}</p>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
               <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Nouveau début *</label>

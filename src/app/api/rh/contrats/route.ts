@@ -31,19 +31,52 @@ export async function POST(req: NextRequest) {
   if (!['rh', 'admin'].includes(me?.role ?? '')) return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
 
   const body = await req.json()
-  const { profile_id, type_contrat, date_debut, poste, direction, date_fin, salaire_brut, observations } = body
+  const {
+    profile_id, type_contrat, date_debut, poste, direction, date_fin,
+    salaire_brut, observations, categorie_document, contrat_parent_id,
+    objet, articles, commentaires_rh,
+  } = body
 
   if (!profile_id || !type_contrat || !date_debut) {
     return NextResponse.json({ error: 'Employé, type et date de début sont obligatoires.' }, { status: 400 })
   }
 
+  const categorie = categorie_document || 'Contrat'
+
   const service = createAdminClient()
+
+  // For Avenant: validate parent contract exists and is active
+  let parentId: string | null = null
+  if (categorie === 'Avenant') {
+    if (!contrat_parent_id) {
+      return NextResponse.json({ error: 'Un avenant doit être lié à un contrat parent actif.' }, { status: 400 })
+    }
+    const { data: parent } = await service.from('contrats')
+      .select('id, statut, profile_id')
+      .eq('id', contrat_parent_id)
+      .single()
+    if (!parent || parent.statut !== 'actif') {
+      return NextResponse.json({ error: 'Le contrat parent sélectionné n\'est pas actif.' }, { status: 400 })
+    }
+    if (parent.profile_id !== profile_id) {
+      return NextResponse.json({ error: 'Le contrat parent ne correspond pas à l\'employé sélectionné.' }, { status: 400 })
+    }
+    parentId = contrat_parent_id
+  }
 
   // Insert the contract
   const { data: contrat, error: insertError } = await service.from('contrats').insert({
-    profile_id, type_contrat, date_debut, poste: poste || null,
-    direction: direction || null, date_fin: date_fin || null,
-    salaire_brut: salaire_brut || null, observations: observations || null,
+    profile_id, type_contrat, date_debut,
+    poste: poste || null,
+    direction: direction || null,
+    date_fin: date_fin || null,
+    salaire_brut: salaire_brut || null,
+    observations: observations || null,
+    categorie_document: categorie,
+    contrat_parent_id: parentId,
+    objet: objet || null,
+    articles: articles || [],
+    commentaires_rh: commentaires_rh || null,
     statut: 'actif',
   }).select('*, profile:profiles!profile_id(id, nom, prenoms, email, role, civilite)').single()
 
@@ -63,7 +96,6 @@ export async function POST(req: NextRequest) {
     numero = `${String(count ?? 1).padStart(3, '0')}-${year}/ABED/DE/CAF/RH`
   }
 
-  // Update contrat with numero
   await service.from('contrats').update({ numero }).eq('id', contrat.id)
 
   type ProfileRow = {
@@ -88,10 +120,10 @@ export async function POST(req: NextRequest) {
   // Create demande_signature and signataire
   let demandeId: string | null = null
   if (signataireProfile && profile) {
-    const titre = `Contrat ${type_contrat} — ${profile.prenoms} ${profile.nom}`
+    const titre = `${categorie} ${type_contrat} — ${profile.prenoms} ${profile.nom}`
     const { data: demande, error: demandeError } = await service.from('demandes_signature').insert({
       titre,
-      description: `Contrat ${numero}`,
+      description: `${categorie} ${numero}`,
       createur_id: user.id,
       statut: 'en_attente',
     }).select('id').single()
@@ -116,20 +148,21 @@ export async function POST(req: NextRequest) {
     try {
       await sendEmail({
         to: profile.email,
-        subject: `Votre contrat ${type_contrat} — ABED ONG`,
+        subject: `Votre ${categorie} ${type_contrat} — ABED ONG`,
         html: `
           <div style="font-family:sans-serif;max-width:600px;margin:0 auto;">
-            <h2 style="color:#16a34a;">ABED ONG — Nouveau contrat</h2>
+            <h2 style="color:#16a34a;">ABED ONG — ${categorie}</h2>
             <p>Bonjour ${civilite} ${profile.prenoms} ${profile.nom},</p>
-            <p>Un nouveau contrat a été établi à votre nom :</p>
+            <p>Un nouveau ${categorie.toLowerCase()} a été établi à votre nom :</p>
             <ul>
               <li><strong>Référence :</strong> ${numero}</li>
+              <li><strong>Catégorie :</strong> ${categorie}</li>
               <li><strong>Type :</strong> ${type_contrat}</li>
               <li><strong>Poste :</strong> ${poste ?? '—'}</li>
               <li><strong>Date de début :</strong> ${date_debut}</li>
               ${date_fin ? `<li><strong>Date de fin :</strong> ${date_fin}</li>` : ''}
             </ul>
-            <p>Ce contrat requiert votre signature électronique.</p>
+            <p>Ce document requiert votre signature électronique. Vous pouvez aussi y ajouter des commentaires.</p>
             <p>
               <a href="${APP_URL}/signatures"
                  style="display:inline-block;background:#16a34a;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold;">
