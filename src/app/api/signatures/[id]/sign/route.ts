@@ -60,16 +60,28 @@ export async function POST(
     return NextResponse.json({ error: 'Vous avez déjà signé ce document' }, { status: 400 })
   }
 
-  // Update signataire: mark as signed (with optional position)
-  const updatePayload: Record<string, unknown> = { signe: true, signe_le: new Date().toISOString() }
-  if (sig_x !== undefined) updatePayload.sig_x = sig_x
-  if (sig_y !== undefined) updatePayload.sig_y = sig_y
-  if (sig_page !== undefined) updatePayload.sig_page = sig_page
+  // Try to update with position columns; fall back to basic sign if columns missing
+  const updateWithPos: Record<string, unknown> = {
+    signe: true, signe_le: new Date().toISOString(),
+    ...(sig_x !== undefined && { sig_x }),
+    ...(sig_y !== undefined && { sig_y }),
+    ...(sig_page !== undefined && { sig_page }),
+  }
 
-  const { error: updateErr } = await admin
+  let { error: updateErr } = await admin
     .from('signataires')
-    .update(updatePayload)
+    .update(updateWithPos)
     .eq('id', signataire.id)
+
+  // If error likely due to missing position columns, retry without them
+  if (updateErr && (sig_x !== undefined || sig_y !== undefined)) {
+    console.warn('[Signatures] Retrying without position columns:', updateErr.message)
+    const res2 = await admin
+      .from('signataires')
+      .update({ signe: true, signe_le: new Date().toISOString() })
+      .eq('id', signataire.id)
+    updateErr = res2.error
+  }
 
   if (updateErr) {
     console.error('[Signatures] Update signataire error:', updateErr)
