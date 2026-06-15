@@ -5,10 +5,23 @@ import { sendEmail } from '@/lib/resend'
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_URL ?? 'https://myabed.app'
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: demandeId } = await params
+
+  // Parse optional body for position data
+  let sig_x: number | undefined
+  let sig_y: number | undefined
+  let sig_page: number | undefined
+  try {
+    const body = await req.json()
+    if (typeof body.sig_x === 'number') sig_x = body.sig_x
+    if (typeof body.sig_y === 'number') sig_y = body.sig_y
+    if (typeof body.sig_page === 'number') sig_page = body.sig_page
+  } catch {
+    // Body may be empty (direct sign without position)
+  }
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -47,10 +60,15 @@ export async function POST(
     return NextResponse.json({ error: 'Vous avez déjà signé ce document' }, { status: 400 })
   }
 
-  // Update signataire: mark as signed
+  // Update signataire: mark as signed (with optional position)
+  const updatePayload: Record<string, unknown> = { signe: true, signe_le: new Date().toISOString() }
+  if (sig_x !== undefined) updatePayload.sig_x = sig_x
+  if (sig_y !== undefined) updatePayload.sig_y = sig_y
+  if (sig_page !== undefined) updatePayload.sig_page = sig_page
+
   const { error: updateErr } = await admin
     .from('signataires')
-    .update({ signe: true, signe_le: new Date().toISOString() })
+    .update(updatePayload)
     .eq('id', signataire.id)
 
   if (updateErr) {

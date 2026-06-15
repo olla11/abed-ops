@@ -88,18 +88,31 @@ function DemandeCard({ d, userId, onSigned }: { d: DemandeRow; userId: string; o
         </div>
         {canSign && (
           <div style={{ flexShrink: 0 }}>
-            <button
-              onClick={sign}
-              disabled={loading}
-              style={{
-                padding: '9px 20px', borderRadius: 8, fontSize: 13, fontWeight: 700,
-                cursor: loading ? 'not-allowed' : 'pointer',
-                background: 'var(--abed-green)', color: 'white', border: 'none',
-                opacity: loading ? 0.7 : 1,
-              }}
-            >
-              {loading ? 'Signature...' : '✍️ Je signe'}
-            </button>
+            {d.fichier_url ? (
+              <a
+                href={`/signatures/${d.id}/signer`}
+                style={{
+                  display: 'inline-block',
+                  padding: '9px 20px', borderRadius: 8, fontSize: 13, fontWeight: 700,
+                  background: 'var(--abed-green)', color: 'white', textDecoration: 'none',
+                }}
+              >
+                📄 Ouvrir et signer
+              </a>
+            ) : (
+              <button
+                onClick={sign}
+                disabled={loading}
+                style={{
+                  padding: '9px 20px', borderRadius: 8, fontSize: 13, fontWeight: 700,
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  background: 'var(--abed-green)', color: 'white', border: 'none',
+                  opacity: loading ? 0.7 : 1,
+                }}
+              >
+                {loading ? 'Signature...' : '✍️ Je signe'}
+              </button>
+            )}
             {err && <div style={{ color: '#c0392b', fontSize: 12, marginTop: 6 }}>{err}</div>}
           </div>
         )}
