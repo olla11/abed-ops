@@ -17,21 +17,24 @@ function shortHash(s: string): string {
   return Math.abs(h).toString(16).toUpperCase().padStart(8, '0')
 }
 
-function SignatureBlock({ name, date, hash }: { name: string; date: string; hash: string }) {
+function SignatureBlock({ name, date, hash, small }: { name: string; date: string; hash: string; small?: boolean }) {
+  const bw = small ? 160 : 200
+  const bh = small ? 48 : 58
+  const barW = 1.5
+  const hookLen = small ? 7 : 9
   return (
-    <div style={{
-      border: '2px solid #111', borderRadius: 5, background: 'white',
-      width: 200, fontFamily: 'sans-serif', boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-      overflow: 'hidden', pointerEvents: 'none',
-    }}>
-      <div style={{ background: '#111', color: 'white', fontSize: 9, fontWeight: 700, letterSpacing: 0.5, padding: '3px 10px' }}>
-        MyABED signed by:
-      </div>
-      <div style={{ padding: '5px 10px 7px' }}>
-        <div style={{ fontFamily: '"Dancing Script", "Brush Script MT", cursive', fontSize: 24, color: '#111', lineHeight: 1.1, marginBottom: 3 }}>
+    <div style={{ position: 'relative', width: bw, height: bh, background: 'transparent', pointerEvents: 'none' }}>
+      <svg width={bw} height={bh} style={{ position: 'absolute', inset: 0, overflow: 'visible', pointerEvents: 'none' }}>
+        <line x1={2} y1={2} x2={2 + hookLen} y2={2} stroke="#111" strokeWidth={barW} />
+        <line x1={2} y1={2} x2={2} y2={bh - 2} stroke="#111" strokeWidth={barW} />
+        <line x1={2} y1={bh - 2} x2={2 + hookLen} y2={bh - 2} stroke="#111" strokeWidth={barW} />
+      </svg>
+      <div style={{ position: 'absolute', left: 2 + hookLen + 4, top: 0, right: 0, bottom: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', paddingTop: 4, paddingBottom: 4 }}>
+        <div style={{ fontSize: small ? 7 : 8, fontWeight: 700, color: '#222', letterSpacing: 0.3, fontFamily: 'sans-serif' }}>MyABED signed by:</div>
+        <div style={{ fontFamily: '"Dancing Script", "Brush Script MT", cursive', fontSize: small ? 20 : 26, color: '#111', lineHeight: 1 }}>
           {name}
         </div>
-        <div style={{ fontSize: 8, color: '#555', borderTop: '1px solid #ddd', paddingTop: 3, display: 'flex', justifyContent: 'space-between' }}>
+        <div style={{ borderTop: '1px solid #ccc', paddingTop: 2, fontSize: small ? 7 : 8, color: '#666', display: 'flex', justifyContent: 'space-between', fontFamily: 'sans-serif' }}>
           <span>{date}</span>
           <span>{hash.slice(0, 10)}...</span>
         </div>
@@ -105,6 +108,7 @@ export default function ViewClient({ titre, docUrl, signataires }: { titre: stri
                           name={name}
                           date={s.signe_le ? new Date(s.signe_le).toLocaleDateString('fr-FR') : ''}
                           hash={shortHash(s.profile_id + (s.signe_le ?? ''))}
+                          small
                         />
                       </div>
                     )}
