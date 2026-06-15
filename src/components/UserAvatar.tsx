@@ -3,7 +3,6 @@ import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase-client'
 import { useRouter } from 'next/navigation'
-import Image from 'next/image'
 
 type Props = {
   userName?: string
@@ -54,7 +53,7 @@ export default function UserAvatar({ userName, userRole, avatarUrl }: Props) {
         }}
       >
         {avatarUrl ? (
-          <Image src={avatarUrl} alt={userName ?? ''} width={38} height={38} style={{ objectFit: 'cover', borderRadius: '50%' }} />
+          <img src={avatarUrl} alt={userName ?? ''} style={{ width: 38, height: 38, objectFit: 'cover', borderRadius: '50%', display: 'block' }} />
         ) : (
           <span style={{ color: 'white', fontSize: 14, fontWeight: 700, lineHeight: 1 }}>{initials}</span>
         )}

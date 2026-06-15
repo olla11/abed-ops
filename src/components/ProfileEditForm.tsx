@@ -1,6 +1,5 @@
 'use client'
 import { useState, useRef } from 'react'
-import Image from 'next/image'
 
 type Profile = {
   nom: string
@@ -82,8 +81,8 @@ export default function ProfileEditForm({ profile }: { profile: Profile }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 20, padding: '16px 0', borderBottom: '1px solid var(--abed-border)' }}>
         <div style={{ position: 'relative', width: 80, height: 80, flexShrink: 0 }}>
           {avatarUrl ? (
-            <Image src={avatarUrl} alt="avatar" width={80} height={80}
-              style={{ borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--abed-border)' }} />
+            <img src={avatarUrl} alt="avatar"
+              style={{ width: 80, height: 80, borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--abed-border)', display: 'block' }} />
           ) : (
             <div style={{
               width: 80, height: 80, borderRadius: '50%', background: 'var(--abed-green)',
