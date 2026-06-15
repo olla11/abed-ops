@@ -62,6 +62,8 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
   const [err, setErr] = useState<string | null>(null)
   const [filterStatut, setFilterStatut] = useState('')
   const [search, setSearch] = useState('')
+  const [deleteStep, setDeleteStep] = useState<Record<string, number>>({})
+  const deleteTimers = useState<Record<string, ReturnType<typeof setTimeout>>>(() => ({}))[0]
 
   const filtered = contrats.filter(c => {
     const q = search.toLowerCase()
@@ -164,6 +166,41 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
     }
   }
 
+  function advanceDeleteStep(id: string) {
+    const current = deleteStep[id] ?? 1
+    const next = current + 1
+    if (next > 3) return
+    setDeleteStep(s => ({ ...s, [id]: next }))
+    // Clear existing timer
+    if (deleteTimers[id]) clearTimeout(deleteTimers[id])
+    // Reset to step 1 after 5 seconds of inactivity on step 2/3
+    deleteTimers[id] = setTimeout(() => {
+      setDeleteStep(s => { const n = { ...s }; delete n[id]; return n })
+    }, 5000)
+  }
+
+  function resetDeleteStep(id: string) {
+    if (deleteTimers[id]) clearTimeout(deleteTimers[id])
+    setDeleteStep(s => { const n = { ...s }; delete n[id]; return n })
+  }
+
+  async function deleteContrat(id: string) {
+    try {
+      const res = await fetch(`/api/rh/contrats/${id}`, { method: 'DELETE' })
+      if (res.ok) {
+        setContrats(cs => cs.filter(c => c.id !== id))
+        resetDeleteStep(id)
+      } else {
+        const d = await res.json()
+        alert(d.error ?? 'Erreur lors de la suppression')
+        resetDeleteStep(id)
+      }
+    } catch {
+      alert('Erreur réseau')
+      resetDeleteStep(id)
+    }
+  }
+
   const contractFields = (
     <>
       <div style={{ marginBottom: 12 }}>
@@ -201,8 +238,16 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
     </>
   )
 
+  function handleContainerClick(e: React.MouseEvent) {
+    // If the click target is not a delete button, reset all delete steps
+    const target = e.target as HTMLElement
+    if (!target.closest('[data-delete-btn]')) {
+      Object.keys(deleteStep).forEach(id => resetDeleteStep(id))
+    }
+  }
+
   return (
-    <div>
+    <div onClick={handleContainerClick}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <h2 style={{ color: 'var(--abed-green)', fontSize: 20, margin: 0 }}>Contrats ({filtered.length})</h2>
         <button onClick={() => { setShowNew(true); setForm({}); setErr(null) }} style={{ padding: '8px 18px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: 'var(--abed-green)', color: 'white', border: 'none' }}>
@@ -267,6 +312,27 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
                             Renouveler
                           </button>
                         )}
+                        {(() => {
+                          const step = deleteStep[c.id] ?? 1
+                          if (step === 1) return (
+                            <button data-delete-btn onClick={() => advanceDeleteStep(c.id)}
+                              style={{ padding: '4px 10px', fontSize: 11, cursor: 'pointer', borderRadius: 6, background: 'white', border: '1px solid #e5e7eb', color: '#6b7280', whiteSpace: 'nowrap' }}>
+                              🗑 Supprimer
+                            </button>
+                          )
+                          if (step === 2) return (
+                            <button data-delete-btn onClick={() => advanceDeleteStep(c.id)}
+                              style={{ padding: '4px 10px', fontSize: 11, cursor: 'pointer', borderRadius: 6, background: '#fff7ed', border: '1px solid #fed7aa', color: '#c2410c', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                              Confirmer ?
+                            </button>
+                          )
+                          return (
+                            <button data-delete-btn onClick={() => deleteContrat(c.id)}
+                              style={{ padding: '4px 10px', fontSize: 11, cursor: 'pointer', borderRadius: 6, background: '#dc2626', border: 'none', color: 'white', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                              SUPPRIMER DÉFINITIVEMENT
+                            </button>
+                          )
+                        })()}
                       </div>
                     </td>
                   </tr>

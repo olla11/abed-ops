@@ -56,3 +56,22 @@ export async function PATCH(
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
   return NextResponse.json({ contrat: data })
 }
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+
+  const { data: me } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+  if (!['rh', 'admin'].includes(me?.role ?? '')) return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+
+  const admin = createAdminClient()
+  const { error } = await admin.from('contrats').delete().eq('id', id)
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  return NextResponse.json({ ok: true })
+}

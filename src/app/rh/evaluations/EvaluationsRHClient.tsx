@@ -154,6 +154,37 @@ export default function EvaluationsRHClient({ evaluations: initial, contratsActi
         </div>
       )}
 
+      {contratsActifs.length === 0 && evaluations.length === 0 && (
+        <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, padding: '24px 28px', marginBottom: 20, textAlign: 'center' }}>
+          <p style={{ fontSize: 15, color: '#92400e', marginBottom: 16 }}>
+            Aucune évaluation pour le moment.
+          </p>
+          <p style={{ fontSize: 13, color: '#b45309', marginBottom: 20 }}>
+            Créez d&apos;abord un contrat actif avec date de fin pour déclencher une évaluation.
+          </p>
+          <button onClick={() => setShowModal(true)} style={{
+            padding: '10px 22px', borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: 'pointer',
+            background: 'var(--abed-green)', color: 'white', border: 'none',
+          }}>
+            📝 Déclencher une évaluation
+          </button>
+        </div>
+      )}
+
+      {contratsActifs.length > 0 && evaluations.length === 0 && (
+        <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '24px 28px', marginBottom: 20, textAlign: 'center' }}>
+          <p style={{ fontSize: 15, color: '#166534', marginBottom: 16 }}>
+            Aucune évaluation déclenchée pour le moment.
+          </p>
+          <button onClick={() => setShowModal(true)} style={{
+            padding: '10px 22px', borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: 'pointer',
+            background: 'var(--abed-green)', color: 'white', border: 'none',
+          }}>
+            📝 Déclencher une évaluation
+          </button>
+        </div>
+      )}
+
       <div className="table-wrap" style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
           <thead>
