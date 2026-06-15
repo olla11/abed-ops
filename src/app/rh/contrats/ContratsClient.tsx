@@ -15,6 +15,7 @@ const inputStyle: React.CSSProperties = {
 }
 
 const TYPES = ['CDD', 'CDI', 'Stage N1', 'Stage N2', 'Bénévolat', 'Prestataire direct', 'Prestataire à crédit', 'Consultant']
+const DIRECTIONS = ['Administration', 'Direction Exécutive', 'Direction des Programmes', 'Exploitation', 'Autre']
 
 function statutBadge(statut: string, dateFin: string | null) {
   const today = new Date().toISOString().split('T')[0]
@@ -187,7 +188,10 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
           </div>
           <div style={{ marginBottom: 12 }}>
             <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Direction</label>
-            <input value={form.direction ?? ''} onChange={e => setForm((f: any) => ({ ...f, direction: e.target.value }))} style={inputStyle} />
+            <select value={form.direction ?? ''} onChange={e => setForm((f: any) => ({ ...f, direction: e.target.value }))} style={inputStyle}>
+              <option value="">— Choisir —</option>
+              {DIRECTIONS.map(d => <option key={d} value={d}>{d}</option>)}
+            </select>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
             <div>
