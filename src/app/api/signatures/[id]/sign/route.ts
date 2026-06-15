@@ -45,10 +45,11 @@ async function embedSignatureInPdf(
   const barBot = clampY
   const hookLen = 8
 
-  // Left bracket (C shape)
-  page.drawLine({ start: { x: barX, y: barTop }, end: { x: barX + hookLen, y: barTop }, thickness: 1.2, color: rgb(0.1, 0.1, 0.1) })
-  page.drawLine({ start: { x: barX, y: barTop }, end: { x: barX, y: barBot }, thickness: 1.2, color: rgb(0.1, 0.1, 0.1) })
-  page.drawLine({ start: { x: barX, y: barBot }, end: { x: barX + hookLen, y: barBot }, thickness: 1.2, color: rgb(0.1, 0.1, 0.1) })
+  // Left bracket (C shape) — blue like DocuSign
+  const blue = rgb(0.145, 0.388, 0.922)
+  page.drawLine({ start: { x: barX, y: barTop }, end: { x: barX + hookLen, y: barTop }, thickness: 1.5, color: blue })
+  page.drawLine({ start: { x: barX, y: barTop }, end: { x: barX, y: barBot }, thickness: 1.5, color: blue })
+  page.drawLine({ start: { x: barX, y: barBot }, end: { x: barX + hookLen, y: barBot }, thickness: 1.5, color: blue })
 
   // "MyABED signed by:" header
   page.drawText('MyABED signed by:', {

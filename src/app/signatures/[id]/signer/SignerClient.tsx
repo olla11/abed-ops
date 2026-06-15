@@ -114,10 +114,17 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName }:
 
   async function confirmSign() {
     setLoading(true); setErr(null)
+    const rect = containerRef.current?.getBoundingClientRect()
+    // PDF viewer toolbar is ~48px; subtract it from the effective height for accurate y-mapping
+    const pdfToolbarPx = 48
+    const effectiveH = rect ? rect.height - pdfToolbarPx : 0
+    const correctedY = rect && sigPos
+      ? Math.max(0, Math.min(100, ((sigPos.y / 100 * rect.height - pdfToolbarPx) / effectiveH) * 100))
+      : (sigPos?.y ?? 80)
     const res = await fetch(`/api/signatures/${demandeId}/sign`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sig_x: sigPos?.x ?? 50, sig_y: sigPos?.y ?? 80, sig_page: 1 }),
+      body: JSON.stringify({ sig_x: sigPos?.x ?? 50, sig_y: correctedY, sig_page: 1 }),
     })
     setLoading(false)
     if (res.ok) setSigned(true)

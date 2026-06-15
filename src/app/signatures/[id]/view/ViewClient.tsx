@@ -73,22 +73,6 @@ export default function ViewClient({ titre, docUrl, signataires }: { titre: stri
             ) : (
               <div style={{ position: 'relative', width: '100%', height: '100%' }}>
                 <iframe src={docUrl} style={{ width: '100%', height: '100%', border: 'none' }} title={titre} />
-                {/* Signature overlays */}
-                {signedSigs.map(s => {
-                  const name = s.profile ? `${s.profile.prenoms} ${s.profile.nom}` : ''
-                  const date = s.signe_le ? new Date(s.signe_le).toLocaleDateString('fr-FR') : ''
-                  const hash = shortHash(s.profile_id + date)
-                  return (
-                    <div key={s.profile_id} style={{
-                      position: 'absolute',
-                      left: `${s.sig_x}%`, top: `${s.sig_y}%`,
-                      transform: 'translate(-50%, -50%)',
-                      zIndex: 10, pointerEvents: 'none',
-                    }}>
-                      <SignatureBlock name={name} date={date} hash={hash} />
-                    </div>
-                  )
-                })}
               </div>
             )}
           </div>
