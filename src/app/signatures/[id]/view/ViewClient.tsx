@@ -33,7 +33,7 @@ function SignatureBlock({ name, date, hash, small }: { name: string; date: strin
   const rot = sigRotation(name)
   return (
     <div style={{ position: 'relative', width: bw, height: bh, background: 'white', pointerEvents: 'none' }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap');`}</style>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Inspiration&display=swap');`}</style>
       <svg width={hookLen + 4} height={bh} style={{ position: 'absolute', left: 0, top: 0, overflow: 'visible' }}>
         <line x1={2} y1={2} x2={2 + hookLen} y2={2} stroke={BRACKET_COLOR} strokeWidth={barW} strokeLinecap="round" />
         <line x1={2} y1={2} x2={2} y2={bh - 2} stroke={BRACKET_COLOR} strokeWidth={barW} strokeLinecap="round" />
@@ -44,14 +44,15 @@ function SignatureBlock({ name, date, hash, small }: { name: string; date: strin
           MyABED signed by:
         </div>
         <div style={{
-          fontFamily: '"Great Vibes", cursive',
-          fontSize: small ? 26 : 34,
+          fontFamily: '"Inspiration", cursive',
+          fontSize: small ? 28 : 38,
           color: '#000',
           lineHeight: 1,
-          letterSpacing: '0.03em',
+          letterSpacing: '0.08em',
           transform: `rotate(${rot}deg)`,
           transformOrigin: 'left center',
           display: 'inline-block',
+          fontWeight: 400,
         }}>
           {name}
         </div>
