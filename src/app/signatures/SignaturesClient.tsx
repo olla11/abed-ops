@@ -76,7 +76,7 @@ function DemandeCard({ d, userId, onSigned }: { d: DemandeRow; userId: string; o
           <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 10 }}>
             Créé par <strong style={{ color: '#374151' }}>{createur}</strong> · {fmtDate(d.created_at)}
             {d.fichier_url && (
-              <> · <a href={d.fichier_url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--abed-green)', fontWeight: 600 }}>📄 Voir le document</a></>
+              <> · <a href={`/signatures/${d.id}/view`} style={{ color: 'var(--abed-green)', fontWeight: 600 }}>📄 Voir le document</a></>
             )}
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
