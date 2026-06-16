@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { AGA_SYSTEM_PROMPT } from '@/lib/aga-knowledge'
+import { loadKnowledgeFiles } from '@/lib/aga-files'
 
 const MODEL = process.env.AGA_MODEL ?? 'claude-sonnet-4-6'
 const MAX_HISTORY = 20
@@ -24,6 +25,11 @@ export async function POST(req: NextRequest) {
     content: String(m.content ?? '').slice(0, 4000),
   }))
 
+  const filesContent = await loadKnowledgeFiles()
+  const system = filesContent
+    ? `${AGA_SYSTEM_PROMPT}\n\n# Documents internes (knowledge/)\n${filesContent}`
+    : AGA_SYSTEM_PROMPT
+
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -34,7 +40,7 @@ export async function POST(req: NextRequest) {
     body: JSON.stringify({
       model: MODEL,
       max_tokens: 1024,
-      system: AGA_SYSTEM_PROMPT,
+      system,
       messages: trimmed,
     }),
   })
