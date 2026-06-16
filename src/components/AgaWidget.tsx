@@ -10,6 +10,7 @@ const GREETING: Msg = {
 
 export default function AgaWidget() {
   const [open, setOpen] = useState(false)
+  const [hover, setHover] = useState(false)
   const [messages, setMessages] = useState<Msg[]>([GREETING])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -53,29 +54,38 @@ export default function AgaWidget() {
 
   return (
     <>
-      {/* Bulle flottante */}
+      {/* Bulle flottante : cercle au repos, se déplie en pilule au survol */}
       {!open && (
         <button
           onClick={() => setOpen(true)}
+          onMouseEnter={() => setHover(true)}
+          onMouseLeave={() => setHover(false)}
           aria-label="Discuter avec AGA"
           style={{
             position: 'fixed', bottom: 24, right: 24, zIndex: 500,
-            display: 'flex', alignItems: 'center', gap: 10,
+            display: 'flex', alignItems: 'center', gap: hover ? 10 : 0,
             background: 'var(--abed-green)', color: '#fff',
             border: 'none', borderRadius: 999,
-            padding: '12px 18px 12px 14px',
+            height: 52,
+            width: hover ? 200 : 52,
+            padding: hover ? '0 18px 0 12px' : 0,
+            justifyContent: hover ? 'flex-start' : 'center',
+            overflow: 'hidden',
             boxShadow: '0 8px 24px rgba(99,165,33,.4)',
             cursor: 'pointer', fontSize: 14, fontWeight: 700,
-            transition: 'transform .15s, box-shadow .15s',
+            transition: 'width .22s ease, padding .22s ease, gap .22s ease',
           }}
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'scale(1.04)' }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = 'scale(1)' }}
         >
           <span style={{
             width: 28, height: 28, borderRadius: '50%', background: 'rgba(255,255,255,.2)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15,
+            flexShrink: 0,
           }}>💬</span>
-          Discuter avec AGA
+          <span style={{
+            whiteSpace: 'nowrap',
+            opacity: hover ? 1 : 0,
+            transition: 'opacity .15s ease',
+          }}>Discuter avec AGA</span>
         </button>
       )}
 
