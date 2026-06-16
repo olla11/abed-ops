@@ -77,10 +77,15 @@ export default function AgaWidget() {
           }}
         >
           <span style={{
-            width: 28, height: 28, borderRadius: '50%', background: 'rgba(255,255,255,.2)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15,
-            flexShrink: 0,
-          }}>💬</span>
+            width: hover ? 28 : 52, height: hover ? 28 : 52, borderRadius: '50%',
+            background: hover ? 'rgba(255,255,255,.2)' : 'transparent',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0, transition: 'width .22s ease, height .22s ease',
+          }}>
+            <svg width={hover ? 16 : 24} height={hover ? 16 : 24} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+            </svg>
+          </span>
           <span style={{
             whiteSpace: 'nowrap',
             opacity: hover ? 1 : 0,
