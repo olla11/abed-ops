@@ -129,7 +129,8 @@ export async function POST(
   let newFichierUrl: string | null = null
   if (demande.fichier_url && sig_x !== undefined && sig_y !== undefined) {
     try {
-      const filePath = (demande.fichier_url as string).split('/documents/').at(-1)
+      const rawFichierUrl = demande.fichier_url as string
+      const filePath = rawFichierUrl.includes('/documents/') ? rawFichierUrl.split('/documents/').at(-1) : rawFichierUrl
       if (filePath) {
         // Download current PDF
         const { data: fileData } = await admin.storage.from('documents').download(filePath)

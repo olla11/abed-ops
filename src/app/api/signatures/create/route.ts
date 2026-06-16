@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
   let fichier_url: string | null = null
   if (fichier && fichier.size > 0) {
     // Create bucket if it doesn't exist
-    await admin.storage.createBucket('documents', { public: true }).catch(() => {})
+    await admin.storage.createBucket('documents', { public: false }).catch(() => {})
 
     const path = `${user.id}/${Date.now()}_${fichier.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
     const arrayBuffer = await fichier.arrayBuffer()
@@ -48,8 +48,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `Erreur upload : ${uploadErr.message}` }, { status: 500 })
     }
 
-    const { data: publicData } = admin.storage.from('documents').getPublicUrl(path)
-    fichier_url = publicData.publicUrl
+    // URL signée valable 7 jours — stocker le path, pas l'URL publique permanente
+    fichier_url = path
   }
 
   // Insert demande

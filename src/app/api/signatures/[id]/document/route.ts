@@ -27,7 +27,8 @@ export async function GET(
     return NextResponse.json({ url: null })
   }
 
-  const path = demande.fichier_url.split('/documents/').at(-1)
+  const rawUrl = demande.fichier_url as string
+  const path = rawUrl.includes('/documents/') ? rawUrl.split('/documents/').at(-1) : rawUrl
   if (!path) {
     return NextResponse.json({ url: null })
   }
