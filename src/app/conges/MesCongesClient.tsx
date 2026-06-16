@@ -7,9 +7,9 @@ type TypeConge = { id: string; nom: string; jours_annuels: number }
 type Solde = { type_conge_id: string; jours_acquis: number; jours_pris: number; type_conge: { nom: string } | null; annee: number }
 
 const STATUT: Record<string, { label: string; color: string; bg: string }> = {
-  en_attente: { label: 'En attente', color: '#92400e', bg: '#fef3c7' },
-  approuve_n1: { label: 'Approuvé (N1)', color: '#1e40af', bg: '#dbeafe' },
-  approuve: { label: 'Approuvé', color: '#166534', bg: '#dcfce7' },
+  en_attente: { label: 'En attente (RH)', color: '#92400e', bg: '#fef3c7' },
+  approuve_n1: { label: 'Validé RH — attente DE', color: '#1e40af', bg: '#dbeafe' },
+  approuve: { label: 'Autorisé', color: '#166534', bg: '#dcfce7' },
   rejete: { label: 'Rejeté', color: '#991b1b', bg: '#fee2e2' },
 }
 

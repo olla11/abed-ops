@@ -12,12 +12,12 @@ function emailCongeStatut(nom: string, statut: 'approuve_n1' | 'approuve' | 'rej
   const icone = statut === 'rejete' ? '❌' : statut === 'approuve' ? '✅' : '⏳'
   const titre = statut === 'rejete' ? 'Demande de congé rejetée'
     : statut === 'approuve' ? 'Congé approuvé'
-    : 'Congé approuvé (N1) — en attente RH'
+    : 'Congé validé (RH) — en attente DE'
   const message = statut === 'rejete'
     ? `Votre demande de congé a été <strong style="color:#dc2626">rejetée</strong>.${commentaire ? `<br>Motif : ${commentaire}` : ''}`
     : statut === 'approuve'
     ? `Votre demande de congé a été <strong style="color:#16a34a">approuvée définitivement</strong>. Bonne période de congé !`
-    : `Votre demande a été approuvée par votre responsable et est transmise aux RH pour validation finale.`
+    : `Votre demande a été validée par les RH et est transmise au Directeur Exécutif pour autorisation finale.`
 
   return `
     <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#f9fafb;border-radius:12px">
@@ -82,26 +82,26 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
     notifMessage = `Votre demande de congé (${conge.date_debut} → ${conge.date_fin}) a été rejetée.${commentaire ? ` Motif : ${commentaire}` : ''}`
   } else if (conge.statut === 'en_attente' && (conge.valideur_n1_id === user.id || ['rh', 'admin'].includes(myRole))) {
     newStatut = 'approuve_n1'
-    const { data: rhUsers } = await service.from('profiles').select('id, email, prenoms, nom').in('role', ['rh', 'admin'])
-    for (const rh of rhUsers ?? []) {
+    const { data: deUsers } = await service.from('profiles').select('id, email, prenoms, nom').in('role', ['de', 'administrateur'])
+    for (const de of deUsers ?? []) {
       await service.from('notifications').insert({
-        user_id: rh.id,
-        titre: 'Congé — validation finale requise',
-        message: `La demande de congé de ${nomEmploye} (${conge.nb_jours}j) a été approuvée par le responsable N1. Validation finale requise.`,
+        user_id: de.id,
+        titre: 'Congé — autorisation finale requise',
+        message: `La demande de congé de ${nomEmploye} (${conge.nb_jours}j) a été validée par les RH. Autorisation finale requise.`,
         lien: '/rh/conges',
       })
-      if (rh.email) {
+      if (de.email) {
         await sendEmail({
-          to: rh.email,
-          subject: `Congé ${nomEmploye} — validation finale requise`,
+          to: de.email,
+          subject: `Congé ${nomEmploye} — autorisation finale requise`,
           html: `
             <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#f9fafb;border-radius:12px">
-              <h2 style="color:#1e40af;margin:0 0 20px">⏳ Validation finale requise</h2>
+              <h2 style="color:#1e40af;margin:0 0 20px">⏳ Autorisation finale requise</h2>
               <div style="background:white;border-radius:10px;padding:24px;border:1px solid #e5e7eb">
-                <p style="margin:0 0 16px;font-size:14px;color:#374151">Bonjour <strong>${rh.prenoms} ${rh.nom}</strong>,</p>
-                <p style="margin:0 0 20px;font-size:14px;color:#374151">La demande de congé de <strong>${nomEmploye}</strong> a été approuvée par le responsable N1. Votre validation finale est requise.</p>
+                <p style="margin:0 0 16px;font-size:14px;color:#374151">Bonjour <strong>${de.prenoms} ${de.nom}</strong>,</p>
+                <p style="margin:0 0 20px;font-size:14px;color:#374151">La demande de congé de <strong>${nomEmploye}</strong> a été validée par les RH. Votre autorisation finale est requise.</p>
                 <a href="${appUrl}/rh/conges" style="display:block;text-align:center;background:#1e40af;color:white;padding:12px 0;border-radius:8px;font-size:14px;font-weight:700;text-decoration:none">
-                  Valider →
+                  Autoriser →
                 </a>
               </div>
             </div>
@@ -110,9 +110,9 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
       }
     }
     notifUserId = conge.profile_id
-    notifTitre = 'Congé approuvé (N1)'
-    notifMessage = `Votre demande de congé a été approuvée par votre responsable. En attente de validation RH.`
-  } else if (conge.statut === 'approuve_n1' && ['rh', 'admin'].includes(myRole)) {
+    notifTitre = 'Congé validé (RH)'
+    notifMessage = `Votre demande de congé a été validée par les RH. En attente d'autorisation du Directeur Exécutif.`
+  } else if (conge.statut === 'approuve_n1' && ['de', 'administrateur', 'admin'].includes(myRole)) {
     newStatut = 'approuve'
     notifUserId = conge.profile_id
     notifTitre = 'Congé approuvé'

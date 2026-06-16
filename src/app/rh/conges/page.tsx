@@ -1,9 +1,17 @@
+import { createClient } from '@/lib/supabase-server'
+import { redirect } from 'next/navigation'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import CongesRHClient from './CongesRHClient'
 
 export const dynamic = 'force-dynamic'
 
 export default async function CongesRHPage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+  const { data: me } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+  const role = me?.role ?? ''
+
   const service = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -15,5 +23,5 @@ export default async function CongesRHPage() {
     .order('created_at', { ascending: false })
     .limit(200)
 
-  return <CongesRHClient conges={conges ?? []} />
+  return <CongesRHClient conges={conges ?? []} role={role} />
 }

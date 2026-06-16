@@ -9,6 +9,8 @@ export default async function EvaluationsRHPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
+  const { data: me } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+  if (!['rh', 'admin'].includes(me?.role ?? '')) redirect('/rh/conges')
 
   const service = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

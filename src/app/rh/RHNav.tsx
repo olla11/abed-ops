@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
-const TABS = [
+const ALL_TABS = [
   { href: '/rh', label: 'Tableau de bord', exact: true },
   { href: '/rh/personnel', label: 'Personnel' },
   { href: '/rh/contrats', label: 'Contrats' },
@@ -10,8 +10,11 @@ const TABS = [
   { href: '/rh/evaluations', label: 'Évaluations' },
 ]
 
-export default function RHNav() {
+export default function RHNav({ role }: { role?: string } = {}) {
   const pathname = usePathname()
+  const TABS = ['de', 'administrateur'].includes(role ?? '')
+    ? ALL_TABS.filter(t => t.href === '/rh/conges')
+    : ALL_TABS
   return (
     <div style={{
       display: 'flex', gap: 0, marginBottom: 28,

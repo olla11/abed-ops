@@ -10,9 +10,9 @@ type Conge = {
 }
 
 const STATUT: Record<string, { label: string; color: string; bg: string }> = {
-  en_attente: { label: 'En attente', color: '#92400e', bg: '#fef3c7' },
-  approuve_n1: { label: 'Approuvé N1', color: '#1e40af', bg: '#dbeafe' },
-  approuve: { label: 'Approuvé', color: '#166534', bg: '#dcfce7' },
+  en_attente: { label: 'En attente (RH)', color: '#92400e', bg: '#fef3c7' },
+  approuve_n1: { label: 'Validé RH — attente DE', color: '#1e40af', bg: '#dbeafe' },
+  approuve: { label: 'Autorisé (DE)', color: '#166534', bg: '#dcfce7' },
   rejete: { label: 'Rejeté', color: '#991b1b', bg: '#fee2e2' },
 }
 
@@ -21,7 +21,9 @@ const inputStyle: React.CSSProperties = {
   border: '1px solid var(--abed-border)', outline: 'none',
 }
 
-export default function CongesRHClient({ conges: initial }: { conges: Conge[] }) {
+export default function CongesRHClient({ conges: initial, role }: { conges: Conge[]; role: string }) {
+  const canValiderN1 = ['rh', 'admin'].includes(role)
+  const canValiderFinal = ['de', 'administrateur', 'admin'].includes(role)
   const [conges, setConges] = useState(initial)
   const [filterStatut, setFilterStatut] = useState('')
   const [page, setPage] = useState(1)
@@ -68,7 +70,7 @@ export default function CongesRHClient({ conges: initial }: { conges: Conge[] })
           <tbody>
             {paginate(filtered, page).map((c, i) => {
               const s = STATUT[c.statut] ?? { label: c.statut, color: '#374151', bg: '#f3f4f6' }
-              const canAct = c.statut === 'en_attente' || c.statut === 'approuve_n1'
+              const canAct = (c.statut === 'en_attente' && canValiderN1) || (c.statut === 'approuve_n1' && canValiderFinal)
               const niveau: 'n1' | 'final' = c.statut === 'en_attente' ? 'n1' : 'final'
               return (
                 <tr key={c.id} style={{ background: i % 2 === 0 ? 'white' : '#fafafa' }}>
@@ -101,7 +103,9 @@ export default function CongesRHClient({ conges: initial }: { conges: Conge[] })
       {actionTarget && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ background: 'white', borderRadius: 12, padding: 28, width: 420 }}>
-            <h3 style={{ marginBottom: 8, fontSize: 16 }}>Traiter la demande</h3>
+            <h3 style={{ marginBottom: 8, fontSize: 16 }}>
+              {actionTarget.statut === 'en_attente' ? 'Valider la demande (RH)' : 'Autoriser la demande (DE)'}
+            </h3>
             <p style={{ fontSize: 13, color: '#374151', marginBottom: 4 }}>
               <strong>{actionTarget.profile?.prenoms} {actionTarget.profile?.nom}</strong> — {actionTarget.type_conge?.nom ?? 'Congé'}
             </p>
