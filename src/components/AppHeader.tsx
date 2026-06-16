@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
 import UserAvatar from './UserAvatar'
+import AgaWidget from './AgaWidget'
 
 type Props = {
   userName?: string
@@ -62,6 +63,7 @@ export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, s
   }, [mobileOpen])
 
   return (
+    <>
     <nav style={{
       position: 'sticky', top: 0, zIndex: 100,
       background: 'white',
@@ -206,6 +208,8 @@ export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, s
         </div>
       )}
     </nav>
+    <AgaWidget />
+    </>
   )
 }
 
