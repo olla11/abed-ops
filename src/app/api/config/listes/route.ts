@@ -10,6 +10,9 @@ const TABLES: Record<string, string> = {
 
 export async function GET(req: NextRequest) {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
+
   const type = req.nextUrl.searchParams.get('type')
   const table = TABLES[type ?? '']
   if (!table) return NextResponse.json({ error: 'type invalide' }, { status: 400 })

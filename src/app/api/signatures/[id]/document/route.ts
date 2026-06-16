@@ -15,12 +15,24 @@ export async function GET(
 
   const { data: demande, error } = await admin
     .from('demandes_signature')
-    .select('id, fichier_url')
+    .select('id, fichier_url, createur_id')
     .eq('id', demandeId)
     .single()
 
   if (error || !demande) {
     return NextResponse.json({ error: 'Demande introuvable' }, { status: 404 })
+  }
+
+  // Vérifier que l'utilisateur est créateur ou signataire de cette demande
+  const { data: sigRow } = await admin
+    .from('signataires')
+    .select('profile_id')
+    .eq('demande_id', demandeId)
+    .eq('profile_id', user.id)
+    .maybeSingle()
+
+  if (demande.createur_id !== user.id && !sigRow) {
+    return NextResponse.json({ error: 'accès refusé' }, { status: 403 })
   }
 
   if (!demande.fichier_url) {

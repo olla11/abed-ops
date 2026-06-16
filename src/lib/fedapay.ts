@@ -86,7 +86,7 @@ export async function createMomoDebit(p: CreateDebitParams) {
 export function verifyWebhookSignature(rawBody: string, signature: string | null): boolean {
   if (!signature) return false
   const secret = process.env.FEDAPAY_WEBHOOK_SECRET ?? ''
-  if (!secret) return true // désactivé si pas de secret configuré
+  if (!secret) return false // rejeter si secret non configuré
   const expected = crypto.createHmac('sha256', secret).update(rawBody).digest('hex')
   try {
     return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))

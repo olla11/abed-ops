@@ -112,6 +112,14 @@ export async function GET(req: NextRequest) {
   const missionId = req.nextUrl.searchParams.get('missionId')
   if (!missionId) return NextResponse.json({ error: 'missionId requis' }, { status: 400 })
 
+  const supabaseUser = await createClient()
+  const { data: { user } } = await supabaseUser.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
+
+  const { data: profile } = await supabaseUser.from('profiles').select('role').eq('id', user.id).single()
+  const privilegedRoles = ['admin', 'caf', 'de', 'aaf', 'rh', 'administrateur', 'manager']
+  const isPrivileged = privilegedRoles.includes(profile?.role ?? '')
+
   const admin = createAdminClient()
   const { data: m, error } = await admin
     .from('missions')
@@ -128,6 +136,12 @@ export async function GET(req: NextRequest) {
     .single()
 
   if (error || !m) return NextResponse.json({ error: 'introuvable' }, { status: 404 })
+
+  // Vérification d'accès : rôle privilégié OU missionnaire de la mission
+  if (!isPrivileged && m.missionnaire_id !== user.id) {
+    return NextResponse.json({ error: 'accès refusé' }, { status: 403 })
+  }
+
   if (m.status === 'brouillon' || m.status === 'soumis') {
     return NextResponse.json({ error: 'OM non encore signe' }, { status: 403 })
   }

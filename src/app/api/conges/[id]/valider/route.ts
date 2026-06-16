@@ -75,6 +75,12 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
   let notifTitre = ''
   let notifMessage = ''
 
+  // Vérification que l'utilisateur a le droit d'agir sur ce congé
+  const canAct = ['rh', 'admin', 'de', 'administrateur'].includes(myRole) || conge.valideur_n1_id === user.id
+  if (!canAct) {
+    return NextResponse.json({ error: 'Action non autorisée' }, { status: 403 })
+  }
+
   if (action === 'rejeter') {
     newStatut = 'rejete'
     notifUserId = conge.profile_id
