@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase-server'
 import { AGA_SYSTEM_PROMPT } from '@/lib/aga-knowledge'
 import { loadKnowledgeFiles } from '@/lib/aga-files'
 
-const MODEL = process.env.AGA_MODEL ?? 'gemini-2.0-flash'
+const MODEL = process.env.AGA_MODEL ?? 'gemini-1.5-flash'
 const MAX_HISTORY = 20
 
 export async function POST(req: NextRequest) {
@@ -45,8 +45,12 @@ export async function POST(req: NextRequest) {
 
   if (!res.ok) {
     const errText = await res.text().catch(() => '')
-    console.error('[aga/chat] gemini error:', res.status, errText)
-    return NextResponse.json({ error: 'AGA est momentanément indisponible.' }, { status: 502 })
+    console.error('[aga/chat] gemini error:', res.status, errText.slice(0, 500))
+    const detail = res.status === 400 ? 'Requête invalide'
+      : res.status === 401 || res.status === 403 ? 'Clé API invalide ou non autorisée'
+      : res.status === 429 ? 'Quota dépassé — réessaie dans quelques secondes'
+      : 'AGA est momentanément indisponible.'
+    return NextResponse.json({ error: detail }, { status: 502 })
   }
 
   const data = await res.json()

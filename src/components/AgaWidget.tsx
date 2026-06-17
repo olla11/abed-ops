@@ -10,7 +10,6 @@ const GREETING: Msg = {
 
 export default function AgaWidget() {
   const [open, setOpen] = useState(false)
-  const [hover, setHover] = useState(false)
   const [messages, setMessages] = useState<Msg[]>([GREETING])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -54,43 +53,24 @@ export default function AgaWidget() {
 
   return (
     <>
-      {/* Bulle flottante : cercle au repos, se déplie en pilule au survol */}
+      {/* Bulle flottante : cercle fixe avec icône de chat */}
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          onMouseEnter={() => setHover(true)}
-          onMouseLeave={() => setHover(false)}
           aria-label="Discuter avec AGA"
           style={{
             position: 'fixed', bottom: 24, right: 24, zIndex: 500,
-            display: 'flex', alignItems: 'center', gap: hover ? 10 : 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
             background: 'var(--abed-green)', color: '#fff',
-            border: 'none', borderRadius: 999,
-            height: 52,
-            width: hover ? 200 : 52,
-            padding: hover ? '0 18px 0 12px' : 0,
-            justifyContent: hover ? 'flex-start' : 'center',
-            overflow: 'hidden',
+            border: 'none', borderRadius: '50%',
+            height: 56, width: 56,
             boxShadow: '0 8px 24px rgba(99,165,33,.4)',
-            cursor: 'pointer', fontSize: 14, fontWeight: 700,
-            transition: 'width .22s ease, padding .22s ease, gap .22s ease',
+            cursor: 'pointer',
           }}
         >
-          <span style={{
-            width: hover ? 28 : 52, height: hover ? 28 : 52, borderRadius: '50%',
-            background: hover ? 'rgba(255,255,255,.2)' : 'transparent',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            flexShrink: 0, transition: 'width .22s ease, height .22s ease',
-          }}>
-            <svg width={hover ? 18 : 26} height={hover ? 18 : 26} viewBox="0 0 24 24" fill="#fff">
-              <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
-            </svg>
-          </span>
-          <span style={{
-            whiteSpace: 'nowrap',
-            opacity: hover ? 1 : 0,
-            transition: 'opacity .15s ease',
-          }}>Discuter avec AGA</span>
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="#fff">
+            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+          </svg>
         </button>
       )}
 
