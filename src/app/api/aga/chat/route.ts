@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase-server'
 import { AGA_SYSTEM_PROMPT } from '@/lib/aga-knowledge'
 import { loadKnowledgeFiles } from '@/lib/aga-files'
 
-const MODEL = process.env.AGA_MODEL ?? 'llama-3.1-8b-instant'
+const MODEL = process.env.AGA_MODEL ?? 'llama3-8b-8192'
 const MAX_HISTORY = 20
 
 export async function POST(req: NextRequest) {
@@ -46,10 +46,7 @@ export async function POST(req: NextRequest) {
   if (!res.ok) {
     const errText = await res.text().catch(() => '')
     console.error('[aga/chat] groq error:', res.status, errText.slice(0, 500))
-    const detail = res.status === 401 ? 'Clé API Groq invalide'
-      : res.status === 429 ? 'Quota Groq dépassé — réessaie dans quelques secondes'
-      : 'AGA est momentanément indisponible.'
-    return NextResponse.json({ error: detail }, { status: 502 })
+    return NextResponse.json({ error: `Erreur ${res.status}: ${errText.slice(0, 200)}` }, { status: 502 })
   }
 
   const data = await res.json()
