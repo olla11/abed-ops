@@ -78,6 +78,8 @@ th { color: var(--abed-muted); font-size: 12px; text-transform: uppercase; lette
 
   /* Grilles 2 colonnes → 1 colonne sur mobile */
   .grid-2 { grid-template-columns: 1fr !important; }
+  /* Grilles 3 colonnes → 1 colonne sur mobile */
+  .grid-3 { grid-template-columns: 1fr !important; }
 
   /* Padding pages */
   .page-content { padding: 16px !important; }

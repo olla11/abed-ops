@@ -125,7 +125,7 @@ export default function RolesClient({
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 300px), 1fr))', gap: 16 }}>
         {ROLES.map(r => {
           const isActive = currentPreview === r.key || (!currentPreview && r.key === 'admin')
           const count = roleCounts[r.key] ?? 0

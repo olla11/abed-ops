@@ -40,7 +40,7 @@ export default function AdminUserCreate() {
 
   return (
     <form onSubmit={submit}>
-      <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr 1fr', gap: 12 }}>
+      <div className="grid-3" style={{ display: 'grid', gridTemplateColumns: '120px 1fr 1fr', gap: 12 }}>
         <div className="field">
           <label className="label">Civilité</label>
           <select className="input" value={form.civilite} onChange={e => set('civilite', e.target.value)}>
@@ -65,7 +65,7 @@ export default function AdminUserCreate() {
         <input className="input" type="email" value={form.email} onChange={e => set('email', e.target.value)} required />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      <div className="grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <div className="field">
           <label className="label">Rôle *</label>
           <select className="input" value={form.role} onChange={e => set('role', e.target.value)}>
@@ -101,7 +101,7 @@ export default function AdminUserCreate() {
           onChange={e => set('password', e.target.value)} required />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      <div className="grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <div className="field">
           <label className="label">Téléphone (MTN MoMo)</label>
           <input className="input" placeholder="ex : 22961000000" value={form.telephone}
@@ -114,7 +114,7 @@ export default function AdminUserCreate() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      <div className="grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <div className="field">
           <label className="label">Fonction / poste</label>
           <input className="input" value={form.fonction} onChange={e => set('fonction', e.target.value)} />
@@ -132,7 +132,7 @@ export default function AdminUserCreate() {
           onChange={e => set('adresse', e.target.value)} />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      <div className="grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <div className="field">
           <label className="label">Date de naissance</label>
           <input className="input" type="date" value={form.date_naissance}
