@@ -12,6 +12,9 @@ type Props = {
   congesRecents: Conge[]
   congesEnAttenteCount: number
   evaluations: Evaluation[]
+  tauxActivite: number
+  activeMoisCount: number
+  totalActifs: number
 }
 
 const card: React.CSSProperties = {
@@ -34,7 +37,7 @@ const STATUT_EVAL: Record<string, { label: string; color: string }> = {
   cloture: { label: 'Clôturée', color: '#166534' },
 }
 
-export default function RHDashboardClient({ personnel, contrats, contratsExpirants, congesRecents, congesEnAttenteCount, evaluations }: Props) {
+export default function RHDashboardClient({ personnel, contrats, contratsExpirants, congesRecents, congesEnAttenteCount, evaluations, tauxActivite, activeMoisCount, totalActifs }: Props) {
   const today = new Date().toISOString().split('T')[0]
   const in7 = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0]
 
@@ -74,7 +77,7 @@ export default function RHDashboardClient({ personnel, contrats, contratsExpiran
       <h2 style={{ color: 'var(--abed-green)', marginBottom: 24, fontSize: 22 }}>Tableau de bord RH</h2>
 
       {/* KPI Row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: 16, marginBottom: 24 }}>
         {[
           { label: 'Effectif total', value: personnel.length, icon: '👥', color: '#166534', bg: '#dcfce7' },
           { label: 'Contrats actifs', value: contratsActifs, icon: '📄', color: '#1e40af', bg: '#dbeafe' },
@@ -91,6 +94,27 @@ export default function RHDashboardClient({ personnel, contrats, contratsExpiran
             </div>
           </div>
         ))}
+
+        {/* Taux d'activité du mois */}
+        <div style={{ ...card, display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{ width: 48, height: 48, borderRadius: 12, background: '#fdf2f8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>
+            📊
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+              <div style={{ fontSize: 28, fontWeight: 800, color: tauxActivite >= 80 ? '#166534' : tauxActivite >= 50 ? '#92400e' : '#991b1b', lineHeight: 1 }}>
+                {tauxActivite}%
+              </div>
+              <div style={{ fontSize: 11, color: '#6b7280' }}>{activeMoisCount}/{totalActifs}</div>
+            </div>
+            <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>Activité ce mois</div>
+            <div style={{ background: '#f3f4f6', borderRadius: 4, height: 5, marginTop: 6, overflow: 'hidden' }}>
+              <div style={{ height: '100%', borderRadius: 4, transition: 'width .4s',
+                background: tauxActivite >= 80 ? '#16a34a' : tauxActivite >= 50 ? '#f59e0b' : '#dc2626',
+                width: `${tauxActivite}%` }} />
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Alertes contrats */}

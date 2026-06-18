@@ -39,7 +39,7 @@ export default async function OverviewPage() {
         </p>
       </div>
 
-      <OverviewOperations />
+      <OverviewOperations role={role} />
       </div>
     </>
   )

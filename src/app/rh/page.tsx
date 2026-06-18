@@ -19,6 +19,9 @@ export default async function RHDashboardPage() {
 
   const today = new Date().toISOString().split('T')[0]
   const in30 = new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0]
+  const now = new Date()
+  const currentMois = now.getMonth() + 1
+  const currentAnnee = now.getFullYear()
 
   // Personnel : select only base columns that always exist
   // Columns like direction/matricule require migration_022 to be run
@@ -49,6 +52,7 @@ export default async function RHDashboardPage() {
     { data: congesRecents },
     { data: evaluations },
     { count: congesEnAttenteCount },
+    { count: activeMoisCount },
   ] = await Promise.all([
     service.from('contrats')
       .select('id, type_contrat, statut, date_fin, date_debut, poste, profile_id, profile:profiles!profile_id(nom, prenoms)')
@@ -65,11 +69,19 @@ export default async function RHDashboardPage() {
     service.from('conges')
       .select('*', { count: 'exact', head: true })
       .eq('statut', 'en_attente'),
+    // Agents ayant soumis au moins un rapport/timesheet ce mois
+    service.from('rapports_allocations')
+      .select('prestataire_id', { count: 'exact', head: true })
+      .eq('periode_mois', currentMois)
+      .eq('periode_annee', currentAnnee),
   ])
 
   const contratsExpirants = (contrats ?? []).filter((c: any) =>
     c.statut === 'actif' && c.date_fin && c.date_fin <= in30 && c.date_fin >= today
   )
+
+  const totalActifs = (personnel ?? []).filter((p: any) => p.type_emploi && p.type_emploi !== 'non défini').length
+  const tauxActivite = totalActifs > 0 ? Math.round(((activeMoisCount ?? 0) / totalActifs) * 100) : 0
 
   return (
     <RHDashboardClient
@@ -79,6 +91,9 @@ export default async function RHDashboardPage() {
       congesRecents={(congesRecents ?? []) as any[]}
       congesEnAttenteCount={congesEnAttenteCount ?? 0}
       evaluations={(evaluations ?? []) as any[]}
+      tauxActivite={tauxActivite}
+      activeMoisCount={activeMoisCount ?? 0}
+      totalActifs={totalActifs}
     />
   )
 }

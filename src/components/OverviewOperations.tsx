@@ -51,7 +51,89 @@ function statusLabel(status: string): string {
   return m[status] ?? status
 }
 
-export default function OverviewOperations() {
+// Statuts attendant l'action de chaque rôle
+const PENDING_FOR_ROLE: Record<string, { type: string; status: string }[]> = {
+  aaf: [
+    { type: 'rapport',  status: 'valide_tech' },
+    { type: 'demande',  status: 'soumis' },
+  ],
+  caf: [
+    { type: 'timesheet', status: 'valide_tech' },
+    { type: 'rapport',   status: 'traite_aaf' },
+    { type: 'demande',   status: 'valide_aaf' },
+    { type: 'om',        status: 'soumis' },
+  ],
+  de: [
+    { type: 'rapport',  status: 'valide_caf' },
+    { type: 'demande',  status: 'valide_caf' },
+    { type: 'om',       status: 'soumis' },
+  ],
+}
+
+function PendingActions({ items, role }: { items: Item[]; role: string }) {
+  const rules = PENDING_FOR_ROLE[role]
+  if (!rules) return null
+
+  const pending = items.filter(it =>
+    rules.some(r => r.type === it.type && r.status === it.status)
+  )
+
+  if (pending.length === 0) {
+    return (
+      <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{ fontSize: 18 }}>✅</span>
+        <span style={{ fontSize: 13, color: '#166534', fontWeight: 600 }}>Aucune action en attente — tout est à jour.</span>
+      </div>
+    )
+  }
+
+  const byType: Record<string, Item[]> = {}
+  pending.forEach(it => { byType[it.type] = [...(byType[it.type] ?? []), it] })
+
+  return (
+    <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, padding: '16px 18px' }}>
+      <div style={{ fontSize: 13, fontWeight: 700, color: '#92400e', marginBottom: 12 }}>
+        ⏳ {pending.length} action{pending.length > 1 ? 's' : ''} en attente de votre traitement
+      </div>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        {Object.entries(byType).map(([type, list]) => {
+          const tl = TYPE_LABEL[type]
+          return (
+            <div key={type} style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              background: 'white', border: `1px solid ${tl.color}44`,
+              borderRadius: 8, padding: '8px 14px',
+            }}>
+              <span style={{ fontSize: 22, fontWeight: 800, color: tl.color }}>{list.length}</span>
+              <span style={{ fontSize: 12, color: tl.color, fontWeight: 600 }}>{tl.label}</span>
+            </div>
+          )
+        })}
+      </div>
+      <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {pending.slice(0, 5).map(it => {
+          const tl = TYPE_LABEL[it.type]
+          return (
+            <div key={it.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#374151' }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: tl.color, flexShrink: 0 }} />
+              <span style={{ fontWeight: 600 }}>{it.concerne}</span>
+              <span style={{ color: '#6b7280' }}>—</span>
+              <span>{it.reference}</span>
+              {it.urgence === 'urgente' && <span style={{ color: '#dc2626', fontWeight: 700, fontSize: 11 }}>⚠ URGENT</span>}
+            </div>
+          )
+        })}
+        {pending.length > 5 && (
+          <div style={{ fontSize: 11, color: '#92400e', fontStyle: 'italic', marginTop: 2 }}>
+            + {pending.length - 5} autre{pending.length - 5 > 1 ? 's' : ''} dossier{pending.length - 5 > 1 ? 's' : ''}…
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export default function OverviewOperations({ role = '' }: { role?: string }) {
   const [items, setItems]         = useState<Item[]>([])
   const [loading, setLoading]     = useState(true)
   const [filterType, setFilterType]   = useState('tous')
@@ -92,6 +174,9 @@ export default function OverviewOperations() {
 
   return (
     <div style={{ display: 'grid', gap: 20 }}>
+
+      {/* ── Actions en attente pour ce rôle ── */}
+      <PendingActions items={items} role={role} />
 
       {/* ── Résumé chiffré ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12 }}>
