@@ -2,8 +2,8 @@ import { readdir, readFile } from 'fs/promises'
 import path from 'path'
 
 const KNOWLEDGE_DIR = path.join(process.cwd(), 'knowledge')
-const MAX_TOTAL_CHARS = 60_000
-const MAX_PER_FILE_CHARS = 20_000
+const MAX_TOTAL_CHARS = 400_000
+const MAX_PER_FILE_CHARS = 80_000
 
 let cache: { text: string; loadedAt: number } | null = null
 const CACHE_TTL_MS = 5 * 60 * 1000
