@@ -38,7 +38,7 @@ const securityHeaders = [
       // Fonts
       "font-src 'self'",
       // API calls autorisés
-      "connect-src 'self' https://*.supabase.co https://*.supabase.in https://api.groq.com https://generativelanguage.googleapis.com",
+      "connect-src 'self' https://*.supabase.co https://*.supabase.in https://api.groq.com https://generativelanguage.googleapis.com https://abedong.org https://*.abedong.org",
       // Frames : bloquer tout sauf self
       "frame-src 'self'",
       // Workers
