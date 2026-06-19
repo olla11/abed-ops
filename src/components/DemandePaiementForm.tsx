@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { DEFAULT_FIELDS, type FieldDef } from '@/components/FormulaireEditor'
 
 type Liste = { id: string; nom?: string; code?: string; libelle?: string }
 
@@ -19,13 +20,8 @@ export default function DemandePaiementForm({ onClose, prefill, soumissionId }: 
   prefill?: Partial<Record<string, string>>
   soumissionId?: string
 }) {
-  const [form, setForm] = useState({
-    nom_complet: '', email_contact: '', departement: '',
-    objet: '', code_budgetaire: '', projet: '', nature_depense: '',
-    montant: '', mode_paiement: '', beneficiaire: '', reference_piece: '',
-    justification: '', urgence: 'normale', date_souhaitee: '',
-    ...prefill,
-  })
+  const [fields, setFields] = useState<FieldDef[]>(DEFAULT_FIELDS)
+  const [form, setForm] = useState<Record<string, string>>({ urgence: 'normale', ...prefill })
   const [fichier, setFichier] = useState<File | null>(null)
   const [depts, setDepts] = useState<Liste[]>([])
   const [codes, setCodes] = useState<Liste[]>([])
@@ -37,11 +33,13 @@ export default function DemandePaiementForm({ onClose, prefill, soumissionId }: 
 
   useEffect(() => {
     Promise.all([
+      fetch('/api/config/form-config').then(r => r.json()),
       fetch('/api/config/listes?type=departements').then(r => r.json()),
       fetch('/api/config/listes?type=codes_budgetaires').then(r => r.json()),
       fetch('/api/config/listes?type=projets').then(r => r.json()),
       fetch('/api/config/listes?type=natures').then(r => r.json()),
-    ]).then(([d, c, p, n]) => {
+    ]).then(([cfg, d, c, p, n]) => {
+      if (cfg.fields) setFields(cfg.fields)
       setDepts(d.data ?? []); setCodes(c.data ?? [])
       setProjets(p.data ?? []); setNatures(n.data ?? [])
     })
@@ -49,11 +47,17 @@ export default function DemandePaiementForm({ onClose, prefill, soumissionId }: 
 
   function set(k: string, v: string) { setForm(f => ({ ...f, [k]: v })) }
 
+  const visibleFields = fields.filter(f => f.visible)
+  const requiredKeys = fields.filter(f => f.visible && f.required).map(f => f.key)
+
   async function submit() {
-    const required = ['nom_complet','email_contact','departement','objet','code_budgetaire',
-      'projet','nature_depense','montant','mode_paiement','beneficiaire','reference_piece','justification','urgence']
-    for (const f of required) {
-      if (!form[f as keyof typeof form]) { setMsg(`Champ requis : ${f}`); return }
+    for (const k of requiredKeys) {
+      if (k === 'fichier') continue
+      if (!form[k]?.trim()) {
+        const field = fields.find(f => f.key === k)
+        setMsg(`Champ requis : ${field?.label ?? k}`)
+        return
+      }
     }
     setLoading(true); setMsg('')
     try {
@@ -70,7 +74,7 @@ export default function DemandePaiementForm({ onClose, prefill, soumissionId }: 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...form,
-          montant: +form.montant,
+          montant: form.montant ? +form.montant : undefined,
           fichier_justificatif_url: fichier_url || undefined,
           soumission_id: soumissionId,
         }),
@@ -93,24 +97,114 @@ export default function DemandePaiementForm({ onClose, prefill, soumissionId }: 
     </div>
   )
 
-  const inp = (k: string, label: string, type = 'text', extra?: any) => (
-    <div className="field">
-      <label className="label">{label} *</label>
-      <input className="input" type={type} value={form[k as keyof typeof form] as string}
-        onChange={e => set(k, e.target.value)} {...extra} />
-    </div>
-  )
+  function renderField(f: FieldDef) {
+    const label = `${f.label}${f.required ? ' *' : ''}`
 
-  const sel = (k: string, label: string, opts: {value:string;label:string}[]) => (
-    <div className="field">
-      <label className="label">{label} *</label>
-      <select className="select" value={form[k as keyof typeof form] as string}
-        onChange={e => set(k, e.target.value)}>
-        <option value="">— Sélectionner —</option>
-        {opts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-      </select>
-    </div>
-  )
+    if (f.type === 'select_dept') return (
+      <div key={f.key} className="field">
+        <label className="label">{label}</label>
+        <select className="select" value={form[f.key] ?? ''} onChange={e => set(f.key, e.target.value)}>
+          <option value="">— Sélectionner —</option>
+          {depts.map(d => <option key={d.id} value={d.nom!}>{d.nom}</option>)}
+        </select>
+      </div>
+    )
+    if (f.type === 'select_code') return (
+      <div key={f.key} className="field">
+        <label className="label">{label}</label>
+        <select className="select" value={form[f.key] ?? ''} onChange={e => set(f.key, e.target.value)}>
+          <option value="">— Sélectionner —</option>
+          {codes.map(c => <option key={c.id} value={c.code!}>{c.code} — {c.libelle}</option>)}
+        </select>
+      </div>
+    )
+    if (f.type === 'select_projet') return (
+      <div key={f.key} className="field">
+        <label className="label">{label}</label>
+        <select className="select" value={form[f.key] ?? ''} onChange={e => set(f.key, e.target.value)}>
+          <option value="">— Sélectionner —</option>
+          {projets.map(p => <option key={p.id} value={p.nom!}>{p.nom}</option>)}
+        </select>
+      </div>
+    )
+    if (f.type === 'select_nature') return (
+      <div key={f.key} className="field">
+        <label className="label">{label}</label>
+        <select className="select" value={form[f.key] ?? ''} onChange={e => set(f.key, e.target.value)}>
+          <option value="">— Sélectionner —</option>
+          {natures.map(n => <option key={n.id} value={n.nom!}>{n.nom}</option>)}
+        </select>
+      </div>
+    )
+    if (f.type === 'select_mode') return (
+      <div key={f.key} className="field">
+        <label className="label">{label}</label>
+        <select className="select" value={form[f.key] ?? ''} onChange={e => set(f.key, e.target.value)}>
+          <option value="">— Sélectionner —</option>
+          {MODE_PAIEMENT.map(m => <option key={m} value={m}>{m}</option>)}
+        </select>
+      </div>
+    )
+    if (f.type === 'select_urgence') return (
+      <div key={f.key} className="field">
+        <label className="label">{label}</label>
+        <select className="select" value={form[f.key] ?? 'normale'} onChange={e => set(f.key, e.target.value)}>
+          {URGENCE_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+      </div>
+    )
+    if (f.type === 'textarea') return (
+      <div key={f.key} className="field">
+        <label className="label">{label}</label>
+        <textarea className="input" rows={f.key === 'justification' ? 3 : 2}
+          value={form[f.key] ?? ''}
+          placeholder={f.key === 'objet' ? 'ex : Honoraire consultant formation…' : f.key === 'justification' ? 'Contexte, activité concernée, pourquoi ce paiement est nécessaire…' : ''}
+          onChange={e => set(f.key, e.target.value)} />
+      </div>
+    )
+    if (f.type === 'file') return (
+      <div key={f.key} className="field">
+        <label className="label">{label}</label>
+        <input className="input" type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx"
+          onChange={e => setFichier(e.target.files?.[0] ?? null)} />
+        <p style={{ fontSize: 11, color: 'var(--abed-muted)', marginTop: 4 }}>PDF, image, document. Max 10 Mo.</p>
+      </div>
+    )
+    // text, email, number, date
+    return (
+      <div key={f.key} className="field">
+        <label className="label">{label}</label>
+        <input className="input" type={f.type} value={form[f.key] ?? ''}
+          onChange={e => set(f.key, e.target.value)} />
+      </div>
+    )
+  }
+
+  // Regroupe nom_complet + email en 2 colonnes si les deux sont visibles
+  const pairs: Array<FieldDef | [FieldDef, FieldDef]> = []
+  const PAIR_GROUPS = [
+    ['nom_complet', 'email_contact'],
+    ['montant', 'mode_paiement'],
+    ['beneficiaire', 'reference_piece'],
+    ['urgence', 'date_souhaitee'],
+  ]
+  const consumed = new Set<string>()
+
+  for (const f of visibleFields) {
+    if (consumed.has(f.key)) continue
+    const group = PAIR_GROUPS.find(g => g[0] === f.key)
+    if (group) {
+      const partner = visibleFields.find(f2 => f2.key === group[1])
+      if (partner) {
+        pairs.push([f, partner])
+        consumed.add(f.key)
+        consumed.add(partner.key)
+        continue
+      }
+    }
+    pairs.push(f)
+    consumed.add(f.key)
+  }
 
   return (
     <div style={{ maxHeight: '80vh', overflowY: 'auto', padding: '4px 2px' }}>
@@ -119,66 +213,17 @@ export default function DemandePaiementForm({ onClose, prefill, soumissionId }: 
         Formulaire officiel. Toute demande incomplète sera automatiquement renvoyée.
       </p>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        {inp('nom_complet', 'Nom et prénom complets')}
-        {inp('email_contact', 'Adresse email', 'email')}
-      </div>
-
-      {sel('departement', 'Département / Équipe',
-        depts.map(d => ({ value: d.nom!, label: d.nom! })))}
-
-      <div className="field">
-        <label className="label">Objet de la dépense *</label>
-        <textarea className="input" rows={2} value={form.objet}
-          placeholder="ex : Honoraire consultant formation D'croch — Bootcamp Collines Mai 2026"
-          onChange={e => set('objet', e.target.value)} />
-      </div>
-
-      {sel('code_budgetaire', 'Code budgétaire',
-        codes.map(c => ({ value: c.code!, label: `${c.code} — ${c.libelle}` })))}
-
-      {sel('projet', 'Projet / Programme concerné',
-        projets.map(p => ({ value: p.nom!, label: p.nom! })))}
-
-      {sel('nature_depense', 'Nature de la dépense',
-        natures.map(n => ({ value: n.nom!, label: n.nom! })))}
-
-      <hr style={{ margin: '12px 0', borderColor: 'var(--abed-border)' }} />
-      <strong style={{ fontSize: 13 }}>Détails financiers</strong>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 8 }}>
-        {inp('montant', 'Montant demandé (FCFA)', 'number')}
-        {sel('mode_paiement', 'Mode de paiement',
-          MODE_PAIEMENT.map(m => ({ value: m, label: m })))}
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        {inp('beneficiaire', 'Fournisseur / Bénéficiaire')}
-        {inp('reference_piece', 'Référence pièce justificative')}
-      </div>
-
-      <hr style={{ margin: '12px 0', borderColor: 'var(--abed-border)' }} />
-      <strong style={{ fontSize: 13 }}>Justification et urgence</strong>
-
-      <div className="field" style={{ marginTop: 8 }}>
-        <label className="label">Justification de la demande *</label>
-        <textarea className="input" rows={3} value={form.justification}
-          placeholder="Contexte, activité concernée, pourquoi ce paiement est nécessaire…"
-          onChange={e => set('justification', e.target.value)} />
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        {sel('urgence', 'Niveau d\'urgence', URGENCE_OPTS)}
-        {inp('date_souhaitee', 'Date souhaitée de paiement', 'date')}
-      </div>
-
-      <div className="field">
-        <label className="label">Pièce justificative (facture, devis, bon de commande…)</label>
-        <input className="input" type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx"
-          onChange={e => setFichier(e.target.files?.[0] ?? null)} />
-        <p style={{ fontSize: 11, color: 'var(--abed-muted)', marginTop: 4 }}>
-          PDF, image, document. Max 10 Mo.
-        </p>
-      </div>
+      {pairs.map((item, i) => {
+        if (Array.isArray(item)) {
+          return (
+            <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              {renderField(item[0])}
+              {renderField(item[1])}
+            </div>
+          )
+        }
+        return renderField(item)
+      })}
 
       {msg && (
         <p style={{ fontSize: 13, padding: '10px 14px', borderRadius: 8, marginBottom: 12,

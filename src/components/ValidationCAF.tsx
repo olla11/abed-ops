@@ -60,8 +60,8 @@ export default function ValidationCAF() {
     const tauxMap = Object.fromEntries((tauxData ?? []).map((r: any) => [r.cle, Number(r.valeur)]))
     const td = tauxMap['taux_horaire_direct_fcfa'] ?? 1500
     const tc = tauxMap['taux_horaire_credit_fcfa'] ?? 1500
-    setTauxDirect(td); setNewTauxDirect(String(td))
-    setTauxCredit(tc); setNewTauxCredit(String(tc))
+    setTauxDirect(td)
+    setTauxCredit(tc)
 
     const all = (valides as any[]) ?? []
 

@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import FormulaireEditor from '@/components/FormulaireEditor'
 
 type Item = { id: string; nom?: string; code?: string; libelle?: string; ordre?: number }
 
@@ -153,6 +154,13 @@ export default function GestionCAF() {
       {LISTES.map(l => (
         <ListeSection key={l.key} listKey={l.key} label={l.label} fields={l.fields} />
       ))}
+
+      <hr style={{ margin: '24px 0', borderColor: 'var(--abed-border)' }} />
+      <h4 style={{ marginBottom: 4, color: '#374151' }}>Structure du formulaire de demande de paiement</h4>
+      <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: 16 }}>
+        Personnalisez les champs affichés lors de la soumission d'une demande de paiement.
+      </p>
+      <FormulaireEditor />
     </div>
   )
 }
