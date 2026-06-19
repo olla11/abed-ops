@@ -64,17 +64,11 @@ Une demande de paiement est une demande de remboursement ou de paiement d'honora
 
 **Circuit de validation complet (3 niveaux obligatoires) :**
 
-```
-Employé soumet la demande
-        ↓
-   AAF valide (1er niveau)
-        ↓
-   CAF valide (2e niveau)
-        ↓
-   DE autorise (3e niveau — autorisation finale)
-        ↓
-   Paiement effectué
-```
+  Employé soumet la demande
+        → AAF valide (1er niveau)
+        → CAF valide (2e niveau)
+        → DE autorise (3e niveau — autorisation finale)
+        → Paiement effectué
 
 **Cas particulier — Demande de paiement basée sur un timesheet :**
 1. L'employé soumet son timesheet.
