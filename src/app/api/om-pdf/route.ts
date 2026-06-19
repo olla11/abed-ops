@@ -146,6 +146,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'OM non encore signe' }, { status: 403 })
   }
 
+  // Récupère la civilité du DE pour accorder le titre P.O. quand le CAF signe
+  const { data: deProfile } = await admin
+    .from('profiles')
+    .select('civilite')
+    .eq('role', 'de')
+    .single()
+  const deCivilite = deProfile?.civilite ?? 'M.'
+
   const pdf = await PDFDocument.create()
   const page = pdf.addPage([595, 842])
   const font = await pdf.embedFont(StandardFonts.Helvetica)
@@ -214,6 +222,11 @@ export async function GET(req: NextRequest) {
     const article = isFemme ? 'La' : 'Le'
     const fonctionSg = sg?.fonction ?? (isFemme ? "Administratrice" : "Administrateur")
     ordrePhrase = `${article} ${fonctionSg} de ABED-ONG donne ordre à :`
+  } else if (sg?.role === 'caf') {
+    // Quand le CAF signe P.O., la phrase reflète le genre du DE
+    ordrePhrase = deCivilite === 'Mme'
+      ? 'La Directrice Executive de ABED-ONG donne ordre à :'
+      : 'Le Directeur Executif de ABED-ONG donne ordre à :'
   } else {
     ordrePhrase = sg?.civilite === 'Mme'
       ? 'La Directrice Executive de ABED-ONG donne ordre à :'
@@ -334,7 +347,8 @@ export async function GET(req: NextRequest) {
     const fonctionSg = sg?.fonction ?? (isFemme ? 'Administratrice' : 'Administrateur')
     titreLabel = `${article} ${fonctionSg}`
   } else if (sg?.role === 'caf') {
-    titreLabel = sg?.civilite === 'Mme' ? 'La Directrice Executive et P.O' : 'Le Directeur Executif et P.O'
+    // P.O. = Par Ordre du DE → accord selon la civilité du DE, pas du CAF
+    titreLabel = deCivilite === 'Mme' ? 'La Directrice Executive et P.O' : 'Le Directeur Executif et P.O'
   } else {
     titreLabel = sg?.civilite === 'Mme' ? 'La Directrice Executive' : 'Le Directeur Executif'
   }
@@ -391,8 +405,8 @@ export async function GET(req: NextRequest) {
 
   // ---- QR CODE — coin inférieur droit ----
   try {
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://abed-ops-aqsc-3787xhse0-olla11s-projects.vercel.app'
-    const qrUrl = `${appUrl}/missions/${missionId}`
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://abedong.org'
+    const qrUrl = `${appUrl}/verify/om/${missionId}`
     const qrDataUrl = await QRCode.toDataURL(qrUrl, { width: 120, margin: 1 })
     const qrBase64 = qrDataUrl.replace('data:image/png;base64,', '')
     const qrBytes = Buffer.from(qrBase64, 'base64')
