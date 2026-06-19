@@ -6,7 +6,6 @@ import ValidationManager from '@/components/ValidationManager'
 import ValidationCAF from '@/components/ValidationCAF'
 import RapportAllocationForm from '@/components/RapportAllocationForm'
 import ValidationRapportsAAF from '@/components/ValidationRapportsAAF'
-import GestionCAF from '@/components/GestionCAF'
 import AppHeader from '@/components/AppHeader'
 import RolePreviewBanner from '@/components/RolePreviewBanner'
 import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
@@ -86,9 +85,7 @@ export default async function TimesheetsPage() {
       {/* CAF : validation financière */}
       {estCAF && <ValidationCAF />}
 
-      {/* CAF : paramètres financiers (taux + listes formulaires) */}
-      {estCAF && <GestionCAF />}
-      </div>
+</div>
     </>
   )
 }

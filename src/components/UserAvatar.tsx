@@ -179,8 +179,9 @@ export default function UserAvatar({ userName, userRole, avatarUrl }: Props) {
           {tab === 'menu' && (
             <div>
               {[
+                ...(['caf', 'admin'].includes(userRole ?? '') ? [{ href: '/parametres', label: '⚙️ Paramètres' }] : []),
                 { href: '/profile', label: '👤 Mon profil' },
-                ...(userRole === 'admin' ? [{ href: '/admin', label: '⚙️ Paramètres' }] : []),
+                ...(userRole === 'admin' ? [{ href: '/admin', label: '🛠️ Administration' }] : []),
               ].map(item => (
                 <Link key={item.href} href={item.href} onClick={() => setOpen(false)} style={{
                   display: 'block', padding: '10px 16px', fontSize: 13, color: '#374151',
