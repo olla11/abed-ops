@@ -176,17 +176,37 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
   }
 
   async function patchActivite(activiteId: string, patch: Record<string, string | null>) {
+    // Optimistic update — apply immediately, revert on failure
+    const prevActivites = projet.activites
+    const prevSelected = selectedActivite
+
+    // Build enriched patch (resolve assignee profile for display)
+    const optimisticPatch: Partial<Activite> = { ...patch } as any
+    if ('assignee_id' in patch) {
+      optimisticPatch.assignee = patch.assignee_id
+        ? (allProfiles.find(p => p.id === patch.assignee_id) ?? null)
+        : null
+    }
+
+    setProjet(p => ({ ...p, activites: p.activites.map(a => a.id === activiteId ? { ...a, ...optimisticPatch } : a) }))
+    if (selectedActivite?.id === activiteId) setSelectedActivite(prev => prev ? { ...prev, ...optimisticPatch } : null)
+    setEditingCell(null)
+    setCalendarFor(null)
+
     const r = await fetch(`/api/activites/${activiteId}`, {
       method: 'PATCH', headers: { 'content-type': 'application/json' },
       body: JSON.stringify(patch),
     })
-    const j = await r.json()
     if (r.ok) {
+      const j = await r.json()
       setProjet(p => ({ ...p, activites: p.activites.map(a => a.id === activiteId ? { ...a, ...j.data } : a) }))
-      if (selectedActivite?.id === activiteId) setSelectedActivite(prev => prev ? { ...prev, ...j.data } : null)
+      if (selectedActivite?.id === activiteId || prevSelected?.id === activiteId)
+        setSelectedActivite(prev => prev ? { ...prev, ...j.data } : null)
+    } else {
+      // Revert
+      setProjet(p => ({ ...p, activites: prevActivites }))
+      setSelectedActivite(prevSelected)
     }
-    setEditingCell(null)
-    setCalendarFor(null)
   }
 
   async function toggleDone(act: Activite) {

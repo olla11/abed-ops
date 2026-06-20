@@ -46,7 +46,7 @@ create policy "activites_insert" on activites for insert to authenticated with c
 create policy "commentaires_insert" on commentaires_activites for insert to authenticated with check (auth.uid() = auteur_id);
 
 create policy "projets_update" on projets_internes for update to authenticated using (auth.uid() = created_by);
-create policy "activites_update" on activites for update to authenticated using (auth.uid() = created_by or auth.uid() = assignee_id);
+create policy "activites_update" on activites for update to authenticated using (true);
 create policy "commentaires_update" on commentaires_activites for update to authenticated using (auth.uid() = auteur_id);
 
 create policy "projets_delete" on projets_internes for delete to authenticated using (auth.uid() = created_by);
