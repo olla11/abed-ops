@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation'
 import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
 import AppHeader from '@/components/AppHeader'
 import RolePreviewBanner from '@/components/RolePreviewBanner'
-import GestionCAF from '@/components/GestionCAF'
+import ParametresClient from '@/components/ParametresClient'
 
 export default async function ParametresPage() {
   const supabase = await createClient()
@@ -31,15 +31,7 @@ export default async function ParametresPage() {
         avatarUrl={profile?.avatar_url ?? null}
       />
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}
-      <div style={{ maxWidth: 900, margin: '0 auto', padding: '28px 24px' }}>
-        <div style={{ marginBottom: 28 }}>
-          <h1 style={{ color: 'var(--abed-green)', margin: '0 0 6px' }}>Paramètres</h1>
-          <p style={{ fontSize: 13, color: 'var(--abed-muted)', margin: 0 }}>
-            Taux horaires et listes utilisées dans les formulaires de demande de paiement.
-          </p>
-        </div>
-        <GestionCAF />
-      </div>
+      <ParametresClient />
     </>
   )
 }
