@@ -6,28 +6,49 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
 
-  const apiKey = process.env.GEMINI_API_KEY
-  if (!apiKey) return NextResponse.json({ gemini_key: 'ABSENT', groq_key: !!process.env.GROQ_API_KEY })
+  const groqKey = process.env.GROQ_API_KEY
+  const model = process.env.AGA_MODEL ?? 'llama-3.3-70b-versatile'
 
-  const model = process.env.AGA_MODEL ?? 'gemini-1.5-flash'
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-    {
+  if (!groqKey) {
+    return NextResponse.json({ ok: false, problem: 'GROQ_API_KEY absent dans les variables Vercel', model })
+  }
+
+  let res: Response
+  try {
+    res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', 'authorization': `Bearer ${groqKey}` },
       body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: 'Dis bonjour en une phrase.' }] }],
-        generationConfig: { maxOutputTokens: 50 },
+        model,
+        max_tokens: 20,
+        messages: [{ role: 'user', content: 'Dis bonjour.' }],
       }),
-    }
-  )
+    })
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, problem: 'Erreur réseau vers Groq', detail: e?.message, model })
+  }
 
   const body = await res.text()
+  if (res.ok) {
+    const data = JSON.parse(body)
+    return NextResponse.json({
+      ok: true,
+      model,
+      key_prefix: groqKey.slice(0, 8) + '...',
+      reply: data?.choices?.[0]?.message?.content ?? '(vide)',
+    })
+  }
+
   return NextResponse.json({
-    status: res.status,
-    ok: res.ok,
+    ok: false,
+    http_status: res.status,
     model,
-    key_prefix: apiKey.slice(0, 8) + '...',
-    response: body.slice(0, 600),
+    key_prefix: groqKey.slice(0, 8) + '...',
+    groq_error: body.slice(0, 800),
+    problem:
+      res.status === 401 ? 'Clé API invalide ou expirée' :
+      res.status === 400 ? 'Requête invalide — modèle inconnu ou clé mal formée' :
+      res.status === 429 ? 'Quota Groq dépassé' :
+      `Erreur Groq HTTP ${res.status}`,
   })
 }

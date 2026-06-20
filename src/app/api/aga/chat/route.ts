@@ -52,14 +52,16 @@ export async function POST(req: NextRequest) {
   if (!res.ok) {
     const errText = await res.text().catch(() => '')
     console.error('[aga/chat] groq error:', res.status, errText.slice(0, 500))
+    let groqMsg = ''
+    try { groqMsg = JSON.parse(errText)?.error?.message ?? '' } catch {}
     const code =
       res.status === 401 ? 'invalid_key' :
-      res.status === 400 ? 'invalid_key' :   // bad key format also returns 400
+      res.status === 400 ? 'invalid_key' :
       res.status === 429 ? 'rate_limit' :
       res.status === 503 ? 'service_unavailable' :
       res.status >= 500  ? 'service_unavailable' :
       'unknown'
-    return NextResponse.json({ error: code, httpStatus: res.status }, { status: 502 })
+    return NextResponse.json({ error: code, httpStatus: res.status, groqMsg }, { status: 502 })
   }
 
   const data = await res.json()

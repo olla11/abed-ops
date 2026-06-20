@@ -6,6 +6,7 @@ type Msg = { role: 'user' | 'assistant'; content: string }
 type AgaError = {
   code: 'invalid_key' | 'rate_limit' | 'service_unavailable' | 'no_key' | 'unknown' | 'network'
   retryable: boolean
+  groqMsg?: string
 }
 
 const ERROR_INFO: Record<AgaError['code'], { icon: string; title: string; detail: string }> = {
@@ -77,8 +78,8 @@ export default function AgaWidget() {
       const data = await res.json()
       if (!res.ok) {
         const code: AgaError['code'] = data?.error ?? 'unknown'
-        const retryable = ['rate_limit', 'service_unavailable', 'unknown'].includes(code)
-        setError({ code, retryable })
+        const retryable = ['rate_limit', 'service_unavailable', 'unknown', 'network'].includes(code)
+        setError({ code, retryable, groqMsg: data?.groqMsg })
         return
       }
       setMessages(m => [...m, { role: 'assistant', content: data.reply || '...' }])
@@ -194,9 +195,14 @@ export default function AgaWidget() {
                     <span style={{ fontSize: 18 }}>{info.icon}</span>
                     <strong style={{ fontSize: 13, color: '#991b1b' }}>{info.title}</strong>
                   </div>
-                  <p style={{ fontSize: 12, color: '#b91c1c', margin: '0 0 10px', lineHeight: 1.5 }}>
+                  <p style={{ fontSize: 12, color: '#b91c1c', margin: '0 0 6px', lineHeight: 1.5 }}>
                     {info.detail}
                   </p>
+                  {error.groqMsg && (
+                    <p style={{ fontSize: 11, color: '#991b1b', background: '#fff', border: '1px solid #fca5a5', borderRadius: 6, padding: '4px 8px', margin: '0 0 10px', fontFamily: 'monospace', wordBreak: 'break-word' }}>
+                      {error.groqMsg}
+                    </p>
+                  )}
                   {error.retryable && (
                     <button
                       onClick={async () => {
