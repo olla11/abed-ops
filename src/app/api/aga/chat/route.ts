@@ -30,27 +30,36 @@ export async function POST(req: NextRequest) {
     content: String(m.content ?? '').slice(0, 4000),
   }))
 
-  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      max_tokens: 1024,
-      messages: [{ role: 'system', content: system }, ...trimmed],
-    }),
-  })
+  let res: Response
+  try {
+    res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        max_tokens: 1024,
+        messages: [{ role: 'system', content: system }, ...trimmed],
+      }),
+    })
+  } catch (e) {
+    console.error('[aga/chat] network error reaching groq:', e)
+    return NextResponse.json({ error: 'network' }, { status: 502 })
+  }
 
   if (!res.ok) {
     const errText = await res.text().catch(() => '')
     console.error('[aga/chat] groq error:', res.status, errText.slice(0, 500))
-    const code = res.status === 401 ? 'invalid_key'
-      : res.status === 429 ? 'rate_limit'
-      : res.status === 503 ? 'service_unavailable'
-      : 'unknown'
-    return NextResponse.json({ error: code, status: res.status }, { status: 502 })
+    const code =
+      res.status === 401 ? 'invalid_key' :
+      res.status === 400 ? 'invalid_key' :   // bad key format also returns 400
+      res.status === 429 ? 'rate_limit' :
+      res.status === 503 ? 'service_unavailable' :
+      res.status >= 500  ? 'service_unavailable' :
+      'unknown'
+    return NextResponse.json({ error: code, httpStatus: res.status }, { status: 502 })
   }
 
   const data = await res.json()

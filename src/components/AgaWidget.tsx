@@ -16,8 +16,8 @@ const ERROR_INFO: Record<AgaError['code'], { icon: string; title: string; detail
   },
   invalid_key: {
     icon: '🚫',
-    title: 'Clé API invalide',
-    detail: 'La clé GROQ_API_KEY est incorrecte ou expirée. Vérifiez-la sur console.groq.com et mettez-la à jour dans Vercel.',
+    title: 'Clé API Groq invalide',
+    detail: 'La clé GROQ_API_KEY configurée dans Vercel est incorrecte, expirée ou mal formée. Connectez-vous sur console.groq.com → API Keys, régénérez une clé, et mettez-la à jour dans les variables d\'environnement Vercel (Settings → Environment Variables).',
   },
   rate_limit: {
     icon: '⏳',
@@ -27,7 +27,7 @@ const ERROR_INFO: Record<AgaError['code'], { icon: string; title: string; detail
   service_unavailable: {
     icon: '🌐',
     title: 'Service Groq indisponible',
-    detail: 'L\'API Groq est momentanément hors ligne. Réessayez dans quelques minutes.',
+    detail: 'Les serveurs Groq rencontrent un problème temporaire. Réessayez dans quelques minutes. Si le problème persiste, vérifiez le statut sur groqstatus.com.',
   },
   network: {
     icon: '📡',
@@ -52,6 +52,7 @@ export default function AgaWidget() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<AgaError | null>(null)
+  const lastMessagesRef = useRef<Msg[]>([])
   const listRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -66,6 +67,7 @@ export default function AgaWidget() {
     setInput('')
     setError(null)
     setLoading(true)
+    lastMessagesRef.current = next
     try {
       const res = await fetch('/api/aga/chat', {
         method: 'POST',
@@ -197,7 +199,27 @@ export default function AgaWidget() {
                   </p>
                   {error.retryable && (
                     <button
-                      onClick={() => { setError(null); send() }}
+                      onClick={async () => {
+                        setError(null)
+                        setLoading(true)
+                        try {
+                          const res = await fetch('/api/aga/chat', {
+                            method: 'POST',
+                            headers: { 'content-type': 'application/json' },
+                            body: JSON.stringify({ messages: lastMessagesRef.current.filter(m => m !== GREETING) }),
+                          })
+                          const data = await res.json()
+                          if (!res.ok) {
+                            setError({ code: data?.error ?? 'unknown', retryable: ['rate_limit','service_unavailable','network','unknown'].includes(data?.error) })
+                          } else {
+                            setMessages(m => [...m, { role: 'assistant', content: data.reply || '...' }])
+                          }
+                        } catch {
+                          setError({ code: 'network', retryable: true })
+                        } finally {
+                          setLoading(false)
+                        }
+                      }}
                       style={{
                         fontSize: 12, fontWeight: 600, color: '#991b1b',
                         background: 'white', border: '1px solid #fca5a5',
