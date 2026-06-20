@@ -3,8 +3,26 @@ import { createClient } from '@/lib/supabase-server'
 import { AGA_SYSTEM_PROMPT } from '@/lib/aga-knowledge'
 import { loadKnowledgeFiles } from '@/lib/aga-files'
 
-const MODEL = process.env.AGA_MODEL ?? 'gemini-1.5-flash-latest'
 const MAX_HISTORY = 20
+
+let cachedModel: string | null = null
+
+async function getModel(apiKey: string): Promise<string | null> {
+  if (process.env.AGA_MODEL) return process.env.AGA_MODEL
+  if (cachedModel) return cachedModel
+  try {
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`)
+    const j = await r.json()
+    const models: string[] = (j?.models ?? [])
+      .filter((m: any) => (m.supportedGenerationMethods ?? []).includes('generateContent'))
+      .map((m: any) => m.name as string)
+    const pick = models.find(m => m.includes('flash')) ?? models[0] ?? null
+    cachedModel = pick
+    return pick
+  } catch {
+    return null
+  }
+}
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -13,6 +31,9 @@ export async function POST(req: NextRequest) {
 
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) return NextResponse.json({ error: 'no_key' }, { status: 503 })
+
+  const model = await getModel(apiKey)
+  if (!model) return NextResponse.json({ error: 'no_model', groqMsg: 'Aucun modèle Gemini disponible sur cette clé API.' }, { status: 503 })
 
   const body = await req.json().catch(() => null)
   const messages = body?.messages
@@ -38,7 +59,7 @@ export async function POST(req: NextRequest) {
   let res: Response
   try {
     res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/${model}:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
