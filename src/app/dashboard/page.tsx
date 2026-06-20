@@ -21,8 +21,8 @@ export default async function Dashboard() {
   const role = await getEffectiveRole(realRole)
   const previewRole = await getRolePreview()
   const isManager = ['admin', 'rh', 'caf', 'de', 'administrateur'].includes(role)
+  const isSignataire = ['caf', 'de', 'admin', 'administrateur'].includes(role)
 
-  // caf/de/admin voient toutes les missions (RLS le gère, mais on trie différemment)
   const { data: missions } = await supabase
     .from('missions')
     .select('id, reference, objet, lieu, date_depart, date_retour, status, missionnaire_id, missionnaire:profiles!missions_missionnaire_id_fkey(nom, prenoms)')
@@ -77,13 +77,23 @@ export default async function Dashboard() {
       )}
 
       <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <h3 style={{ margin: 0 }}>
-            {isManager ? 'Tous les ordres de mission' : 'Mes ordres de mission'}
-          </h3>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: isSignataire ? 4 : 16 }}>
+          <div>
+            <h3 style={{ margin: 0 }}>Ordres de mission</h3>
+            {isSignataire && (
+              <p style={{ fontSize: 13, color: 'var(--abed-muted)', margin: '3px 0 0' }}>
+                Gérez vos missions et signez celles qui vous sont soumises.
+              </p>
+            )}
+          </div>
           <Link href="/missions/nouveau" className="btn" style={{ fontSize: 13 }}>+ Nouvel OM</Link>
         </div>
-        <MissionsTable missions={(missions ?? []) as any} isManager={isManager} />
+        <MissionsTable
+          missions={(missions ?? []) as any}
+          isManager={isManager}
+          isSignataire={isSignataire}
+          userId={user.id}
+        />
       </div>
       </div>
     </>
