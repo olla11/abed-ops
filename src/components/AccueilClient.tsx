@@ -67,16 +67,21 @@ const ROLE_SHORTCUTS: Record<string, { href: string; icon: string; label: string
   ],
 }
 
-function getGreeting() {
+function getGreeting(): { text: string; sub: string } {
   const h = new Date().getHours()
-  if (h < 12) return 'Bonjour'
-  if (h < 18) return 'Bon après-midi'
-  return 'Bonsoir'
+  if (h >= 0 && h < 5)  return { text: 'Bonne nuit', sub: 'Vous brûlez l\'huile de minuit... prenez soin de vous !' }
+  if (h >= 5 && h < 9)  return { text: 'Bonjour', sub: 'Bonne matinée, belle journée en perspective !' }
+  if (h >= 9 && h < 12) return { text: 'Bonjour', sub: 'La journée est bien lancée, bonne productivité !' }
+  if (h >= 12 && h < 14) return { text: 'Bon appétit', sub: 'C\'est l\'heure de la pause déjeuner !' }
+  if (h >= 14 && h < 18) return { text: 'Bon après-midi', sub: 'L\'élan de l\'après-midi, continuez comme ça !' }
+  if (h >= 18 && h < 21) return { text: 'Bonsoir', sub: 'La journée tire à sa fin, bien joué !' }
+  return { text: 'Bonsoir', sub: 'Il se fait tard... reposez-vous bientôt !' }
 }
 
 export default function AccueilClient({ prenom, role, roleLabel, fonction, omEnCours, congesEnAttente, demandesEnCours, notifsNonLues }: Props) {
   const router = useRouter()
   const shortcuts = ROLE_SHORTCUTS[role] ?? ROLE_SHORTCUTS['missionnaire']
+  const greeting = getGreeting()
 
   const stats = [
     { icon: '✈️', label: 'Missions en cours', value: omEnCours, href: '/missions', color: '#1e40af', bg: '#dbeafe' },
@@ -96,12 +101,15 @@ export default function AccueilClient({ prenom, role, roleLabel, fonction, omEnC
         <div style={{ position: 'absolute', bottom: -50, right: 80, width: 120, height: 120, borderRadius: '50%', background: 'rgba(255,255,255,0.04)' }} />
         <div style={{ position: 'relative', zIndex: 1 }}>
           <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, margin: '0 0 6px', fontWeight: 500 }}>
-            {getGreeting()},
+            {greeting.text},
           </p>
           <h1 style={{ color: 'white', fontSize: 32, fontWeight: 900, margin: '0 0 8px', letterSpacing: -0.5 }}>
             {prenom || 'Bienvenue'} 👋
           </h1>
-          <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 15, margin: 0 }}>
+          <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: 14, margin: '0 0 4px' }}>
+            {greeting.sub}
+          </p>
+          <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, margin: 0, fontStyle: 'italic' }}>
             {fonction ? fonction : roleLabel}
           </p>
         </div>
