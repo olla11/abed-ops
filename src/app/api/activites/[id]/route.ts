@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { sendEmail } from '@/lib/resend'
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
@@ -10,7 +11,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const body = await req.json().catch(() => null)
 
   // Lire l'ancienne valeur d'assignee pour détecter un changement
-  const { data: ancien } = await supabase.from('activites').select('assignee_id').eq('id', params.id).single()
+  const { data: ancien } = await supabase.from('activites').select('assignee_id').eq('id', id).single()
 
   const update: Record<string, unknown> = {}
   if (body.nom !== undefined) update.nom = body.nom
@@ -21,7 +22,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (body.date_echeance !== undefined) update.date_echeance = body.date_echeance
 
   const { data, error } = await supabase
-    .from('activites').update(update).eq('id', params.id)
+    .from('activites').update(update).eq('id', id)
     .select(`*, assignee:profiles!activites_assignee_id_fkey(id, nom, prenoms, email), created_by_profile:profiles!activites_created_by_fkey(id, nom, prenoms), commentaires_activites(id), projet:projets_internes!activites_projet_id_fkey(nom)`)
     .single()
 
@@ -60,12 +61,13 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   return NextResponse.json({ data: { ...rest, assignee: assignee ? { id: assignee.id, nom: assignee.nom, prenoms: assignee.prenoms } : null } })
 }
 
-export async function DELETE(_: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
 
-  const { error } = await supabase.from('activites').delete().eq('id', params.id)
+  const { error } = await supabase.from('activites').delete().eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })
 }
