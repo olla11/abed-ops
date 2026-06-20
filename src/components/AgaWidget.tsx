@@ -49,6 +49,7 @@ const GREETING: Msg = {
 
 export default function AgaWidget() {
   const [open, setOpen] = useState(false)
+  const [hidden, setHidden] = useState(false)
   const [messages, setMessages] = useState<Msg[]>([GREETING])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -59,6 +60,14 @@ export default function AgaWidget() {
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
   }, [messages, loading, open])
+
+  useEffect(() => {
+    const obs = new MutationObserver(() => {
+      setHidden(document.body.classList.contains('panel-open'))
+    })
+    obs.observe(document.body, { attributes: true, attributeFilter: ['class'] })
+    return () => obs.disconnect()
+  }, [])
 
   async function send() {
     const text = input.trim()
@@ -96,6 +105,8 @@ export default function AgaWidget() {
       send()
     }
   }
+
+  if (hidden) return null
 
   return (
     <>

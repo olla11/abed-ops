@@ -154,6 +154,15 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
     }
   }, [view])
 
+  useEffect(() => {
+    if (selectedActivite) {
+      document.body.classList.add('panel-open')
+    } else {
+      document.body.classList.remove('panel-open')
+    }
+    return () => document.body.classList.remove('panel-open')
+  }, [selectedActivite])
+
   async function openActivite(act: Activite) {
     setSelectedActivite(act)
     setLoadingComments(true)
