@@ -7,6 +7,7 @@ type Commentaire = { id: string; contenu: string; created_at: string; auteur: { 
 type Activite = {
   id: string; nom: string; description: string | null; statut: string; priorite: string
   assignee_id: string | null; date_echeance: string | null; created_by: string | null
+  created_at: string
   assignee: Profile | null
   created_by_profile: Profile | null
   commentaires_activites: { id: string }[]
@@ -118,7 +119,7 @@ function CalendrierPicker({ value, onChange, onClose }: { value: string | null; 
 export default function ProjetDetailClient({ projet: initial, userId, allProfiles }: { projet: Projet; userId: string; allProfiles: Profile[] }) {
   const router = useRouter()
   const [projet, setProjet] = useState<Projet>(initial)
-  const [view, setView] = useState<'table' | 'kanban'>('table')
+  const [view, setView] = useState<'table' | 'kanban' | 'calendrier' | 'gantt' | 'tableur'>('table')
   const [selectedActivite, setSelectedActivite] = useState<Activite | null>(null)
   const [commentaires, setCommentaires] = useState<Commentaire[]>([])
   const [loadingComments, setLoadingComments] = useState(false)
@@ -133,6 +134,25 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
   const [editingCell, setEditingCell] = useState<{ id: string; field: string } | null>(null)
   const [calendarFor, setCalendarFor] = useState<string | null>(null)
   const [addRowCalendar, setAddRowCalendar] = useState(false)
+
+  // Calendrier view state
+  const now = new Date()
+  const [calYear, setCalYear] = useState(now.getFullYear())
+  const [calMonth, setCalMonth] = useState(now.getMonth())
+
+  // Tableur view state
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
+  const [tableurAddRow, setTableurAddRow] = useState<string | null>(null)
+  const [tableurAddCalendar, setTableurAddCalendar] = useState(false)
+
+  // Gantt
+  const ganttRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (view === 'gantt' && ganttRef.current) {
+      ganttRef.current.scrollLeft = 21 * 28 - 100
+    }
+  }, [view])
 
   async function openActivite(act: Activite) {
     setSelectedActivite(act)
@@ -194,6 +214,7 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
       setTaskForm({ nom: '', priorite: 'normale', assignee_id: '', date_echeance: '', statut: 'a_faire' })
       setShowNewTaskForm(null)
       setShowAddRow(false)
+      setTableurAddRow(null)
     }
     setSavingTask(false)
   }
@@ -223,6 +244,63 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
     annule:   { bg: '#fee2e2', color: '#991b1b' },
   }
   const psc = PSC[projet.statut] ?? PSC.en_cours
+
+  // ── Calendrier helpers ──────────────────────────────────────────────
+  function calPrevMonth() {
+    if (calMonth === 0) { setCalMonth(11); setCalYear(y => y - 1) }
+    else setCalMonth(m => m - 1)
+  }
+  function calNextMonth() {
+    if (calMonth === 11) { setCalMonth(0); setCalYear(y => y + 1) }
+    else setCalMonth(m => m + 1)
+  }
+
+  function buildCalCells() {
+    const firstDay = new Date(calYear, calMonth, 1).getDay()
+    const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate()
+    const startOffset = (firstDay + 6) % 7
+    const prevMonthDays = new Date(calYear, calMonth, 0).getDate()
+    const cells: { date: string; day: number; isCurrentMonth: boolean }[] = []
+    for (let i = startOffset - 1; i >= 0; i--) {
+      const d = prevMonthDays - i
+      const m = calMonth === 0 ? 12 : calMonth
+      const y = calMonth === 0 ? calYear - 1 : calYear
+      cells.push({ date: `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`, day: d, isCurrentMonth: false })
+    }
+    for (let d = 1; d <= daysInMonth; d++) {
+      cells.push({ date: `${calYear}-${String(calMonth + 1).padStart(2,'0')}-${String(d).padStart(2,'0')}`, day: d, isCurrentMonth: true })
+    }
+    const remaining = 42 - cells.length
+    for (let d = 1; d <= remaining; d++) {
+      const m = calMonth === 11 ? 1 : calMonth + 2
+      const y = calMonth === 11 ? calYear + 1 : calYear
+      cells.push({ date: `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`, day: d, isCurrentMonth: false })
+    }
+    return cells
+  }
+
+  // ── Gantt helpers ───────────────────────────────────────────────────
+  const todayDate = new Date(); todayDate.setHours(0, 0, 0, 0)
+  const ganttStart = new Date(todayDate); ganttStart.setDate(ganttStart.getDate() - 21)
+  const ganttEnd = new Date(todayDate); ganttEnd.setDate(ganttEnd.getDate() + 49)
+  const ganttTotalDays = 70
+  const DAY_W = 28
+
+  function ganttDayOffset(d: Date) {
+    return Math.round((d.getTime() - ganttStart.getTime()) / 86400000)
+  }
+
+  function buildGanttDays() {
+    const days: { date: Date; weekStart: boolean }[] = []
+    for (let i = 0; i < ganttTotalDays; i++) {
+      const d = new Date(ganttStart)
+      d.setDate(d.getDate() + i)
+      days.push({ date: d, weekStart: d.getDay() === 1 })
+    }
+    return days
+  }
+
+  const todayOffset = ganttDayOffset(todayDate)
 
   return (
     <div style={{ maxWidth: 1280, margin: '0 auto', padding: '24px 20px', paddingRight: selectedActivite ? 460 : 20, transition: 'padding-right 0.2s' }}>
@@ -270,8 +348,14 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
 
       {/* Toggle vue */}
       <div style={{ display: 'flex', gap: 0, marginBottom: 16, borderBottom: '1px solid #e5e7eb' }}>
-        {[{ key: 'table', label: '≡ Liste' }, { key: 'kanban', label: '⬜ Tableau' }].map(v => (
-          <button key={v.key} onClick={() => setView(v.key as 'table' | 'kanban')}
+        {[
+          { key: 'table', label: '≡ Liste' },
+          { key: 'kanban', label: '⬜ Tableau' },
+          { key: 'calendrier', label: '📅 Calendrier' },
+          { key: 'gantt', label: '📊 Gantt' },
+          { key: 'tableur', label: '🗒 Tableur' },
+        ].map(v => (
+          <button key={v.key} onClick={() => setView(v.key as typeof view)}
             style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px 16px', fontSize: 13, fontWeight: view === v.key ? 700 : 500, color: view === v.key ? 'var(--abed-green)' : '#6b7280', borderBottom: view === v.key ? '2px solid var(--abed-green)' : '2px solid transparent', marginBottom: -1 }}>
             {v.label}
           </button>
@@ -308,20 +392,17 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
                 onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = '#fafafa' }}
                 onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = 'white' }}>
 
-                {/* Checkbox */}
                 <div onClick={() => toggleDone(act)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', borderRight: '1px solid #f3f4f6' }}>
                   <div style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${isDone ? '#16a34a' : COL_COLORS[act.statut] ?? '#6b7280'}`, background: isDone ? '#16a34a' : 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
                     {isDone && <svg width="10" height="8" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="white" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                   </div>
                 </div>
 
-                {/* Nom */}
                 <div onClick={() => openActivite(act)} style={{ padding: '11px 12px', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', borderRight: '1px solid #f3f4f6', minWidth: 0 }}>
                   <span style={{ fontSize: 13, fontWeight: 600, color: isDone ? '#9ca3af' : '#111827', textDecoration: isDone ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{act.nom}</span>
                   {(act.commentaires_activites?.length ?? 0) > 0 && <span style={{ fontSize: 11, color: '#9ca3af', flexShrink: 0 }}>💬 {act.commentaires_activites.length}</span>}
                 </div>
 
-                {/* Assigné */}
                 <div style={{ padding: '11px 10px', display: 'flex', alignItems: 'center', gap: 6, borderRight: '1px solid #f3f4f6' }}>
                   {editingCell?.id === act.id && editingCell.field === 'assignee' ? (
                     <select autoFocus className="select" style={{ fontSize: 12, width: '100%' }}
@@ -340,7 +421,6 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
                   )}
                 </div>
 
-                {/* Statut */}
                 <div style={{ padding: '11px 10px', display: 'flex', alignItems: 'center', borderRight: '1px solid #f3f4f6' }}>
                   {editingCell?.id === act.id && editingCell.field === 'statut' ? (
                     <select autoFocus className="select" style={{ fontSize: 12, width: '100%' }}
@@ -356,7 +436,6 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
                   )}
                 </div>
 
-                {/* Priorité */}
                 <div style={{ padding: '11px 10px', display: 'flex', alignItems: 'center', borderRight: '1px solid #f3f4f6' }}>
                   {editingCell?.id === act.id && editingCell.field === 'priorite' ? (
                     <select autoFocus className="select" style={{ fontSize: 12, width: '100%' }}
@@ -372,7 +451,6 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
                   )}
                 </div>
 
-                {/* Échéance — calendrier custom */}
                 <div style={{ padding: '11px 10px', display: 'flex', alignItems: 'center', borderRight: '1px solid #f3f4f6', position: 'relative' }}>
                   <span onClick={() => setCalendarFor(calendarFor === act.id ? null : act.id)}
                     style={{ fontSize: 12, color: isOverdue ? '#dc2626' : (act.date_echeance ? '#374151' : '#9ca3af'), cursor: 'pointer', fontWeight: isOverdue ? 700 : 400, whiteSpace: 'nowrap' }}>
@@ -389,7 +467,6 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
                   )}
                 </div>
 
-                {/* Supprimer */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <button onClick={() => deleteActivite(act.id)}
                     style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d1d5db', fontSize: 14, padding: 4 }}
@@ -400,7 +477,6 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
             )
           })}
 
-          {/* Ligne ajout */}
           {showAddRow && (
             <div style={{ display: 'grid', gridTemplateColumns: '36px 1fr 170px 140px 110px 130px 36px', borderTop: '2px solid var(--abed-green)', background: '#fafffe' }}>
               <div style={{ borderRight: '1px solid #f3f4f6' }} />
@@ -518,6 +594,414 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* === VUE CALENDRIER === */}
+      {view === 'calendrier' && (() => {
+        const todayStr = new Date().toISOString().slice(0, 10)
+        const cells = buildCalCells()
+        return (
+          <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid #e5e7eb' }}>
+              <button onClick={calPrevMonth} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: '#374151', padding: '2px 10px', borderRadius: 6 }}>‹</button>
+              <span style={{ fontSize: 16, fontWeight: 800, color: '#111827' }}>{MOIS_FR[calMonth]} {calYear}</span>
+              <button onClick={calNextMonth} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: '#374151', padding: '2px 10px', borderRadius: 6 }}>›</button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', borderBottom: '1px solid #e5e7eb' }}>
+              {['Lu','Ma','Me','Je','Ve','Sa','Di'].map(j => (
+                <div key={j} style={{ textAlign: 'center', padding: '8px 0', fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.05em' }}>{j}</div>
+              ))}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
+              {cells.map((cell, i) => {
+                const isToday = cell.date === todayStr
+                const dayTasks = projet.activites.filter(a => a.date_echeance === cell.date)
+                const shown = dayTasks.slice(0, 3)
+                const extra = dayTasks.length - shown.length
+                return (
+                  <div key={i} style={{
+                    minHeight: 110,
+                    borderRight: (i + 1) % 7 !== 0 ? '1px solid #f3f4f6' : 'none',
+                    borderBottom: i < cells.length - 7 ? '1px solid #f3f4f6' : 'none',
+                    background: isToday ? '#f0fdf4' : 'white',
+                    padding: 6,
+                    position: 'relative',
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                      <span style={{
+                        fontSize: 13, fontWeight: isToday ? 800 : 500,
+                        color: isToday ? 'var(--abed-green)' : cell.isCurrentMonth ? '#374151' : '#d1d5db',
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        width: isToday ? 24 : 'auto', height: isToday ? 24 : 'auto',
+                        borderRadius: isToday ? '50%' : 0,
+                        background: isToday ? '#dcfce7' : 'none',
+                      }}>{cell.day}</span>
+                      {cell.isCurrentMonth && (
+                        <button
+                          onClick={() => {
+                            setTaskForm(f => ({ ...f, date_echeance: cell.date, statut: 'a_faire', nom: '', assignee_id: '', priorite: 'normale' }))
+                            setShowAddRow(true)
+                            setView('table')
+                          }}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 14, padding: '0 2px', lineHeight: 1, opacity: 0 }}
+                          onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+                          onMouseLeave={e => (e.currentTarget.style.opacity = '0')}
+                          title="Ajouter une tâche ce jour">+</button>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      {shown.map(act => {
+                        const actSc = ACT_STATUT_COLORS[act.statut] ?? ACT_STATUT_COLORS.a_faire
+                        return (
+                          <div key={act.id} onClick={() => openActivite(act)}
+                            style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', padding: '2px 4px', borderRadius: 4, background: actSc.bg }}
+                            onMouseEnter={e => (e.currentTarget.style.opacity = '0.8')}
+                            onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>
+                            <div style={{ width: 6, height: 6, borderRadius: '50%', background: COL_COLORS[act.statut] ?? '#6b7280', flexShrink: 0 }} />
+                            <span style={{ fontSize: 11, color: actSc.color, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{act.nom}</span>
+                          </div>
+                        )
+                      })}
+                      {extra > 0 && (
+                        <span style={{ fontSize: 10, color: '#9ca3af', paddingLeft: 4 }}>+{extra} autre{extra > 1 ? 's' : ''}</span>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* === VUE GANTT === */}
+      {view === 'gantt' && (() => {
+        const ganttDays = buildGanttDays()
+        return (
+          <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
+            <div style={{ display: 'flex', overflow: 'hidden' }}>
+              {/* Left: task names */}
+              <div style={{ width: 250, flexShrink: 0, borderRight: '1px solid #e5e7eb', zIndex: 2, background: 'white' }}>
+                <div style={{ height: 56, display: 'flex', alignItems: 'flex-end', padding: '0 14px 8px', borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '.04em' }}>Tâche</span>
+                </div>
+                {projet.activites.map(act => (
+                  <div key={act.id}
+                    onClick={() => openActivite(act)}
+                    style={{ height: 40, display: 'flex', alignItems: 'center', gap: 8, padding: '0 14px', borderBottom: '1px solid #f3f4f6', cursor: 'pointer', background: selectedActivite?.id === act.id ? '#f0fdf4' : 'white' }}
+                    onMouseEnter={e => { if (selectedActivite?.id !== act.id) e.currentTarget.style.background = '#fafafa' }}
+                    onMouseLeave={e => { if (selectedActivite?.id !== act.id) e.currentTarget.style.background = 'white' }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{act.nom}</span>
+                    {act.assignee && (
+                      <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--abed-green)', color: 'white', fontSize: 9, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        {`${act.assignee.prenoms?.[0] ?? ''}${act.assignee.nom?.[0] ?? ''}`.toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {projet.activites.length === 0 && (
+                  <div style={{ padding: '20px 14px', fontSize: 13, color: '#9ca3af' }}>Aucune tâche</div>
+                )}
+              </div>
+
+              {/* Right: scrollable timeline */}
+              <div ref={ganttRef} style={{ flex: 1, overflowX: 'auto', overflowY: 'hidden' }}>
+                <div style={{ width: ganttTotalDays * DAY_W, minWidth: '100%', position: 'relative' }}>
+                  {/* Header: week labels */}
+                  <div style={{ height: 28, display: 'flex', alignItems: 'center', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', position: 'relative' }}>
+                    {ganttDays.map((d, i) => {
+                      if (!d.weekStart && i !== 0) return null
+                      const weekLabel = d.date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+                      return (
+                        <div key={i} style={{ position: 'absolute', left: i * DAY_W, fontSize: 10, fontWeight: 700, color: '#6b7280', paddingLeft: 4, whiteSpace: 'nowrap' }}>
+                          {weekLabel}
+                        </div>
+                      )
+                    })}
+                  </div>
+                  {/* Header: day numbers */}
+                  <div style={{ height: 28, display: 'flex', borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
+                    {ganttDays.map((d, i) => {
+                      const isWeekend = d.date.getDay() === 0 || d.date.getDay() === 6
+                      const isTodayCol = i === todayOffset
+                      return (
+                        <div key={i} style={{
+                          width: DAY_W, flexShrink: 0, textAlign: 'center', fontSize: 10,
+                          fontWeight: isTodayCol ? 800 : 400,
+                          color: isTodayCol ? 'var(--abed-green)' : isWeekend ? '#d1d5db' : '#9ca3af',
+                          borderLeft: d.weekStart ? '1px solid #e5e7eb' : 'none',
+                          lineHeight: '28px',
+                        }}>
+                          {d.date.getDate()}
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  {/* Task rows */}
+                  {projet.activites.map(act => {
+                    const actSc = ACT_STATUT_COLORS[act.statut] ?? ACT_STATUT_COLORS.a_faire
+                    const rawStart = new Date(act.created_at); rawStart.setHours(0,0,0,0)
+                    const taskStart = rawStart < ganttStart ? ganttStart : rawStart
+                    const startOff = Math.max(0, ganttDayOffset(taskStart))
+
+                    let endOff: number | null = null
+                    let hasDue = false
+                    if (act.date_echeance) {
+                      const dueDate = new Date(act.date_echeance + 'T00:00:00')
+                      endOff = Math.min(ganttTotalDays, ganttDayOffset(dueDate) + 1)
+                      hasDue = true
+                    }
+
+                    return (
+                      <div key={act.id} style={{ height: 40, position: 'relative', borderBottom: '1px solid #f3f4f6', background: selectedActivite?.id === act.id ? '#f0fdf4' : 'white' }}>
+                        {ganttDays.map((d, i) => {
+                          const weekNum = Math.floor(i / 7)
+                          const isWeekend = d.date.getDay() === 0 || d.date.getDay() === 6
+                          return (
+                            <div key={i} style={{
+                              position: 'absolute', top: 0, bottom: 0, left: i * DAY_W, width: DAY_W,
+                              background: isWeekend ? '#fafafa' : weekNum % 2 === 0 ? 'transparent' : '#f9fafb',
+                              borderLeft: d.weekStart ? '1px solid #f3f4f6' : 'none',
+                            }} />
+                          )
+                        })}
+
+                        {todayOffset >= 0 && todayOffset < ganttTotalDays && (
+                          <div style={{ position: 'absolute', top: 0, bottom: 0, left: todayOffset * DAY_W + DAY_W / 2, width: 2, background: '#16a34a', opacity: 0.6, zIndex: 1 }} />
+                        )}
+
+                        {hasDue && endOff !== null && endOff > startOff ? (
+                          <div style={{
+                            position: 'absolute',
+                            top: '50%', transform: 'translateY(-50%)',
+                            left: startOff * DAY_W + 2,
+                            width: Math.max(4, (endOff - startOff) * DAY_W - 4),
+                            height: 8, borderRadius: 4,
+                            background: actSc.bg,
+                            border: `1px solid ${actSc.color}`,
+                            zIndex: 2,
+                          }} />
+                        ) : !hasDue ? (
+                          <div style={{
+                            position: 'absolute',
+                            top: '50%', transform: 'translateY(-50%)',
+                            left: todayOffset * DAY_W + DAY_W / 2 - 5,
+                            width: 10, height: 10, borderRadius: '50%',
+                            background: actSc.color,
+                            zIndex: 2,
+                          }} />
+                        ) : null}
+                      </div>
+                    )
+                  })}
+
+                  {projet.activites.length === 0 && (
+                    <div style={{ height: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontSize: 13 }}>
+                      Aucune tâche
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* === VUE TABLEUR === */}
+      {view === 'tableur' && (
+        <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'visible' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '36px 1fr 170px 140px 110px 130px 36px', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', borderRadius: '12px 12px 0 0' }}>
+            {['', 'Nom', 'Assigné', 'Statut', 'Priorité', 'Échéance', ''].map((h, i) => (
+              <div key={i} style={{ padding: '10px 10px', fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '.04em', borderRight: i < 6 ? '1px solid #f3f4f6' : 'none' }}>{h}</div>
+            ))}
+          </div>
+
+          {COLUMNS.map(col => {
+            const tasks = projet.activites.filter(a => a.statut === col)
+            const isCollapsed = collapsed[col] ?? false
+            const sc = ACT_STATUT_COLORS[col]
+
+            return (
+              <div key={col}>
+                {/* Section header */}
+                <div
+                  onClick={() => setCollapsed(c => ({ ...c, [col]: !c[col] }))}
+                  style={{ display: 'grid', gridTemplateColumns: '36px 1fr', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', cursor: 'pointer' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = '#f3f4f6')}
+                  onMouseLeave={e => (e.currentTarget.style.background = '#f9fafb')}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', borderRight: '1px solid #f3f4f6' }}>
+                    <span style={{ fontSize: 10, color: '#9ca3af', display: 'inline-block', transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)', transition: 'transform 0.15s' }}>▼</span>
+                  </div>
+                  <div style={{ padding: '8px 10px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: COL_COLORS[col], flexShrink: 0 }} />
+                    <span style={{ fontSize: 12, fontWeight: 700, color: sc.color }}>{ACT_STATUT_LABELS[col]}</span>
+                    <span style={{ fontSize: 11, color: '#9ca3af', background: '#e5e7eb', borderRadius: 999, padding: '1px 7px' }}>{tasks.length}</span>
+                  </div>
+                </div>
+
+                {!isCollapsed && (
+                  <>
+                    {tasks.map(act => {
+                      const pc = PRIO_COLORS[act.priorite] ?? PRIO_COLORS.normale
+                      const actSc = ACT_STATUT_COLORS[act.statut] ?? ACT_STATUT_COLORS.a_faire
+                      const isSelected = selectedActivite?.id === act.id
+                      const isDone = act.statut === 'termine'
+                      const todayD = new Date(); todayD.setHours(0, 0, 0, 0)
+                      const isOverdue = act.date_echeance && new Date(act.date_echeance + 'T00:00:00') < todayD && !isDone
+
+                      return (
+                        <div key={act.id} style={{ display: 'grid', gridTemplateColumns: '36px 1fr 170px 140px 110px 130px 36px', borderBottom: '1px solid #f3f4f6', background: isSelected ? '#f0fdf4' : 'white', position: 'relative' }}
+                          onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = '#fafafa' }}
+                          onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = 'white' }}>
+
+                          <div onClick={() => toggleDone(act)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', borderRight: '1px solid #f3f4f6' }}>
+                            <div style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${isDone ? '#16a34a' : COL_COLORS[act.statut] ?? '#6b7280'}`, background: isDone ? '#16a34a' : 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
+                              {isDone && <svg width="10" height="8" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="white" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                            </div>
+                          </div>
+
+                          <div onClick={() => openActivite(act)} style={{ padding: '11px 12px', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', borderRight: '1px solid #f3f4f6', minWidth: 0 }}>
+                            <span style={{ fontSize: 13, fontWeight: 600, color: isDone ? '#9ca3af' : '#111827', textDecoration: isDone ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{act.nom}</span>
+                            {(act.commentaires_activites?.length ?? 0) > 0 && <span style={{ fontSize: 11, color: '#9ca3af', flexShrink: 0 }}>💬 {act.commentaires_activites.length}</span>}
+                          </div>
+
+                          <div style={{ padding: '11px 10px', display: 'flex', alignItems: 'center', gap: 6, borderRight: '1px solid #f3f4f6' }}>
+                            {editingCell?.id === act.id && editingCell.field === 'assignee' ? (
+                              <select autoFocus className="select" style={{ fontSize: 12, width: '100%' }}
+                                value={act.assignee_id ?? ''}
+                                onChange={e => patchActivite(act.id, { assignee_id: e.target.value || null })}>
+                                <option value="">Non assigné</option>
+                                {allProfiles.map(p => <option key={p.id} value={p.id}>{p.prenoms} {p.nom}</option>)}
+                              </select>
+                            ) : (
+                              <div onClick={() => setEditingCell({ id: act.id, field: 'assignee' })} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', width: '100%' }}>
+                                <Initials profile={act.assignee} />
+                                <span style={{ fontSize: 12, color: act.assignee ? '#374151' : '#d1d5db', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {act.assignee ? `${act.assignee.prenoms} ${act.assignee.nom}` : '—'}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+
+                          <div style={{ padding: '11px 10px', display: 'flex', alignItems: 'center', borderRight: '1px solid #f3f4f6' }}>
+                            {editingCell?.id === act.id && editingCell.field === 'statut' ? (
+                              <select autoFocus className="select" style={{ fontSize: 12, width: '100%' }}
+                                value={act.statut}
+                                onChange={e => patchActivite(act.id, { statut: e.target.value })}>
+                                {Object.entries(ACT_STATUT_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                              </select>
+                            ) : (
+                              <span onClick={() => setEditingCell({ id: act.id, field: 'statut' })}
+                                style={{ background: actSc.bg, color: actSc.color, borderRadius: 999, padding: '3px 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                {ACT_STATUT_LABELS[act.statut]}
+                              </span>
+                            )}
+                          </div>
+
+                          <div style={{ padding: '11px 10px', display: 'flex', alignItems: 'center', borderRight: '1px solid #f3f4f6' }}>
+                            {editingCell?.id === act.id && editingCell.field === 'priorite' ? (
+                              <select autoFocus className="select" style={{ fontSize: 12, width: '100%' }}
+                                value={act.priorite}
+                                onChange={e => patchActivite(act.id, { priorite: e.target.value })}>
+                                {Object.entries(PRIO_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                              </select>
+                            ) : (
+                              <span onClick={() => setEditingCell({ id: act.id, field: 'priorite' })}
+                                style={{ background: pc.bg, color: pc.color, borderRadius: 999, padding: '3px 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                                {PRIO_LABELS[act.priorite]}
+                              </span>
+                            )}
+                          </div>
+
+                          <div style={{ padding: '11px 10px', display: 'flex', alignItems: 'center', borderRight: '1px solid #f3f4f6', position: 'relative' }}>
+                            <span onClick={() => setCalendarFor(calendarFor === act.id ? null : act.id)}
+                              style={{ fontSize: 12, color: isOverdue ? '#dc2626' : (act.date_echeance ? '#374151' : '#9ca3af'), cursor: 'pointer', fontWeight: isOverdue ? 700 : 400, whiteSpace: 'nowrap' }}>
+                              {act.date_echeance
+                                ? new Date(act.date_echeance + 'T12:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
+                                : '+ date'}
+                            </span>
+                            {calendarFor === act.id && (
+                              <CalendrierPicker
+                                value={act.date_echeance}
+                                onChange={v => patchActivite(act.id, { date_echeance: v })}
+                                onClose={() => setCalendarFor(null)}
+                              />
+                            )}
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <button onClick={() => deleteActivite(act.id)}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d1d5db', fontSize: 14, padding: 4 }}
+                              onMouseEnter={e => (e.currentTarget.style.color = '#dc2626')}
+                              onMouseLeave={e => (e.currentTarget.style.color = '#d1d5db')}>✕</button>
+                          </div>
+                        </div>
+                      )
+                    })}
+
+                    {/* Add row for this section */}
+                    {tableurAddRow === col ? (
+                      <div style={{ display: 'grid', gridTemplateColumns: '36px 1fr 170px 140px 110px 130px 36px', borderBottom: '1px solid #f3f4f6', background: '#fafffe', borderTop: `2px solid ${COL_COLORS[col]}` }}>
+                        <div style={{ borderRight: '1px solid #f3f4f6' }} />
+                        <div style={{ padding: '8px 10px', borderRight: '1px solid #f3f4f6' }}>
+                          <input autoFocus className="input" placeholder="Nom de la tâche…" style={{ fontSize: 13 }}
+                            value={taskForm.nom} onChange={e => setTaskForm(f => ({ ...f, nom: e.target.value }))}
+                            onKeyDown={e => { if (e.key === 'Enter') addTask(col); if (e.key === 'Escape') setTableurAddRow(null) }} />
+                        </div>
+                        <div style={{ padding: '8px 10px', borderRight: '1px solid #f3f4f6' }}>
+                          <select className="select" style={{ fontSize: 12 }} value={taskForm.assignee_id} onChange={e => setTaskForm(f => ({ ...f, assignee_id: e.target.value }))}>
+                            <option value="">Non assigné</option>
+                            {allProfiles.map(p => <option key={p.id} value={p.id}>{p.prenoms} {p.nom}</option>)}
+                          </select>
+                        </div>
+                        <div style={{ padding: '8px 10px', borderRight: '1px solid #f3f4f6', display: 'flex', alignItems: 'center' }}>
+                          <span style={{ background: sc.bg, color: sc.color, borderRadius: 999, padding: '3px 10px', fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap' }}>{ACT_STATUT_LABELS[col]}</span>
+                        </div>
+                        <div style={{ padding: '8px 10px', borderRight: '1px solid #f3f4f6' }}>
+                          <select className="select" style={{ fontSize: 12 }} value={taskForm.priorite} onChange={e => setTaskForm(f => ({ ...f, priorite: e.target.value }))}>
+                            {Object.entries(PRIO_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                          </select>
+                        </div>
+                        <div style={{ padding: '8px 10px', borderRight: '1px solid #f3f4f6', position: 'relative' }}>
+                          <span onClick={() => setTableurAddCalendar(v => !v)}
+                            style={{ fontSize: 12, color: taskForm.date_echeance ? '#374151' : '#9ca3af', cursor: 'pointer' }}>
+                            {taskForm.date_echeance
+                              ? new Date(taskForm.date_echeance + 'T12:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
+                              : '+ date'}
+                          </span>
+                          {tableurAddCalendar && (
+                            <CalendrierPicker
+                              value={taskForm.date_echeance || null}
+                              onChange={v => { setTaskForm(f => ({ ...f, date_echeance: v ?? '' })); setTableurAddCalendar(false) }}
+                              onClose={() => setTableurAddCalendar(false)}
+                            />
+                          )}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <button className="btn" style={{ fontSize: 11, padding: '4px 8px' }} onClick={() => addTask(col)} disabled={savingTask}>✓</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        onClick={() => { setTableurAddRow(col); setTaskForm(f => ({ ...f, nom: '', statut: col, date_echeance: '', assignee_id: '', priorite: 'normale' })) }}
+                        style={{ padding: '8px 14px 8px 46px', fontSize: 12, color: '#9ca3af', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, borderBottom: '1px solid #f3f4f6' }}
+                        onMouseEnter={e => { e.currentTarget.style.color = COL_COLORS[col]; e.currentTarget.style.background = '#f9fafb' }}
+                        onMouseLeave={e => { e.currentTarget.style.color = '#9ca3af'; e.currentTarget.style.background = 'white' }}>
+                        <span style={{ fontSize: 14 }}>+</span> Ajouter une tâche
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )
+          })}
+
+          {/* Footer */}
+          <div style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8, borderTop: '1px solid #e5e7eb', borderRadius: '0 0 12px 12px', background: '#f9fafb' }}>
+            <span style={{ fontSize: 12, color: '#9ca3af' }}>Total : <strong style={{ color: '#374151' }}>{projet.activites.length}</strong> tâche{projet.activites.length !== 1 ? 's' : ''}</span>
+          </div>
         </div>
       )}
 
