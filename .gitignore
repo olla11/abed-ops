@@ -3,3 +3,4 @@
 .env.local
 .vercel
 npm-debug.log*
+.claude/
