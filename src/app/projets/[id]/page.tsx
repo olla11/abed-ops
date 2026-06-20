@@ -18,7 +18,7 @@ export default async function ProjetDetailPage({ params }: { params: { id: strin
   const role = await getEffectiveRole(realRole)
   const previewRole = await getRolePreview()
 
-  const { data: projet } = await supabase
+  const { data: projet, error: projetError } = await supabase
     .from('projets_internes')
     .select(`*, created_by_profile:profiles!projets_internes_created_by_fkey(id, nom, prenoms),
       activites(*, assignee:profiles!activites_assignee_id_fkey(id, nom, prenoms),
@@ -27,7 +27,17 @@ export default async function ProjetDetailPage({ params }: { params: { id: strin
     .eq('id', params.id)
     .single()
 
-  if (!projet) redirect('/projets')
+  if (!projet) {
+    return (
+      <div style={{ maxWidth: 800, margin: '60px auto', padding: '0 24px' }}>
+        <h2 style={{ color: '#dc2626' }}>Erreur chargement projet</h2>
+        <pre style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 8, padding: 16, fontSize: 13, whiteSpace: 'pre-wrap' }}>
+          {JSON.stringify({ id: params.id, error: projetError?.message, code: projetError?.code, details: projetError?.details, hint: projetError?.hint }, null, 2)}
+        </pre>
+        <a href="/projets" style={{ color: 'var(--abed-green)', fontWeight: 600 }}>← Retour aux projets</a>
+      </div>
+    )
+  }
 
   const { data: allProfiles } = await supabase
     .from('profiles').select('id, nom, prenoms').order('prenoms')
