@@ -6,26 +6,28 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
 
-  const groqKey = process.env.GROQ_API_KEY
-  const model = process.env.AGA_MODEL ?? 'llama-3.3-70b-versatile'
+  const apiKey = process.env.GEMINI_API_KEY
+  const model = process.env.AGA_MODEL ?? 'gemini-2.0-flash'
 
-  if (!groqKey) {
-    return NextResponse.json({ ok: false, problem: 'GROQ_API_KEY absent dans les variables Vercel', model })
+  if (!apiKey) {
+    return NextResponse.json({ ok: false, problem: 'GEMINI_API_KEY absent dans les variables Vercel', model })
   }
 
   let res: Response
   try {
-    res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'authorization': `Bearer ${groqKey}` },
-      body: JSON.stringify({
-        model,
-        max_tokens: 20,
-        messages: [{ role: 'user', content: 'Dis bonjour.' }],
-      }),
-    })
+    res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: 'Dis bonjour en une phrase.' }] }],
+          generationConfig: { maxOutputTokens: 30 },
+        }),
+      }
+    )
   } catch (e: any) {
-    return NextResponse.json({ ok: false, problem: 'Erreur réseau vers Groq', detail: e?.message, model })
+    return NextResponse.json({ ok: false, problem: 'Erreur réseau vers Gemini', detail: e?.message, model })
   }
 
   const body = await res.text()
@@ -34,8 +36,8 @@ export async function GET() {
     return NextResponse.json({
       ok: true,
       model,
-      key_prefix: groqKey.slice(0, 8) + '...',
-      reply: data?.choices?.[0]?.message?.content ?? '(vide)',
+      key_prefix: apiKey.slice(0, 8) + '...',
+      reply: data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '(vide)',
     })
   }
 
@@ -43,12 +45,12 @@ export async function GET() {
     ok: false,
     http_status: res.status,
     model,
-    key_prefix: groqKey.slice(0, 8) + '...',
-    groq_error: body.slice(0, 800),
+    key_prefix: apiKey.slice(0, 8) + '...',
+    gemini_error: body.slice(0, 800),
     problem:
-      res.status === 401 ? 'Clé API invalide ou expirée' :
-      res.status === 400 ? 'Requête invalide — modèle inconnu ou clé mal formée' :
-      res.status === 429 ? 'Quota Groq dépassé' :
-      `Erreur Groq HTTP ${res.status}`,
+      res.status === 400 ? 'Requête invalide (modèle inconnu ?)' :
+      res.status === 403 ? 'Clé API invalide ou accès refusé' :
+      res.status === 429 ? 'Quota Gemini dépassé' :
+      `Erreur Gemini HTTP ${res.status}`,
   })
 }

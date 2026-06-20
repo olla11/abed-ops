@@ -13,22 +13,22 @@ const ERROR_INFO: Record<AgaError['code'], { icon: string; title: string; detail
   no_key: {
     icon: '🔑',
     title: 'Clé API non configurée',
-    detail: 'La clé GROQ_API_KEY est absente dans les variables d\'environnement Vercel. Ajoutez-la dans les paramètres du projet et redéployez.',
+    detail: 'La clé GEMINI_API_KEY est absente dans les variables d\'environnement Vercel. Ajoutez-la dans les paramètres du projet (Settings → Environment Variables) et redéployez.',
   },
   invalid_key: {
     icon: '🚫',
-    title: 'Clé API Groq invalide',
-    detail: 'La clé GROQ_API_KEY configurée dans Vercel est incorrecte, expirée ou mal formée. Connectez-vous sur console.groq.com → API Keys, régénérez une clé, et mettez-la à jour dans les variables d\'environnement Vercel (Settings → Environment Variables).',
+    title: 'Clé API invalide',
+    detail: 'La clé GEMINI_API_KEY configurée dans Vercel est incorrecte ou expirée. Obtenez une clé gratuite sur aistudio.google.com → Get API Key et mettez-la à jour dans Vercel.',
   },
   rate_limit: {
     icon: '⏳',
-    title: 'Limite Groq atteinte',
-    detail: 'Le quota de tokens par minute du plan gratuit Groq est temporairement dépassé. Attendez 60 secondes puis réessayez.',
+    title: 'Quota Gemini atteint',
+    detail: 'La limite gratuite Gemini est temporairement atteinte. Attendez quelques secondes et réessayez.',
   },
   service_unavailable: {
     icon: '🌐',
-    title: 'Service Groq indisponible',
-    detail: 'Les serveurs Groq rencontrent un problème temporaire. Réessayez dans quelques minutes. Si le problème persiste, vérifiez le statut sur groqstatus.com.',
+    title: 'Service Gemini indisponible',
+    detail: 'Les serveurs Google Gemini rencontrent un problème temporaire. Réessayez dans quelques minutes.',
   },
   network: {
     icon: '📡',
