@@ -56,3 +56,7 @@ create policy "commentaires_delete" on commentaires_activites for delete to auth
 grant all on projets_internes to service_role;
 grant all on activites to service_role;
 grant all on commentaires_activites to service_role;
+
+grant all on projets_internes to authenticated;
+grant all on activites to authenticated;
+grant all on commentaires_activites to authenticated;
