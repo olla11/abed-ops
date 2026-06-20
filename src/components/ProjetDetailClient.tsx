@@ -1,5 +1,6 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 
 type Profile = { id: string; nom: string; prenoms: string }
@@ -48,7 +49,7 @@ function Initials({ profile }: { profile: Profile | null }) {
   )
 }
 
-function CalendrierPicker({ value, onChange, onClose }: { value: string | null; onChange: (v: string | null) => void; onClose: () => void }) {
+function CalendrierPicker({ value, onChange, onClose, triggerRect }: { value: string | null; onChange: (v: string | null) => void; onClose: () => void; triggerRect: DOMRect }) {
   const today = new Date()
   const initDate = value ? new Date(value + 'T12:00:00') : today
   const [year, setYear] = useState(initDate.getFullYear())
@@ -74,8 +75,12 @@ function CalendrierPicker({ value, onChange, onClose }: { value: string | null; 
   const cells: (number | null)[] = [...Array(startOffset).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)]
   while (cells.length % 7 !== 0) cells.push(null)
 
-  return (
-    <div ref={ref} style={{ position: 'absolute', zIndex: 9999, background: 'white', border: '1px solid #e5e7eb', borderRadius: 12, boxShadow: '0 8px 24px rgba(0,0,0,.14)', padding: 14, width: 256, top: '110%', left: 0 }}
+  const W = 260
+  const left = Math.min(triggerRect.left, window.innerWidth - W - 8)
+  const top = triggerRect.bottom + 6
+
+  return createPortal(
+    <div ref={ref} style={{ position: 'fixed', zIndex: 9999, background: 'white', border: '1px solid #e5e7eb', borderRadius: 12, boxShadow: '0 8px 24px rgba(0,0,0,.14)', padding: 14, width: W, top, left }}
       onClick={e => e.stopPropagation()}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
         <button onClick={e => { e.stopPropagation(); prevMonth() }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: '#374151', lineHeight: 1, padding: '2px 8px', borderRadius: 6 }}>‹</button>
@@ -112,7 +117,8 @@ function CalendrierPicker({ value, onChange, onClose }: { value: string | null; 
           Effacer la date
         </button>
       )}
-    </div>
+    </div>,
+    document.body
   )
 }
 
@@ -132,8 +138,8 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
   const [editingStatut, setEditingStatut] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [editingCell, setEditingCell] = useState<{ id: string; field: string } | null>(null)
-  const [calendarFor, setCalendarFor] = useState<string | null>(null)
-  const [addRowCalendar, setAddRowCalendar] = useState(false)
+  const [calendarFor, setCalendarFor] = useState<{ id: string; rect: DOMRect } | null>(null)
+  const [addRowCalendar, setAddRowCalendar] = useState<DOMRect | null>(null)
 
   // Calendrier view state
   const now = new Date()
@@ -143,7 +149,7 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
   // Tableur view state
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
   const [tableurAddRow, setTableurAddRow] = useState<string | null>(null)
-  const [tableurAddCalendar, setTableurAddCalendar] = useState(false)
+  const [tableurAddCalendar, setTableurAddCalendar] = useState<DOMRect | null>(null)
 
   // Gantt
   const ganttRef = useRef<HTMLDivElement>(null)
@@ -480,18 +486,19 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
                   )}
                 </div>
 
-                <div style={{ padding: '11px 10px', display: 'flex', alignItems: 'center', borderRight: '1px solid #f3f4f6', position: 'relative' }}>
-                  <span onClick={() => setCalendarFor(calendarFor === act.id ? null : act.id)}
+                <div style={{ padding: '11px 10px', display: 'flex', alignItems: 'center', borderRight: '1px solid #f3f4f6' }}>
+                  <span onClick={e => { const r = (e.currentTarget as HTMLElement).getBoundingClientRect(); setCalendarFor(calendarFor?.id === act.id ? null : { id: act.id, rect: r }) }}
                     style={{ fontSize: 12, color: isOverdue ? '#dc2626' : (act.date_echeance ? '#374151' : '#9ca3af'), cursor: 'pointer', fontWeight: isOverdue ? 700 : 400, whiteSpace: 'nowrap' }}>
                     {act.date_echeance
                       ? new Date(act.date_echeance + 'T12:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
                       : '+ date'}
                   </span>
-                  {calendarFor === act.id && (
+                  {calendarFor?.id === act.id && (
                     <CalendrierPicker
                       value={act.date_echeance}
                       onChange={v => patchActivite(act.id, { date_echeance: v })}
                       onClose={() => setCalendarFor(null)}
+                      triggerRect={calendarFor.rect}
                     />
                   )}
                 </div>
@@ -530,8 +537,8 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
                   {Object.entries(PRIO_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                 </select>
               </div>
-              <div style={{ padding: '8px 10px', borderRight: '1px solid #f3f4f6', position: 'relative' }}>
-                <span onClick={() => setAddRowCalendar(v => !v)}
+              <div style={{ padding: '8px 10px', borderRight: '1px solid #f3f4f6' }}>
+                <span onClick={e => { const r = (e.currentTarget as HTMLElement).getBoundingClientRect(); setAddRowCalendar(v => v ? null : r) }}
                   style={{ fontSize: 12, color: taskForm.date_echeance ? '#374151' : '#9ca3af', cursor: 'pointer' }}>
                   {taskForm.date_echeance
                     ? new Date(taskForm.date_echeance + 'T12:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
@@ -540,8 +547,9 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
                 {addRowCalendar && (
                   <CalendrierPicker
                     value={taskForm.date_echeance || null}
-                    onChange={v => { setTaskForm(f => ({ ...f, date_echeance: v ?? '' })); setAddRowCalendar(false) }}
-                    onClose={() => setAddRowCalendar(false)}
+                    onChange={v => { setTaskForm(f => ({ ...f, date_echeance: v ?? '' })); setAddRowCalendar(null) }}
+                    onClose={() => setAddRowCalendar(null)}
+                    triggerRect={addRowCalendar}
                   />
                 )}
               </div>
@@ -944,18 +952,19 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
                             )}
                           </div>
 
-                          <div style={{ padding: '11px 10px', display: 'flex', alignItems: 'center', borderRight: '1px solid #f3f4f6', position: 'relative' }}>
-                            <span onClick={() => setCalendarFor(calendarFor === act.id ? null : act.id)}
+                          <div style={{ padding: '11px 10px', display: 'flex', alignItems: 'center', borderRight: '1px solid #f3f4f6' }}>
+                            <span onClick={e => { const r = (e.currentTarget as HTMLElement).getBoundingClientRect(); setCalendarFor(calendarFor?.id === act.id ? null : { id: act.id, rect: r }) }}
                               style={{ fontSize: 12, color: isOverdue ? '#dc2626' : (act.date_echeance ? '#374151' : '#9ca3af'), cursor: 'pointer', fontWeight: isOverdue ? 700 : 400, whiteSpace: 'nowrap' }}>
                               {act.date_echeance
                                 ? new Date(act.date_echeance + 'T12:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
                                 : '+ date'}
                             </span>
-                            {calendarFor === act.id && (
+                            {calendarFor?.id === act.id && (
                               <CalendrierPicker
                                 value={act.date_echeance}
                                 onChange={v => patchActivite(act.id, { date_echeance: v })}
                                 onClose={() => setCalendarFor(null)}
+                                triggerRect={calendarFor.rect}
                               />
                             )}
                           </div>
@@ -993,8 +1002,8 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
                             {Object.entries(PRIO_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                           </select>
                         </div>
-                        <div style={{ padding: '8px 10px', borderRight: '1px solid #f3f4f6', position: 'relative' }}>
-                          <span onClick={() => setTableurAddCalendar(v => !v)}
+                        <div style={{ padding: '8px 10px', borderRight: '1px solid #f3f4f6' }}>
+                          <span onClick={e => { const r = (e.currentTarget as HTMLElement).getBoundingClientRect(); setTableurAddCalendar(v => v ? null : r) }}
                             style={{ fontSize: 12, color: taskForm.date_echeance ? '#374151' : '#9ca3af', cursor: 'pointer' }}>
                             {taskForm.date_echeance
                               ? new Date(taskForm.date_echeance + 'T12:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
@@ -1003,8 +1012,9 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
                           {tableurAddCalendar && (
                             <CalendrierPicker
                               value={taskForm.date_echeance || null}
-                              onChange={v => { setTaskForm(f => ({ ...f, date_echeance: v ?? '' })); setTableurAddCalendar(false) }}
-                              onClose={() => setTableurAddCalendar(false)}
+                              onChange={v => { setTaskForm(f => ({ ...f, date_echeance: v ?? '' })); setTableurAddCalendar(null) }}
+                              onClose={() => setTableurAddCalendar(null)}
+                              triggerRect={tableurAddCalendar}
                             />
                           )}
                         </div>
