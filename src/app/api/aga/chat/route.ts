@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase-server'
 import { AGA_SYSTEM_PROMPT } from '@/lib/aga-knowledge'
 import { loadKnowledgeFiles } from '@/lib/aga-files'
 
-const MODEL = process.env.AGA_MODEL ?? 'gemini-2.0-flash'
+const MODEL = process.env.AGA_MODEL ?? 'gemini-1.5-flash'
 const MAX_HISTORY = 20
 
 export async function POST(req: NextRequest) {

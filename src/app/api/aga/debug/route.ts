@@ -7,7 +7,7 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
 
   const apiKey = process.env.GEMINI_API_KEY
-  const model = process.env.AGA_MODEL ?? 'gemini-2.0-flash'
+  const model = process.env.AGA_MODEL ?? 'gemini-1.5-flash'
 
   if (!apiKey) {
     return NextResponse.json({ ok: false, problem: 'GEMINI_API_KEY absent dans les variables Vercel', model })
