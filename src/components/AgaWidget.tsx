@@ -22,8 +22,8 @@ const ERROR_INFO: Record<AgaError['code'], { icon: string; title: string; detail
   },
   rate_limit: {
     icon: '⏳',
-    title: 'Limite de requêtes atteinte',
-    detail: 'Le quota gratuit Groq est temporairement dépassé. Réessayez dans quelques secondes.',
+    title: 'Limite Groq atteinte',
+    detail: 'Le quota de tokens par minute du plan gratuit Groq est temporairement dépassé. Attendez 60 secondes puis réessayez.',
   },
   service_unavailable: {
     icon: '🌐',

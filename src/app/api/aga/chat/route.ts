@@ -4,7 +4,7 @@ import { AGA_SYSTEM_PROMPT } from '@/lib/aga-knowledge'
 import { loadKnowledgeFiles } from '@/lib/aga-files'
 
 const MODEL = process.env.AGA_MODEL ?? 'llama-3.3-70b-versatile'
-const MAX_HISTORY = 20
+const MAX_HISTORY = 6
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
 
   const trimmed = messages.slice(-MAX_HISTORY).map((m: any) => ({
     role: m.role === 'assistant' ? 'assistant' : 'user',
-    content: String(m.content ?? '').slice(0, 4000),
+    content: String(m.content ?? '').slice(0, 1500),
   }))
 
   let res: Response
