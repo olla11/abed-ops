@@ -1,14 +1,10 @@
 export const dynamic = 'force-dynamic'
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
-import SoumissionForm from '@/components/SoumissionForm'
-import ValidationManager from '@/components/ValidationManager'
-import ValidationCAF from '@/components/ValidationCAF'
-import RapportAllocationForm from '@/components/RapportAllocationForm'
-import ValidationRapportsAAF from '@/components/ValidationRapportsAAF'
 import AppHeader from '@/components/AppHeader'
 import RolePreviewBanner from '@/components/RolePreviewBanner'
 import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
+import TimesheetsClient from '@/components/TimesheetsClient'
 
 export default async function TimesheetsPage() {
   const supabase = await createClient()
@@ -24,11 +20,36 @@ export default async function TimesheetsPage() {
   const role = await getEffectiveRole(realRole)
   const previewRole = await getRolePreview()
   const typeEmploi = profile?.type_emploi ?? null
-  const estRapportMensuel = ['benevole', 'stagiaire_n1', 'stagiaire_n2', 'cdd', 'cdi'].includes(typeEmploi ?? '')
+
   const estManager = ['manager', 'caf', 'admin', 'de', 'aaf'].includes(role)
   const estCAF = ['caf', 'admin'].includes(role)
   const estAAF = ['aaf', 'admin'].includes(role)
-  const estSalarie = ['cdd', 'cdi'].includes(typeEmploi ?? '')
+  const estDE = ['de', 'administrateur', 'admin'].includes(role)
+
+  // Comptes des items en attente (pour les badges des onglets)
+  const [
+    { count: countTimesheetsAValider },
+    { count: countTimesheetsCAF },
+    { count: countRapportsAAF },
+    { count: countRapportsCAF },
+    { count: countRapportsDE },
+  ] = await Promise.all([
+    estManager
+      ? supabase.from('soumissions').select('*', { count: 'exact', head: true }).eq('status', 'soumis')
+      : Promise.resolve({ count: 0 }),
+    estCAF
+      ? supabase.from('soumissions').select('*', { count: 'exact', head: true }).eq('status', 'valide_tech').eq('paye', false)
+      : Promise.resolve({ count: 0 }),
+    estAAF
+      ? supabase.from('rapports_allocations').select('*', { count: 'exact', head: true }).eq('status', 'valide_tech')
+      : Promise.resolve({ count: 0 }),
+    estCAF
+      ? supabase.from('rapports_allocations').select('*', { count: 'exact', head: true }).eq('status', 'traite_aaf')
+      : Promise.resolve({ count: 0 }),
+    estDE
+      ? supabase.from('rapports_allocations').select('*', { count: 'exact', head: true }).eq('status', 'valide_caf')
+      : Promise.resolve({ count: 0 }),
+  ])
 
   return (
     <>
@@ -41,51 +62,17 @@ export default async function TimesheetsPage() {
         avatarUrl={profile?.avatar_url ?? null}
       />
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 32px", display: "grid", gap: 28 }}>
-
-      {/* Titre dynamique — affiché si l'utilisateur a un formulaire à remplir */}
-      {(estRapportMensuel || ['prestataire_direct','prestataire_credit'].includes(typeEmploi ?? '')) && (
-        <div>
-          <h1 style={{ color: 'var(--abed-green)', marginBottom: 6 }}>
-            {estRapportMensuel ? 'Rapport mensuel' : 'Timesheet & livrables'}
-          </h1>
-          {estRapportMensuel && (
-            <p style={{ fontSize: 13, color: 'var(--abed-muted)', margin: 0 }}>
-              {estSalarie
-                ? "Soumettez votre rapport mensuel. L'AAF génèrera votre fiche de paie, validée par la CAF et autorisée par le DE."
-                : "Soumettez votre rapport mensuel. Une fois validé (AAF → CAF → DE), vous recevrez votre état de paiement d'allocation par email."}
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* Bénévole / Stagiaire / CDD / CDI : rapport mensuel — affiché pour tous ayant ce type_emploi, même si gestionnaire */}
-      {estRapportMensuel && (
-        <RapportAllocationForm typeEmploi={typeEmploi} />
-      )}
-
-      {/* Prestataire direct/crédit : formulaire timesheet — affiché selon type_emploi, pas le rôle */}
-      {['prestataire_direct','prestataire_credit'].includes(typeEmploi ?? '') && (
-        profile?.manager_id
-          ? <SoumissionForm managerId={profile.manager_id} typeEmploi={profile.type_emploi} />
-          : <div className="card" style={{ borderLeft: '4px solid var(--abed-amber)' }}>
-              <p style={{ fontSize: 14 }}>
-                Aucun responsable direct n'est défini sur votre profil.
-                Contactez l'administration pour qu'un manager vous soit attribué avant de soumettre.
-              </p>
-            </div>
-      )}
-
-      {/* Manager : validation technique */}
-      {estManager && <ValidationManager />}
-
-      {/* AAF/CAF/DE : validation des rapports d'allocations */}
-      {(estAAF || estCAF || ['de', 'administrateur'].includes(role)) && <ValidationRapportsAAF role={role} />}
-
-      {/* CAF : validation financière */}
-      {estCAF && <ValidationCAF />}
-
-</div>
+      <TimesheetsClient
+        role={role}
+        typeEmploi={typeEmploi}
+        managerId={profile?.manager_id ?? null}
+        hasManager={!!profile?.manager_id}
+        countTimesheetsAValider={countTimesheetsAValider ?? 0}
+        countTimesheetsCAF={countTimesheetsCAF ?? 0}
+        countRapportsAAF={countRapportsAAF ?? 0}
+        countRapportsCAF={countRapportsCAF ?? 0}
+        countRapportsDE={countRapportsDE ?? 0}
+      />
     </>
   )
 }
