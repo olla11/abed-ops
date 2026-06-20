@@ -83,8 +83,20 @@ export default function FormulaireEditor() {
     setFields(next)
   }
 
-  function removeCustom(key: string) {
-    setFields(fs => fs.filter(f => f.key !== key))
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+
+  function removeField(key: string, builtin: boolean) {
+    if (builtin) {
+      if (confirmDelete === key) {
+        setFields(fs => fs.filter(f => f.key !== key))
+        setConfirmDelete(null)
+      } else {
+        setConfirmDelete(key)
+        setTimeout(() => setConfirmDelete(null), 4000)
+      }
+    } else {
+      setFields(fs => fs.filter(f => f.key !== key))
+    }
   }
 
   function addCustomField() {
@@ -185,15 +197,25 @@ export default function FormulaireEditor() {
                 {f.visible ? 'Affiché' : 'Masqué'}
               </button>
 
-              {/* Ordre */}
-              <div style={{ display: 'flex', gap: 2 }}>
+              {/* Ordre + Supprimer */}
+              <div style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
                 <button onClick={() => move(i, -1)} disabled={i === 0}
                   style={{ background: 'none', border: '1px solid var(--abed-border)', borderRadius: 4, width: 24, height: 24, cursor: i === 0 ? 'default' : 'pointer', fontSize: 12, opacity: i === 0 ? 0.3 : 1 }}>▲</button>
                 <button onClick={() => move(i, 1)} disabled={i === fields.length - 1}
                   style={{ background: 'none', border: '1px solid var(--abed-border)', borderRadius: 4, width: 24, height: 24, cursor: i === fields.length - 1 ? 'default' : 'pointer', fontSize: 12, opacity: i === fields.length - 1 ? 0.3 : 1 }}>▼</button>
-                {!f.builtin && (
-                  <button onClick={() => removeCustom(f.key)}
-                    style={{ background: '#fee2e2', border: 'none', borderRadius: 4, width: 24, height: 24, cursor: 'pointer', fontSize: 12, color: '#dc2626', marginLeft: 2 }}>✕</button>
+                {!IMMUTABLE_KEYS.includes(f.key) && (
+                  <button
+                    onClick={() => removeField(f.key, f.builtin)}
+                    title={f.builtin && confirmDelete !== f.key ? 'Cliquer une 2e fois pour confirmer' : 'Supprimer'}
+                    style={{
+                      border: 'none', borderRadius: 4, width: 24, height: 24,
+                      cursor: 'pointer', fontSize: 11, marginLeft: 2,
+                      background: confirmDelete === f.key ? '#dc2626' : '#fee2e2',
+                      color: confirmDelete === f.key ? 'white' : '#dc2626',
+                      fontWeight: 700,
+                    }}>
+                    {confirmDelete === f.key ? '!' : '✕'}
+                  </button>
                 )}
               </div>
             </div>
