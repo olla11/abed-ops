@@ -36,6 +36,7 @@ export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, s
 
   const mainTabs = [
     { href: '/statut', label: 'Statut', match: ['/statut'] },
+    { href: '/projets', label: 'Projets', match: ['/projets'] },
     ...(showOverview ? [{ href: '/overview', label: "Vue d'ensemble", match: ['/overview'] }] : []),
     ...(showRH ? [{ href: '/rh', label: 'RH', match: ['/rh'] }] : []),
     ...(showAdmin ? [{ href: '/admin', label: 'Admin', match: ['/admin'] }] : []),
