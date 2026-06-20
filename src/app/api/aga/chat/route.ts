@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
 
   const apiKey = process.env.GROQ_API_KEY
-  if (!apiKey) return NextResponse.json({ error: "AGA n'est pas encore configuré (clé API manquante)." }, { status: 503 })
+  if (!apiKey) return NextResponse.json({ error: 'no_key' }, { status: 503 })
 
   const body = await req.json().catch(() => null)
   const messages = body?.messages
@@ -46,10 +46,11 @@ export async function POST(req: NextRequest) {
   if (!res.ok) {
     const errText = await res.text().catch(() => '')
     console.error('[aga/chat] groq error:', res.status, errText.slice(0, 500))
-    const detail = res.status === 401 ? 'Clé API Groq invalide'
-      : res.status === 429 ? 'Quota dépassé — réessaie dans quelques secondes'
-      : 'AGA est momentanément indisponible.'
-    return NextResponse.json({ error: detail }, { status: 502 })
+    const code = res.status === 401 ? 'invalid_key'
+      : res.status === 429 ? 'rate_limit'
+      : res.status === 503 ? 'service_unavailable'
+      : 'unknown'
+    return NextResponse.json({ error: code, status: res.status }, { status: 502 })
   }
 
   const data = await res.json()
