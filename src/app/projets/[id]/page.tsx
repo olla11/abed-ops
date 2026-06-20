@@ -6,7 +6,8 @@ import AppHeader from '@/components/AppHeader'
 import RolePreviewBanner from '@/components/RolePreviewBanner'
 import ProjetDetailClient from '@/components/ProjetDetailClient'
 
-export default async function ProjetDetailPage({ params }: { params: { id: string } }) {
+export default async function ProjetDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -24,20 +25,10 @@ export default async function ProjetDetailPage({ params }: { params: { id: strin
       activites(*, assignee:profiles!activites_assignee_id_fkey(id, nom, prenoms),
       created_by_profile:profiles!activites_created_by_fkey(id, nom, prenoms),
       commentaires_activites(id))`)
-    .eq('id', params.id)
+    .eq('id', id)
     .single()
 
-  if (!projet) {
-    return (
-      <div style={{ maxWidth: 800, margin: '60px auto', padding: '0 24px' }}>
-        <h2 style={{ color: '#dc2626' }}>Erreur chargement projet</h2>
-        <pre style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 8, padding: 16, fontSize: 13, whiteSpace: 'pre-wrap' }}>
-          {JSON.stringify({ id: params.id, error: projetError?.message, code: projetError?.code, details: projetError?.details, hint: projetError?.hint }, null, 2)}
-        </pre>
-        <a href="/projets" style={{ color: 'var(--abed-green)', fontWeight: 600 }}>← Retour aux projets</a>
-      </div>
-    )
-  }
+  if (!projet) redirect('/projets')
 
   const { data: allProfiles } = await supabase
     .from('profiles').select('id, nom, prenoms').order('prenoms')
