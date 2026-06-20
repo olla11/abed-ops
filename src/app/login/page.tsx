@@ -26,7 +26,7 @@ export default function LoginPage() {
     if (profile?.must_change_password) {
       router.push('/auth/changer-mot-de-passe')
     } else {
-      router.push('/dashboard')
+      router.push('/accueil')
     }
   }
 
