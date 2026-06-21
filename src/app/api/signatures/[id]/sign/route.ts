@@ -152,6 +152,19 @@ export async function POST(
   const { data: allSigs } = await admin.from('signataires').select('signe').eq('demande_id', demandeId)
   const allSigned = allSigs?.every(s => s.signe) ?? false
 
+  // Notify creator that this signer has signed (whether or not all are done)
+  // Don't notify if creator signed their own document
+  if (demande.createur_id !== user.id) {
+    await admin.from('notifications').insert({
+      user_id: demande.createur_id,
+      titre: allSigned ? 'Document entièrement signé' : 'Signature reçue',
+      message: allSigned
+        ? `Tous les signataires ont signé « ${demande.titre} » — document complet ✓`
+        : `${signerName} a signé « ${demande.titre} »`,
+      lien: `/signatures/${demandeId}/view`,
+    }).then(({ error: e }) => { if (e) console.error('[Signatures] Creator notif error:', e) })
+  }
+
   if (allSigned) {
     await admin.from('demandes_signature').update({ statut: 'complete', updated_at: new Date().toISOString() }).eq('id', demandeId)
 
@@ -164,7 +177,7 @@ export async function POST(
           <h2 style="color:#16a34a;">My ABED — Toutes les signatures recueillies ✓</h2>
           <p>Bonjour <strong>${createur.prenoms} ${createur.nom}</strong>,</p>
           <p>Tous les signataires ont signé le document <strong>${demande.titre}</strong>.</p>
-          <a href="${APP_URL}/signatures" style="display:inline-block;padding:10px 22px;background:#16a34a;color:white;border-radius:8px;text-decoration:none;font-weight:700;">Voir le document</a>
+          <a href="${APP_URL}/signatures/${demandeId}/view" style="display:inline-block;padding:10px 22px;background:#16a34a;color:white;border-radius:8px;text-decoration:none;font-weight:700;">Voir le document</a>
           <p style="margin-top:24px;color:#9ca3af;font-size:12px;">My ABED · ABED ONG</p>
         </div>`,
       }).catch(err => console.error('[Signatures] Creator email error:', err))

@@ -95,6 +95,16 @@ export async function POST(req: NextRequest) {
     .in('id', signatairesIds)
 
   if (signatairesProfiles) {
+    // In-app notifications for each signataire
+    await admin.from('notifications').insert(
+      signatairesProfiles.map(p => ({
+        user_id: p.id,
+        titre: 'Document à signer',
+        message: `${createurNom} vous a assigné comme signataire pour « ${titre} »`,
+        lien: `/signatures/${demande.id}/signer`,
+      }))
+    ).then(({ error: e }) => { if (e) console.error('[Signatures] Notif insert error:', e) })
+
     await Promise.allSettled(
       signatairesProfiles.map(async (p) => {
         if (!p.email) return

@@ -43,7 +43,17 @@ export default async function SignerPage({
     .eq('id', user.id)
     .single()
 
-  const userName = profile ? `${profile.prenoms} ${profile.nom}` : user.email ?? 'Utilisateur'
+  // Signature name rules:
+  // 1. If multiple prénoms → keep only the first one
+  // 2. Convert everything to lowercase (calligraphic style)
+  function buildSignatureName(prenoms: string, nom: string): string {
+    const firstPrenom = prenoms.trim().split(/\s+/)[0]
+    return `${firstPrenom} ${nom}`.toLowerCase()
+  }
+
+  const userName = profile
+    ? buildSignatureName(profile.prenoms, profile.nom)
+    : (user.email ?? 'Utilisateur')
 
   return (
     <SignerClient
