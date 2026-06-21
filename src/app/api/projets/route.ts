@@ -56,6 +56,7 @@ export async function POST(req: NextRequest) {
     date_debut: body.date_debut || null,
     date_fin: body.date_fin || null,
     is_public: body.is_public !== false,
+    espace_id: body.espace_id || null,
     created_by: user.id,
   }).select().single()
 
