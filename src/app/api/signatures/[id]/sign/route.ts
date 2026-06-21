@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { sendEmail } from '@/lib/resend'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
+import fs from 'fs'
+import path from 'path'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_URL ?? 'https://myabed.app'
 
@@ -26,9 +28,16 @@ async function embedSignatureInPdf(
   const page = pages[Math.min(pageIndex, pages.length - 1)]
   const { width, height } = page.getSize()
 
-  const helveticaFont = await pdfDoc.embedFont(StandardFonts.HelveticaOblique)
   const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
   const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica)
+
+  // Embed Brittany Signature font for the signer name
+  let nameFont = await pdfDoc.embedFont(StandardFonts.HelveticaOblique)
+  try {
+    const fontPath = path.join(process.cwd(), 'public', 'fonts', 'BrittanySignature.ttf')
+    const fontBytes = fs.readFileSync(fontPath)
+    nameFont = await pdfDoc.embedFont(fontBytes)
+  } catch { /* fallback to Helvetica italic if font file missing */ }
 
   // Convert percentage to PDF coordinates (PDF origin = bottom-left)
   const sigW = 160
@@ -57,11 +66,11 @@ async function embedSignatureInPdf(
     size: 6.5, font: helveticaBold, color: rgb(0.15, 0.15, 0.15),
   })
 
-  // Signer name in italic (simulates handwriting)
-  const nameSize = signerName.length > 16 ? 14 : 17
+  // Signer name in Brittany Signature font
+  const nameSize = signerName.length > 16 ? 22 : 26
   page.drawText(signerName, {
-    x: barX + 14, y: clampY + sigH - 30,
-    size: nameSize, font: helveticaFont, color: rgb(0, 0, 0),
+    x: barX + 14, y: clampY + sigH - 32,
+    size: nameSize, font: nameFont, color: rgb(0, 0, 0),
   })
 
   // Separator line

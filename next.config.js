@@ -52,6 +52,7 @@ module.exports = {
   typescript: { ignoreBuildErrors: true },
   outputFileTracingIncludes: {
     '/api/aga/chat': ['./knowledge/**'],
+    '/api/signatures/*/sign': ['./public/fonts/**'],
   },
   async headers() {
     return [
