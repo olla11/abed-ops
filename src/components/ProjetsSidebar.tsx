@@ -38,6 +38,8 @@ export default function ProjetsSidebar() {
   const [showNewProjet, setShowNewProjet] = useState<string | null>(null)
   const [newProjetNom, setNewProjetNom] = useState('')
   const [saving, setSaving] = useState(false)
+  const [espaceErr, setEspaceErr] = useState('')
+  const [projetErr, setProjetErr] = useState('')
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
 
   const load = useCallback(async () => {
@@ -105,33 +107,51 @@ export default function ProjetsSidebar() {
 
   async function createEspace() {
     if (!newEspaceNom.trim()) return
+    setEspaceErr('')
     setSaving(true)
-    const r = await fetch('/api/espaces', {
-      method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ nom: newEspaceNom.trim(), couleur: newEspaceCouleur, icon: newEspaceIcon }),
-    })
-    const j = await r.json()
-    if (r.ok) {
-      setEspaces(e => [...e, j.data])
-      setNewEspaceNom(''); setShowNewEspace(false)
+    try {
+      const r = await fetch('/api/espaces', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ nom: newEspaceNom.trim(), couleur: newEspaceCouleur, icon: newEspaceIcon }),
+      })
+      const j = await r.json()
+      if (r.ok) {
+        setEspaces(e => [...e, j.data])
+        setNewEspaceNom('')
+        setShowNewEspace(false)
+      } else {
+        setEspaceErr(j.error ?? 'Erreur lors de la création')
+      }
+    } catch {
+      setEspaceErr('Erreur réseau')
+    } finally {
+      setSaving(false)
     }
-    setSaving(false)
   }
 
   async function createProjet(espaceId: string | null) {
     if (!newProjetNom.trim()) return
+    setProjetErr('')
     setSaving(true)
-    const r = await fetch('/api/projets', {
-      method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ nom: newProjetNom.trim(), espace_id: espaceId }),
-    })
-    const j = await r.json()
-    if (r.ok) {
-      setProjets(p => [...p, { ...j.data, activites: [] }])
-      setNewProjetNom(''); setShowNewProjet(null)
-      router.push(`/projets/${j.data.id}`)
+    try {
+      const r = await fetch('/api/projets', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ nom: newProjetNom.trim(), espace_id: espaceId }),
+      })
+      const j = await r.json()
+      if (r.ok) {
+        setProjets(p => [...p, { ...j.data, activites: [] }])
+        setNewProjetNom('')
+        setShowNewProjet(null)
+        router.push(`/projets/${j.data.id}`)
+      } else {
+        setProjetErr(j.error ?? 'Erreur lors de la création')
+      }
+    } catch {
+      setProjetErr('Erreur réseau')
+    } finally {
+      setSaving(false)
     }
-    setSaving(false)
   }
 
   function projetsByEspace(eid: string | null) {
@@ -165,9 +185,10 @@ export default function ProjetsSidebar() {
       return (
         <div style={{ padding: '4px 8px 4px 24px', margin: '2px 4px' }}>
           <input autoFocus placeholder="Nom du projet…" value={newProjetNom}
-            onChange={e => setNewProjetNom(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') createProjet(espaceId); if (e.key === 'Escape') { setShowNewProjet(null); setNewProjetNom('') } }}
-            style={{ width: '100%', padding: '5px 8px', fontSize: 12, border: '1px solid #16a34a', borderRadius: 6, outline: 'none', boxSizing: 'border-box' }} />
+            onChange={e => { setNewProjetNom(e.target.value); setProjetErr('') }}
+            onKeyDown={e => { if (e.key === 'Enter') createProjet(espaceId); if (e.key === 'Escape') { setShowNewProjet(null); setNewProjetNom(''); setProjetErr('') } }}
+            style={{ width: '100%', padding: '5px 8px', fontSize: 12, border: `1px solid ${projetErr ? '#dc2626' : '#16a34a'}`, borderRadius: 6, outline: 'none', boxSizing: 'border-box' }} />
+          {projetErr && <p style={{ fontSize: 11, color: '#dc2626', margin: '3px 0 0' }}>{projetErr}</p>}
         </div>
       )
     }
@@ -279,12 +300,13 @@ export default function ProjetsSidebar() {
               onChange={e => setNewEspaceNom(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') createEspace(); if (e.key === 'Escape') setShowNewEspace(false) }}
               style={{ width: '100%', padding: '6px 8px', fontSize: 12, border: '1px solid #e5e7eb', borderRadius: 6, outline: 'none', boxSizing: 'border-box', marginBottom: 6 }} />
+            {espaceErr && <p style={{ fontSize: 11, color: '#dc2626', margin: '0 0 6px' }}>{espaceErr}</p>}
             <div style={{ display: 'flex', gap: 6 }}>
               <button onClick={createEspace} disabled={saving || !newEspaceNom.trim()}
-                style={{ flex: 1, padding: '5px 0', background: '#16a34a', color: 'white', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                Créer
+                style={{ flex: 1, padding: '5px 0', background: saving ? '#9ca3af' : '#16a34a', color: 'white', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer' }}>
+                {saving ? 'Création…' : 'Créer'}
               </button>
-              <button onClick={() => setShowNewEspace(false)}
+              <button onClick={() => { setShowNewEspace(false); setEspaceErr('') }}
                 style={{ padding: '5px 10px', background: 'white', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}>✕</button>
             </div>
           </div>
