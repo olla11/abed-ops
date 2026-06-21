@@ -30,6 +30,13 @@ export default async function ProjetDetailPage({ params }: { params: Promise<{ i
 
   if (!projet) redirect('/projets')
 
+  // Access control: private project only visible to creator or assignees
+  if (projet.is_public === false && projet.created_by !== user.id) {
+    const hasTask = (projet.activites as Array<{ assignee_id: string | null }>)
+      .some(a => a.assignee_id === user.id)
+    if (!hasTask) redirect('/projets')
+  }
+
   const { data: allProfiles } = await supabase
     .from('profiles').select('id, nom, prenoms').order('prenoms')
 

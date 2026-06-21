@@ -6,7 +6,7 @@ type Activite = { id: string; statut: string }
 type Projet = {
   id: string; nom: string; description: string | null; statut: string
   date_debut: string | null; date_fin: string | null; created_at: string
-  created_by: string
+  created_by: string; is_public: boolean
   created_by_profile: { nom: string; prenoms: string } | null
   activites: Activite[]
 }
@@ -49,9 +49,14 @@ function ProjetCard({ projet, onClick }: { projet: Projet; onClick: () => void }
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
         <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#111827', flex: 1, paddingRight: 12 }}>{projet.nom}</h3>
-        <span style={{ background: sc.bg, color: sc.color, borderRadius: 999, padding: '3px 10px', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
-          {STATUT_LABELS[projet.statut]}
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+          {!projet.is_public && (
+            <span title="Projet privé" style={{ fontSize: 13 }}>🔒</span>
+          )}
+          <span style={{ background: sc.bg, color: sc.color, borderRadius: 999, padding: '3px 10px', fontSize: 11, fontWeight: 700 }}>
+            {STATUT_LABELS[projet.statut]}
+          </span>
+        </div>
       </div>
 
       {projet.description && (
@@ -94,7 +99,7 @@ export default function ProjetsClient({ projets: initial, userId }: { projets: P
   const [projets, setProjets] = useState<Projet[]>(initial)
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState({ nom: '', description: '', statut: 'en_cours', date_debut: '', date_fin: '' })
+  const [form, setForm] = useState({ nom: '', description: '', statut: 'en_cours', date_debut: '', date_fin: '', is_public: true })
   const [err, setErr] = useState('')
   const [search, setSearch] = useState('')
   const [filterStatut, setFilterStatut] = useState('')
@@ -174,6 +179,36 @@ export default function ProjetsClient({ projets: initial, userId }: { projets: P
                 <label className="label">Date fin</label>
                 <input className="input" type="date" value={form.date_fin} onChange={e => setForm(f => ({ ...f, date_fin: e.target.value }))} />
               </div>
+            </div>
+            <div style={{ gridColumn: '1/-1' }}>
+              <label className="label">Visibilité</label>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, is_public: true }))}
+                  style={{
+                    flex: 1, padding: '10px 0', borderRadius: 10, border: `2px solid ${form.is_public ? 'var(--abed-green)' : '#e5e7eb'}`,
+                    background: form.is_public ? '#f0fdf4' : 'white', cursor: 'pointer',
+                    color: form.is_public ? '#166534' : '#6b7280', fontWeight: form.is_public ? 700 : 400, fontSize: 13,
+                  }}>
+                  🌐 Public — visible par tous
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, is_public: false }))}
+                  style={{
+                    flex: 1, padding: '10px 0', borderRadius: 10, border: `2px solid ${!form.is_public ? '#7c3aed' : '#e5e7eb'}`,
+                    background: !form.is_public ? '#f5f3ff' : 'white', cursor: 'pointer',
+                    color: !form.is_public ? '#5b21b6' : '#6b7280', fontWeight: !form.is_public ? 700 : 400, fontSize: 13,
+                  }}>
+                  🔒 Privé — invités uniquement
+                </button>
+              </div>
+              {!form.is_public && (
+                <p style={{ fontSize: 12, color: '#7c3aed', margin: '6px 0 0' }}>
+                  Seuls le créateur et les membres ayant des tâches assignées pourront voir ce projet.
+                </p>
+              )}
             </div>
           </div>
           {err && <p style={{ color: '#dc2626', fontSize: 13, marginTop: 10 }}>{err}</p>}

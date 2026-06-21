@@ -18,10 +18,35 @@ export default async function ProjetsPage() {
   const role = await getEffectiveRole(realRole)
   const previewRole = await getRolePreview()
 
-  const { data: projets } = await supabase
+  const { createAdminClient } = await import('@/lib/supabase-server')
+  const admin = createAdminClient()
+
+  const { data: ownAndPublic } = await admin
     .from('projets_internes')
-    .select('*, created_by_profile:profiles!projets_internes_created_by_fkey(nom, prenoms), activites(id, statut)')
+    .select('*, created_by_profile:profiles!projets_internes_created_by_fkey(nom, prenoms), activites(id, statut, assignee_id, parent_id)')
+    .or(`is_public.eq.true,created_by.eq.${user.id}`)
     .order('created_at', { ascending: false })
+
+  const { data: assignedActivites } = await admin
+    .from('activites')
+    .select('projet_id')
+    .eq('assignee_id', user.id)
+
+  const assignedProjectIds = [...new Set((assignedActivites ?? []).map((a: { projet_id: string }) => a.projet_id))]
+  const alreadyIncluded = new Set((ownAndPublic ?? []).map((p: { id: string }) => p.id))
+  const missingIds = assignedProjectIds.filter((id: string) => !alreadyIncluded.has(id))
+
+  let extraProjects: typeof ownAndPublic = []
+  if (missingIds.length > 0) {
+    const { data: ep } = await admin
+      .from('projets_internes')
+      .select('*, created_by_profile:profiles!projets_internes_created_by_fkey(nom, prenoms), activites(id, statut, assignee_id, parent_id)')
+      .in('id', missingIds)
+      .eq('is_public', false)
+    extraProjects = ep ?? []
+  }
+
+  const projets = [...(ownAndPublic ?? []), ...extraProjects]
 
   return (
     <>
