@@ -39,6 +39,52 @@ const COLUMNS = ['a_faire', 'en_cours', 'en_revue', 'termine'] as const
 const COL_COLORS: Record<string, string> = { a_faire: '#6b7280', en_cours: '#2563eb', en_revue: '#7c3aed', termine: '#16a34a' }
 const MOIS_FR = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre']
 
+// ── Modal de confirmation générique ────────────────────────────────────────
+type ModalStep = { title: string; body: string; confirmLabel: string; danger?: boolean }
+function ConfirmModal({ steps, onConfirm, onCancel }: { steps: ModalStep[]; onConfirm: () => void; onCancel: () => void }) {
+  const [step, setStep] = useState(0)
+  const current = steps[step]
+  const isLast = step === steps.length - 1
+
+  return createPortal(
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      onClick={e => { if (e.target === e.currentTarget) onCancel() }}>
+      <div style={{ background: 'white', borderRadius: 16, padding: '32px 28px', width: 420, maxWidth: 'calc(100vw - 32px)', boxShadow: '0 24px 60px rgba(0,0,0,0.2)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+          <div style={{ width: 40, height: 40, borderRadius: '50%', background: current.danger ? '#fee2e2' : '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>
+            {current.danger ? '⚠️' : '❓'}
+          </div>
+          <div>
+            <p style={{ margin: 0, fontSize: 15, fontWeight: 800, color: '#111827' }}>{current.title}</p>
+            {steps.length > 1 && (
+              <p style={{ margin: 0, fontSize: 11, color: '#9ca3af', marginTop: 2 }}>Étape {step + 1} sur {steps.length}</p>
+            )}
+          </div>
+        </div>
+        <p style={{ margin: '0 0 24px', fontSize: 13, color: '#374151', lineHeight: 1.6 }}>{current.body}</p>
+        {steps.length > 1 && (
+          <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
+            {steps.map((_, i) => (
+              <div key={i} style={{ flex: 1, height: 3, borderRadius: 999, background: i <= step ? (current.danger ? '#dc2626' : '#f59e0b') : '#e5e7eb' }} />
+            ))}
+          </div>
+        )}
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button onClick={onCancel}
+            style={{ padding: '8px 18px', borderRadius: 8, border: '1px solid #e5e7eb', background: 'white', fontSize: 13, fontWeight: 600, color: '#374151', cursor: 'pointer' }}>
+            Annuler
+          </button>
+          <button onClick={() => { if (isLast) onConfirm(); else setStep(s => s + 1) }}
+            style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: current.danger ? '#dc2626' : '#f59e0b', fontSize: 13, fontWeight: 700, color: 'white', cursor: 'pointer' }}>
+            {current.confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  )
+}
+
 function Initials({ profile }: { profile: Profile | null }) {
   if (!profile) return null
   const txt = `${profile.prenoms?.[0] ?? ''}${profile.nom?.[0] ?? ''}`.toUpperCase()
@@ -137,6 +183,8 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
   const [savingTask, setSavingTask] = useState(false)
   const [editingStatut, setEditingStatut] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [deleteProjetModal, setDeleteProjetModal] = useState(false)
+  const [deleteActiviteId, setDeleteActiviteId] = useState<string | null>(null)
   const [editingCell, setEditingCell] = useState<{ id: string; field: string } | null>(null)
   const [calendarFor, setCalendarFor] = useState<{ id: string; rect: DOMRect } | null>(null)
   const [addRowCalendar, setAddRowCalendar] = useState<DOMRect | null>(null)
@@ -230,10 +278,10 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
   }
 
   async function deleteActivite(activiteId: string) {
-    if (!confirm('Supprimer cette tâche ?')) return
     await fetch(`/api/activites/${activiteId}`, { method: 'DELETE' })
     setProjet(p => ({ ...p, activites: p.activites.filter(a => a.id !== activiteId) }))
     if (selectedActivite?.id === activiteId) setSelectedActivite(null)
+    setDeleteActiviteId(null)
   }
 
   async function addTask(statut?: string) {
@@ -255,8 +303,8 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
   }
 
   async function deleteProjet() {
-    if (!confirm('Supprimer ce projet et toutes ses tâches ?')) return
     setDeleting(true)
+    setDeleteProjetModal(false)
     await fetch(`/api/projets/${projet.id}`, { method: 'DELETE' })
     router.push('/projets')
   }
@@ -370,7 +418,7 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
             </div>
           </div>
           {isCreator && (
-            <button onClick={deleteProjet} disabled={deleting}
+            <button onClick={() => setDeleteProjetModal(true)} disabled={deleting}
               style={{ background: '#fee2e2', border: 'none', borderRadius: 8, padding: '7px 14px', fontSize: 12, color: '#dc2626', cursor: 'pointer', fontWeight: 600 }}>
               {deleting ? '…' : '🗑 Supprimer'}
             </button>
@@ -504,7 +552,7 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <button onClick={() => deleteActivite(act.id)}
+                  <button onClick={() => setDeleteActiviteId(act.id)}
                     style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d1d5db', fontSize: 14, padding: 4 }}
                     onMouseEnter={e => (e.currentTarget.style.color = '#dc2626')}
                     onMouseLeave={e => (e.currentTarget.style.color = '#d1d5db')}>✕</button>
@@ -1114,6 +1162,48 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
               style={{ background: newComment.trim() ? 'var(--abed-green)' : '#d1d5db', color: 'white', border: 'none', borderRadius: 10, width: 40, cursor: newComment.trim() ? 'pointer' : 'default', fontSize: 16 }}>➤</button>
           </div>
         </div>
+      )}
+
+      {/* Modal suppression projet — 3 étapes */}
+      {deleteProjetModal && (
+        <ConfirmModal
+          steps={[
+            {
+              title: 'Supprimer le projet ?',
+              body: `Vous êtes sur le point de supprimer le projet "${projet.nom}". Cette action est irréversible.`,
+              confirmLabel: 'Continuer',
+              danger: false,
+            },
+            {
+              title: 'Toutes les tâches seront perdues',
+              body: `Le projet contient ${projet.activites.length} tâche${projet.activites.length !== 1 ? 's' : ''}. Elles seront définitivement supprimées avec le projet.`,
+              confirmLabel: 'Je comprends, continuer',
+              danger: true,
+            },
+            {
+              title: 'Confirmation finale',
+              body: `Dernière confirmation : supprimer définitivement le projet "${projet.nom}" et toutes ses tâches ?`,
+              confirmLabel: 'Supprimer définitivement',
+              danger: true,
+            },
+          ]}
+          onConfirm={deleteProjet}
+          onCancel={() => setDeleteProjetModal(false)}
+        />
+      )}
+
+      {/* Modal suppression tâche — 1 étape */}
+      {deleteActiviteId && (
+        <ConfirmModal
+          steps={[{
+            title: 'Supprimer cette tâche ?',
+            body: `La tâche "${projet.activites.find(a => a.id === deleteActiviteId)?.nom ?? ''}" sera définitivement supprimée.`,
+            confirmLabel: 'Supprimer',
+            danger: true,
+          }]}
+          onConfirm={() => deleteActivite(deleteActiviteId)}
+          onCancel={() => setDeleteActiviteId(null)}
+        />
       )}
     </div>
   )
