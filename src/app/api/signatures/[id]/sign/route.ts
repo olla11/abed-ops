@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { sendEmail } from '@/lib/resend'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
-import fs from 'fs'
-import path from 'path'
+import { BRITTANY_B64 } from '@/lib/brittany-font'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_URL ?? 'https://myabed.app'
 
@@ -31,13 +30,9 @@ async function embedSignatureInPdf(
   const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
   const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica)
 
-  // Embed Brittany Signature font for the signer name
-  let nameFont = await pdfDoc.embedFont(StandardFonts.HelveticaOblique)
-  try {
-    const fontPath = path.join(process.cwd(), 'public', 'fonts', 'BrittanySignature.ttf')
-    const fontBytes = fs.readFileSync(fontPath)
-    nameFont = await pdfDoc.embedFont(fontBytes)
-  } catch { /* fallback to Helvetica italic if font file missing */ }
+  // Brittany Signature font — embedded as base64 constant, always available in serverless
+  const brittanyBytes = Buffer.from(BRITTANY_B64, 'base64')
+  const nameFont = await pdfDoc.embedFont(brittanyBytes)
 
   // Signature block dimensions — match UI proportions (240px × 90px on ~700px canvas)
   const sigW = width * 0.30   // ~30% of page width
