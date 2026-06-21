@@ -5,6 +5,7 @@ import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
 import AppHeader from '@/components/AppHeader'
 import RolePreviewBanner from '@/components/RolePreviewBanner'
 import ProjetDetailClient from '@/components/ProjetDetailClient'
+import ProjetsSidebar from '@/components/ProjetsSidebar'
 
 export default async function ProjetDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -19,7 +20,7 @@ export default async function ProjetDetailPage({ params }: { params: Promise<{ i
   const role = await getEffectiveRole(realRole)
   const previewRole = await getRolePreview()
 
-  const { data: projet, error: projetError } = await supabase
+  const { data: projet } = await supabase
     .from('projets_internes')
     .select(`*, created_by_profile:profiles!projets_internes_created_by_fkey(id, nom, prenoms),
       activites(*, assignee:profiles!activites_assignee_id_fkey(id, nom, prenoms),
@@ -51,11 +52,16 @@ export default async function ProjetDetailPage({ params }: { params: Promise<{ i
         avatarUrl={profile?.avatar_url ?? null}
       />
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}
-      <ProjetDetailClient
-        projet={projet as any}
-        userId={user.id}
-        allProfiles={allProfiles ?? []}
-      />
+      <div style={{ display: 'flex' }}>
+        <ProjetsSidebar />
+        <div style={{ marginLeft: 260, flex: 1, minWidth: 0 }}>
+          <ProjetDetailClient
+            projet={projet as any}
+            userId={user.id}
+            allProfiles={allProfiles ?? []}
+          />
+        </div>
+      </div>
     </>
   )
 }
