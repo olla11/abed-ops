@@ -8,7 +8,7 @@ type Commentaire = { id: string; contenu: string; created_at: string; auteur: { 
 type Activite = {
   id: string; nom: string; description: string | null; statut: string; priorite: string
   assignee_id: string | null; date_echeance: string | null; created_by: string | null
-  created_at: string
+  created_at: string; parent_id: string | null
   assignee: Profile | null
   created_by_profile: Profile | null
   commentaires_activites: { id: string }[]
@@ -199,6 +199,11 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
   const [tableurAddRow, setTableurAddRow] = useState<string | null>(null)
   const [tableurAddCalendar, setTableurAddCalendar] = useState<DOMRect | null>(null)
 
+  // Sub-tasks state
+  const [expandedSubtasks, setExpandedSubtasks] = useState<Record<string, boolean>>({})
+  const [showSubtaskForm, setShowSubtaskForm] = useState<string | null>(null)
+  const [subtaskNom, setSubtaskNom] = useState('')
+
   // Gantt
   const ganttRef = useRef<HTMLDivElement>(null)
 
@@ -298,6 +303,23 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
       setShowNewTaskForm(null)
       setShowAddRow(false)
       setTableurAddRow(null)
+    }
+    setSavingTask(false)
+  }
+
+  async function addSubTask(parentId: string) {
+    if (!subtaskNom.trim()) return
+    setSavingTask(true)
+    const r = await fetch('/api/activites', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ nom: subtaskNom.trim(), projet_id: projet.id, statut: 'a_faire', priorite: 'normale', parent_id: parentId }),
+    })
+    const j = await r.json()
+    if (r.ok) {
+      setProjet(p => ({ ...p, activites: [...p.activites, j.data] }))
+      setSubtaskNom('')
+      setShowSubtaskForm(null)
+      setExpandedSubtasks(e => ({ ...e, [parentId]: true }))
     }
     setSavingTask(false)
   }
@@ -456,107 +478,194 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
             ))}
           </div>
 
-          {projet.activites.length === 0 && !showAddRow && (
+          {projet.activites.filter(a => !a.parent_id).length === 0 && !showAddRow && (
             <div style={{ padding: '40px 20px', textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>
               Aucune tâche — cliquez sur "+ Ajouter une tâche" pour commencer.
             </div>
           )}
 
-          {projet.activites.map(act => {
+          {projet.activites.filter(a => !a.parent_id).map(act => {
             const pc = PRIO_COLORS[act.priorite] ?? PRIO_COLORS.normale
             const sc = ACT_STATUT_COLORS[act.statut] ?? ACT_STATUT_COLORS.a_faire
             const isSelected = selectedActivite?.id === act.id
             const isDone = act.statut === 'termine'
             const todayD = new Date(); todayD.setHours(0, 0, 0, 0)
             const isOverdue = act.date_echeance && new Date(act.date_echeance + 'T00:00:00') < todayD && !isDone
+            const subTasks = projet.activites.filter(a => a.parent_id === act.id)
+            const isExpanded = expandedSubtasks[act.id] ?? false
 
             return (
-              <div key={act.id} style={{ display: 'grid', gridTemplateColumns: '36px 1fr 170px 140px 110px 130px 36px', borderBottom: '1px solid #f3f4f6', background: isSelected ? '#f0fdf4' : 'white', position: 'relative' }}
-                onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = '#fafafa' }}
-                onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = 'white' }}>
+              <div key={act.id}>
+                <div style={{ display: 'grid', gridTemplateColumns: '36px 1fr 170px 140px 110px 130px 36px', borderBottom: '1px solid #f3f4f6', background: isSelected ? '#f0fdf4' : 'white', position: 'relative' }}
+                  onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = '#fafafa' }}
+                  onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = 'white' }}>
 
-                <div onClick={() => toggleDone(act)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', borderRight: '1px solid #f3f4f6' }}>
-                  <div style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${isDone ? '#16a34a' : COL_COLORS[act.statut] ?? '#6b7280'}`, background: isDone ? '#16a34a' : 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
-                    {isDone && <svg width="10" height="8" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="white" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                  <div onClick={() => toggleDone(act)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', borderRight: '1px solid #f3f4f6' }}>
+                    <div style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${isDone ? '#16a34a' : COL_COLORS[act.statut] ?? '#6b7280'}`, background: isDone ? '#16a34a' : 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
+                      {isDone && <svg width="10" height="8" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="white" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                    </div>
+                  </div>
+
+                  <div style={{ padding: '11px 12px', display: 'flex', alignItems: 'center', gap: 8, borderRight: '1px solid #f3f4f6', minWidth: 0 }}>
+                    {subTasks.length > 0 && (
+                      <button onClick={() => setExpandedSubtasks(e => ({ ...e, [act.id]: !e[act.id] }))}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: 10, color: '#9ca3af', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <span style={{ display: 'inline-block', transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.15s' }}>▶</span>
+                      </button>
+                    )}
+                    <span onClick={() => openActivite(act)} style={{ fontSize: 13, fontWeight: 600, color: isDone ? '#9ca3af' : '#111827', textDecoration: isDone ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer', flex: 1 }}>{act.nom}</span>
+                    {subTasks.length > 0 && (
+                      <span onClick={() => setExpandedSubtasks(e => ({ ...e, [act.id]: !e[act.id] }))}
+                        style={{ fontSize: 10, color: '#9ca3af', background: '#f3f4f6', borderRadius: 999, padding: '1px 6px', flexShrink: 0, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                        {subTasks.filter(s => s.statut === 'termine').length}/{subTasks.length}
+                      </span>
+                    )}
+                    {(act.commentaires_activites?.length ?? 0) > 0 && <span style={{ fontSize: 11, color: '#9ca3af', flexShrink: 0 }}>💬 {act.commentaires_activites.length}</span>}
+                    <button onClick={() => { setShowSubtaskForm(act.id); setSubtaskNom(''); setExpandedSubtasks(e => ({ ...e, [act.id]: true })) }}
+                      title="Ajouter une sous-tâche"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', fontSize: 12, color: '#d1d5db', flexShrink: 0, lineHeight: 1 }}
+                      onMouseEnter={e => (e.currentTarget.style.color = 'var(--abed-green)')}
+                      onMouseLeave={e => (e.currentTarget.style.color = '#d1d5db')}>⊕</button>
+                  </div>
+
+                  <div style={{ padding: '11px 10px', display: 'flex', alignItems: 'center', gap: 6, borderRight: '1px solid #f3f4f6' }}>
+                    {editingCell?.id === act.id && editingCell.field === 'assignee' ? (
+                      <select autoFocus className="select" style={{ fontSize: 12, width: '100%' }}
+                        value={act.assignee_id ?? ''}
+                        onChange={e => patchActivite(act.id, { assignee_id: e.target.value || null })}>
+                        <option value="">Non assigné</option>
+                        {allProfiles.map(p => <option key={p.id} value={p.id}>{p.prenoms} {p.nom}</option>)}
+                      </select>
+                    ) : (
+                      <div onClick={() => setEditingCell({ id: act.id, field: 'assignee' })} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', width: '100%' }}>
+                        <Initials profile={act.assignee} />
+                        <span style={{ fontSize: 12, color: act.assignee ? '#374151' : '#d1d5db', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {act.assignee ? `${act.assignee.prenoms} ${act.assignee.nom}` : '—'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ padding: '11px 10px', display: 'flex', alignItems: 'center', borderRight: '1px solid #f3f4f6' }}>
+                    {editingCell?.id === act.id && editingCell.field === 'statut' ? (
+                      <select autoFocus className="select" style={{ fontSize: 12, width: '100%' }}
+                        value={act.statut}
+                        onChange={e => patchActivite(act.id, { statut: e.target.value })}>
+                        {Object.entries(ACT_STATUT_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                      </select>
+                    ) : (
+                      <span onClick={() => setEditingCell({ id: act.id, field: 'statut' })}
+                        style={{ background: sc.bg, color: sc.color, borderRadius: 999, padding: '3px 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                        {ACT_STATUT_LABELS[act.statut]}
+                      </span>
+                    )}
+                  </div>
+
+                  <div style={{ padding: '11px 10px', display: 'flex', alignItems: 'center', borderRight: '1px solid #f3f4f6' }}>
+                    {editingCell?.id === act.id && editingCell.field === 'priorite' ? (
+                      <select autoFocus className="select" style={{ fontSize: 12, width: '100%' }}
+                        value={act.priorite}
+                        onChange={e => patchActivite(act.id, { priorite: e.target.value })}>
+                        {Object.entries(PRIO_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                      </select>
+                    ) : (
+                      <span onClick={() => setEditingCell({ id: act.id, field: 'priorite' })}
+                        style={{ background: pc.bg, color: pc.color, borderRadius: 999, padding: '3px 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                        {PRIO_LABELS[act.priorite]}
+                      </span>
+                    )}
+                  </div>
+
+                  <div style={{ padding: '11px 10px', display: 'flex', alignItems: 'center', borderRight: '1px solid #f3f4f6' }}>
+                    <span onClick={e => { const r = (e.currentTarget as HTMLElement).getBoundingClientRect(); setCalendarFor(calendarFor?.id === act.id ? null : { id: act.id, rect: r }) }}
+                      style={{ fontSize: 12, color: isOverdue ? '#dc2626' : (act.date_echeance ? '#374151' : '#9ca3af'), cursor: 'pointer', fontWeight: isOverdue ? 700 : 400, whiteSpace: 'nowrap' }}>
+                      {act.date_echeance
+                        ? new Date(act.date_echeance + 'T12:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
+                        : '+ date'}
+                    </span>
+                    {calendarFor?.id === act.id && (
+                      <CalendrierPicker
+                        value={act.date_echeance}
+                        onChange={v => patchActivite(act.id, { date_echeance: v })}
+                        onClose={() => setCalendarFor(null)}
+                        triggerRect={calendarFor.rect}
+                      />
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <button onClick={() => setDeleteActiviteId(act.id)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d1d5db', fontSize: 14, padding: 4 }}
+                      onMouseEnter={e => (e.currentTarget.style.color = '#dc2626')}
+                      onMouseLeave={e => (e.currentTarget.style.color = '#d1d5db')}>✕</button>
                   </div>
                 </div>
 
-                <div onClick={() => openActivite(act)} style={{ padding: '11px 12px', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', borderRight: '1px solid #f3f4f6', minWidth: 0 }}>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: isDone ? '#9ca3af' : '#111827', textDecoration: isDone ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{act.nom}</span>
-                  {(act.commentaires_activites?.length ?? 0) > 0 && <span style={{ fontSize: 11, color: '#9ca3af', flexShrink: 0 }}>💬 {act.commentaires_activites.length}</span>}
-                </div>
-
-                <div style={{ padding: '11px 10px', display: 'flex', alignItems: 'center', gap: 6, borderRight: '1px solid #f3f4f6' }}>
-                  {editingCell?.id === act.id && editingCell.field === 'assignee' ? (
-                    <select autoFocus className="select" style={{ fontSize: 12, width: '100%' }}
-                      value={act.assignee_id ?? ''}
-                      onChange={e => patchActivite(act.id, { assignee_id: e.target.value || null })}>
-                      <option value="">Non assigné</option>
-                      {allProfiles.map(p => <option key={p.id} value={p.id}>{p.prenoms} {p.nom}</option>)}
-                    </select>
-                  ) : (
-                    <div onClick={() => setEditingCell({ id: act.id, field: 'assignee' })} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', width: '100%' }}>
-                      <Initials profile={act.assignee} />
-                      <span style={{ fontSize: 12, color: act.assignee ? '#374151' : '#d1d5db', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {act.assignee ? `${act.assignee.prenoms} ${act.assignee.nom}` : '—'}
-                      </span>
+                {/* Sub-tasks */}
+                {isExpanded && subTasks.map(sub => {
+                  const subPc = PRIO_COLORS[sub.priorite] ?? PRIO_COLORS.normale
+                  const subSc = ACT_STATUT_COLORS[sub.statut] ?? ACT_STATUT_COLORS.a_faire
+                  const subDone = sub.statut === 'termine'
+                  const subOverdue = sub.date_echeance && new Date(sub.date_echeance + 'T00:00:00') < todayD && !subDone
+                  return (
+                    <div key={sub.id} style={{ display: 'grid', gridTemplateColumns: '36px 1fr 170px 140px 110px 130px 36px', borderBottom: '1px solid #f3f4f6', background: '#fafafa' }}>
+                      <div onClick={() => toggleDone(sub)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', borderRight: '1px solid #f3f4f6' }}>
+                        <div style={{ width: 13, height: 13, borderRadius: 3, border: `2px solid ${subDone ? '#16a34a' : COL_COLORS[sub.statut] ?? '#6b7280'}`, background: subDone ? '#16a34a' : 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          {subDone && <svg width="8" height="6" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="white" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                        </div>
+                      </div>
+                      <div onClick={() => openActivite(sub)} style={{ padding: '8px 12px 8px 28px', display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', borderRight: '1px solid #f3f4f6', minWidth: 0 }}>
+                        <span style={{ fontSize: 12, color: subDone ? '#9ca3af' : '#374151', textDecoration: subDone ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sub.nom}</span>
+                      </div>
+                      <div style={{ padding: '8px 10px', display: 'flex', alignItems: 'center', gap: 6, borderRight: '1px solid #f3f4f6' }}>
+                        <Initials profile={sub.assignee} />
+                        <span style={{ fontSize: 11, color: '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sub.assignee ? `${sub.assignee.prenoms} ${sub.assignee.nom}` : '—'}</span>
+                      </div>
+                      <div style={{ padding: '8px 10px', display: 'flex', alignItems: 'center', borderRight: '1px solid #f3f4f6' }}>
+                        <span style={{ background: subSc.bg, color: subSc.color, borderRadius: 999, padding: '2px 8px', fontSize: 10, fontWeight: 700 }}>{ACT_STATUT_LABELS[sub.statut]}</span>
+                      </div>
+                      <div style={{ padding: '8px 10px', display: 'flex', alignItems: 'center', borderRight: '1px solid #f3f4f6' }}>
+                        <span style={{ background: subPc.bg, color: subPc.color, borderRadius: 999, padding: '2px 8px', fontSize: 10, fontWeight: 700 }}>{PRIO_LABELS[sub.priorite]}</span>
+                      </div>
+                      <div style={{ padding: '8px 10px', display: 'flex', alignItems: 'center', borderRight: '1px solid #f3f4f6' }}>
+                        <span style={{ fontSize: 11, color: subOverdue ? '#dc2626' : (sub.date_echeance ? '#374151' : '#9ca3af') }}>
+                          {sub.date_echeance ? new Date(sub.date_echeance + 'T12:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }) : '—'}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <button onClick={() => deleteActivite(sub.id)}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d1d5db', fontSize: 12, padding: 4 }}
+                          onMouseEnter={e => (e.currentTarget.style.color = '#dc2626')}
+                          onMouseLeave={e => (e.currentTarget.style.color = '#d1d5db')}>✕</button>
+                      </div>
                     </div>
-                  )}
-                </div>
+                  )
+                })}
 
-                <div style={{ padding: '11px 10px', display: 'flex', alignItems: 'center', borderRight: '1px solid #f3f4f6' }}>
-                  {editingCell?.id === act.id && editingCell.field === 'statut' ? (
-                    <select autoFocus className="select" style={{ fontSize: 12, width: '100%' }}
-                      value={act.statut}
-                      onChange={e => patchActivite(act.id, { statut: e.target.value })}>
-                      {Object.entries(ACT_STATUT_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                    </select>
-                  ) : (
-                    <span onClick={() => setEditingCell({ id: act.id, field: 'statut' })}
-                      style={{ background: sc.bg, color: sc.color, borderRadius: 999, padding: '3px 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                      {ACT_STATUT_LABELS[act.statut]}
-                    </span>
-                  )}
-                </div>
+                {/* Sub-task add form */}
+                {showSubtaskForm === act.id && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '36px 1fr 36px', borderBottom: '1px solid #f3f4f6', background: '#f0fdf4' }}>
+                    <div style={{ borderRight: '1px solid #f3f4f6' }} />
+                    <div style={{ padding: '6px 12px 6px 28px' }}>
+                      <input autoFocus className="input" placeholder="Nom de la sous-tâche…" style={{ fontSize: 12 }}
+                        value={subtaskNom} onChange={e => setSubtaskNom(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') addSubTask(act.id); if (e.key === 'Escape') setShowSubtaskForm(null) }} />
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                      <button className="btn" style={{ fontSize: 10, padding: '3px 7px' }} onClick={() => addSubTask(act.id)} disabled={savingTask}>✓</button>
+                    </div>
+                  </div>
+                )}
 
-                <div style={{ padding: '11px 10px', display: 'flex', alignItems: 'center', borderRight: '1px solid #f3f4f6' }}>
-                  {editingCell?.id === act.id && editingCell.field === 'priorite' ? (
-                    <select autoFocus className="select" style={{ fontSize: 12, width: '100%' }}
-                      value={act.priorite}
-                      onChange={e => patchActivite(act.id, { priorite: e.target.value })}>
-                      {Object.entries(PRIO_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                    </select>
-                  ) : (
-                    <span onClick={() => setEditingCell({ id: act.id, field: 'priorite' })}
-                      style={{ background: pc.bg, color: pc.color, borderRadius: 999, padding: '3px 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
-                      {PRIO_LABELS[act.priorite]}
-                    </span>
-                  )}
-                </div>
-
-                <div style={{ padding: '11px 10px', display: 'flex', alignItems: 'center', borderRight: '1px solid #f3f4f6' }}>
-                  <span onClick={e => { const r = (e.currentTarget as HTMLElement).getBoundingClientRect(); setCalendarFor(calendarFor?.id === act.id ? null : { id: act.id, rect: r }) }}
-                    style={{ fontSize: 12, color: isOverdue ? '#dc2626' : (act.date_echeance ? '#374151' : '#9ca3af'), cursor: 'pointer', fontWeight: isOverdue ? 700 : 400, whiteSpace: 'nowrap' }}>
-                    {act.date_echeance
-                      ? new Date(act.date_echeance + 'T12:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
-                      : '+ date'}
-                  </span>
-                  {calendarFor?.id === act.id && (
-                    <CalendrierPicker
-                      value={act.date_echeance}
-                      onChange={v => patchActivite(act.id, { date_echeance: v })}
-                      onClose={() => setCalendarFor(null)}
-                      triggerRect={calendarFor.rect}
-                    />
-                  )}
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <button onClick={() => setDeleteActiviteId(act.id)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d1d5db', fontSize: 14, padding: 4 }}
-                    onMouseEnter={e => (e.currentTarget.style.color = '#dc2626')}
-                    onMouseLeave={e => (e.currentTarget.style.color = '#d1d5db')}>✕</button>
-                </div>
+                {/* Add sub-task link (visible when expanded or no sub-tasks yet) */}
+                {isExpanded && !showSubtaskForm && (
+                  <div onClick={() => { setShowSubtaskForm(act.id); setSubtaskNom('') }}
+                    style={{ padding: '5px 14px 5px 46px', fontSize: 11, color: '#9ca3af', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, background: '#fafafa', borderBottom: '1px solid #f3f4f6' }}
+                    onMouseEnter={e => { e.currentTarget.style.color = 'var(--abed-green)' }}
+                    onMouseLeave={e => { e.currentTarget.style.color = '#9ca3af' }}>
+                    + Ajouter une sous-tâche
+                  </div>
+                )}
               </div>
             )
           })}
@@ -622,7 +731,7 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
       {view === 'kanban' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
           {COLUMNS.map(col => {
-            const tasks = projet.activites.filter(a => a.statut === col)
+            const tasks = projet.activites.filter(a => a.statut === col && !a.parent_id)
             return (
               <div key={col} style={{ background: '#f9fafb', borderRadius: 14, padding: 14, minHeight: 300 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
@@ -701,7 +810,7 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
               {cells.map((cell, i) => {
                 const isToday = cell.date === todayStr
-                const dayTasks = projet.activites.filter(a => a.date_echeance === cell.date)
+                const dayTasks = projet.activites.filter(a => a.date_echeance === cell.date && !a.parent_id)
                 const shown = dayTasks.slice(0, 3)
                 const extra = dayTasks.length - shown.length
                 return (
@@ -771,7 +880,7 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
                 <div style={{ height: 56, display: 'flex', alignItems: 'flex-end', padding: '0 14px 8px', borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
                   <span style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '.04em' }}>Tâche</span>
                 </div>
-                {projet.activites.map(act => (
+                {projet.activites.filter(a => !a.parent_id).map(act => (
                   <div key={act.id}
                     onClick={() => openActivite(act)}
                     style={{ height: 40, display: 'flex', alignItems: 'center', gap: 8, padding: '0 14px', borderBottom: '1px solid #f3f4f6', cursor: 'pointer', background: selectedActivite?.id === act.id ? '#f0fdf4' : 'white' }}
@@ -785,7 +894,7 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
                     )}
                   </div>
                 ))}
-                {projet.activites.length === 0 && (
+                {projet.activites.filter(a => !a.parent_id).length === 0 && (
                   <div style={{ padding: '20px 14px', fontSize: 13, color: '#9ca3af' }}>Aucune tâche</div>
                 )}
               </div>
@@ -825,7 +934,7 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
                   </div>
 
                   {/* Task rows */}
-                  {projet.activites.map(act => {
+                  {projet.activites.filter(a => !a.parent_id).map(act => {
                     const actSc = ACT_STATUT_COLORS[act.statut] ?? ACT_STATUT_COLORS.a_faire
                     const rawStart = new Date(act.created_at); rawStart.setHours(0,0,0,0)
                     const taskStart = rawStart < ganttStart ? ganttStart : rawStart
@@ -882,7 +991,7 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
                     )
                   })}
 
-                  {projet.activites.length === 0 && (
+                  {projet.activites.filter(a => !a.parent_id).length === 0 && (
                     <div style={{ height: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontSize: 13 }}>
                       Aucune tâche
                     </div>
@@ -904,7 +1013,7 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
           </div>
 
           {COLUMNS.map(col => {
-            const tasks = projet.activites.filter(a => a.statut === col)
+            const tasks = projet.activites.filter(a => a.statut === col && !a.parent_id)
             const isCollapsed = collapsed[col] ?? false
             const sc = ACT_STATUT_COLORS[col]
 

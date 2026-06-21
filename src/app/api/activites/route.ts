@@ -40,6 +40,7 @@ export async function POST(req: NextRequest) {
     assignee_id: body.assignee_id || null,
     date_echeance: body.date_echeance || null,
     created_by: user.id,
+    parent_id: body.parent_id || null,
   }).select(`*, assignee:profiles!activites_assignee_id_fkey(id, nom, prenoms, email), created_by_profile:profiles!activites_created_by_fkey(id, nom, prenoms), commentaires_activites(id), projet:projets_internes!activites_projet_id_fkey(nom)`).single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
