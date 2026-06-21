@@ -24,11 +24,10 @@ function sigRotation(name: string): number {
 }
 
 function SignatureBlock({ name, date, hash, small }: { name: string; date: string; hash: string; small?: boolean }) {
-  const bw = small ? 180 : 220
-  const bh = small ? 58 : 72
+  const bw = small ? 190 : 240
+  const bh = small ? 72 : 90
   const barW = 2
-  const hookLen = small ? 8 : 11
-  const rot = sigRotation(name)
+  const hookLen = small ? 9 : 13
   return (
     <div style={{ position: 'relative', width: bw, height: bh, userSelect: 'none', background: 'white' }}>
       <style>{`@font-face { font-family: 'BrittanySignature'; src: url('/fonts/BrittanySignature.ttf') format('truetype'); font-weight: normal; font-style: normal; }`}</style>
@@ -37,19 +36,20 @@ function SignatureBlock({ name, date, hash, small }: { name: string; date: strin
         <line x1={2} y1={2} x2={2} y2={bh - 2} stroke={BRACKET_COLOR} strokeWidth={barW} strokeLinecap="round" />
         <line x1={2} y1={bh - 2} x2={2 + hookLen} y2={bh - 2} stroke={BRACKET_COLOR} strokeWidth={barW} strokeLinecap="round" />
       </svg>
-      <div style={{ position: 'absolute', left: hookLen + 8, top: 0, right: 4, bottom: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', paddingTop: 5, paddingBottom: 5 }}>
-        <div style={{ fontSize: small ? 7.5 : 9, fontWeight: 700, color: '#374151', letterSpacing: 0.5, fontFamily: 'Arial, sans-serif', textTransform: 'uppercase' }}>
+      <div style={{ position: 'absolute', left: hookLen + 8, top: 0, right: 4, bottom: 0, display: 'flex', flexDirection: 'column', paddingTop: 6, paddingBottom: 5 }}>
+        <div style={{ fontSize: small ? 7.5 : 9, fontWeight: 700, color: '#374151', letterSpacing: 0.5, fontFamily: 'Arial, sans-serif', textTransform: 'uppercase', marginBottom: 2 }}>
           MyABED signed by:
         </div>
         <div style={{
           fontFamily: '"BrittanySignature", cursive',
-          fontSize: small ? 28 : 38,
+          fontSize: small ? 26 : 34,
           color: '#000',
-          lineHeight: 1,
-          letterSpacing: '0.08em',
-          transform: `rotate(${rot}deg)`,
-          transformOrigin: 'left center',
-          display: 'inline-block',
+          lineHeight: 1.1,
+          letterSpacing: '0.04em',
+          flex: 1,
+          display: 'flex',
+          alignItems: 'center',
+          overflow: 'hidden',
           fontWeight: 400,
         }}>
           {name}

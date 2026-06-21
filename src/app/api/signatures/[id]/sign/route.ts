@@ -39,9 +39,9 @@ async function embedSignatureInPdf(
     nameFont = await pdfDoc.embedFont(fontBytes)
   } catch { /* fallback to Helvetica italic if font file missing */ }
 
-  // Convert percentage to PDF coordinates (PDF origin = bottom-left)
-  const sigW = 160
-  const sigH = 52
+  // Signature block dimensions — match UI proportions (240px × 90px on ~700px canvas)
+  const sigW = width * 0.30   // ~30% of page width
+  const sigH = height * 0.085 // ~8.5% of page height
   const x = (xPct / 100) * width - sigW / 2
   const y = height - (yPct / 100) * height - sigH / 2
 
@@ -52,7 +52,7 @@ async function embedSignatureInPdf(
   const barX = clampX + 4
   const barTop = clampY + sigH
   const barBot = clampY
-  const hookLen = 8
+  const hookLen = sigW * 0.06  // proportional hook length
 
   // Left bracket (C shape) — blue like DocuSign
   const blue = rgb(0.145, 0.388, 0.922)
@@ -60,29 +60,31 @@ async function embedSignatureInPdf(
   page.drawLine({ start: { x: barX, y: barTop }, end: { x: barX, y: barBot }, thickness: 1.5, color: blue })
   page.drawLine({ start: { x: barX, y: barBot }, end: { x: barX + hookLen, y: barBot }, thickness: 1.5, color: blue })
 
-  // "MyABED signed by:" header
+  // "MyABED signed by:" header — ~13% from top of block
   page.drawText('MyABED signed by:', {
-    x: barX + 14, y: clampY + sigH - 11,
-    size: 6.5, font: helveticaBold, color: rgb(0.15, 0.15, 0.15),
+    x: barX + hookLen + 6, y: clampY + sigH - sigH * 0.16,
+    size: sigH * 0.12, font: helveticaBold, color: rgb(0.15, 0.15, 0.15),
   })
 
-  // Signer name in Brittany Signature font
-  const nameSize = signerName.length > 16 ? 22 : 26
+  // Signer name in Brittany — centered vertically in the middle zone
+  const nameSize = signerName.length > 18 ? sigH * 0.35 : sigH * 0.42
   page.drawText(signerName, {
-    x: barX + 14, y: clampY + sigH - 32,
+    x: barX + hookLen + 6, y: clampY + sigH * 0.30,
     size: nameSize, font: nameFont, color: rgb(0, 0, 0),
   })
 
-  // Separator line
+  // Separator line — 22% from bottom of block
   page.drawLine({
-    start: { x: barX + 14, y: clampY + 13 },
-    end: { x: clampX + sigW - 4, y: clampY + 13 },
+    start: { x: barX + hookLen + 6, y: clampY + sigH * 0.22 },
+    end: { x: clampX + sigW - 4, y: clampY + sigH * 0.22 },
     thickness: 0.5, color: rgb(0.7, 0.7, 0.7),
   })
 
-  // Date + hash
-  page.drawText(sigDate, { x: barX + 14, y: clampY + 5, size: 5.5, font: helvetica, color: rgb(0.4, 0.4, 0.4) })
-  page.drawText(`${sigHash.slice(0, 12)}...`, { x: barX + 70, y: clampY + 5, size: 5.5, font: helvetica, color: rgb(0.4, 0.4, 0.4) })
+  // Date + hash — 8% from bottom of block
+  const metaSize = sigH * 0.10
+  const metaY = clampY + sigH * 0.06
+  page.drawText(sigDate, { x: barX + hookLen + 6, y: metaY, size: metaSize, font: helvetica, color: rgb(0.4, 0.4, 0.4) })
+  page.drawText(`${sigHash.slice(0, 12)}...`, { x: barX + hookLen + 6 + sigW * 0.35, y: metaY, size: metaSize, font: helvetica, color: rgb(0.6, 0.6, 0.6) })
 
   return pdfDoc.save()
 }
