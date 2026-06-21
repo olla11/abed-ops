@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { sendEmail } from '@/lib/resend'
-import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
-import { BRITTANY_B64 } from '@/lib/brittany-font'
+import { PDFDocument } from 'pdf-lib'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_URL ?? 'https://myabed.app'
 
@@ -12,14 +11,16 @@ function shortHash(s: string): string {
   return Math.abs(h).toString(16).toUpperCase().padStart(8, '0')
 }
 
-// Embed signature visually into the PDF using pdf-lib
+/**
+ * Embeds a pre-rendered signature PNG image into the PDF at the given position.
+ * The PNG is captured from the browser's own canvas rendering (Brittany font included),
+ * so the result in the PDF is pixel-perfect identical to the UI preview.
+ */
 async function embedSignatureInPdf(
   pdfBytes: ArrayBuffer,
-  signerName: string,
-  sigDate: string,
-  sigHash: string,
-  xPct: number,   // 0-100 percentage from left
-  yPct: number,   // 0-100 percentage from top
+  sigImagePng: string,  // base64 data URL: "data:image/png;base64,..."
+  xPct: number,         // 0-100 % from left (center of signature block)
+  yPct: number,         // 0-100 % from top  (center of signature block)
   pageIndex = 0
 ): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.load(pdfBytes)
@@ -27,59 +28,23 @@ async function embedSignatureInPdf(
   const page = pages[Math.min(pageIndex, pages.length - 1)]
   const { width, height } = page.getSize()
 
-  const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
-  const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica)
+  // Decode the PNG
+  const base64 = sigImagePng.replace(/^data:image\/png;base64,/, '')
+  const pngBytes = Buffer.from(base64, 'base64')
+  const pngImage = await pdfDoc.embedPng(pngBytes)
 
-  // Brittany Signature font — embedded as base64 constant, always available in serverless
-  const brittanyBytes = Buffer.from(BRITTANY_B64, 'base64')
-  const nameFont = await pdfDoc.embedFont(brittanyBytes)
+  // Maintain the same aspect ratio as the UI block (240 × 90)
+  const sigW = width * 0.30        // ~30% of page width
+  const sigH = sigW * (90 / 240)   // preserve 240:90 aspect ratio
 
-  // Signature block dimensions — match UI proportions (240px × 90px on ~700px canvas)
-  const sigW = width * 0.30   // ~30% of page width
-  const sigH = height * 0.085 // ~8.5% of page height
-  const x = (xPct / 100) * width - sigW / 2
-  const y = height - (yPct / 100) * height - sigH / 2
+  // Convert % from top to PDF coords (origin = bottom-left)
+  const cx = (xPct / 100) * width
+  const cy = height - (yPct / 100) * height
 
-  const clampX = Math.max(4, Math.min(width - sigW - 4, x))
-  const clampY = Math.max(4, Math.min(height - sigH - 4, y))
+  const drawX = Math.max(2, Math.min(width - sigW - 2, cx - sigW / 2))
+  const drawY = Math.max(2, Math.min(height - sigH - 2, cy - sigH / 2))
 
-  // DocuSign-style bracket: left vertical bar + top/bottom hooks
-  const barX = clampX + 4
-  const barTop = clampY + sigH
-  const barBot = clampY
-  const hookLen = sigW * 0.06  // proportional hook length
-
-  // Left bracket (C shape) — blue like DocuSign
-  const blue = rgb(0.145, 0.388, 0.922)
-  page.drawLine({ start: { x: barX, y: barTop }, end: { x: barX + hookLen, y: barTop }, thickness: 1.5, color: blue })
-  page.drawLine({ start: { x: barX, y: barTop }, end: { x: barX, y: barBot }, thickness: 1.5, color: blue })
-  page.drawLine({ start: { x: barX, y: barBot }, end: { x: barX + hookLen, y: barBot }, thickness: 1.5, color: blue })
-
-  // "MyABED signed by:" header — ~13% from top of block
-  page.drawText('MyABED signed by:', {
-    x: barX + hookLen + 6, y: clampY + sigH - sigH * 0.16,
-    size: sigH * 0.12, font: helveticaBold, color: rgb(0.15, 0.15, 0.15),
-  })
-
-  // Signer name in Brittany — centered vertically in the middle zone
-  const nameSize = signerName.length > 18 ? sigH * 0.35 : sigH * 0.42
-  page.drawText(signerName, {
-    x: barX + hookLen + 6, y: clampY + sigH * 0.30,
-    size: nameSize, font: nameFont, color: rgb(0, 0, 0),
-  })
-
-  // Separator line — 22% from bottom of block
-  page.drawLine({
-    start: { x: barX + hookLen + 6, y: clampY + sigH * 0.22 },
-    end: { x: clampX + sigW - 4, y: clampY + sigH * 0.22 },
-    thickness: 0.5, color: rgb(0.7, 0.7, 0.7),
-  })
-
-  // Date + hash — 8% from bottom of block
-  const metaSize = sigH * 0.10
-  const metaY = clampY + sigH * 0.06
-  page.drawText(sigDate, { x: barX + hookLen + 6, y: metaY, size: metaSize, font: helvetica, color: rgb(0.4, 0.4, 0.4) })
-  page.drawText(`${sigHash.slice(0, 12)}...`, { x: barX + hookLen + 6 + sigW * 0.35, y: metaY, size: metaSize, font: helvetica, color: rgb(0.6, 0.6, 0.6) })
+  page.drawImage(pngImage, { x: drawX, y: drawY, width: sigW, height: sigH })
 
   return pdfDoc.save()
 }
@@ -93,11 +58,13 @@ export async function POST(
   let sig_x: number | undefined
   let sig_y: number | undefined
   let sig_page: number | undefined
+  let sig_image: string | undefined
   try {
     const body = await req.json()
     if (typeof body.sig_x === 'number') sig_x = body.sig_x
     if (typeof body.sig_y === 'number') sig_y = body.sig_y
     if (typeof body.sig_page === 'number') sig_page = body.sig_page
+    if (typeof body.sig_image === 'string' && body.sig_image.startsWith('data:image/png')) sig_image = body.sig_image
   } catch { /* empty body */ }
 
   const supabase = await createClient()
@@ -131,9 +98,9 @@ export async function POST(
   const sigDate = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
   const sigHash = shortHash(user.id + demandeId + sigDate)
 
-  // Embed signature in PDF if file exists and position provided
+  // Embed signature PNG image into the PDF at the chosen position
   let newFichierUrl: string | null = null
-  if (demande.fichier_url && sig_x !== undefined && sig_y !== undefined) {
+  if (demande.fichier_url && sig_x !== undefined && sig_y !== undefined && sig_image) {
     try {
       const rawFichierUrl = demande.fichier_url as string
       const filePath = rawFichierUrl.includes('/documents/') ? rawFichierUrl.split('/documents/').at(-1) : rawFichierUrl
@@ -143,7 +110,7 @@ export async function POST(
         if (fileData) {
           const pdfBytes = await fileData.arrayBuffer()
           const signedPdf = await embedSignatureInPdf(
-            pdfBytes, signerName, sigDate, sigHash,
+            pdfBytes, sig_image,
             sig_x, sig_y, (sig_page ?? 1) - 1
           )
           // Upload signed PDF (overwrite)

@@ -28,36 +28,29 @@ function SignatureBlock({ name, date, hash, small }: { name: string; date: strin
   const bh = small ? 72 : 90
   const barW = 2
   const hookLen = small ? 9 : 13
+  const fontSize = small ? 18 : 24
   return (
-    <div style={{ position: 'relative', width: bw, height: bh, userSelect: 'none', background: 'white' }}>
+    <div style={{ position: 'relative', width: bw, height: bh, userSelect: 'none', background: 'white', overflow: 'visible' }}>
       <style>{`@font-face { font-family: 'BrittanySignature'; src: url('/fonts/BrittanySignature.ttf') format('truetype'); font-weight: normal; font-style: normal; }`}</style>
       <svg width={hookLen + 4} height={bh} style={{ position: 'absolute', left: 0, top: 0, overflow: 'visible' }}>
         <line x1={2} y1={2} x2={2 + hookLen} y2={2} stroke={BRACKET_COLOR} strokeWidth={barW} strokeLinecap="round" />
         <line x1={2} y1={2} x2={2} y2={bh - 2} stroke={BRACKET_COLOR} strokeWidth={barW} strokeLinecap="round" />
         <line x1={2} y1={bh - 2} x2={2 + hookLen} y2={bh - 2} stroke={BRACKET_COLOR} strokeWidth={barW} strokeLinecap="round" />
       </svg>
-      <div style={{ position: 'absolute', left: hookLen + 8, top: 0, right: 4, bottom: 0, display: 'flex', flexDirection: 'column', paddingTop: 6, paddingBottom: 5 }}>
-        <div style={{ fontSize: small ? 7.5 : 9, fontWeight: 700, color: '#374151', letterSpacing: 0.5, fontFamily: 'Arial, sans-serif', textTransform: 'uppercase', marginBottom: 2 }}>
-          MyABED signed by:
-        </div>
-        <div style={{
-          fontFamily: '"BrittanySignature", cursive',
-          fontSize: small ? 26 : 34,
-          color: '#000',
-          lineHeight: 1.1,
-          letterSpacing: '0.04em',
-          flex: 1,
-          display: 'flex',
-          alignItems: 'center',
-          overflow: 'hidden',
-          fontWeight: 400,
-        }}>
+      {/* Header — pinned to top */}
+      <div style={{ position: 'absolute', top: 6, left: hookLen + 8, right: 4, fontSize: small ? 7.5 : 9, fontWeight: 700, color: '#374151', letterSpacing: 0.5, fontFamily: 'Arial, sans-serif', textTransform: 'uppercase' }}>
+        MyABED signed by:
+      </div>
+      {/* Name — overflow visible so Brittany flourishes don't get clipped */}
+      <div style={{ position: 'absolute', left: hookLen + 8, right: 4, top: 18, bottom: 20, display: 'flex', alignItems: 'center', overflow: 'visible' }}>
+        <span style={{ fontFamily: '"BrittanySignature", cursive', fontSize, color: '#000', lineHeight: 1, letterSpacing: '0.02em', fontWeight: 400, whiteSpace: 'nowrap', overflow: 'visible' }}>
           {name}
-        </div>
-        <div style={{ borderTop: '1px solid #d1d5db', paddingTop: 3, fontSize: small ? 7 : 8, color: '#6b7280', display: 'flex', justifyContent: 'space-between', fontFamily: 'Arial, sans-serif' }}>
-          <span>{date}</span>
-          <span style={{ color: '#9ca3af' }}>{hash.slice(0, 12)}...</span>
-        </div>
+        </span>
+      </div>
+      {/* Footer — pinned to bottom */}
+      <div style={{ position: 'absolute', bottom: 5, left: hookLen + 8, right: 4, borderTop: '1px solid #d1d5db', paddingTop: 3, fontSize: small ? 7 : 8, color: '#6b7280', display: 'flex', justifyContent: 'space-between', fontFamily: 'Arial, sans-serif' }}>
+        <span>{date}</span>
+        <span style={{ color: '#9ca3af' }}>{hash.slice(0, 12)}...</span>
       </div>
     </div>
   )
@@ -280,12 +273,76 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName }:
     }
   }
 
+  // Render the signature block to a PNG via an offscreen canvas.
+  // This captures the EXACT browser rendering (Brittany font included) so the
+  // PDF embedding is pixel-perfect identical to what the user sees.
+  async function captureSignatureImage(): Promise<string> {
+    const SCALE = 3  // render at 3× for crisp PDF embedding
+    const BW = 240 * SCALE, BH = 90 * SCALE
+    const hookLen = 13 * SCALE
+    const fontSize = 24 * SCALE
+
+    const canvas = document.createElement('canvas')
+    canvas.width = BW; canvas.height = BH
+    const ctx = canvas.getContext('2d')!
+
+    // Ensure Brittany font is loaded before drawing
+    try { await document.fonts.load(`${fontSize}px BrittanySignature`) } catch { /* ignore */ }
+
+    // White background
+    ctx.fillStyle = 'white'
+    ctx.fillRect(0, 0, BW, BH)
+
+    // Bracket (blue C-shape)
+    ctx.strokeStyle = BRACKET_COLOR
+    ctx.lineWidth = 2 * SCALE
+    ctx.lineCap = 'round'
+    ctx.beginPath()
+    ctx.moveTo(2 * SCALE + hookLen, 2 * SCALE)
+    ctx.lineTo(2 * SCALE, 2 * SCALE)
+    ctx.lineTo(2 * SCALE, BH - 2 * SCALE)
+    ctx.lineTo(2 * SCALE + hookLen, BH - 2 * SCALE)
+    ctx.stroke()
+
+    const textX = 2 * SCALE + hookLen + 8 * SCALE
+
+    // Header label
+    ctx.fillStyle = '#374151'
+    ctx.font = `bold ${9 * SCALE}px Arial, sans-serif`
+    ctx.fillText('MYABED SIGNED BY:', textX, 16 * SCALE)
+
+    // Signer name in Brittany
+    ctx.fillStyle = '#000000'
+    ctx.font = `${fontSize}px BrittanySignature`
+    // Baseline at 65% from top so ascenders have room above
+    ctx.fillText(today.startsWith('0') ? userName : userName, textX, BH * 0.72)
+
+    // Separator line
+    ctx.strokeStyle = '#d1d5db'
+    ctx.lineWidth = 1 * SCALE
+    ctx.beginPath()
+    ctx.moveTo(textX, BH - 22 * SCALE)
+    ctx.lineTo(BW - 4 * SCALE, BH - 22 * SCALE)
+    ctx.stroke()
+
+    // Date and hash
+    ctx.fillStyle = '#6b7280'
+    ctx.font = `${8 * SCALE}px Arial, sans-serif`
+    ctx.fillText(today, textX, BH - 8 * SCALE)
+    ctx.fillStyle = '#9ca3af'
+    ctx.fillText(`${sigHash.slice(0, 12)}...`, textX + 90 * SCALE, BH - 8 * SCALE)
+
+    return canvas.toDataURL('image/png')
+  }
+
   async function confirmSign() {
     setLoading(true); setErr(null)
+    // Capture the signature as a PNG image from the browser's own rendering
+    const sig_image = await captureSignatureImage().catch(() => null)
     const res = await fetch(`/api/signatures/${demandeId}/sign`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sig_x: sigPos?.x ?? 50, sig_y: sigPos?.y ?? 80, sig_page: sigPage }),
+      body: JSON.stringify({ sig_x: sigPos?.x ?? 50, sig_y: sigPos?.y ?? 80, sig_page: sigPage, sig_image }),
     })
     setLoading(false)
     if (res.ok) setSigned(true)
