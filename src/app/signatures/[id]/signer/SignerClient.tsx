@@ -17,11 +17,10 @@ function shortHash(s: string): string {
 
 const BRACKET_COLOR = '#2563eb'
 
-// Deterministic slight rotation from name (-2° to +2°) for natural handwritten feel
 function sigRotation(name: string): number {
   let h = 0
   for (let i = 0; i < name.length; i++) h = (Math.imul(31, h) + name.charCodeAt(i)) | 0
-  return ((Math.abs(h) % 40) - 20) / 10  // -2.0 to +2.0 degrees
+  return ((Math.abs(h) % 40) - 20) / 10
 }
 
 function SignatureBlock({ name, date, hash, small }: { name: string; date: string; hash: string; small?: boolean }) {
@@ -64,21 +63,187 @@ function SignatureBlock({ name, date, hash, small }: { name: string; date: strin
   )
 }
 
+/**
+ * Renders a single PDF page to a <canvas> via pdfjs-dist.
+ * Click/drag coordinates are relative to the canvas element only —
+ * no browser toolbar or scroll offset involved, so they map 1:1 to PDF page space.
+ */
+function PdfCanvasViewer({
+  docUrl,
+  pageNumber,
+  placingMode,
+  sigPos,
+  onPlace,
+  onDragEnd,
+  sigBlock,
+}: {
+  docUrl: string
+  pageNumber: number
+  placingMode: boolean
+  sigPos: { x: number; y: number } | null
+  onPlace: (x: number, y: number) => void
+  onDragEnd: (x: number, y: number) => void
+  sigBlock: React.ReactNode
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const wrapperRef = useRef<HTMLDivElement>(null)
+  const [rendering, setRendering] = useState(true)
+  const [isDragging, setIsDragging] = useState(false)
+  const dragOffsetRef = useRef({ x: 0, y: 0 })
+  const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null)
+  const renderTaskRef = useRef<{ cancel(): void } | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    setRendering(true)
+
+    // Cancel any previous render
+    renderTaskRef.current?.cancel()
+
+    async function render() {
+      const lib = await import('pdfjs-dist')
+      // Webpack 5 / Next.js: new URL(..., import.meta.url) bundles the worker as a static asset
+      lib.GlobalWorkerOptions.workerSrc = new URL(
+        'pdfjs-dist/build/pdf.worker.min.mjs',
+        import.meta.url
+      ).toString()
+
+      const loadingTask = lib.getDocument({ url: docUrl, withCredentials: false })
+      const pdf = await loadingTask.promise
+      if (cancelled) return
+
+      const page = await pdf.getPage(Math.min(pageNumber, pdf.numPages))
+      if (cancelled) return
+
+      const containerWidth = wrapperRef.current?.clientWidth ?? 700
+      const unscaledVp = page.getViewport({ scale: 1 })
+      const scale = containerWidth / unscaledVp.width
+      const viewport = page.getViewport({ scale })
+
+      const canvas = canvasRef.current
+      if (!canvas || cancelled) return
+      canvas.width = viewport.width
+      canvas.height = viewport.height
+
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return
+      const task = page.render({ canvasContext: ctx, viewport, canvas })
+      renderTaskRef.current = task
+      await task.promise
+      if (!cancelled) setRendering(false)
+    }
+
+    render().catch(err => {
+      // RenderingCancelled is expected when page changes quickly
+      if (err?.name !== 'RenderingCancelledException' && !cancelled) setRendering(false)
+    })
+
+    return () => {
+      cancelled = true
+      renderTaskRef.current?.cancel()
+    }
+  }, [docUrl, pageNumber])
+
+  function getPct(clientX: number, clientY: number) {
+    const rect = canvasRef.current?.getBoundingClientRect()
+    if (!rect) return null
+    return {
+      x: Math.max(2, Math.min(98, ((clientX - rect.left) / rect.width) * 100)),
+      y: Math.max(2, Math.min(98, ((clientY - rect.top) / rect.height) * 100)),
+    }
+  }
+
+  function handleCanvasClick(e: React.MouseEvent) {
+    if (!placingMode) return
+    const pos = getPct(e.clientX, e.clientY)
+    if (pos) onPlace(Math.round(pos.x * 10) / 10, Math.round(pos.y * 10) / 10)
+  }
+
+  function handleSigMouseDown(e: React.MouseEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    const sigRect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    dragOffsetRef.current = {
+      x: e.clientX - sigRect.left - sigRect.width / 2,
+      y: e.clientY - sigRect.top - sigRect.height / 2,
+    }
+    setIsDragging(true)
+    setDragPos(sigPos)
+  }
+
+  useEffect(() => {
+    if (!isDragging) return
+    function onMove(e: MouseEvent) {
+      const pos = getPct(e.clientX - dragOffsetRef.current.x, e.clientY - dragOffsetRef.current.y)
+      if (pos) setDragPos({ x: Math.round(pos.x * 10) / 10, y: Math.round(pos.y * 10) / 10 })
+    }
+    function onUp(e: MouseEvent) {
+      setIsDragging(false)
+      setDragPos(null)
+      const pos = getPct(e.clientX - dragOffsetRef.current.x, e.clientY - dragOffsetRef.current.y)
+      if (pos) onDragEnd(Math.round(pos.x * 10) / 10, Math.round(pos.y * 10) / 10)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
+  }, [isDragging])
+
+  const displayPos = isDragging ? dragPos : sigPos
+
+  return (
+    <div ref={wrapperRef} style={{ position: 'relative', width: '100%', background: '#525659' }}>
+      {/* Full-screen drag capture to prevent losing mouse events over other elements */}
+      {isDragging && <div style={{ position: 'fixed', inset: 0, zIndex: 9999, cursor: 'grabbing' }} />}
+
+      {rendering && (
+        <div style={{ position: 'absolute', inset: 0, minHeight: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontSize: 14, zIndex: 5 }}>
+          Chargement de la page...
+        </div>
+      )}
+
+      <canvas
+        ref={canvasRef}
+        onClick={handleCanvasClick}
+        style={{ display: 'block', width: '100%', height: 'auto', cursor: placingMode ? 'crosshair' : 'default' }}
+      />
+
+      {/* Dim overlay when in placing mode */}
+      {placingMode && (
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.15)', cursor: 'crosshair', zIndex: 2 }}
+          onClick={handleCanvasClick} />
+      )}
+
+      {/* Draggable signature overlay — positioned as % of the canvas */}
+      {displayPos && !placingMode && (
+        <div
+          onMouseDown={handleSigMouseDown}
+          style={{
+            position: 'absolute',
+            left: `${displayPos.x}%`,
+            top: `${displayPos.y}%`,
+            transform: 'translate(-50%, -50%)',
+            cursor: isDragging ? 'grabbing' : 'grab',
+            zIndex: 10,
+          }}
+        >
+          {sigBlock}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function SignerClient({ demandeId, titre, fichierUrl, userName }: Props) {
   const router = useRouter()
   const [docUrl, setDocUrl] = useState<string | null>(null)
+  const [numPages, setNumPages] = useState<number | null>(null)
   const [loadingDoc, setLoadingDoc] = useState(!!fichierUrl)
   const [placingMode, setPlacingMode] = useState(false)
   const [sigPos, setSigPos] = useState<{ x: number; y: number } | null>(null)
-  const [isDragging, setIsDragging] = useState(false)
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
   const [sigPage, setSigPage] = useState(1)
   const [signed, setSigned] = useState(false)
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
-  const sigBlockRef = useRef<HTMLDivElement>(null)
-  const overlayRef = useRef<HTMLDivElement>(null)
 
   const today = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
   const sigHash = shortHash(userName + demandeId + today)
@@ -87,67 +252,47 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName }:
     if (!fichierUrl) return
     fetch(`/api/signatures/${demandeId}/document`)
       .then(r => r.json())
-      .then(data => { setDocUrl(data.url ?? null); setLoadingDoc(false) })
+      .then(async data => {
+        const url = data.url ?? null
+        setDocUrl(url)
+        // Detect total page count using pdfjs
+        if (url) {
+          try {
+            const lib = await import('pdfjs-dist')
+            lib.GlobalWorkerOptions.workerSrc = new URL(
+              'pdfjs-dist/build/pdf.worker.min.mjs',
+              import.meta.url
+            ).toString()
+            const pdf = await lib.getDocument({ url, withCredentials: false }).promise
+            setNumPages(pdf.numPages)
+          } catch { /* non-blocking */ }
+        }
+        setLoadingDoc(false)
+      })
       .catch(() => setLoadingDoc(false))
   }, [demandeId, fichierUrl])
 
-  // Click on overlay to initially place signature
-  function handleOverlayClick(e: React.MouseEvent<HTMLDivElement>) {
-    const rect = overlayRef.current?.getBoundingClientRect()
-    if (!rect) return
-    const x = ((e.clientX - rect.left) / rect.width) * 100
-    const y = ((e.clientY - rect.top) / rect.height) * 100
-    setSigPos({ x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 })
-    setPlacingMode(false)
-  }
-
-  // Start dragging the signature block
-  function handleSigMouseDown(e: React.MouseEvent) {
-    e.preventDefault()
-    e.stopPropagation()
-    const sigRect = sigBlockRef.current?.getBoundingClientRect()
-    if (!sigRect) return
-    setDragOffset({ x: e.clientX - sigRect.left - sigRect.width / 2, y: e.clientY - sigRect.top - sigRect.height / 2 })
-    setIsDragging(true)
-  }
-
-  // Global mouse move/up for dragging
-  useEffect(() => {
-    if (!isDragging) return
-    function onMove(e: MouseEvent) {
-      const rect = containerRef.current?.getBoundingClientRect()
-      if (!rect) return
-      const x = ((e.clientX - dragOffset.x - rect.left) / rect.width) * 100
-      const y = ((e.clientY - dragOffset.y - rect.top) / rect.height) * 100
-      setSigPos({
-        x: Math.max(5, Math.min(95, Math.round(x * 10) / 10)),
-        y: Math.max(5, Math.min(95, Math.round(y * 10) / 10)),
-      })
+  function goToPage(n: number) {
+    const clamped = Math.max(1, Math.min(numPages ?? 1, n))
+    if (clamped !== sigPage) {
+      setSigPage(clamped)
+      setSigPos(null) // clear position when changing page — user must re-place
     }
-    function onUp() { setIsDragging(false) }
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
-    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
-  }, [isDragging, dragOffset])
+  }
 
   async function confirmSign() {
     setLoading(true); setErr(null)
-    const rect = containerRef.current?.getBoundingClientRect()
-    // PDF viewer toolbar is ~48px; subtract it from the effective height for accurate y-mapping
-    const pdfToolbarPx = 48
-    const effectiveH = rect ? rect.height - pdfToolbarPx : 0
-    const correctedY = rect && sigPos
-      ? Math.max(0, Math.min(100, ((sigPos.y / 100 * rect.height - pdfToolbarPx) / effectiveH) * 100))
-      : (sigPos?.y ?? 80)
     const res = await fetch(`/api/signatures/${demandeId}/sign`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sig_x: sigPos?.x ?? 50, sig_y: correctedY, sig_page: sigPage }),
+      body: JSON.stringify({ sig_x: sigPos?.x ?? 50, sig_y: sigPos?.y ?? 80, sig_page: sigPage }),
     })
     setLoading(false)
     if (res.ok) setSigned(true)
     else { const d = await res.json().catch(() => ({})); setErr(d.error ?? 'Erreur lors de la signature') }
   }
+
+  const sigBlock = <SignatureBlock name={userName} date={today} hash={sigHash} />
 
   if (signed) {
     return (
@@ -169,156 +314,143 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName }:
   }
 
   return (
-    <>
-      {/* Global drag capture overlay — prevents iframe from eating mouse events */}
-      {isDragging && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, cursor: 'grabbing' }} />
-      )}
-
-      <div style={{ display: 'flex', height: 'calc(100vh - 64px)', overflow: 'hidden' }}>
-        {/* Left: PDF viewer */}
-        <div style={{ flex: '0 0 62%', background: '#525659', borderRight: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column' }}>
-          {/* Toolbar */}
-          <div style={{ padding: '10px 16px', background: '#3d4043', borderBottom: '1px solid #2a2d30', fontSize: 13, fontWeight: 600, color: '#e5e7eb', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📄 {titre}</span>
-            {docUrl && !placingMode && !sigPos && (
-              <button onClick={() => setPlacingMode(true)}
-                style={{ padding: '5px 14px', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer', background: '#16a34a', color: 'white', border: 'none', whiteSpace: 'nowrap', flexShrink: 0 }}>
-                ✍️ Placer ma signature
-              </button>
-            )}
-            {placingMode && (
-              <span style={{ fontSize: 12, color: '#fbbf24', fontWeight: 600, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                👆 Cliquez pour placer
-                <button onClick={() => setPlacingMode(false)} style={{ background: 'none', border: 'none', color: '#fca5a5', cursor: 'pointer', fontSize: 12, fontWeight: 700, padding: 0 }}>✕ Annuler</button>
-              </span>
-            )}
-            {sigPos && !placingMode && (
-              <span style={{ fontSize: 12, color: '#86efac', flexShrink: 0 }}>
-                ↕ Glissez pour repositionner
-              </span>
-            )}
-          </div>
-
-          {/* PDF area */}
-          <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-            {loadingDoc ? (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#9ca3af', fontSize: 14 }}>Chargement...</div>
-            ) : !docUrl ? (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#9ca3af', fontSize: 14, textAlign: 'center', padding: 32 }}>
-                Ce document n&apos;a pas de fichier joint
-              </div>
-            ) : (
-              <div ref={containerRef} style={{ position: 'relative', width: '100%', height: '100%' }}>
-                {/* PDF — always scrollable */}
-                <iframe src={docUrl} style={{ width: '100%', height: '100%', border: 'none', display: 'block' }} title="Document à signer" />
-
-                {/* Click overlay — ONLY in placing mode */}
-                {placingMode && (
-                  <div ref={overlayRef} onClick={handleOverlayClick}
-                    style={{ position: 'absolute', inset: 0, cursor: 'crosshair', background: 'rgba(0,0,0,0.12)', zIndex: 10 }} />
-                )}
-
-                {/* Draggable signature block */}
-                {sigPos && !placingMode && (
-                  <div
-                    ref={sigBlockRef}
-                    onMouseDown={handleSigMouseDown}
-                    style={{
-                      position: 'absolute',
-                      left: `${sigPos.x}%`,
-                      top: `${sigPos.y}%`,
-                      transform: 'translate(-50%, -50%)',
-                      cursor: isDragging ? 'grabbing' : 'grab',
-                      zIndex: 20,
-                    }}
-                  >
-                    <SignatureBlock name={userName} date={today} hash={sigHash} />
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Right: Signature panel */}
-        <div style={{ flex: '0 0 38%', padding: '28px 24px', background: 'white', display: 'flex', flexDirection: 'column', gap: 16, overflowY: 'auto' }}>
-          <h2 style={{ margin: 0, fontSize: 19, color: '#111827', fontWeight: 700 }}>Votre signature</h2>
-
-          <div>
-            <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4, color: '#6b7280' }}>Nom complet</label>
-            <input value={userName} readOnly style={{ width: '100%', padding: '10px 14px', borderRadius: 8, fontSize: 14, border: '1px solid #e5e7eb', background: '#f9fafb', color: '#374151', boxSizing: 'border-box', outline: 'none' }} />
-          </div>
-
-          <div>
-            <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4, color: '#6b7280' }}>Date de signature</label>
-            <input value={today} readOnly style={{ width: '100%', padding: '10px 14px', borderRadius: 8, fontSize: 14, border: '1px solid #e5e7eb', background: '#f9fafb', color: '#374151', boxSizing: 'border-box', outline: 'none' }} />
-          </div>
-
-          <div>
-            <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 8, color: '#6b7280' }}>Aperçu de la signature</label>
-            <SignatureBlock name={userName} date={today} hash={sigHash} small />
-          </div>
-
-          {/* Page selector */}
-          {docUrl && (
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 6, color: '#6b7280' }}>Page de signature</label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <button onClick={() => setSigPage(p => Math.max(1, p - 1))}
-                  style={{ width: 32, height: 32, borderRadius: 6, border: '1px solid #e5e7eb', background: 'white', fontSize: 16, cursor: 'pointer', fontWeight: 700, color: '#374151' }}>−</button>
-                <span style={{ fontSize: 15, fontWeight: 700, minWidth: 24, textAlign: 'center', color: '#111827' }}>{sigPage}</span>
-                <button onClick={() => setSigPage(p => p + 1)}
-                  style={{ width: 32, height: 32, borderRadius: 6, border: '1px solid #e5e7eb', background: 'white', fontSize: 16, cursor: 'pointer', fontWeight: 700, color: '#374151' }}>+</button>
-                <span style={{ fontSize: 12, color: '#9ca3af' }}>Naviguez jusqu'à la bonne page dans le document, puis indiquez-la ici.</span>
-              </div>
-            </div>
-          )}
-
-          {/* Instructions */}
-          {!docUrl && !loadingDoc && (
-            <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '12px 14px', fontSize: 13, color: '#1e40af' }}>
-              Aucun fichier joint — vous pouvez signer directement.
-            </div>
-          )}
-          {docUrl && !sigPos && !placingMode && (
-            <div style={{ background: '#fef9ec', border: '1px solid #fde68a', borderRadius: 8, padding: '12px 14px', fontSize: 13, color: '#92400e' }}>
-              Cliquez sur <strong>« ✍️ Placer ma signature »</strong> puis cliquez l&apos;endroit voulu sur le document. Vous pourrez ensuite la déplacer.
-            </div>
+    <div style={{ display: 'flex', height: 'calc(100vh - 64px)', overflow: 'hidden' }}>
+      {/* Left: PDF canvas viewer */}
+      <div style={{ flex: '0 0 62%', background: '#525659', borderRight: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column' }}>
+        {/* Toolbar */}
+        <div style={{ padding: '10px 16px', background: '#3d4043', borderBottom: '1px solid #2a2d30', fontSize: 13, fontWeight: 600, color: '#e5e7eb', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📄 {titre}</span>
+          {docUrl && !placingMode && !sigPos && (
+            <button onClick={() => setPlacingMode(true)}
+              style={{ padding: '5px 14px', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer', background: '#16a34a', color: 'white', border: 'none', whiteSpace: 'nowrap', flexShrink: 0 }}>
+              ✍️ Placer ma signature
+            </button>
           )}
           {placingMode && (
-            <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '12px 14px', fontSize: 13, color: '#1e40af' }}>
-              Cliquez sur le document à l&apos;endroit où vous souhaitez apposer votre signature.
-            </div>
+            <span style={{ fontSize: 12, color: '#fbbf24', fontWeight: 600, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+              👆 Cliquez pour placer
+              <button onClick={() => setPlacingMode(false)} style={{ background: 'none', border: 'none', color: '#fca5a5', cursor: 'pointer', fontSize: 12, fontWeight: 700, padding: 0 }}>✕ Annuler</button>
+            </span>
           )}
-          {sigPos && (
-            <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#166534', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span>✅ Signature placée — glissez pour déplacer</span>
-              <button onClick={() => { setSigPos(null); setPlacingMode(true) }}
-                style={{ fontSize: 11, padding: '3px 8px', borderRadius: 4, cursor: 'pointer', background: 'white', border: '1px solid #86efac', color: '#166534', marginLeft: 8 }}>
-                Replacer
-              </button>
-            </div>
+          {sigPos && !placingMode && (
+            <span style={{ fontSize: 12, color: '#86efac', flexShrink: 0 }}>↕ Glissez pour repositionner</span>
           )}
+        </div>
 
-          {err && (
-            <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#c0392b' }}>{err}</div>
+        {/* Scrollable PDF canvas area */}
+        <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+          {loadingDoc ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#9ca3af', fontSize: 14 }}>Chargement...</div>
+          ) : !docUrl ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#9ca3af', fontSize: 14, textAlign: 'center', padding: 32 }}>
+              Ce document n&apos;a pas de fichier joint
+            </div>
+          ) : (
+            <PdfCanvasViewer
+              docUrl={docUrl}
+              pageNumber={sigPage}
+              placingMode={placingMode}
+              sigPos={sigPos}
+              onPlace={(x, y) => { setSigPos({ x, y }); setPlacingMode(false) }}
+              onDragEnd={(x, y) => setSigPos({ x, y })}
+              sigBlock={sigBlock}
+            />
           )}
+        </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 'auto' }}>
-            {(sigPos || (!docUrl && !loadingDoc)) && (
-              <button onClick={confirmSign} disabled={loading}
-                style={{ padding: '12px 20px', borderRadius: 8, fontSize: 14, fontWeight: 700, background: '#16a34a', color: 'white', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1 }}>
-                {loading ? 'Signature en cours...' : '✅ Confirmer la signature'}
-              </button>
-            )}
-            <button onClick={() => router.push('/signatures')}
-              style={{ padding: '10px 20px', borderRadius: 8, fontSize: 13, background: 'white', border: '1px solid #e5e7eb', color: '#374151', cursor: 'pointer' }}>
-              ← Retour
+        {/* Page navigation bar */}
+        {numPages && numPages > 1 && (
+          <div style={{ padding: '8px 16px', background: '#3d4043', borderTop: '1px solid #2a2d30', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, flexShrink: 0 }}>
+            <button
+              onClick={() => goToPage(sigPage - 1)}
+              disabled={sigPage <= 1}
+              style={{ padding: '4px 14px', borderRadius: 6, border: '1px solid #555', background: sigPage <= 1 ? '#333' : '#555', color: sigPage <= 1 ? '#666' : '#fff', cursor: sigPage <= 1 ? 'default' : 'pointer', fontSize: 13, fontWeight: 700 }}>
+              ‹ Précédent
+            </button>
+            <span style={{ color: '#e5e7eb', fontSize: 13, fontWeight: 600, minWidth: 100, textAlign: 'center' }}>
+              Page {sigPage} / {numPages}
+            </span>
+            <button
+              onClick={() => goToPage(sigPage + 1)}
+              disabled={sigPage >= numPages}
+              style={{ padding: '4px 14px', borderRadius: 6, border: '1px solid #555', background: sigPage >= numPages ? '#333' : '#555', color: sigPage >= numPages ? '#666' : '#fff', cursor: sigPage >= numPages ? 'default' : 'pointer', fontSize: 13, fontWeight: 700 }}>
+              Suivant ›
             </button>
           </div>
+        )}
+      </div>
+
+      {/* Right: Signature panel */}
+      <div style={{ flex: '0 0 38%', padding: '28px 24px', background: 'white', display: 'flex', flexDirection: 'column', gap: 16, overflowY: 'auto' }}>
+        <h2 style={{ margin: 0, fontSize: 19, color: '#111827', fontWeight: 700 }}>Votre signature</h2>
+
+        <div>
+          <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4, color: '#6b7280' }}>Nom complet</label>
+          <input value={userName} readOnly style={{ width: '100%', padding: '10px 14px', borderRadius: 8, fontSize: 14, border: '1px solid #e5e7eb', background: '#f9fafb', color: '#374151', boxSizing: 'border-box', outline: 'none' }} />
+        </div>
+
+        <div>
+          <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4, color: '#6b7280' }}>Date de signature</label>
+          <input value={today} readOnly style={{ width: '100%', padding: '10px 14px', borderRadius: 8, fontSize: 14, border: '1px solid #e5e7eb', background: '#f9fafb', color: '#374151', boxSizing: 'border-box', outline: 'none' }} />
+        </div>
+
+        <div>
+          <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 8, color: '#6b7280' }}>Aperçu de la signature</label>
+          <SignatureBlock name={userName} date={today} hash={sigHash} small />
+        </div>
+
+        {/* Page indicator */}
+        {docUrl && numPages && (
+          <div style={{ background: '#f3f4f6', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#374151' }}>
+            📄 Page <strong>{sigPage}</strong> sur <strong>{numPages}</strong>
+            {sigPos && <span style={{ color: '#16a34a', marginLeft: 6 }}>— signature placée ici</span>}
+            {!sigPos && <span style={{ color: '#6b7280', marginLeft: 6 }}>— naviguez puis placez la signature</span>}
+          </div>
+        )}
+
+        {/* Instructions */}
+        {!docUrl && !loadingDoc && (
+          <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '12px 14px', fontSize: 13, color: '#1e40af' }}>
+            Aucun fichier joint — vous pouvez signer directement.
+          </div>
+        )}
+        {docUrl && !sigPos && !placingMode && (
+          <div style={{ background: '#fef9ec', border: '1px solid #fde68a', borderRadius: 8, padding: '12px 14px', fontSize: 13, color: '#92400e' }}>
+            Cliquez sur <strong>« ✍️ Placer ma signature »</strong> puis cliquez l&apos;endroit voulu sur le document. Vous pourrez ensuite la déplacer.
+          </div>
+        )}
+        {placingMode && (
+          <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '12px 14px', fontSize: 13, color: '#1e40af' }}>
+            Cliquez sur le document à l&apos;endroit où vous souhaitez apposer votre signature.
+          </div>
+        )}
+        {sigPos && (
+          <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#166534', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>✅ Signature placée — glissez pour ajuster</span>
+            <button onClick={() => { setSigPos(null); setPlacingMode(true) }}
+              style={{ fontSize: 11, padding: '3px 8px', borderRadius: 4, cursor: 'pointer', background: 'white', border: '1px solid #86efac', color: '#166534', marginLeft: 8, flexShrink: 0 }}>
+              Replacer
+            </button>
+          </div>
+        )}
+
+        {err && (
+          <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#c0392b' }}>{err}</div>
+        )}
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 'auto' }}>
+          {(sigPos || (!docUrl && !loadingDoc)) && (
+            <button onClick={confirmSign} disabled={loading}
+              style={{ padding: '12px 20px', borderRadius: 8, fontSize: 14, fontWeight: 700, background: '#16a34a', color: 'white', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1 }}>
+              {loading ? 'Signature en cours...' : '✅ Confirmer la signature'}
+            </button>
+          )}
+          <button onClick={() => router.push('/signatures')}
+            style={{ padding: '10px 20px', borderRadius: 8, fontSize: 13, background: 'white', border: '1px solid #e5e7eb', color: '#374151', cursor: 'pointer' }}>
+            ← Retour
+          </button>
         </div>
       </div>
-    </>
+    </div>
   )
 }
