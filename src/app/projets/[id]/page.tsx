@@ -38,8 +38,21 @@ export default async function ProjetDetailPage({ params }: { params: Promise<{ i
     if (!hasTask) redirect('/projets')
   }
 
-  const { data: allProfiles } = await supabase
-    .from('profiles').select('id, nom, prenoms').order('prenoms')
+  // Fetch espace members if project belongs to an espace
+  let assignableProfiles: { id: string; nom: string; prenoms: string }[] = []
+  const { createAdminClient } = await import('@/lib/supabase-server')
+  const admin = createAdminClient()
+
+  if (projet?.espace_id) {
+    const { data: espMembres } = await admin
+      .from('espace_membres')
+      .select('profile:profiles!espace_membres_profile_id_fkey(id, nom, prenoms)')
+      .eq('espace_id', projet.espace_id)
+    assignableProfiles = (espMembres ?? []).map(m => m.profile).filter(Boolean) as typeof assignableProfiles
+  } else {
+    const { data: allP } = await supabase.from('profiles').select('id, nom, prenoms').order('prenoms')
+    assignableProfiles = allP ?? []
+  }
 
   return (
     <>
@@ -58,7 +71,7 @@ export default async function ProjetDetailPage({ params }: { params: Promise<{ i
           <ProjetDetailClient
             projet={projet as any}
             userId={user.id}
-            allProfiles={allProfiles ?? []}
+            allProfiles={assignableProfiles}
           />
         </div>
       </div>
