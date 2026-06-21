@@ -24,31 +24,39 @@ function sigRotation(name: string): number {
 }
 
 function SignatureBlock({ name, date, hash, small }: { name: string; date: string; hash: string; small?: boolean }) {
+  // Layout mirrors the canvas capture: header 15.5%, name baseline 60.4%, sep 77.8%, date 93.3%
   const bw = small ? 190 : 240
-  const bh = small ? 72 : 90
+  const bh = small ? 76 : 95   // slightly taller to give Brittany flourishes room
   const barW = 2
   const hookLen = small ? 9 : 13
   const fontSize = small ? 18 : 24
+  const headerTop = Math.round(bh * 0.04)
+  const nameLine = Math.round(bh * 0.604)   // aligns with canvas baseline %
+  const sepLine   = Math.round(bh * 0.778)
+  const dateBottom = Math.round(bh * 0.97)
   return (
     <div style={{ position: 'relative', width: bw, height: bh, userSelect: 'none', background: 'white', overflow: 'visible' }}>
       <style>{`@font-face { font-family: 'BrittanySignature'; src: url('/fonts/BrittanySignature.ttf') format('truetype'); font-weight: normal; font-style: normal; }`}</style>
+      {/* Bracket — full block height */}
       <svg width={hookLen + 4} height={bh} style={{ position: 'absolute', left: 0, top: 0, overflow: 'visible' }}>
         <line x1={2} y1={2} x2={2 + hookLen} y2={2} stroke={BRACKET_COLOR} strokeWidth={barW} strokeLinecap="round" />
         <line x1={2} y1={2} x2={2} y2={bh - 2} stroke={BRACKET_COLOR} strokeWidth={barW} strokeLinecap="round" />
         <line x1={2} y1={bh - 2} x2={2 + hookLen} y2={bh - 2} stroke={BRACKET_COLOR} strokeWidth={barW} strokeLinecap="round" />
       </svg>
-      {/* Header — pinned to top */}
-      <div style={{ position: 'absolute', top: 6, left: hookLen + 8, right: 4, fontSize: small ? 7.5 : 9, fontWeight: 700, color: '#374151', letterSpacing: 0.5, fontFamily: 'Arial, sans-serif', textTransform: 'uppercase' }}>
+      {/* Header */}
+      <div style={{ position: 'absolute', top: headerTop, left: hookLen + 8, right: 4, fontSize: small ? 7.5 : 9, fontWeight: 700, color: '#374151', letterSpacing: 0.5, fontFamily: 'Arial, sans-serif', textTransform: 'uppercase', lineHeight: 1 }}>
         MyABED signed by:
       </div>
-      {/* Name — overflow visible so Brittany flourishes don't get clipped */}
-      <div style={{ position: 'absolute', left: hookLen + 8, right: 4, top: 18, bottom: 20, display: 'flex', alignItems: 'center', overflow: 'visible' }}>
-        <span style={{ fontFamily: '"BrittanySignature", cursive', fontSize, color: '#000', lineHeight: 1, letterSpacing: '0.02em', fontWeight: 400, whiteSpace: 'nowrap', overflow: 'visible' }}>
+      {/* Name — baseline pinned to nameLine, overflow visible for tall Brittany flourishes */}
+      <div style={{ position: 'absolute', left: hookLen + 8, right: 4, top: nameLine - fontSize - 4, overflow: 'visible', lineHeight: 1 }}>
+        <span style={{ fontFamily: '"BrittanySignature", cursive', fontSize, color: '#000', letterSpacing: '0.02em', fontWeight: 400, whiteSpace: 'nowrap', display: 'inline-block', overflow: 'visible' }}>
           {name}
         </span>
       </div>
-      {/* Footer — pinned to bottom */}
-      <div style={{ position: 'absolute', bottom: 5, left: hookLen + 8, right: 4, borderTop: '1px solid #d1d5db', paddingTop: 3, fontSize: small ? 7 : 8, color: '#6b7280', display: 'flex', justifyContent: 'space-between', fontFamily: 'Arial, sans-serif' }}>
+      {/* Separator */}
+      <div style={{ position: 'absolute', top: sepLine, left: hookLen + 8, right: 4, borderTop: '1px solid #d1d5db' }} />
+      {/* Footer */}
+      <div style={{ position: 'absolute', top: sepLine + 4, bottom: bh - dateBottom, left: hookLen + 8, right: 4, fontSize: small ? 7 : 8, color: '#6b7280', display: 'flex', justifyContent: 'space-between', fontFamily: 'Arial, sans-serif', alignItems: 'center' }}>
         <span>{date}</span>
         <span style={{ color: '#9ca3af' }}>{hash.slice(0, 12)}...</span>
       </div>
@@ -278,9 +286,10 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName }:
   // PDF embedding is pixel-perfect identical to what the user sees.
   async function captureSignatureImage(): Promise<string> {
     const SCALE = 3  // render at 3× for crisp PDF embedding
-    const BW = 240 * SCALE, BH = 90 * SCALE
-    const hookLen = 13 * SCALE
-    const fontSize = 24 * SCALE
+    const BW = 240 * SCALE  // 720px
+    const BH = 90 * SCALE   // 270px
+    const hookLen = 13 * SCALE  // 39px
+    const fontSize = 24 * SCALE  // 72px
 
     const canvas = document.createElement('canvas')
     canvas.width = BW; canvas.height = BH
@@ -306,31 +315,38 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName }:
 
     const textX = 2 * SCALE + hookLen + 8 * SCALE
 
+    // --- Vertical layout (all values in px at 3× scale) ---
+    // BH = 270
+    // Header baseline  :  42px (15.5% — gives label room then gap before name)
+    // Name baseline    : 163px (60.4% — Brittany ascenders ~72px above → top at 91px,
+    //                            well below header end; descenders ~18px below → 181px)
+    // Separator        : 210px (77.8% — 29px below descender bottom, clean gap)
+    // Date baseline    : 252px (93.3%)
+
     // Header label
     ctx.fillStyle = '#374151'
     ctx.font = `bold ${9 * SCALE}px Arial, sans-serif`
-    ctx.fillText('MYABED SIGNED BY:', textX, 16 * SCALE)
+    ctx.fillText('MYABED SIGNED BY:', textX, Math.round(BH * 0.155))
 
     // Signer name in Brittany
     ctx.fillStyle = '#000000'
     ctx.font = `${fontSize}px BrittanySignature`
-    // Baseline at 65% from top so ascenders have room above
-    ctx.fillText(today.startsWith('0') ? userName : userName, textX, BH * 0.72)
+    ctx.fillText(userName, textX, Math.round(BH * 0.604))
 
     // Separator line
     ctx.strokeStyle = '#d1d5db'
     ctx.lineWidth = 1 * SCALE
     ctx.beginPath()
-    ctx.moveTo(textX, BH - 22 * SCALE)
-    ctx.lineTo(BW - 4 * SCALE, BH - 22 * SCALE)
+    ctx.moveTo(textX, Math.round(BH * 0.778))
+    ctx.lineTo(BW - 4 * SCALE, Math.round(BH * 0.778))
     ctx.stroke()
 
     // Date and hash
     ctx.fillStyle = '#6b7280'
     ctx.font = `${8 * SCALE}px Arial, sans-serif`
-    ctx.fillText(today, textX, BH - 8 * SCALE)
+    ctx.fillText(today, textX, Math.round(BH * 0.933))
     ctx.fillStyle = '#9ca3af'
-    ctx.fillText(`${sigHash.slice(0, 12)}...`, textX + 90 * SCALE, BH - 8 * SCALE)
+    ctx.fillText(`${sigHash.slice(0, 12)}...`, textX + 90 * SCALE, Math.round(BH * 0.933))
 
     return canvas.toDataURL('image/png')
   }

@@ -27,39 +27,34 @@ function sigRotation(name: string): number {
 
 function SignatureBlock({ name, date, hash, small }: { name: string; date: string; hash: string; small?: boolean }) {
   const bw = small ? 190 : 240
-  const bh = small ? 72 : 90
+  const bh = small ? 76 : 95
   const barW = 2
   const hookLen = small ? 9 : 13
+  const fontSize = small ? 18 : 24
+  const headerTop = Math.round(bh * 0.04)
+  const nameLine   = Math.round(bh * 0.604)
+  const sepLine    = Math.round(bh * 0.778)
+  const dateBottom = Math.round(bh * 0.97)
   return (
-    <div style={{ position: 'relative', width: bw, height: bh, background: 'white', pointerEvents: 'none' }}>
+    <div style={{ position: 'relative', width: bw, height: bh, background: 'white', pointerEvents: 'none', overflow: 'visible' }}>
       <style>{`@font-face { font-family: 'BrittanySignature'; src: url('/fonts/BrittanySignature.ttf') format('truetype'); font-weight: normal; font-style: normal; }`}</style>
       <svg width={hookLen + 4} height={bh} style={{ position: 'absolute', left: 0, top: 0, overflow: 'visible' }}>
         <line x1={2} y1={2} x2={2 + hookLen} y2={2} stroke={BRACKET_COLOR} strokeWidth={barW} strokeLinecap="round" />
         <line x1={2} y1={2} x2={2} y2={bh - 2} stroke={BRACKET_COLOR} strokeWidth={barW} strokeLinecap="round" />
         <line x1={2} y1={bh - 2} x2={2 + hookLen} y2={bh - 2} stroke={BRACKET_COLOR} strokeWidth={barW} strokeLinecap="round" />
       </svg>
-      <div style={{ position: 'absolute', left: hookLen + 8, top: 0, right: 4, bottom: 0, display: 'flex', flexDirection: 'column', paddingTop: 6, paddingBottom: 5 }}>
-        <div style={{ fontSize: small ? 7.5 : 9, fontWeight: 700, color: '#374151', letterSpacing: 0.5, fontFamily: 'Arial, sans-serif', textTransform: 'uppercase', marginBottom: 2 }}>
-          MyABED signed by:
-        </div>
-        <div style={{
-          fontFamily: '"BrittanySignature", cursive',
-          fontSize: small ? 26 : 34,
-          color: '#000',
-          lineHeight: 1.1,
-          letterSpacing: '0.04em',
-          flex: 1,
-          display: 'flex',
-          alignItems: 'center',
-          overflow: 'hidden',
-          fontWeight: 400,
-        }}>
+      <div style={{ position: 'absolute', top: headerTop, left: hookLen + 8, right: 4, fontSize: small ? 7.5 : 9, fontWeight: 700, color: '#374151', letterSpacing: 0.5, fontFamily: 'Arial, sans-serif', textTransform: 'uppercase', lineHeight: 1 }}>
+        MyABED signed by:
+      </div>
+      <div style={{ position: 'absolute', left: hookLen + 8, right: 4, top: nameLine - fontSize - 4, overflow: 'visible', lineHeight: 1 }}>
+        <span style={{ fontFamily: '"BrittanySignature", cursive', fontSize, color: '#000', letterSpacing: '0.02em', fontWeight: 400, whiteSpace: 'nowrap', display: 'inline-block', overflow: 'visible' }}>
           {name}
-        </div>
-        <div style={{ borderTop: '1px solid #d1d5db', paddingTop: 3, fontSize: small ? 7 : 8, color: '#6b7280', display: 'flex', justifyContent: 'space-between', fontFamily: 'Arial, sans-serif' }}>
-          <span>{date}</span>
-          <span style={{ color: '#9ca3af' }}>{hash.slice(0, 12)}...</span>
-        </div>
+        </span>
+      </div>
+      <div style={{ position: 'absolute', top: sepLine, left: hookLen + 8, right: 4, borderTop: '1px solid #d1d5db' }} />
+      <div style={{ position: 'absolute', top: sepLine + 4, bottom: bh - dateBottom, left: hookLen + 8, right: 4, fontSize: small ? 7 : 8, color: '#6b7280', display: 'flex', justifyContent: 'space-between', fontFamily: 'Arial, sans-serif', alignItems: 'center' }}>
+        <span>{date}</span>
+        <span style={{ color: '#9ca3af' }}>{hash.slice(0, 12)}...</span>
       </div>
     </div>
   )
