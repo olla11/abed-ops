@@ -135,7 +135,7 @@ export default function TimesheetsClient({
       {/* Onglets sous forme de cartes */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: `repeat(${Math.min(tabs.length, 4)}, 1fr)`,
+        gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
         gap: 10, marginBottom: 28,
       }}>
         {tabs.map(tab => {
