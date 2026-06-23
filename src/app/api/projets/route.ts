@@ -1,5 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
+import { rateLimit } from '@/lib/rate-limit'
+import { validate, s } from '@/lib/validate'
+import { z } from 'zod'
+
+const ProjetSchema = z.object({
+  nom:         s.nom,
+  description: s.text,
+  statut:      z.string().max(20).optional(),
+  date_debut:  s.date,
+  date_fin:    s.date,
+  is_public:   z.boolean().optional(),
+  espace_id:   z.string().uuid('espace_id invalide').nullable().optional(),
+})
 
 export async function GET() {
   const supabase = await createClient()
@@ -42,21 +55,25 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const limited = rateLimit(req, { limit: 20, window: 60 })
+  if (limited) return limited
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
 
   const body = await req.json().catch(() => null)
-  if (!body?.nom?.trim()) return NextResponse.json({ error: 'Nom requis' }, { status: 400 })
+  const v = validate(ProjetSchema, body)
+  if ('error' in v) return v.error
 
   const { data, error } = await supabase.from('projets_internes').insert({
-    nom: body.nom.trim(),
-    description: body.description?.trim() || null,
-    statut: body.statut ?? 'en_cours',
-    date_debut: body.date_debut || null,
-    date_fin: body.date_fin || null,
-    is_public: body.is_public !== false,
-    espace_id: body.espace_id || null,
+    nom: v.data.nom.trim(),
+    description: v.data.description?.trim() || null,
+    statut: v.data.statut ?? 'en_cours',
+    date_debut: v.data.date_debut || null,
+    date_fin: v.data.date_fin || null,
+    is_public: v.data.is_public !== false,
+    espace_id: v.data.espace_id || null,
     created_by: user.id,
   }).select().single()
 

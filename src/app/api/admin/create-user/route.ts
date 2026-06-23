@@ -2,9 +2,33 @@
 import { createClient } from '@/lib/supabase-server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { sendEmail } from '@/lib/resend'
+import { rateLimit } from '@/lib/rate-limit'
+import { validate, s } from '@/lib/validate'
+import { z } from 'zod'
+
+const CreateUserSchema = z.object({
+  email:    s.email,
+  password: s.password,
+  nom:      s.nom,
+  prenoms:  s.prenoms,
+  role:     z.string().max(50).optional(),
+  type_emploi: z.string().max(50).optional(),
+  fonction:    s.shortText,
+  telephone:   z.string().max(30).optional(),
+  civilite:    z.string().max(10).optional(),
+  ifu:         z.string().max(20).optional(),
+  grade_indice:z.string().max(50).optional(),
+  adresse:     z.string().max(255).optional(),
+  date_naissance:  s.date,
+  lieu_naissance:  z.string().max(100).optional(),
+  nationalite:     z.string().max(100).optional(),
+})
 
 // POST /api/admin/create-user
 export async function POST(req: NextRequest) {
+  const limited = rateLimit(req, { limit: 10, window: 60 })
+  if (limited) return limited
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'non authentifie' }, { status: 401 })
@@ -16,16 +40,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'acces refuse' }, { status: 403 })
   }
 
-  const body = await req.json()
-  const {
-    email, password, nom, prenoms, civilite, telephone, fonction,
+  const rawBody = await req.json().catch(() => null)
+  const v = validate(CreateUserSchema, rawBody)
+  if ('error' in v) return v.error
+  const { email, password, nom, prenoms, civilite, telephone, fonction,
     ifu, grade_indice, adresse, date_naissance, lieu_naissance, nationalite,
-    role, type_emploi,
-  } = body
-
-  if (!email || !password || !nom || !prenoms) {
-    return NextResponse.json({ error: 'Champs requis : email, password, nom, prenoms' }, { status: 400 })
-  }
+    role, type_emploi } = v.data
 
   const admin = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
