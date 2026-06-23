@@ -66,8 +66,8 @@ export default async function ProjetDetailPage({ params }: { params: Promise<{ i
       />
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}
       <div style={{ display: 'flex' }}>
-        <ProjetsSidebar />
-        <div style={{ marginLeft: 260, flex: 1, minWidth: 0 }}>
+        <div className="projets-sidebar"><ProjetsSidebar /></div>
+        <div className="projets-main" style={{ minWidth: 0 }}>
           <ProjetDetailClient
             projet={projet as any}
             userId={user.id}

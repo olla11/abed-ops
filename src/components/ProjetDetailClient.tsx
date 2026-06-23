@@ -524,6 +524,7 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
       {/* === VUE TABLE === */}
       {view === 'table' && (
         <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'visible' }}>
+        <div className="table-wrap" style={{ borderRadius: 12 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '36px 1fr 170px 140px 110px 130px 36px', background: '#f9fafb', borderBottom: '1px solid #e5e7eb', borderRadius: '12px 12px 0 0' }}>
             {['', 'Nom', 'Assigné', 'Statut', 'Priorité', 'Échéance', ''].map((h, i) => (
               <div key={i} style={{ padding: '10px 10px', fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '.04em', borderRight: i < 6 ? '1px solid #f3f4f6' : 'none' }}>{h}</div>
@@ -776,12 +777,13 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
               <span style={{ fontSize: 16 }}>+</span> Ajouter une tâche
             </div>
           )}
+        </div>{/* end table-wrap */}
         </div>
       )}
 
       {/* === VUE KANBAN === */}
       {view === 'kanban' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16 }}>
           {COLUMNS.map(col => {
             const tasks = projet.activites.filter(a => a.statut === col && !a.parent_id)
             return (
@@ -1255,7 +1257,7 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
 
       {/* Panel latéral */}
       {selectedActivite && (
-        <div style={{ position: 'fixed', top: 60, right: 0, bottom: 0, width: 440, background: 'white', boxShadow: '-4px 0 24px rgba(0,0,0,0.12)', zIndex: 200, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div className="task-panel" style={{ position: 'fixed', top: 60, right: 0, bottom: 0, width: 440, background: 'white', boxShadow: '-4px 0 24px rgba(0,0,0,0.12)', zIndex: 200, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--abed-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div style={{ flex: 1, paddingRight: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>

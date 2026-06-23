@@ -357,7 +357,7 @@ export default function SoumissionForm({ managerId, typeEmploi }: { managerId: s
                 <p style={{ fontSize: 12, color: 'var(--abed-muted)', marginBottom: 8 }}>
                   Téléversez uniquement les fichiers à remplacer :
                 </p>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
+                <div className="grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
                   <div>
                     <label style={{ fontSize: 11, fontWeight: 600 }}>📊 Nouveau timesheet Excel</label>
                     <input type="file" accept=".xlsx,.xls,.csv" style={{ display: 'block', fontSize: 11, marginTop: 4 }}
@@ -400,7 +400,7 @@ export default function SoumissionForm({ managerId, typeEmploi }: { managerId: s
             onChange={e => setTitre(e.target.value)} />
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+        <div className="grid-3" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
           <div className="field">
             <label className="label">Mois *</label>
             <input className="input" type="number" min={1} max={12} value={mois}
