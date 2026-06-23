@@ -1,11 +1,19 @@
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
-import { ChevronDown, Lock, Zap, Users, Folder, X, Pencil, Trash2 } from 'lucide-react'
+import { ChevronDown, Lock, Zap, Users, Folder, X, Pencil, Trash2, Rocket, Lightbulb, Target, Leaf, FlaskConical, BarChart2, Palette, Trophy, BookOpen, Globe, Star, Briefcase, type LucideIcon } from 'lucide-react'
 
-function EspaceIcon({ icon, size = 15 }: { icon: string; size?: number }) {
-  if (!icon || icon === 'folder') return <Folder size={size} color="#6b7280" strokeWidth={1.5} />
-  return <span style={{ fontSize: size }}>{icon}</span>
+const ICON_MAP: Record<string, LucideIcon> = {
+  folder: Folder, rocket: Rocket, lightbulb: Lightbulb, target: Target,
+  zap: Zap, leaf: Leaf, flask: FlaskConical, chart: BarChart2,
+  palette: Palette, trophy: Trophy, book: BookOpen, globe: Globe,
+  star: Star, briefcase: Briefcase,
+}
+const ICON_OPTIONS = Object.keys(ICON_MAP)
+
+function EspaceIcon({ icon, size = 15, color = '#6b7280' }: { icon: string; size?: number; color?: string }) {
+  const Icon = ICON_MAP[icon] ?? Folder
+  return <Icon size={size} color={color} strokeWidth={1.5} />
 }
 
 type Espace = { id: string; nom: string; couleur: string; icon: string; created_by?: string }
@@ -13,7 +21,6 @@ type ProjetLite = { id: string; nom: string; is_public: boolean; espace_id: stri
 type Profile = { id: string; nom: string; prenoms: string }
 type Membre = { id: string; profile_id: string; profile: Profile | null }
 
-const ICON_OPTIONS = ['📁','🚀','💡','🎯','⚡','🌱','🔬','📊','🎨','🏆']
 const COLOR_OPTIONS = ['#16a34a','#2563eb','#7c3aed','#dc2626','#d97706','#0891b2','#be185d','#374151']
 
 function InitialsAvatar({ profile }: { profile: Profile | null }) {
@@ -40,7 +47,7 @@ export default function ProjetsSidebar() {
   const [showNewEspace, setShowNewEspace] = useState(false)
   const [newEspaceNom, setNewEspaceNom] = useState('')
   const [newEspaceCouleur, setNewEspaceCouleur] = useState('#16a34a')
-  const [newEspaceIcon, setNewEspaceIcon] = useState('📁')
+  const [newEspaceIcon, setNewEspaceIcon] = useState('folder')
   const [showNewProjet, setShowNewProjet] = useState<string | null>(null)
   const [newProjetNom, setNewProjetNom] = useState('')
   const [saving, setSaving] = useState(false)
@@ -371,10 +378,16 @@ export default function ProjetsSidebar() {
         {showNewEspace && (
           <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: 10, padding: 12 }}>
             <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
-              {ICON_OPTIONS.map(ic => (
-                <button key={ic} onClick={() => setNewEspaceIcon(ic)}
-                  style={{ fontSize: 14, background: newEspaceIcon === ic ? '#f0fdf4' : 'none', border: `1px solid ${newEspaceIcon === ic ? '#16a34a' : 'transparent'}`, borderRadius: 6, cursor: 'pointer', padding: '2px 4px' }}>{ic}</button>
-              ))}
+              {ICON_OPTIONS.map(ic => {
+                const Ic = ICON_MAP[ic]
+                const active = newEspaceIcon === ic
+                return (
+                  <button key={ic} onClick={() => setNewEspaceIcon(ic)}
+                    style={{ background: active ? '#f0fdf4' : 'none', border: `1px solid ${active ? '#16a34a' : 'transparent'}`, borderRadius: 6, cursor: 'pointer', padding: '5px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Ic size={15} color={active ? '#16a34a' : '#6b7280'} strokeWidth={1.5} />
+                  </button>
+                )
+              })}
             </div>
             <div style={{ display: 'flex', gap: 4, marginBottom: 8, flexWrap: 'wrap' }}>
               {COLOR_OPTIONS.map(c => (
@@ -413,7 +426,7 @@ export default function ProjetsSidebar() {
                 onMouseEnter={e => (e.currentTarget.style.background = '#f3f4f6')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                 <span onClick={() => setCollapsed(c => ({ ...c, [esp.id]: !c[esp.id] }))}><ChevronDown size={9} color="#9ca3af" strokeWidth={1.4} style={{ transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)', transition: 'transform 0.15s', flexShrink: 0 }} /></span>
-                <span onClick={() => setCollapsed(c => ({ ...c, [esp.id]: !c[esp.id] }))}><EspaceIcon icon={esp.icon} /></span>
+                <span onClick={() => setCollapsed(c => ({ ...c, [esp.id]: !c[esp.id] }))}><EspaceIcon icon={esp.icon} color={esp.couleur} /></span>
                 {renamingEspace === esp.id ? (
                   <input
                     ref={renameRef}
