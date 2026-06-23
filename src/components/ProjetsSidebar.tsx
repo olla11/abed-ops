@@ -17,7 +17,7 @@ function EspaceIcon({ icon, size = 15, color = '#6b7280' }: { icon: string; size
 }
 
 type Espace = { id: string; nom: string; couleur: string; icon: string; created_by?: string }
-type ProjetLite = { id: string; nom: string; is_public: boolean; espace_id: string | null; activites: { id: string; statut: string }[] }
+type ProjetLite = { id: string; nom: string; is_public: boolean; espace_id: string | null; activites: { id: string; statut: string; parent_id?: string | null }[] }
 type Profile = { id: string; nom: string; prenoms: string }
 type Membre = { id: string; profile_id: string; profile: Profile | null }
 
@@ -228,8 +228,9 @@ export default function ProjetsSidebar() {
 
   function renderProjet(p: ProjetLite) {
     const isActive = p.id === activeId
-    const done = p.activites.filter(a => a.statut === 'termine').length
-    const total = p.activites.length
+    const topLevel = p.activites.filter(a => !a.parent_id)
+    const done = topLevel.filter(a => a.statut === 'termine').length
+    const total = topLevel.length
     const isRenaming = renamingProjet === p.id
     return (
       <div key={p.id}
