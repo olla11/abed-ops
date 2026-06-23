@@ -409,7 +409,7 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
   const todayOffset = ganttDayOffset(todayDate)
 
   return (
-    <div style={{ maxWidth: 1280, margin: '0 auto', padding: '24px 20px', paddingRight: selectedActivite ? 460 : 20, transition: 'padding-right 0.2s' }}>
+    <div style={{ padding: '24px 32px', paddingRight: selectedActivite ? 460 : 32, transition: 'padding-right 0.2s' }}>
 
       {/* Header */}
       <div style={{ marginBottom: 20 }}>
