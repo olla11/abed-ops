@@ -119,7 +119,7 @@ export default function TimesheetsClient({
   const current = tabs.find(t => t.key === activeTab) ?? tabs[0]
 
   return (
-    <div style={{ maxWidth: 1200, margin: '0 auto', padding: '24px 32px' }}>
+    <div className="page-container">
       {/* En-tête */}
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 22, fontWeight: 900, color: '#111827', margin: '0 0 4px' }}>

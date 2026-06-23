@@ -73,9 +73,8 @@ export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, s
       width: '100vw',
       marginLeft: 'calc(-50vw + 50%)',
     }}>
-      <div style={{
-        maxWidth: 1200, margin: '0 auto',
-        padding: '0 16px',
+      <div className="page-container" style={{
+        paddingTop: 0, paddingBottom: 0,
         display: 'flex', alignItems: 'center',
         height: 60, gap: 8,
       }}>

@@ -91,7 +91,7 @@ export default function AccueilClient({ prenom, role, roleLabel, fonction, omEnC
   ]
 
   return (
-    <main style={{ maxWidth: 1200, margin: '0 auto', padding: '32px 24px', width: '100%' }}>
+    <main className="page-container">
       {/* Hero welcome */}
       <div style={{
         background: 'linear-gradient(135deg, #064e3b 0%, #065f46 60%, #047857 100%)',

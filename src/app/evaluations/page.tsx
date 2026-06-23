@@ -54,7 +54,7 @@ export default async function MesEvaluationsPage() {
         showAdmin={showAdmin}
         avatarUrl={profile?.avatar_url}
       />
-      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '24px 32px' }}>
+      <div className="page-container">
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
           <Link href="/dashboard" style={{ fontSize: 13, color: 'var(--abed-muted)', textDecoration: 'none' }}>← Retour</Link>
           <h2 style={{ margin: 0, color: 'var(--abed-green)' }}>📝 Mes évaluations</h2>
