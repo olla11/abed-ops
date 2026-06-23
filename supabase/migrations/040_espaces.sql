@@ -2,7 +2,7 @@ CREATE TABLE IF NOT EXISTS espaces (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   nom text NOT NULL,
   couleur text NOT NULL DEFAULT '#16a34a',
-  icon text NOT NULL DEFAULT '📁',
+  icon text NOT NULL DEFAULT 'folder',
   created_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
   created_at timestamptz DEFAULT now()
 );
