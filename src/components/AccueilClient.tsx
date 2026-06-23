@@ -1,5 +1,6 @@
 'use client'
 import { useRouter } from 'next/navigation'
+import { BarChart2, Plane, CreditCard, Palmtree, Users, Settings, Clock, Bell, type LucideIcon } from 'lucide-react'
 
 type Props = {
   prenom: string
@@ -12,69 +13,71 @@ type Props = {
   notifsNonLues: number
 }
 
-const ROLE_SHORTCUTS: Record<string, { href: string; icon: string; label: string; desc: string }[]> = {
+type Shortcut = { href: string; Icon: LucideIcon; label: string; desc: string }
+
+const ROLE_SHORTCUTS: Record<string, Shortcut[]> = {
   admin: [
-    { href: '/overview', icon: '📊', label: 'Vue d\'ensemble', desc: 'Tableau de bord global' },
-    { href: '/missions', icon: '✈️', label: 'Ordres de mission', desc: 'Gérer les missions' },
-    { href: '/demandes-paiement', icon: '💳', label: 'Paiements', desc: 'Demandes en cours' },
-    { href: '/conges', icon: '🏖', label: 'Congés', desc: 'Suivi des congés' },
-    { href: '/rh', icon: '👥', label: 'RH', desc: 'Tableau de bord RH' },
-    { href: '/admin', icon: '🛠️', label: 'Administration', desc: 'Gestion système' },
+    { href: '/overview',          Icon: BarChart2,   label: 'Vue d\'ensemble',   desc: 'Tableau de bord global' },
+    { href: '/missions',          Icon: Plane,        label: 'Ordres de mission', desc: 'Gérer les missions' },
+    { href: '/demandes-paiement', Icon: CreditCard,   label: 'Paiements',         desc: 'Demandes en cours' },
+    { href: '/conges',            Icon: Palmtree,     label: 'Congés',            desc: 'Suivi des congés' },
+    { href: '/rh',                Icon: Users,        label: 'RH',                desc: 'Tableau de bord RH' },
+    { href: '/admin',             Icon: Settings,     label: 'Administration',    desc: 'Gestion système' },
   ],
   rh: [
-    { href: '/rh', icon: '👥', label: 'Tableau de bord RH', desc: 'Vue globale RH' },
-    { href: '/conges', icon: '🏖', label: 'Congés', desc: 'Demandes de congé' },
-    { href: '/timesheets', icon: '⏱', label: 'Feuilles de temps', desc: 'Suivi activités' },
-    { href: '/missions', icon: '✈️', label: 'Missions', desc: 'Ordres de mission' },
+    { href: '/rh',         Icon: Users,      label: 'Tableau de bord RH', desc: 'Vue globale RH' },
+    { href: '/conges',     Icon: Palmtree,   label: 'Congés',             desc: 'Demandes de congé' },
+    { href: '/timesheets', Icon: Clock,      label: 'Feuilles de temps',  desc: 'Suivi activités' },
+    { href: '/missions',   Icon: Plane,      label: 'Missions',           desc: 'Ordres de mission' },
   ],
   caf: [
-    { href: '/demandes-paiement', icon: '💳', label: 'Demandes de paiement', desc: 'Validation CAF' },
-    { href: '/timesheets', icon: '⏱', label: 'Feuilles de temps', desc: 'Livrables & taux' },
-    { href: '/parametres', icon: '⚙️', label: 'Paramètres', desc: 'Configuration financière' },
-    { href: '/overview', icon: '📊', label: 'Vue d\'ensemble', desc: 'Tableau de bord' },
+    { href: '/demandes-paiement', Icon: CreditCard, label: 'Demandes de paiement', desc: 'Validation CAF' },
+    { href: '/timesheets',        Icon: Clock,      label: 'Feuilles de temps',     desc: 'Livrables & taux' },
+    { href: '/parametres',        Icon: Settings,   label: 'Paramètres',            desc: 'Configuration financière' },
+    { href: '/overview',          Icon: BarChart2,  label: 'Vue d\'ensemble',       desc: 'Tableau de bord' },
   ],
   de: [
-    { href: '/overview', icon: '📊', label: 'Vue d\'ensemble', desc: 'Tableau de bord' },
-    { href: '/missions', icon: '✈️', label: 'Missions', desc: 'Signature & validation' },
-    { href: '/demandes-paiement', icon: '💳', label: 'Paiements', desc: 'Autorisation finale' },
-    { href: '/conges', icon: '🏖', label: 'Congés', desc: 'Approbation finale' },
+    { href: '/overview',          Icon: BarChart2,  label: 'Vue d\'ensemble', desc: 'Tableau de bord' },
+    { href: '/missions',          Icon: Plane,      label: 'Missions',        desc: 'Signature & validation' },
+    { href: '/demandes-paiement', Icon: CreditCard, label: 'Paiements',       desc: 'Autorisation finale' },
+    { href: '/conges',            Icon: Palmtree,   label: 'Congés',          desc: 'Approbation finale' },
   ],
   aaf: [
-    { href: '/demandes-paiement', icon: '💳', label: 'Demandes de paiement', desc: 'Validation AAF' },
-    { href: '/overview', icon: '📊', label: 'Vue d\'ensemble', desc: 'Tableau de bord' },
-    { href: '/missions', icon: '✈️', label: 'Missions', desc: 'Ordres de mission' },
+    { href: '/demandes-paiement', Icon: CreditCard, label: 'Demandes de paiement', desc: 'Validation AAF' },
+    { href: '/overview',          Icon: BarChart2,  label: 'Vue d\'ensemble',       desc: 'Tableau de bord' },
+    { href: '/missions',          Icon: Plane,      label: 'Missions',              desc: 'Ordres de mission' },
   ],
   administrateur: [
-    { href: '/overview', icon: '📊', label: 'Vue d\'ensemble', desc: 'Tableau de bord' },
-    { href: '/missions', icon: '✈️', label: 'Missions', desc: 'Ordres de mission' },
-    { href: '/demandes-paiement', icon: '💳', label: 'Paiements', desc: 'Demandes en cours' },
+    { href: '/overview',          Icon: BarChart2,  label: 'Vue d\'ensemble', desc: 'Tableau de bord' },
+    { href: '/missions',          Icon: Plane,      label: 'Missions',        desc: 'Ordres de mission' },
+    { href: '/demandes-paiement', Icon: CreditCard, label: 'Paiements',       desc: 'Demandes en cours' },
   ],
   manager: [
-    { href: '/timesheets', icon: '⏱', label: 'Feuilles de temps', desc: 'Valider les feuilles' },
-    { href: '/conges', icon: '🏖', label: 'Congés', desc: 'Valider les congés' },
-    { href: '/missions', icon: '✈️', label: 'Missions', desc: 'Ordres de mission' },
+    { href: '/timesheets', Icon: Clock,    label: 'Feuilles de temps', desc: 'Valider les feuilles' },
+    { href: '/conges',     Icon: Palmtree, label: 'Congés',            desc: 'Valider les congés' },
+    { href: '/missions',   Icon: Plane,    label: 'Missions',          desc: 'Ordres de mission' },
   ],
   missionnaire: [
-    { href: '/missions', icon: '✈️', label: 'Mes missions', desc: 'Ordres de mission' },
-    { href: '/demandes-paiement', icon: '💳', label: 'Mes demandes', desc: 'Demandes de paiement' },
-    { href: '/conges', icon: '🏖', label: 'Mes congés', desc: 'Demandes de congé' },
-    { href: '/timesheets', icon: '⏱', label: 'Mes feuilles', desc: 'Feuilles de temps' },
+    { href: '/missions',          Icon: Plane,      label: 'Mes missions', desc: 'Ordres de mission' },
+    { href: '/demandes-paiement', Icon: CreditCard, label: 'Mes demandes', desc: 'Demandes de paiement' },
+    { href: '/conges',            Icon: Palmtree,   label: 'Mes congés',   desc: 'Demandes de congé' },
+    { href: '/timesheets',        Icon: Clock,      label: 'Mes feuilles', desc: 'Feuilles de temps' },
   ],
   prestataire: [
-    { href: '/timesheets', icon: '⏱', label: 'Feuilles de temps', desc: 'Mes activités' },
-    { href: '/demandes-paiement', icon: '💳', label: 'Mes demandes', desc: 'Demandes de paiement' },
-    { href: '/missions', icon: '✈️', label: 'Mes missions', desc: 'Ordres de mission' },
+    { href: '/timesheets',        Icon: Clock,      label: 'Feuilles de temps', desc: 'Mes activités' },
+    { href: '/demandes-paiement', Icon: CreditCard, label: 'Mes demandes',      desc: 'Demandes de paiement' },
+    { href: '/missions',          Icon: Plane,      label: 'Mes missions',       desc: 'Ordres de mission' },
   ],
 }
 
 function getGreeting(): { text: string; sub: string } {
   const h = new Date().getHours()
-  if (h >= 0 && h < 5)  return { text: 'Bonne nuit', sub: 'Vous brûlez l\'huile de minuit... prenez soin de vous !' }
-  if (h >= 5 && h < 9)  return { text: 'Bonjour', sub: 'Bonne matinée, belle journée en perspective !' }
-  if (h >= 9 && h < 12) return { text: 'Bonjour', sub: 'La journée est bien lancée, bonne productivité !' }
-  if (h >= 12 && h < 14) return { text: 'Bon appétit', sub: 'C\'est l\'heure de la pause déjeuner !' }
+  if (h >= 0 && h < 5)   return { text: 'Bonne nuit',     sub: 'Vous brûlez l\'huile de minuit... prenez soin de vous !' }
+  if (h >= 5 && h < 9)   return { text: 'Bonjour',        sub: 'Bonne matinée, belle journée en perspective !' }
+  if (h >= 9 && h < 12)  return { text: 'Bonjour',        sub: 'La journée est bien lancée, bonne productivité !' }
+  if (h >= 12 && h < 14) return { text: 'Bon appétit',    sub: 'C\'est l\'heure de la pause déjeuner !' }
   if (h >= 14 && h < 18) return { text: 'Bon après-midi', sub: 'L\'élan de l\'après-midi, continuez comme ça !' }
-  if (h >= 18 && h < 21) return { text: 'Bonsoir', sub: 'La journée tire à sa fin, bien joué !' }
+  if (h >= 18 && h < 21) return { text: 'Bonsoir',        sub: 'La journée tire à sa fin, bien joué !' }
   return { text: 'Bonsoir', sub: 'Il se fait tard... reposez-vous bientôt !' }
 }
 
@@ -84,10 +87,10 @@ export default function AccueilClient({ prenom, role, roleLabel, fonction, omEnC
   const greeting = getGreeting()
 
   const stats = [
-    { icon: '✈️', label: 'Missions en cours', value: omEnCours, href: '/missions', color: '#1e40af', bg: '#dbeafe' },
-    { icon: '💳', label: 'Demandes en cours', value: demandesEnCours, href: '/demandes-paiement', color: '#6d28d9', bg: '#ede9fe' },
-    { icon: '🏖', label: 'Congés en attente', value: congesEnAttente, href: '/conges', color: '#b45309', bg: '#fef3c7' },
-    { icon: '🔔', label: 'Notifications', value: notifsNonLues, href: '/notifications', color: '#991b1b', bg: '#fee2e2' },
+    { Icon: Plane,      label: 'Missions en cours',  value: omEnCours,       href: '/missions',          color: '#1e40af', bg: '#dbeafe' },
+    { Icon: CreditCard, label: 'Demandes en cours',  value: demandesEnCours, href: '/demandes-paiement', color: '#6d28d9', bg: '#ede9fe' },
+    { Icon: Palmtree,   label: 'Congés en attente',  value: congesEnAttente, href: '/conges',            color: '#b45309', bg: '#fef3c7' },
+    { Icon: Bell,       label: 'Notifications',      value: notifsNonLues,   href: '/notifications',     color: '#991b1b', bg: '#fee2e2' },
   ]
 
   return (
@@ -104,7 +107,7 @@ export default function AccueilClient({ prenom, role, roleLabel, fonction, omEnC
             {greeting.text},
           </p>
           <h1 style={{ color: 'white', fontSize: 32, fontWeight: 900, margin: '0 0 8px', letterSpacing: -0.5 }}>
-            {prenom || 'Bienvenue'} 👋
+            {prenom || 'Bienvenue'}
           </h1>
           <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: 14, margin: '0 0 4px' }}>
             {greeting.sub}
@@ -130,11 +133,10 @@ export default function AccueilClient({ prenom, role, roleLabel, fonction, omEnC
             onMouseLeave={e => (e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06)')}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div style={{ fontSize: 26, marginBottom: 10 }}>{s.icon}</div>
-              <div style={{
-                background: s.bg, color: s.color, borderRadius: 999,
-                padding: '2px 10px', fontSize: 12, fontWeight: 700,
-              }}>
+              <div style={{ marginBottom: 10, color: s.color }}>
+                <s.Icon size={24} strokeWidth={1.5} color={s.color} />
+              </div>
+              <div style={{ background: s.bg, color: s.color, borderRadius: 999, padding: '2px 10px', fontSize: 12, fontWeight: 700 }}>
                 {s.value}
               </div>
             </div>
@@ -166,7 +168,9 @@ export default function AccueilClient({ prenom, role, roleLabel, fonction, omEnC
                 e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06)'
               }}
             >
-              <div style={{ fontSize: 28, flexShrink: 0 }}>{s.icon}</div>
+              <div style={{ flexShrink: 0, color: '#6b7280' }}>
+                <s.Icon size={22} strokeWidth={1.5} color="#6b7280" />
+              </div>
               <div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: '#111827', marginBottom: 2 }}>{s.label}</div>
                 <div style={{ fontSize: 12, color: '#9ca3af' }}>{s.desc}</div>
