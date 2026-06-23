@@ -1,7 +1,7 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
-import { ChevronDown, Lock, Zap, Users, Folder, X } from 'lucide-react'
+import { ChevronDown, Lock, Zap, Users, Folder, X, Pencil } from 'lucide-react'
 
 function EspaceIcon({ icon, size = 15 }: { icon: string; size?: number }) {
   if (!icon || icon === 'folder') return <Folder size={size} color="#6b7280" strokeWidth={1.5} />
@@ -47,6 +47,11 @@ export default function ProjetsSidebar() {
   const [espaceErr, setEspaceErr] = useState('')
   const [projetErr, setProjetErr] = useState('')
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  // Rename state
+  const [renamingEspace, setRenamingEspace] = useState<string | null>(null)
+  const [renamingProjet, setRenamingProjet] = useState<string | null>(null)
+  const [renameValue, setRenameValue] = useState('')
+  const renameRef = useRef<HTMLInputElement>(null)
 
   const load = useCallback(async () => {
     const [re, rp, rpr] = await Promise.all([
@@ -160,6 +165,40 @@ export default function ProjetsSidebar() {
     }
   }
 
+  function startRenameEspace(esp: Espace) {
+    setRenamingEspace(esp.id)
+    setRenameValue(esp.nom)
+    setTimeout(() => renameRef.current?.select(), 30)
+  }
+
+  function startRenameProjet(p: ProjetLite) {
+    setRenamingProjet(p.id)
+    setRenameValue(p.nom)
+    setTimeout(() => renameRef.current?.select(), 30)
+  }
+
+  async function commitRenameEspace(id: string) {
+    const val = renameValue.trim()
+    if (!val) { setRenamingEspace(null); return }
+    setEspaces(e => e.map(x => x.id === id ? { ...x, nom: val } : x))
+    setRenamingEspace(null)
+    await fetch(`/api/espaces/${id}`, {
+      method: 'PATCH', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ nom: val }),
+    })
+  }
+
+  async function commitRenameProjet(id: string) {
+    const val = renameValue.trim()
+    if (!val) { setRenamingProjet(null); return }
+    setProjets(p => p.map(x => x.id === id ? { ...x, nom: val } : x))
+    setRenamingProjet(null)
+    await fetch(`/api/projets/${id}`, {
+      method: 'PATCH', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ nom: val }),
+    })
+  }
+
   function projetsByEspace(eid: string | null) {
     return projets.filter(p => p.espace_id === eid)
   }
@@ -168,20 +207,45 @@ export default function ProjetsSidebar() {
     const isActive = p.id === activeId
     const done = p.activites.filter(a => a.statut === 'termine').length
     const total = p.activites.length
+    const isRenaming = renamingProjet === p.id
     return (
       <div key={p.id}
-        onClick={() => router.push(`/projets/${p.id}`)}
         style={{
           display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px 6px 24px',
           borderRadius: 6, cursor: 'pointer', margin: '1px 4px',
           background: isActive ? 'rgba(22,163,74,0.12)' : 'transparent',
           color: isActive ? '#16a34a' : '#374151',
         }}
+        onClick={() => { if (!isRenaming) router.push(`/projets/${p.id}`) }}
         onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = '#f3f4f6' }}
         onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = isActive ? 'rgba(22,163,74,0.12)' : 'transparent' }}>
         {p.is_public ? <Zap size={11} color="#d97706" strokeWidth={1.5} /> : <Lock size={11} color="#9ca3af" strokeWidth={1.5} />}
-        <span style={{ flex: 1, fontSize: 13, fontWeight: isActive ? 700 : 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.nom}</span>
-        {total > 0 && <span style={{ fontSize: 10, color: '#9ca3af', flexShrink: 0 }}>{done}/{total}</span>}
+        {isRenaming ? (
+          <input
+            ref={renameRef}
+            value={renameValue}
+            onChange={e => setRenameValue(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') commitRenameProjet(p.id); if (e.key === 'Escape') setRenamingProjet(null) }}
+            onBlur={() => commitRenameProjet(p.id)}
+            onClick={e => e.stopPropagation()}
+            style={{ flex: 1, fontSize: 13, fontWeight: 600, border: '1px solid #16a34a', borderRadius: 4, padding: '1px 5px', outline: 'none', minWidth: 0 }}
+          />
+        ) : (
+          <span
+            onDoubleClick={e => { e.stopPropagation(); startRenameProjet(p) }}
+            style={{ flex: 1, fontSize: 13, fontWeight: isActive ? 700 : 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+            title="Double-clic pour renommer"
+          >{p.nom}</span>
+        )}
+        {!isRenaming && total > 0 && <span style={{ fontSize: 10, color: '#9ca3af', flexShrink: 0 }}>{done}/{total}</span>}
+        {!isRenaming && (
+          <button
+            onClick={e => { e.stopPropagation(); startRenameProjet(p) }}
+            title="Renommer"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex', alignItems: 'center', opacity: 0, pointerEvents: 'none' }}
+            className="rename-btn"
+          ><Pencil size={10} color="#9ca3af" strokeWidth={1.5} /></button>
+        )}
       </div>
     )
   }
@@ -334,9 +398,36 @@ export default function ProjetsSidebar() {
                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                 <span onClick={() => setCollapsed(c => ({ ...c, [esp.id]: !c[esp.id] }))}><ChevronDown size={9} color="#9ca3af" strokeWidth={1.4} style={{ transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)', transition: 'transform 0.15s', flexShrink: 0 }} /></span>
                 <span onClick={() => setCollapsed(c => ({ ...c, [esp.id]: !c[esp.id] }))}><EspaceIcon icon={esp.icon} /></span>
-                <span onClick={() => setCollapsed(c => ({ ...c, [esp.id]: !c[esp.id] }))} style={{ flex: 1, fontSize: 13, fontWeight: 600, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{esp.nom}</span>
+                {renamingEspace === esp.id ? (
+                  <input
+                    ref={renameRef}
+                    value={renameValue}
+                    onChange={e => setRenameValue(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') commitRenameEspace(esp.id); if (e.key === 'Escape') setRenamingEspace(null) }}
+                    onBlur={() => commitRenameEspace(esp.id)}
+                    onClick={e => e.stopPropagation()}
+                    style={{ flex: 1, fontSize: 13, fontWeight: 600, border: '1px solid #16a34a', borderRadius: 4, padding: '1px 5px', outline: 'none', minWidth: 0 }}
+                  />
+                ) : (
+                  <span
+                    onClick={() => setCollapsed(c => ({ ...c, [esp.id]: !c[esp.id] }))}
+                    onDoubleClick={e => { e.stopPropagation(); startRenameEspace(esp) }}
+                    style={{ flex: 1, fontSize: 13, fontWeight: 600, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                    title="Double-clic pour renommer"
+                  >{esp.nom}</span>
+                )}
+                {/* Rename button for espace */}
+                {renamingEspace !== esp.id && (
+                  <button onClick={e => { e.stopPropagation(); startRenameEspace(esp) }}
+                    title="Renommer l'espace"
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex', alignItems: 'center', color: '#9ca3af', flexShrink: 0 }}
+                    onMouseEnter={e => (e.currentTarget.style.color = '#374151')}
+                    onMouseLeave={e => (e.currentTarget.style.color = '#9ca3af')}>
+                    <Pencil size={11} strokeWidth={1.5} color="currentColor" />
+                  </button>
+                )}
                 {/* Members button */}
-                <button onClick={e => { e.stopPropagation(); toggleMembresPanel(esp.id) }}
+                {renamingEspace !== esp.id && <button onClick={e => { e.stopPropagation(); toggleMembresPanel(esp.id) }}
                   title="Gérer les membres"
                   style={{
                     background: membresPanel === esp.id ? '#f0fdf4' : 'none',
@@ -347,9 +438,9 @@ export default function ProjetsSidebar() {
                   onMouseEnter={e => { if (membresPanel !== esp.id) e.currentTarget.style.color = '#374151' }}
                   onMouseLeave={e => { if (membresPanel !== esp.id) e.currentTarget.style.color = '#9ca3af' }}>
                   <Users size={13} color={membresPanel === esp.id ? '#16a34a' : '#9ca3af'} strokeWidth={1.5} />{membresCount !== null ? ` ${membresCount}` : ''}
-                </button>
-                <span onClick={() => setCollapsed(c => ({ ...c, [esp.id]: !c[esp.id] }))}
-                  style={{ fontSize: 11, color: '#9ca3af', background: '#e5e7eb', borderRadius: 999, padding: '1px 6px', flexShrink: 0 }}>{espProjets.length}</span>
+                </button>}
+                {renamingEspace !== esp.id && <span onClick={() => setCollapsed(c => ({ ...c, [esp.id]: !c[esp.id] }))}
+                  style={{ fontSize: 11, color: '#9ca3af', background: '#e5e7eb', borderRadius: 999, padding: '1px 6px', flexShrink: 0 }}>{espProjets.length}</span>}
               </div>
 
               {/* Members panel */}
