@@ -100,7 +100,7 @@ export default function RolesClient({
   }
 
   return (
-    <div>
+    <div className="page-container">
       <div style={{ marginBottom: 28 }}>
         <h2 style={{ color: 'var(--abed-green)', margin: '0 0 6px' }}>Roles &amp; Permissions</h2>
         <p style={{ fontSize: 13, color: 'var(--abed-muted)', margin: 0 }}>

@@ -44,7 +44,7 @@ export default function MesCongesClient({ conges: initial, typesConge, soldes, h
   }
 
   return (
-    <div>
+    <div className="page-container">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <h2 style={{ color: 'var(--abed-green)', fontSize: 22, margin: 0 }}>Mes congés</h2>
         <button onClick={() => { setShowForm(true); setErr(null) }} style={{ padding: '8px 18px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: 'var(--abed-green)', color: 'white', border: 'none' }}>

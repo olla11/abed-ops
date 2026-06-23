@@ -310,7 +310,7 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
   )
 
   return (
-    <div onClick={(e) => { if (!(e.target as HTMLElement).closest('[data-delete-btn]')) Object.keys(deleteStep).forEach(id => resetDeleteStep(id)) }}>
+    <div className="page-container" onClick={(e) => { if (!(e.target as HTMLElement).closest('[data-delete-btn]')) Object.keys(deleteStep).forEach(id => resetDeleteStep(id)) }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <h2 style={{ color: 'var(--abed-green)', fontSize: 20, margin: 0 }}>Documents RH ({filtered.length})</h2>
         <button onClick={openNew} style={{ padding: '8px 18px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: 'var(--abed-green)', color: 'white', border: 'none' }}>

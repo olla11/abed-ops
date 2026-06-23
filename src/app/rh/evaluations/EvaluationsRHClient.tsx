@@ -115,7 +115,7 @@ export default function EvaluationsRHClient({ evaluations: initial, contratsActi
   }
 
   return (
-    <div>
+    <div className="page-container">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
           <select value={filtreStatut} onChange={e => setFiltreStatut(e.target.value)} style={{ padding: '7px 12px', borderRadius: 7, border: '1px solid var(--abed-border)', fontSize: 13 }}>

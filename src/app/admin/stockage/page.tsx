@@ -11,7 +11,7 @@ export default async function StockagePage() {
   if (profile?.role !== 'admin') redirect('/admin/comptes')
 
   return (
-    <div>
+    <div className="page-container">
       <AdminStorage />
     </div>
   )

@@ -94,7 +94,7 @@ export default function ActionsClient({
   const someSelected = selected.size > 0
 
   return (
-    <div style={{ display: 'grid', gap: 20 }}>
+    <div className="page-container" style={{ display: 'grid', gap: 20 }}>
 
       {/* ── Filtres ── */}
       <div className="card">
