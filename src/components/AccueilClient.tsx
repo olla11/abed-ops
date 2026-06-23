@@ -91,14 +91,14 @@ export default function AccueilClient({ prenom, role, roleLabel, fonction, omEnC
   ]
 
   return (
-    <main style={{ maxWidth: 1200, margin: '0 auto', padding: '32px 24px' }}>
+    <main style={{ maxWidth: 1200, margin: '0 auto', padding: '32px 24px', width: '100%' }}>
       {/* Hero welcome */}
       <div style={{
         background: 'linear-gradient(135deg, #064e3b 0%, #065f46 60%, #047857 100%)',
-        borderRadius: 20, padding: '40px 48px', marginBottom: 32, position: 'relative', overflow: 'hidden',
+        borderRadius: 20, padding: '40px 48px', marginBottom: 32, position: 'relative', overflow: 'hidden', width: '100%',
       }}>
-        <div style={{ position: 'absolute', top: -30, right: -30, width: 180, height: 180, borderRadius: '50%', background: 'rgba(255,255,255,0.05)' }} />
-        <div style={{ position: 'absolute', bottom: -50, right: 80, width: 120, height: 120, borderRadius: '50%', background: 'rgba(255,255,255,0.04)' }} />
+        <div style={{ position: 'absolute', top: 0, right: 0, width: 180, height: 180, borderRadius: '50%', background: 'rgba(255,255,255,0.05)', transform: 'translate(30%, -30%)' }} />
+        <div style={{ position: 'absolute', bottom: 0, right: 80, width: 120, height: 120, borderRadius: '50%', background: 'rgba(255,255,255,0.04)', transform: 'translateY(40%)' }} />
         <div style={{ position: 'relative', zIndex: 1 }}>
           <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, margin: '0 0 6px', fontWeight: 500 }}>
             {greeting.text},
