@@ -328,8 +328,19 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
   async function deleteProjet() {
     setDeleting(true)
     setDeleteProjetModal(false)
-    await fetch(`/api/projets/${projet.id}`, { method: 'DELETE' })
-    router.push('/projets')
+    try {
+      const r = await fetch(`/api/projets/${projet.id}`, { method: 'DELETE' })
+      if (r.ok) {
+        router.push('/projets')
+      } else {
+        const j = await r.json().catch(() => ({}))
+        alert(j.error ?? 'Erreur lors de la suppression')
+        setDeleting(false)
+      }
+    } catch {
+      alert('Erreur réseau')
+      setDeleting(false)
+    }
   }
 
   async function changeProjetStatut(statut: string) {
