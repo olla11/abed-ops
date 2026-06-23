@@ -3,6 +3,53 @@ import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 
+// ── SVG Icons (ClickUp-style) ──────────────────────────────────────────────
+function IcoList({ size = 14, color = 'currentColor' }: { size?: number; color?: string }) {
+  return <svg width={size} height={size} viewBox="0 0 16 16" fill="none"><rect x="1" y="3" width="2" height="2" rx=".5" fill={color}/><rect x="5" y="3" width="10" height="2" rx="1" fill={color}/><rect x="1" y="7" width="2" height="2" rx=".5" fill={color}/><rect x="5" y="7" width="10" height="2" rx="1" fill={color}/><rect x="1" y="11" width="2" height="2" rx=".5" fill={color}/><rect x="5" y="11" width="10" height="2" rx="1" fill={color}/></svg>
+}
+function IcoBoard({ size = 14, color = 'currentColor' }: { size?: number; color?: string }) {
+  return <svg width={size} height={size} viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="4" height="14" rx="1" fill={color}/><rect x="6" y="1" width="4" height="10" rx="1" fill={color}/><rect x="11" y="1" width="4" height="7" rx="1" fill={color}/></svg>
+}
+function IcoCalendar({ size = 14, color = 'currentColor' }: { size?: number; color?: string }) {
+  return <svg width={size} height={size} viewBox="0 0 16 16" fill="none"><rect x="1" y="3" width="14" height="12" rx="2" stroke={color} strokeWidth="1.5"/><path d="M1 7h14" stroke={color} strokeWidth="1.2"/><path d="M5 1v4M11 1v4" stroke={color} strokeWidth="1.5" strokeLinecap="round"/><rect x="4" y="9" width="2" height="2" rx=".4" fill={color}/><rect x="7" y="9" width="2" height="2" rx=".4" fill={color}/><rect x="10" y="9" width="2" height="2" rx=".4" fill={color}/></svg>
+}
+function IcoGantt({ size = 14, color = 'currentColor' }: { size?: number; color?: string }) {
+  return <svg width={size} height={size} viewBox="0 0 16 16" fill="none"><rect x="1" y="2" width="8" height="3" rx="1" fill={color}/><rect x="5" y="6.5" width="9" height="3" rx="1" fill={color}/><rect x="3" y="11" width="6" height="3" rx="1" fill={color}/></svg>
+}
+function IcoTable({ size = 14, color = 'currentColor' }: { size?: number; color?: string }) {
+  return <svg width={size} height={size} viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="14" height="14" rx="2" stroke={color} strokeWidth="1.4"/><path d="M1 5.5h14M6 5.5v9.5" stroke={color} strokeWidth="1.2"/><path d="M1 9.5h14M1 13h14" stroke={color} strokeWidth="1"/></svg>
+}
+function IcoComment({ size = 12, color = 'currentColor' }: { size?: number; color?: string }) {
+  return <svg width={size} height={size} viewBox="0 0 14 14" fill="none"><path d="M2 2h10a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H5l-3 2V3a1 1 0 0 1 1-1z" stroke={color} strokeWidth="1.3" strokeLinejoin="round"/></svg>
+}
+function IcoDatePin({ size = 12, color = 'currentColor' }: { size?: number; color?: string }) {
+  return <svg width={size} height={size} viewBox="0 0 14 14" fill="none"><rect x="1" y="2.5" width="12" height="10" rx="1.5" stroke={color} strokeWidth="1.3"/><path d="M1 6h12" stroke={color} strokeWidth="1.1"/><path d="M4.5 1v3M9.5 1v3" stroke={color} strokeWidth="1.3" strokeLinecap="round"/></svg>
+}
+function IcoPlusCircle({ size = 13, color = 'currentColor' }: { size?: number; color?: string }) {
+  return <svg width={size} height={size} viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="6" stroke={color} strokeWidth="1.3"/><path d="M7 4v6M4 7h6" stroke={color} strokeWidth="1.4" strokeLinecap="round"/></svg>
+}
+function IcoX({ size = 12, color = 'currentColor' }: { size?: number; color?: string }) {
+  return <svg width={size} height={size} viewBox="0 0 12 12" fill="none"><path d="M2 2l8 8M10 2l-8 8" stroke={color} strokeWidth="1.6" strokeLinecap="round"/></svg>
+}
+function IcoSend({ size = 16, color = 'currentColor' }: { size?: number; color?: string }) {
+  return <svg width={size} height={size} viewBox="0 0 16 16" fill="none"><path d="M14 2L2 7l5 2 2 5 5-12z" fill={color}/></svg>
+}
+function IcoTrash({ size = 14, color = 'currentColor' }: { size?: number; color?: string }) {
+  return <svg width={size} height={size} viewBox="0 0 14 14" fill="none"><path d="M2 4h10M5 4V3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1M11 4l-.8 7.2A1 1 0 0 1 9.2 12H4.8a1 1 0 0 1-1-.8L3 4" stroke={color} strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+}
+function IcoWarning({ size = 20, color = '#dc2626' }: { size?: number; color?: string }) {
+  return <svg width={size} height={size} viewBox="0 0 20 20" fill="none"><path d="M9 3.5L1.5 17h15L9 3.5z" stroke={color} strokeWidth="1.5" strokeLinejoin="round"/><path d="M9 9v4" stroke={color} strokeWidth="1.5" strokeLinecap="round"/><circle cx="9" cy="14.5" r=".8" fill={color}/></svg>
+}
+function IcoHelp({ size = 20, color = '#f59e0b' }: { size?: number; color?: string }) {
+  return <svg width={size} height={size} viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke={color} strokeWidth="1.5"/><path d="M7.5 7.5a2.5 2.5 0 0 1 5 0c0 1.5-2.5 2-2.5 3.5" stroke={color} strokeWidth="1.5" strokeLinecap="round"/><circle cx="10" cy="14.5" r=".8" fill={color}/></svg>
+}
+function IcoSubtask({ size = 13, color = 'currentColor' }: { size?: number; color?: string }) {
+  return <svg width={size} height={size} viewBox="0 0 13 13" fill="none"><path d="M2 2v6a2 2 0 0 0 2 2h6" stroke={color} strokeWidth="1.3" strokeLinecap="round"/><circle cx="10" cy="10" r="2" stroke={color} strokeWidth="1.2"/></svg>
+}
+function IcoFlag({ size = 12, color = 'currentColor' }: { size?: number; color?: string }) {
+  return <svg width={size} height={size} viewBox="0 0 12 14" fill="none"><path d="M2 2h8l-2 3 2 3H2" stroke={color} strokeWidth="1.3" strokeLinejoin="round"/><path d="M2 2v10" stroke={color} strokeWidth="1.3" strokeLinecap="round"/></svg>
+}
+
 type Profile = { id: string; nom: string; prenoms: string }
 type Commentaire = { id: string; contenu: string; created_at: string; auteur: { nom: string; prenoms: string } | null }
 type Activite = {
@@ -51,8 +98,8 @@ function ConfirmModal({ steps, onConfirm, onCancel }: { steps: ModalStep[]; onCo
       onClick={e => { if (e.target === e.currentTarget) onCancel() }}>
       <div style={{ background: 'white', borderRadius: 16, padding: '32px 28px', width: 420, maxWidth: 'calc(100vw - 32px)', boxShadow: '0 24px 60px rgba(0,0,0,0.2)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-          <div style={{ width: 40, height: 40, borderRadius: '50%', background: current.danger ? '#fee2e2' : '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>
-            {current.danger ? '⚠️' : '❓'}
+          <div style={{ width: 40, height: 40, borderRadius: '50%', background: current.danger ? '#fee2e2' : '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            {current.danger ? <IcoWarning size={20} color="#dc2626" /> : <IcoHelp size={20} color="#f59e0b" />}
           </div>
           <div>
             <p style={{ margin: 0, fontSize: 15, fontWeight: 800, color: '#111827' }}>{current.title}</p>
@@ -442,7 +489,7 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
           {isCreator && (
             <button onClick={() => setDeleteProjetModal(true)} disabled={deleting}
               style={{ background: '#fee2e2', border: 'none', borderRadius: 8, padding: '7px 14px', fontSize: 12, color: '#dc2626', cursor: 'pointer', fontWeight: 600 }}>
-              {deleting ? '…' : '🗑 Supprimer'}
+              {deleting ? '…' : <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><IcoTrash size={13} color="#dc2626" /> Supprimer</span>}
             </button>
           )}
         </div>
@@ -453,18 +500,23 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
 
       {/* Toggle vue */}
       <div style={{ display: 'flex', gap: 0, marginBottom: 16, borderBottom: '1px solid #e5e7eb' }}>
-        {[
-          { key: 'table', label: '≡ Liste' },
-          { key: 'kanban', label: '⬜ Tableau' },
-          { key: 'calendrier', label: '📅 Calendrier' },
-          { key: 'gantt', label: '📊 Gantt' },
-          { key: 'tableur', label: '🗒 Tableur' },
-        ].map(v => (
-          <button key={v.key} onClick={() => setView(v.key as typeof view)}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px 16px', fontSize: 13, fontWeight: view === v.key ? 700 : 500, color: view === v.key ? 'var(--abed-green)' : '#6b7280', borderBottom: view === v.key ? '2px solid var(--abed-green)' : '2px solid transparent', marginBottom: -1 }}>
-            {v.label}
-          </button>
-        ))}
+        {([
+          { key: 'table', label: 'Liste', Icon: IcoList },
+          { key: 'kanban', label: 'Tableau', Icon: IcoBoard },
+          { key: 'calendrier', label: 'Calendrier', Icon: IcoCalendar },
+          { key: 'gantt', label: 'Gantt', Icon: IcoGantt },
+          { key: 'tableur', label: 'Tableur', Icon: IcoTable },
+        ] as const).map(v => {
+          const active = view === v.key
+          const col = active ? 'var(--abed-green)' : '#6b7280'
+          return (
+            <button key={v.key} onClick={() => setView(v.key as typeof view)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px 14px', fontSize: 13, fontWeight: active ? 700 : 500, color: col, borderBottom: active ? '2px solid var(--abed-green)' : '2px solid transparent', marginBottom: -1, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <v.Icon size={14} color={col} />
+              {v.label}
+            </button>
+          )
+        })}
         <div style={{ flex: 1 }} />
         <button className="btn" onClick={() => { setShowAddRow(true); setView('table') }} style={{ fontSize: 12, marginBottom: 6 }}>+ Ajouter une tâche</button>
       </div>
@@ -520,12 +572,12 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
                         {subTasks.filter(s => s.statut === 'termine').length}/{subTasks.length}
                       </span>
                     )}
-                    {(act.commentaires_activites?.length ?? 0) > 0 && <span style={{ fontSize: 11, color: '#9ca3af', flexShrink: 0 }}>💬 {act.commentaires_activites.length}</span>}
+                    {(act.commentaires_activites?.length ?? 0) > 0 && <span style={{ display: 'flex', alignItems: 'center', gap: 2, fontSize: 11, color: '#9ca3af', flexShrink: 0 }}><IcoComment size={11} color="#9ca3af" /> {act.commentaires_activites.length}</span>}
                     <button onClick={() => { setShowSubtaskForm(act.id); setSubtaskNom(''); setExpandedSubtasks(e => ({ ...e, [act.id]: true })) }}
                       title="Ajouter une sous-tâche"
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', fontSize: 12, color: '#d1d5db', flexShrink: 0, lineHeight: 1 }}
-                      onMouseEnter={e => (e.currentTarget.style.color = 'var(--abed-green)')}
-                      onMouseLeave={e => (e.currentTarget.style.color = '#d1d5db')}>⊕</button>
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px', color: '#d1d5db', flexShrink: 0, lineHeight: 1, display: 'flex', alignItems: 'center' }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--abed-green)' }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#d1d5db' }}><IcoSubtask size={13} color="currentColor" /></button>
                   </div>
 
                   <div style={{ padding: '11px 10px', display: 'flex', alignItems: 'center', gap: 6, borderRight: '1px solid #f3f4f6' }}>
@@ -595,9 +647,9 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
 
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <button onClick={() => setDeleteActiviteId(act.id)}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d1d5db', fontSize: 14, padding: 4 }}
-                      onMouseEnter={e => (e.currentTarget.style.color = '#dc2626')}
-                      onMouseLeave={e => (e.currentTarget.style.color = '#d1d5db')}>✕</button>
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d1d5db', padding: 4, display: 'flex', alignItems: 'center' }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#dc2626' }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#d1d5db' }}><IcoX size={12} color="currentColor" /></button>
                   </div>
                 </div>
 
@@ -634,9 +686,9 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <button onClick={() => deleteActivite(sub.id)}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d1d5db', fontSize: 12, padding: 4 }}
-                          onMouseEnter={e => (e.currentTarget.style.color = '#dc2626')}
-                          onMouseLeave={e => (e.currentTarget.style.color = '#d1d5db')}>✕</button>
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d1d5db', padding: 4, display: 'flex', alignItems: 'center' }}
+                          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#dc2626' }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#d1d5db' }}><IcoX size={11} color="currentColor" /></button>
                       </div>
                     </div>
                   )
@@ -778,8 +830,8 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
                           {act.assignee ? <span style={{ fontSize: 11, color: '#6b7280' }}>{act.assignee.prenoms}</span> : <span style={{ fontSize: 11, color: '#9ca3af' }}>Non assigné</span>}
                         </div>
                         <div style={{ display: 'flex', gap: 8, fontSize: 11, color: '#9ca3af', alignItems: 'center' }}>
-                          {act.date_echeance && <span>📅 {new Date(act.date_echeance + 'T12:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}</span>}
-                          {(act.commentaires_activites?.length ?? 0) > 0 && <span>💬 {act.commentaires_activites.length}</span>}
+                          {act.date_echeance && <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><IcoDatePin size={11} color="#9ca3af" />{new Date(act.date_echeance + 'T12:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}</span>}
+                          {(act.commentaires_activites?.length ?? 0) > 0 && <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><IcoComment size={11} color="#9ca3af" />{act.commentaires_activites.length}</span>}
                         </div>
                       </div>
                     </div>
@@ -1058,7 +1110,7 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
 
                           <div onClick={() => openActivite(act)} style={{ padding: '11px 12px', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', borderRight: '1px solid #f3f4f6', minWidth: 0 }}>
                             <span style={{ fontSize: 13, fontWeight: 600, color: isDone ? '#9ca3af' : '#111827', textDecoration: isDone ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{act.nom}</span>
-                            {(act.commentaires_activites?.length ?? 0) > 0 && <span style={{ fontSize: 11, color: '#9ca3af', flexShrink: 0 }}>💬 {act.commentaires_activites.length}</span>}
+                            {(act.commentaires_activites?.length ?? 0) > 0 && <span style={{ display: 'flex', alignItems: 'center', gap: 2, fontSize: 11, color: '#9ca3af', flexShrink: 0 }}><IcoComment size={11} color="#9ca3af" />{act.commentaires_activites.length}</span>}
                           </div>
 
                           <div style={{ padding: '11px 10px', display: 'flex', alignItems: 'center', gap: 6, borderRight: '1px solid #f3f4f6' }}>
@@ -1128,9 +1180,9 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
 
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <button onClick={() => deleteActivite(act.id)}
-                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d1d5db', fontSize: 14, padding: 4 }}
-                              onMouseEnter={e => (e.currentTarget.style.color = '#dc2626')}
-                              onMouseLeave={e => (e.currentTarget.style.color = '#d1d5db')}>✕</button>
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d1d5db', padding: 4, display: 'flex', alignItems: 'center' }}
+                              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#dc2626' }}
+                              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#d1d5db' }}><IcoX size={12} color="currentColor" /></button>
                           </div>
                         </div>
                       )
@@ -1224,7 +1276,7 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
                 </span>
               </div>
             </div>
-            <button onClick={() => setSelectedActivite(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: '#9ca3af', padding: 0 }}>✕</button>
+            <button onClick={() => setSelectedActivite(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 4, display: 'flex', alignItems: 'center' }}><IcoX size={14} color="currentColor" /></button>
           </div>
           <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--abed-border)', display: 'flex', flexDirection: 'column', gap: 10 }}>
             {selectedActivite.description && <p style={{ fontSize: 13, color: '#374151', margin: 0, lineHeight: 1.6 }}>{selectedActivite.description}</p>}
@@ -1268,7 +1320,7 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addComment() } }}
               style={{ flex: 1, resize: 'none', border: '1px solid var(--abed-border)', borderRadius: 10, padding: '8px 12px', fontSize: 13, fontFamily: 'inherit', outline: 'none' }} />
             <button onClick={addComment} disabled={sendingComment || !newComment.trim()}
-              style={{ background: newComment.trim() ? 'var(--abed-green)' : '#d1d5db', color: 'white', border: 'none', borderRadius: 10, width: 40, cursor: newComment.trim() ? 'pointer' : 'default', fontSize: 16 }}>➤</button>
+              style={{ background: newComment.trim() ? 'var(--abed-green)' : '#d1d5db', color: 'white', border: 'none', borderRadius: 10, width: 40, cursor: newComment.trim() ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><IcoSend size={15} color="white" /></button>
           </div>
         </div>
       )}

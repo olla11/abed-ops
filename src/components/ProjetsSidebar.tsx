@@ -1,6 +1,30 @@
 'use client'
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
+
+function IcoChevron({ size = 9, collapsed }: { size?: number; collapsed: boolean }) {
+  return <svg width={size} height={size} viewBox="0 0 9 9" fill="none" style={{ transform: collapsed ? 'rotate(-90deg)' : 'rotate(0deg)', transition: 'transform 0.15s', flexShrink: 0 }}><path d="M2 3l2.5 3L7 3" stroke="#9ca3af" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
+}
+function IcoLock({ size = 11 }: { size?: number }) {
+  return <svg width={size} height={size} viewBox="0 0 12 14" fill="none"><rect x="2" y="6" width="8" height="7" rx="1.5" stroke="#9ca3af" strokeWidth="1.3"/><path d="M4 6V4a2 2 0 1 1 4 0v2" stroke="#9ca3af" strokeWidth="1.3" strokeLinecap="round"/></svg>
+}
+function IcoBolt({ size = 11 }: { size?: number }) {
+  return <svg width={size} height={size} viewBox="0 0 12 14" fill="none"><path d="M7 1L2 8h5l-2 5 6-8H6l1-4z" fill="#d97706" stroke="#d97706" strokeWidth=".5" strokeLinejoin="round"/></svg>
+}
+function IcoUsers({ size = 13, color = '#9ca3af' }: { size?: number; color?: string }) {
+  return <svg width={size} height={size} viewBox="0 0 14 12" fill="none"><circle cx="5" cy="4" r="2.5" stroke={color} strokeWidth="1.2"/><path d="M1 11c0-2.2 1.8-4 4-4s4 1.8 4 4" stroke={color} strokeWidth="1.2" strokeLinecap="round"/><circle cx="11" cy="3.5" r="2" stroke={color} strokeWidth="1.2"/><path d="M10 10.5c0-1.4.7-2.6 1.8-3.2" stroke={color} strokeWidth="1.2" strokeLinecap="round"/></svg>
+}
+function IcoFolder({ size = 14, color = '#6b7280' }: { size?: number; color?: string }) {
+  return <svg width={size} height={size} viewBox="0 0 14 12" fill="none"><path d="M1 3a1 1 0 0 1 1-1h3l2 2h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V3z" stroke={color} strokeWidth="1.2" strokeLinejoin="round"/></svg>
+}
+function IcoXSmall({ size = 12, color = 'currentColor' }: { size?: number; color?: string }) {
+  return <svg width={size} height={size} viewBox="0 0 12 12" fill="none"><path d="M2 2l8 8M10 2l-8 8" stroke={color} strokeWidth="1.5" strokeLinecap="round"/></svg>
+}
+
+function EspaceIcon({ icon, size = 15 }: { icon: string; size?: number }) {
+  if (!icon || icon === 'folder') return <IcoFolder size={size} color="#6b7280" />
+  return <span style={{ fontSize: size }}>{icon}</span>
+}
 
 type Espace = { id: string; nom: string; couleur: string; icon: string; created_by?: string }
 type ProjetLite = { id: string; nom: string; is_public: boolean; espace_id: string | null; activites: { id: string; statut: string }[] }
@@ -173,7 +197,7 @@ export default function ProjetsSidebar() {
         }}
         onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = '#f3f4f6' }}
         onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = isActive ? 'rgba(22,163,74,0.12)' : 'transparent' }}>
-        <span style={{ fontSize: 11 }}>{p.is_public ? '⚡' : '🔒'}</span>
+        {p.is_public ? <IcoBolt size={11} /> : <IcoLock size={11} />}
         <span style={{ flex: 1, fontSize: 13, fontWeight: isActive ? 700 : 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.nom}</span>
         {total > 0 && <span style={{ fontSize: 10, color: '#9ca3af', flexShrink: 0 }}>{done}/{total}</span>}
       </div>
@@ -217,7 +241,7 @@ export default function ProjetsSidebar() {
       <div style={{ margin: '0 8px 8px', background: 'white', border: '1px solid #e5e7eb', borderRadius: 10, overflow: 'hidden' }}>
         <div style={{ padding: '10px 12px', borderBottom: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{ fontSize: 12, fontWeight: 700, color: '#374151' }}>Membres de l&apos;espace</span>
-          <button onClick={() => setMembresPanel(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 14, padding: 0 }}>✕</button>
+          <button onClick={() => setMembresPanel(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 2, display: 'flex', alignItems: 'center' }}><IcoXSmall size={12} color="currentColor" /></button>
         </div>
 
         {/* Current members */}
@@ -234,8 +258,8 @@ export default function ProjetsSidebar() {
               {isCreator && mb.profile_id !== currentUserId && (
                 <button onClick={() => removeMembre(esp.id, mb.profile_id)}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d1d5db', fontSize: 12, padding: '0 2px' }}
-                  onMouseEnter={e => (e.currentTarget.style.color = '#dc2626')}
-                  onMouseLeave={e => (e.currentTarget.style.color = '#d1d5db')}>✕</button>
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#dc2626' }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#d1d5db' }}><IcoXSmall size={11} color="currentColor" /></button>
               )}
             </div>
           ))}
@@ -307,7 +331,7 @@ export default function ProjetsSidebar() {
                 {saving ? 'Création…' : 'Créer'}
               </button>
               <button onClick={() => { setShowNewEspace(false); setEspaceErr('') }}
-                style={{ padding: '5px 10px', background: 'white', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}>✕</button>
+                style={{ padding: '5px 8px', background: 'white', border: '1px solid #e5e7eb', borderRadius: 6, cursor: 'pointer', display: 'flex', alignItems: 'center' }}><IcoXSmall size={12} color="#6b7280" /></button>
             </div>
           </div>
         )}
@@ -326,9 +350,8 @@ export default function ProjetsSidebar() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 10px', cursor: 'pointer', margin: '1px 4px', borderRadius: 6 }}
                 onMouseEnter={e => (e.currentTarget.style.background = '#f3f4f6')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                <span onClick={() => setCollapsed(c => ({ ...c, [esp.id]: !c[esp.id] }))}
-                  style={{ fontSize: 9, color: '#9ca3af', display: 'inline-block', transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)', transition: 'transform 0.15s', flexShrink: 0 }}>▼</span>
-                <span onClick={() => setCollapsed(c => ({ ...c, [esp.id]: !c[esp.id] }))} style={{ fontSize: 15 }}>{esp.icon}</span>
+                <span onClick={() => setCollapsed(c => ({ ...c, [esp.id]: !c[esp.id] }))}><IcoChevron collapsed={isCollapsed} /></span>
+                <span onClick={() => setCollapsed(c => ({ ...c, [esp.id]: !c[esp.id] }))}><EspaceIcon icon={esp.icon} /></span>
                 <span onClick={() => setCollapsed(c => ({ ...c, [esp.id]: !c[esp.id] }))} style={{ flex: 1, fontSize: 13, fontWeight: 600, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{esp.nom}</span>
                 {/* Members button */}
                 <button onClick={e => { e.stopPropagation(); toggleMembresPanel(esp.id) }}
@@ -341,7 +364,7 @@ export default function ProjetsSidebar() {
                   }}
                   onMouseEnter={e => { if (membresPanel !== esp.id) e.currentTarget.style.color = '#374151' }}
                   onMouseLeave={e => { if (membresPanel !== esp.id) e.currentTarget.style.color = '#9ca3af' }}>
-                  👥{membresCount !== null ? ` ${membresCount}` : ''}
+                  <IcoUsers size={13} color={membresPanel === esp.id ? '#16a34a' : '#9ca3af'} />{membresCount !== null ? ` ${membresCount}` : ''}
                 </button>
                 <span onClick={() => setCollapsed(c => ({ ...c, [esp.id]: !c[esp.id] }))}
                   style={{ fontSize: 11, color: '#9ca3af', background: '#e5e7eb', borderRadius: 999, padding: '1px 6px', flexShrink: 0 }}>{espProjets.length}</span>
@@ -372,8 +395,8 @@ export default function ProjetsSidebar() {
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 10px', cursor: 'pointer', margin: '1px 4px', borderRadius: 6 }}
                 onMouseEnter={e => (e.currentTarget.style.background = '#f3f4f6')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                <span style={{ fontSize: 9, color: '#9ca3af', display: 'inline-block', transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)', transition: 'transform 0.15s' }}>▼</span>
-                <span style={{ fontSize: 15 }}>📋</span>
+                <IcoChevron collapsed={isCollapsed} />
+                <IcoFolder size={14} color="#6b7280" />
                 <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: '#111827' }}>Projets</span>
                 <span style={{ fontSize: 11, color: '#9ca3af', background: '#e5e7eb', borderRadius: 999, padding: '1px 6px' }}>{noProjets.length}</span>
               </div>
