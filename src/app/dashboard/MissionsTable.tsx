@@ -1,7 +1,9 @@
 'use client'
+import React from 'react'
 import Link from 'next/link'
 import { useState } from 'react'
 import Pagination, { paginate } from '@/components/Pagination'
+import { PenLine, Plane, FolderOpen } from 'lucide-react'
 
 export type Mission = {
   id: string
@@ -122,10 +124,10 @@ export default function MissionsTable({
   const aSignerMissions = missions.filter(m => m.status === 'soumis' && m.missionnaire_id !== userId)
   const mesMissions = missions.filter(m => m.missionnaire_id === userId)
 
-  const tabs: { key: Tab; label: string; count?: number; icon: string; color?: string }[] = [
-    { key: 'signer', label: 'À signer', count: aSignerMissions.length, icon: '✍️', color: aSignerMissions.length > 0 ? '#b45309' : undefined },
-    { key: 'mes', label: 'Mes ordres de mission', icon: '✈️' },
-    { key: 'tous', label: 'Tous les ordres', icon: '🗂' },
+  const tabs: { key: Tab; label: string; count?: number; icon: React.ElementType; color?: string }[] = [
+    { key: 'signer', label: 'À signer', count: aSignerMissions.length, icon: PenLine, color: aSignerMissions.length > 0 ? '#b45309' : undefined },
+    { key: 'mes', label: 'Mes ordres de mission', icon: Plane },
+    { key: 'tous', label: 'Tous les ordres', icon: FolderOpen },
   ]
 
   return (
@@ -147,7 +149,7 @@ export default function MissionsTable({
                 transition: 'all 0.15s',
               }}
             >
-              <span>{t.icon}</span>
+              <t.icon size={15} strokeWidth={2} />
               <span>{t.label}</span>
               {t.count !== undefined && (
                 <span style={{

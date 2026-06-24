@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import dynamic from 'next/dynamic'
+import { FileText, FileBarChart2, CreditCard, ClipboardList, BarChart3, CheckCircle2, ShieldCheck, type LucideIcon } from 'lucide-react'
 
 const SoumissionForm = dynamic(() => import('@/components/SoumissionForm'), { ssr: false })
 const ValidationManager = dynamic(() => import('@/components/ValidationManager'), { ssr: false })
@@ -10,7 +11,7 @@ const ValidationRapportsAAF = dynamic(() => import('@/components/ValidationRappo
 
 type Tab = {
   key: string
-  icon: string
+  icon: LucideIcon
   label: string
   desc: string
   count?: number
@@ -49,16 +50,16 @@ export default function TimesheetsClient({
 
   // Soumission personnelle
   if (estPrestataire) {
-    tabs.push({ key: 'mes_soumissions', icon: '📋', label: 'Mes soumissions', desc: 'Timesheets & livrables' })
+    tabs.push({ key: 'mes_soumissions', icon: FileText, label: 'Mes soumissions', desc: 'Timesheets & livrables' })
   }
   if (estRapportMensuel) {
-    tabs.push({ key: 'mon_rapport', icon: '📋', label: 'Mon rapport mensuel', desc: estSalarie ? 'Fiche de paie' : 'Rapport d\'allocation' })
+    tabs.push({ key: 'mon_rapport', icon: FileBarChart2, label: 'Mon rapport mensuel', desc: estSalarie ? 'Fiche de paie' : 'Rapport d\'allocation' })
   }
 
   // Validation CAF financière (priorité haute)
   if (estCAF) {
     tabs.push({
-      key: 'caf_timesheets', icon: '💳', label: 'Timesheets & paiements',
+      key: 'caf_timesheets', icon: CreditCard, label: 'Timesheets & paiements',
       desc: 'Validation financière + paiements',
       count: countTimesheetsCAF, color: countTimesheetsCAF > 0 ? '#1e40af' : undefined,
     })
@@ -67,7 +68,7 @@ export default function TimesheetsClient({
   // Rapports allocation AAF
   if (estAAF) {
     tabs.push({
-      key: 'aaf_rapports', icon: '📑', label: 'Rapports à traiter',
+      key: 'aaf_rapports', icon: ClipboardList, label: 'Rapports à traiter',
       desc: 'Fixer les montants d\'allocation',
       count: countRapportsAAF, color: countRapportsAAF > 0 ? '#6d28d9' : undefined,
     })
@@ -76,7 +77,7 @@ export default function TimesheetsClient({
   // Rapports allocation CAF
   if (estCAF) {
     tabs.push({
-      key: 'caf_rapports', icon: '📑', label: 'Rapports d\'allocation',
+      key: 'caf_rapports', icon: BarChart3, label: 'Rapports d\'allocation',
       desc: 'Validation des allocations',
       count: countRapportsCAF, color: countRapportsCAF > 0 ? '#6d28d9' : undefined,
     })
@@ -85,7 +86,7 @@ export default function TimesheetsClient({
   // Rapports à autoriser DE
   if (estDE) {
     tabs.push({
-      key: 'de_rapports', icon: '✅', label: 'Rapports à autoriser',
+      key: 'de_rapports', icon: ShieldCheck, label: 'Rapports à autoriser',
       desc: 'Autorisation finale DE',
       count: countRapportsDE, color: countRapportsDE > 0 ? '#065f46' : undefined,
     })
@@ -95,7 +96,7 @@ export default function TimesheetsClient({
   if (estManager) {
     const totalTech = countTimesheetsAValider
     tabs.push({
-      key: 'validation_tech', icon: '✅', label: 'Validation technique',
+      key: 'validation_tech', icon: CheckCircle2, label: 'Validation technique',
       desc: 'Timesheets & rapports soumis',
       count: totalTech, color: totalTech > 0 ? '#b45309' : undefined,
     })
@@ -154,7 +155,7 @@ export default function TimesheetsClient({
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
-                <span style={{ fontSize: 22 }}>{tab.icon}</span>
+                <tab.icon size={22} color={active ? 'white' : (tab.color ?? '#6b7280')} strokeWidth={1.75} />
                 {tab.count !== undefined && (
                   <span style={{
                     background: active ? 'rgba(255,255,255,0.25)' : (tab.count > 0 ? '#fef3c7' : '#f3f4f6'),
@@ -180,7 +181,7 @@ export default function TimesheetsClient({
       {/* Contenu */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--abed-border)', background: '#f9fafb', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 16 }}>{current.icon}</span>
+          <current.icon size={16} color="var(--abed-green)" strokeWidth={2} />
           <span style={{ fontWeight: 700, fontSize: 15, color: '#111827' }}>{current.label}</span>
           {current.count !== undefined && current.count > 0 && (
             <span style={{ background: '#fef3c7', color: '#92400e', borderRadius: 999, padding: '1px 8px', fontSize: 12, fontWeight: 700, border: '1px solid #fcd34d' }}>
