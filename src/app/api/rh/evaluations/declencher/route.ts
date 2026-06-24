@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase-server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { sendEmail } from '@/lib/resend'
 import { LOGO_PNG_B64 } from '@/lib/logo-b64'
 import { escapeHtml } from '@/lib/html'
@@ -162,5 +163,6 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  revalidateTag('evaluations')
   return NextResponse.json({ ok: true, resultats })
 }

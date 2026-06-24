@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { revalidateTag } from 'next/cache'
 import { sendEmail } from '@/lib/resend'
 
 type RouteContext = { params: Promise<{ id: string }> }
@@ -136,6 +137,7 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
 
   const { data: updated, error } = await service.from('conges').update(updates).eq('id', id).select('*, type_conge:types_conge(nom)').single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  revalidateTag('conges')
 
   if (notifUserId && notifTitre) {
     await service.from('notifications').insert({

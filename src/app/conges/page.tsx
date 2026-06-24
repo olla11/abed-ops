@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import AppHeader from '@/components/AppHeader'
 import RolePreviewBanner from '@/components/RolePreviewBanner'
 import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
+import { getCachedProfile, getCachedTypesConge } from '@/lib/cache'
 import MesCongesClient from './MesCongesClient'
 
 export default async function MesCongesPage() {
@@ -11,24 +12,24 @@ export default async function MesCongesPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('profiles').select('role, nom, prenoms, avatar_url, type_emploi, manager_id').eq('id', user.id).single()
-
+  const profile = await getCachedProfile(user.id)
   const realRole = profile?.role ?? 'missionnaire'
   const role = await getEffectiveRole(realRole)
   const previewRole = await getRolePreview()
 
-  const [{ data: conges }, { data: typesConge }, { data: soldes }] = await Promise.all([
+  const [conges, typesConge, soldes] = await Promise.all([
     supabase.from('conges')
       .select('*, type_conge:types_conge(nom)')
       .eq('profile_id', user.id)
       .order('created_at', { ascending: false })
-      .limit(50),
-    supabase.from('types_conge').select('*').eq('actif', true).order('nom'),
+      .limit(50)
+      .then(r => r.data ?? []),
+    getCachedTypesConge(),
     supabase.from('soldes_conges')
       .select('*, type_conge:types_conge(nom)')
       .eq('profile_id', user.id)
-      .eq('annee', new Date().getFullYear()),
+      .eq('annee', new Date().getFullYear())
+      .then(r => r.data ?? []),
   ])
 
   return (
@@ -43,9 +44,9 @@ export default async function MesCongesPage() {
       />
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}
       <MesCongesClient
-          conges={conges ?? []}
-          typesConge={typesConge ?? []}
-          soldes={soldes ?? []}
+          conges={conges}
+          typesConge={typesConge}
+          soldes={soldes}
           hasManager={!!profile?.manager_id}
         />
     </>

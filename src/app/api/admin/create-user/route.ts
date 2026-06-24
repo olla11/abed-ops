@@ -1,6 +1,7 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { revalidateTag } from 'next/cache'
 import { sendEmail } from '@/lib/resend'
 import { rateLimit } from '@/lib/rate-limit'
 import { validate, s } from '@/lib/validate'
@@ -135,5 +136,7 @@ export async function POST(req: NextRequest) {
     console.error('[create-user] email error:', emailError)
   }
 
+  revalidateTag('profiles')
+  revalidateTag('personnel')
   return NextResponse.json({ ok: true, userId: newUser.user.id, emailSent, emailError: emailSent ? undefined : emailError })
 }
