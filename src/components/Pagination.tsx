@@ -7,7 +7,7 @@ type Props = {
   onChange: (page: number) => void
 }
 
-export const PAGE_SIZE = 20
+export const PAGE_SIZE = 10
 
 export default function Pagination({ page, total, pageSize = PAGE_SIZE, onChange }: Props) {
   const totalPages = Math.ceil(total / pageSize)

@@ -33,7 +33,7 @@ function MissionsTableSimple({ missions, showMissionnaire }: { missions: Mission
     m.lieu.toLowerCase().includes(search.toLowerCase()) ||
     `${(m.missionnaire as any)?.prenoms} ${(m.missionnaire as any)?.nom}`.toLowerCase().includes(search.toLowerCase())
   )
-  const paged = paginate(filtered, page)
+  const paged = paginate(filtered, page, 10)
 
   return (
     <>
@@ -93,7 +93,7 @@ function MissionsTableSimple({ missions, showMissionnaire }: { missions: Mission
           </tbody>
         </table>
       </div>
-      <Pagination page={page} total={filtered.length} onChange={setPage} />
+      <Pagination page={page} total={filtered.length} pageSize={10} onChange={setPage} />
     </>
   )
 }
