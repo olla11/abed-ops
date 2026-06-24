@@ -1,4 +1,5 @@
 'use client'
+import { Users, FileText, Palmtree, ClipboardEdit, BarChart3 } from 'lucide-react'
 
 type Personnel = { id: string; nom: string; prenoms: string; role: string; type_emploi: string | null; direction: string | null; fonction: string | null }
 type Contrat = { id: string; type_contrat: string; statut: string; date_fin: string | null; date_debut: string; direction: string | null; poste: string | null; profile_id: string; profile: { nom: string; prenoms: string } | null }
@@ -79,14 +80,14 @@ export default function RHDashboardClient({ personnel, contrats, contratsExpiran
       {/* KPI Row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: 16, marginBottom: 24 }}>
         {[
-          { label: 'Effectif total', value: personnel.length, icon: '👥', color: '#166534', bg: '#dcfce7' },
-          { label: 'Contrats actifs', value: contratsActifs, icon: '📄', color: '#1e40af', bg: '#dbeafe' },
-          { label: 'Congés en attente', value: congesEnAttenteCount, icon: '🏖', color: '#92400e', bg: '#fef3c7' },
-          { label: 'Évaluations en cours', value: evalsEnCours, icon: '📝', color: '#5b21b6', bg: '#ede9fe' },
+          { label: 'Effectif total', value: personnel.length, Icon: Users, color: '#166534', bg: '#dcfce7' },
+          { label: 'Contrats actifs', value: contratsActifs, Icon: FileText, color: '#1e40af', bg: '#dbeafe' },
+          { label: 'Congés en attente', value: congesEnAttenteCount, Icon: Palmtree, color: '#92400e', bg: '#fef3c7' },
+          { label: 'Évaluations en cours', value: evalsEnCours, Icon: ClipboardEdit, color: '#5b21b6', bg: '#ede9fe' },
         ].map(kpi => (
           <div key={kpi.label} style={{ ...card, display: 'flex', alignItems: 'center', gap: 16 }}>
-            <div style={{ width: 48, height: 48, borderRadius: 12, background: kpi.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>
-              {kpi.icon}
+            <div style={{ width: 48, height: 48, borderRadius: 12, background: kpi.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <kpi.Icon size={22} color={kpi.color} strokeWidth={1.75} />
             </div>
             <div>
               <div style={{ fontSize: 28, fontWeight: 800, color: kpi.color, lineHeight: 1 }}>{kpi.value}</div>
@@ -97,8 +98,8 @@ export default function RHDashboardClient({ personnel, contrats, contratsExpiran
 
         {/* Taux d'activité du mois */}
         <div style={{ ...card, display: 'flex', alignItems: 'center', gap: 16 }}>
-          <div style={{ width: 48, height: 48, borderRadius: 12, background: '#fdf2f8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>
-            📊
+          <div style={{ width: 48, height: 48, borderRadius: 12, background: '#fdf2f8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <BarChart3 size={22} color="#9d174d" strokeWidth={1.75} />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
