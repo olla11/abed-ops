@@ -51,7 +51,7 @@ export default async function EvaluationPage({ params }: { params: Promise<{ id:
         showAdmin={role === 'admin'}
         avatarUrl={profile?.avatar_url}
       />
-      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '24px 32px' }}>
+      <div className="page-container">
         <EvaluationForm
           evaluation={ev as any}
           myId={user.id}

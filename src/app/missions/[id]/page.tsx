@@ -58,7 +58,7 @@ export default async function MissionDetail({ params }: { params: Promise<{ id: 
   }
 
   return (
-    <div style={{ maxWidth: 1200, margin: '0 auto', padding: 32 }}>
+    <div className="page-container">
       <AppHeader
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={role}

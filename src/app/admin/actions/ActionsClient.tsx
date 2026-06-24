@@ -1,6 +1,9 @@
 'use client'
 import { useState, useMemo } from 'react'
 import { TYPE_EMPLOI_LABELS } from '@/lib/roles'
+import Pagination, { paginate } from '@/components/Pagination'
+
+const PAGE_SIZE = 10
 
 type User = {
   id: string; civilite?: string; nom: string; prenoms: string
@@ -37,6 +40,7 @@ export default function ActionsClient({
   const [filterType, setFilterType] = useState('')
   const [filterManager, setFilterManager] = useState('')
   const [filterSearch, setFilterSearch] = useState('')
+  const [page, setPage] = useState(1)
 
   // ── Sélection ──
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -73,7 +77,7 @@ export default function ActionsClient({
   }
 
   function resetFilters() {
-    setFilterRole(''); setFilterType(''); setFilterManager(''); setFilterSearch('')
+    setFilterRole(''); setFilterType(''); setFilterManager(''); setFilterSearch(''); setPage(1)
   }
 
   async function sendEmail() {
@@ -90,6 +94,7 @@ export default function ActionsClient({
     else alert('Erreur : ' + json.error)
   }
 
+  const paged = paginate(filtered, page, PAGE_SIZE)
   const allFilteredSelected = filtered.length > 0 && filtered.every(u => selected.has(u.id))
   const someSelected = selected.size > 0
 
@@ -234,7 +239,7 @@ export default function ActionsClient({
           <h3 style={{ margin: 0, fontSize: 15 }}>Utilisateurs</h3>
           {filtered.length > 0 && (
             <button className="btn secondary" style={{ fontSize: 12 }} onClick={toggleAll}>
-              {allFilteredSelected ? 'Désélectionner la page' : 'Sélectionner la page'}
+              {allFilteredSelected ? 'Désélectionner cette page' : 'Sélectionner cette page'}
             </button>
           )}
         </div>
@@ -254,7 +259,7 @@ export default function ActionsClient({
               </tr>
             </thead>
             <tbody>
-              {filtered.map(u => (
+              {paged.map(u => (
                 <tr key={u.id}
                   onClick={() => toggle(u.id)}
                   style={{ cursor: 'pointer', background: selected.has(u.id) ? '#f0fdf4' : undefined }}>
@@ -278,6 +283,7 @@ export default function ActionsClient({
             </tbody>
           </table>
         </div>
+        <Pagination page={page} total={filtered.length} pageSize={PAGE_SIZE} onChange={p => { setPage(p); setSelected(new Set()) }} />
       </div>
     </div>
   )

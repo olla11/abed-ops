@@ -1,6 +1,9 @@
 'use client'
 import Link from 'next/link'
 import { useState, useMemo } from 'react'
+import Pagination, { paginate } from '@/components/Pagination'
+
+const PAGE_SIZE = 10
 
 type Profile = { id: string; nom: string; prenoms: string }
 type Contrat = { id: string; type_contrat: string; date_fin: string | null; poste: string | null }
@@ -49,6 +52,7 @@ export default function EvaluationsRHClient({ evaluations: initial, contratsActi
   const [evaluations, setEvaluations] = useState<Evaluation[]>(initial)
   const [filtreStatut, setFiltreStatut] = useState('')
   const [filtreMois, setFiltreMois] = useState('')
+  const [page, setPage] = useState(1)
   const [showModal, setShowModal] = useState(false)
   const [selectedContrat, setSelectedContrat] = useState('')
   const [loading, setLoading] = useState(false)
@@ -124,7 +128,7 @@ export default function EvaluationsRHClient({ evaluations: initial, contratsActi
           </select>
           <input type="month" value={filtreMois} onChange={e => setFiltreMois(e.target.value)} style={{ padding: '7px 12px', borderRadius: 7, border: '1px solid var(--abed-border)', fontSize: 13 }} />
           {(filtreStatut || filtreMois) && (
-            <button onClick={() => { setFiltreStatut(''); setFiltreMois('') }} style={{ fontSize: 13, color: 'var(--abed-muted)', background: 'none', border: 'none', cursor: 'pointer' }}>✕ Réinitialiser</button>
+            <button onClick={() => { setFiltreStatut(''); setFiltreMois(''); setPage(1) }} style={{ fontSize: 13, color: 'var(--abed-muted)', background: 'none', border: 'none', cursor: 'pointer' }}>✕ Réinitialiser</button>
           )}
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -198,7 +202,7 @@ export default function EvaluationsRHClient({ evaluations: initial, contratsActi
             {filtered.length === 0 && (
               <tr><td colSpan={8} style={{ padding: 32, textAlign: 'center', color: 'var(--abed-muted)' }}>Aucune évaluation</td></tr>
             )}
-            {filtered.map(e => (
+            {paginate(filtered, page, PAGE_SIZE).map(e => (
               <tr key={e.id} style={{ borderBottom: '1px solid var(--abed-border)' }}>
                 <td style={{ padding: '10px 14px', fontWeight: 600 }}>
                   {e.profile?.prenoms} {e.profile?.nom}
@@ -240,6 +244,7 @@ export default function EvaluationsRHClient({ evaluations: initial, contratsActi
           </tbody>
         </table>
       </div>
+      <Pagination page={page} total={filtered.length} pageSize={PAGE_SIZE} onChange={setPage} />
 
       {/* Modal déclencher */}
       {showModal && (
