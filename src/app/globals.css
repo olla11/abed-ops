@@ -100,9 +100,9 @@ th { color: var(--abed-muted); font-size: 12px; text-transform: uppercase; lette
   flex-shrink: 0;
 }
 .projets-main {
-  margin-left: 260px;
   flex: 1;
   min-width: 0;
+  overflow: hidden;
 }
 
 /* ── Responsive ── */
@@ -118,8 +118,8 @@ th { color: var(--abed-muted); font-size: 12px; text-transform: uppercase; lette
   .hero-accueil { padding: 24px 20px !important; }
 
   /* Sidebar projets → masquée sur mobile */
-  .projets-sidebar { display: none !important; }
-  .projets-main { margin-left: 0 !important; }
+  .projets-sidebar { display: none !important; width: 0 !important; }
+  .projets-main { flex: 1; }
 
   /* Panel latéral tâche → plein écran sur mobile */
   .task-panel {
