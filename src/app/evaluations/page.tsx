@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import Link from 'next/link'
 import AppHeader from '@/components/AppHeader'
+import EvaluationsListClient from './EvaluationsListClient'
 
 export const dynamic = 'force-dynamic'
 
@@ -60,49 +61,7 @@ export default async function MesEvaluationsPage() {
           <h2 style={{ margin: 0, color: 'var(--abed-green)' }}>📝 Mes évaluations</h2>
         </div>
 
-        {(!evaluations || evaluations.length === 0) ? (
-          <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--abed-muted)' }}>
-            Aucune évaluation pour le moment.
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {evaluations.map((e: any) => {
-              const s = STATUTS[e.statut] ?? { label: e.statut, color: '#6b7280', bg: '#f3f4f6' }
-              return (
-                <div key={e.id} style={{
-                  background: 'white', border: '1px solid var(--abed-border)', borderRadius: 10,
-                  padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12,
-                }}>
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: 15 }}>
-                      {e.contrat?.poste ?? 'Poste N/A'} — {e.contrat?.type_contrat ?? ''}
-                    </div>
-                    <div style={{ fontSize: 13, color: 'var(--abed-muted)', marginTop: 4 }}>
-                      Fin contrat : {e.contrat?.date_fin ?? 'N/A'} · Déclenchée le : {e.declenchee_le ? new Date(e.declenchee_le).toLocaleDateString('fr-FR') : 'N/A'}
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    {e.score_moyen != null && (
-                      <span style={{ fontWeight: 700, color: 'var(--abed-green)' }}>{Number(e.score_moyen).toFixed(1)}/5</span>
-                    )}
-                    <span style={{
-                      background: s.bg, color: s.color,
-                      borderRadius: 6, padding: '3px 12px', fontSize: 12, fontWeight: 600,
-                    }}>
-                      {s.label}
-                    </span>
-                    <Link href={`/evaluations/${e.id}`} style={{
-                      padding: '6px 16px', borderRadius: 7, fontSize: 13, fontWeight: 600,
-                      background: 'var(--abed-green)', color: 'white', textDecoration: 'none',
-                    }}>
-                      Ouvrir →
-                    </Link>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
+        <EvaluationsListClient evaluations={(evaluations ?? []) as any} />
       </div>
     </>
   )

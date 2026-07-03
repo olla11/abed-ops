@@ -5,7 +5,8 @@ import { NextResponse } from 'next/server'
 export function validate<T>(schema: z.ZodSchema<T>, data: unknown): { error: NextResponse } | { data: T } {
   const result = schema.safeParse(data)
   if (!result.success) {
-    const message = result.error.errors.map(e => e.message).join(', ')
+    const issues = result.error.issues ?? (result.error as any).errors ?? []
+    const message = issues.map((e: any) => e.message).join(', ')
     return { error: NextResponse.json({ error: message }, { status: 400 }) }
   }
   return { data: result.data }
@@ -20,7 +21,7 @@ export const s = {
   text:        z.string().max(5000, 'Texte trop long').optional(),
   shortText:   z.string().max(255, 'Texte trop long').optional(),
   uuid:        z.string().uuid('ID invalide'),
-  montant:     z.number({ invalid_type_error: 'Montant invalide' }).min(0, 'Montant invalide').max(1_000_000_000, 'Montant trop élevé'),
+  montant:     z.number().min(0, 'Montant invalide').max(1_000_000_000, 'Montant trop élevé'),
   couleur:     z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Couleur invalide').optional(),
   date:        z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date invalide (YYYY-MM-DD)').nullable().optional(),
   statut:      (values: [string, ...string[]]) => z.enum(values).optional(),

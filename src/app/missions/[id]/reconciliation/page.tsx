@@ -29,7 +29,7 @@ export default async function ReconciliationPage({ params }: { params: Promise<{
     .from('profiles').select('role, nom, prenoms').eq('id', user.id).single()
 
   return (
-    <div style={{ maxWidth: 1200, margin: '0 auto', padding: 32 }}>
+    <div className="page-container">
       <AppHeader
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={profile?.role}
