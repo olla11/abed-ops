@@ -1,48 +1,42 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { usePathname } from 'next/navigation'
 import { Globe } from 'lucide-react'
 
-const APP_URL = 'https://my.abedong.org'
-const STORAGE_KEY = 'abed-lang'
+function setGTCookie() {
+  const host = window.location.hostname
+  document.cookie = 'googtrans=/fr/en; path=/'
+  if (host !== 'localhost') {
+    document.cookie = `googtrans=/fr/en; path=/; domain=.${host}`
+  }
+}
 
-function buildTranslateURL(targetUrl: string) {
-  return `https://translate.google.com/translate?sl=fr&tl=en&u=${encodeURIComponent(targetUrl)}`
+function clearGTCookie() {
+  const host = window.location.hostname
+  document.cookie = 'googtrans=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC'
+  if (host !== 'localhost') {
+    document.cookie = `googtrans=; path=/; domain=.${host}; expires=Thu, 01 Jan 1970 00:00:00 UTC`
+  }
 }
 
 export default function LanguageSwitcher() {
-  const pathname = usePathname()
   const [isEN, setIsEN] = useState(false)
 
   useEffect(() => {
-    setIsEN(localStorage.getItem(STORAGE_KEY) === 'en')
+    setIsEN(document.cookie.includes('googtrans=/fr/en'))
   }, [])
-
-  // When inside Google Translate frame, navigating goes through translate.google.com
-  // so we don't need to re-redirect on pathname changes inside the iframe.
-  // But if someone navigates back to the plain site while EN preference is stored,
-  // we detect that and redirect them back into the translated frame.
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const pref = localStorage.getItem(STORAGE_KEY)
-    if (pref !== 'en') return
-    // If we're already inside the GT frame, window.location.hostname will be translate.google.com
-    // so we won't be executing this code. If we're on the plain site, redirect.
-    const currentHost = window.location.hostname
-    if (currentHost !== 'translate.googleusercontent.com' && currentHost !== 'translate.google.com') {
-      window.location.href = buildTranslateURL(`${APP_URL}${pathname}`)
-    }
-  }, [pathname])
 
   function toggle() {
     if (isEN) {
-      localStorage.removeItem(STORAGE_KEY)
-      // Navigate to the plain (non-translated) version of the page
-      window.location.href = `${APP_URL}${pathname}`
+      clearGTCookie()
+      window.location.reload()
     } else {
-      localStorage.setItem(STORAGE_KEY, 'en')
+      setGTCookie()
       setIsEN(true)
-      window.location.href = buildTranslateURL(window.location.href)
+      if (typeof (window as any).__doGT === 'function') {
+        (window as any).__doGT('en')
+      } else {
+        window.location.reload()
+      }
     }
   }
 
