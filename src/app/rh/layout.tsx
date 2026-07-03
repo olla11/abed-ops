@@ -24,7 +24,7 @@ export default async function RHLayout({ children }: { children: React.ReactNode
         showAdmin={profile.role === 'admin'}
         avatarUrl={profile.avatar_url ?? null}
       />
-      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '24px 32px' }}>
+      <div className="page-container">
         <RHNav role={profile.role} />
         {children}
       </div>
