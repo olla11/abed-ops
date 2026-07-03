@@ -31,7 +31,6 @@ export const getCachedPersonnel = () =>
         .from('profiles')
         .select('id, nom, prenoms, role, type_emploi, direction, fonction, email, telephone, civilite, manager_id')
         .neq('role', 'admin')
-        .eq('archived', false)
         .order('prenoms')
       return data ?? []
     },
@@ -47,7 +46,6 @@ export const getCachedManagers = () =>
         .from('profiles')
         .select('id, nom, prenoms, role, email, avatar_url, type_emploi')
         .in('role', ['admin', 'rh', 'de', 'caf', 'manager', 'aaf'])
-        .eq('archived', false)
         .order('prenoms')
       return data ?? []
     },
