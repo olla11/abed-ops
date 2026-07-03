@@ -1,13 +1,15 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { Users, Shield, Tag, Zap, HardDrive } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 
-const TABS = [
-  { href: '/admin/comptes',  label: '👥 Comptes' },
-  { href: '/admin/roles',    label: '🎭 Rôles' },
-  { href: '/admin/titres',   label: '🏷️ Titres' },
-  { href: '/admin/actions',  label: '⚡ Actions par lot' },
-  { href: '/admin/stockage', label: '🗄️ Stockage' },
+const TABS: { href: string; label: string; Icon: LucideIcon }[] = [
+  { href: '/admin/comptes',  label: 'Comptes',       Icon: Users },
+  { href: '/admin/roles',    label: 'Rôles',         Icon: Shield },
+  { href: '/admin/titres',   label: 'Titres',        Icon: Tag },
+  { href: '/admin/actions',  label: 'Actions par lot', Icon: Zap },
+  { href: '/admin/stockage', label: 'Stockage',      Icon: HardDrive },
 ]
 
 export default function AdminNav({ role }: { role: string }) {
@@ -33,7 +35,11 @@ export default function AdminNav({ role }: { role: string }) {
               marginBottom: -2,
               textDecoration: 'none',
               whiteSpace: 'nowrap',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 7,
             }}>
+              <t.Icon size={15} strokeWidth={1.75} />
               {t.label}
             </Link>
           )
