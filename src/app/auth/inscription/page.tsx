@@ -25,13 +25,27 @@ function isValidEmail(v: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim())
 }
 
-function isValidPhone(v: string) {
-  const c = v.replace(/[\s\-().+]/g, '')
-  // Accepts: 229 prefix optional, then 01XXXXXXXX (10 digits starting with 01)
-  return /^(229)?01\d{8}$/.test(c) || c.length >= 8
+const COUNTRY_CODES = [
+  { code: '+229', country: 'BJ', label: '🇧🇯 +229', validate: (v: string) => /^01\d{8}$/.test(v.replace(/\s/g, '')), hint: '01 XX XX XX XX (10 chiffres)' },
+  { code: '+33',  country: 'FR', label: '🇫🇷 +33',  validate: (v: string) => /^[67]\d{8}$/.test(v.replace(/\s/g, '')),  hint: '6X XX XX XX XX (9 chiffres)' },
+  { code: '+1',   country: 'US', label: '🇺🇸 +1',   validate: (v: string) => /^\d{10}$/.test(v.replace(/\s/g, '')),      hint: '10 chiffres' },
+  { code: '+225', country: 'CI', label: '🇨🇮 +225', validate: (v: string) => /^0[157]\d{8}$/.test(v.replace(/\s/g, '')), hint: '07/05/01 XX XX XX XX' },
+  { code: '+221', country: 'SN', label: '🇸🇳 +221', validate: (v: string) => /^[37]\d{8}$/.test(v.replace(/\s/g, '')),  hint: '7X XXX XX XX (9 chiffres)' },
+  { code: '+228', country: 'TG', label: '🇹🇬 +228', validate: (v: string) => /^[29]\d{7}$/.test(v.replace(/\s/g, '')),  hint: '8 chiffres' },
+  { code: '+234', country: 'NG', label: '🇳🇬 +234', validate: (v: string) => /^[789]\d{9}$/.test(v.replace(/\s/g, '')), hint: '10 chiffres' },
+  { code: '+226', country: 'BF', label: '🇧🇫 +226', validate: (v: string) => /^[267]\d{7}$/.test(v.replace(/\s/g, '')), hint: '8 chiffres' },
+  { code: '+227', country: 'NE', label: '🇳🇪 +227', validate: (v: string) => /^[89]\d{7}$/.test(v.replace(/\s/g, '')),  hint: '8 chiffres' },
+]
+
+function isValidPhone(dialCode: string, local: string) {
+  const country = COUNTRY_CODES.find(c => c.code === dialCode)
+  if (!country) return local.replace(/\s/g, '').length >= 6
+  return country.validate(local)
 }
 
 export default function InscriptionPage() {
+  const [dialCode, setDialCode] = useState('+229')
+  const [localPhone, setLocalPhone] = useState('')
   const [form, setForm] = useState({
     civilite: 'M.', nom: '', prenoms: '', email: '', password: '',
     telephone: '', fonction: '', adresse: '',
@@ -55,7 +69,8 @@ export default function InscriptionPage() {
   const pwdRules = PWD_RULES.map(r => ({ ...r, ok: r.test(form.password) }))
   const pwdValid = pwdRules.every(r => r.ok)
   const emailValid = isValidEmail(form.email)
-  const phoneValid = isValidPhone(form.telephone)
+  const phoneValid = isValidPhone(dialCode, localPhone)
+  const selectedCountry = COUNTRY_CODES.find(c => c.code === dialCode) ?? COUNTRY_CODES[0]
 
   function fieldError(k: string) {
     if (!touched[k]) return false
@@ -69,13 +84,16 @@ export default function InscriptionPage() {
     e.preventDefault()
     setTouched({ email: true, telephone: true, password: true })
     if (!emailValid) { setErr('Adresse email invalide.'); return }
-    if (!phoneValid) { setErr('Numéro de téléphone invalide.'); return }
+    if (!phoneValid) { setErr(`Numéro invalide pour ${dialCode} — format attendu: ${selectedCountry.hint}`); return }
     if (!pwdValid)   { setErr('Le mot de passe ne respecte pas les critères.'); return }
+    // Build full phone number
+    const fullPhone = `${dialCode} ${localPhone.trim()}`
+    setForm(f => ({ ...f, telephone: fullPhone }))
     setLoading(true); setErr('')
     const res = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
+      body: JSON.stringify({ ...form, telephone: `${dialCode} ${localPhone.trim()}` }),
     })
     const data = await res.json()
     setLoading(false)
@@ -181,16 +199,30 @@ export default function InscriptionPage() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <div>
               <label style={lbl}>Téléphone <span style={{ color: '#ef4444' }}>*</span></label>
-              <input
-                style={inp(fieldError('telephone'))}
-                value={form.telephone}
-                onChange={e => set('telephone', e.target.value)}
-                onBlur={() => touch('telephone')}
-                required
-                placeholder="+229 01 97 00 00 00"
-              />
+              <div style={{ display: 'flex', gap: 6 }}>
+                <select
+                  value={dialCode}
+                  onChange={e => { setDialCode(e.target.value); setLocalPhone(''); touch('telephone') }}
+                  style={{ padding: '10px 8px', borderRadius: 8, border: `1px solid ${fieldError('telephone') ? '#ef4444' : '#d1d5db'}`, fontSize: 12, background: 'white', flexShrink: 0, cursor: 'pointer' }}
+                >
+                  {COUNTRY_CODES.map(c => (
+                    <option key={c.code} value={c.code}>{c.label}</option>
+                  ))}
+                </select>
+                <input
+                  style={{ ...inp(fieldError('telephone')), flex: 1 }}
+                  value={localPhone}
+                  onChange={e => setLocalPhone(e.target.value.replace(/[^\d\s]/g, ''))}
+                  onBlur={() => touch('telephone')}
+                  required
+                  placeholder={selectedCountry.hint}
+                  inputMode="numeric"
+                />
+              </div>
               {touched.telephone && !phoneValid && (
-                <p style={{ fontSize: 11, color: '#ef4444', margin: '4px 0 0' }}>Format: +229 01 XX XX XX XX</p>
+                <p style={{ fontSize: 11, color: '#ef4444', margin: '4px 0 0' }}>
+                  Format attendu : {selectedCountry.hint}
+                </p>
               )}
             </div>
             <div>
