@@ -2,8 +2,6 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { Eye, EyeOff } from 'lucide-react'
-import { useLocale } from 'next-intl'
-import LanguageSwitcher from '@/components/LanguageSwitcher'
 
 const inp: React.CSSProperties = {
   width: '100%', padding: '10px 12px', borderRadius: 8,
@@ -16,7 +14,6 @@ const lbl: React.CSSProperties = {
 }
 
 export default function InscriptionPage() {
-  const locale = useLocale()
   const [form, setForm] = useState({
     civilite: 'M.', nom: '', prenoms: '', email: '', password: '',
     telephone: '', fonction: '', adresse: '',
@@ -66,10 +63,6 @@ export default function InscriptionPage() {
 
   return (
     <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: '24px 16px', background: 'var(--abed-bg, #f4f6f9)' }}>
-      <div style={{ position: 'fixed', top: 16, right: 20 }}>
-        <LanguageSwitcher currentLocale={locale} />
-      </div>
-
       <div style={{ background: 'white', borderRadius: 18, boxShadow: '0 4px 32px rgba(0,0,0,.10)', padding: '36px 32px', width: 560, maxWidth: '100%' }}>
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
           <h1 style={{ fontSize: 22, fontWeight: 900, color: '#111827', margin: '0 0 4px' }}>Créer votre compte</h1>

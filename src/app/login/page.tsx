@@ -2,6 +2,7 @@
 export const dynamic = 'force-dynamic'
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Eye, EyeOff } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase-client'
@@ -158,12 +159,12 @@ export default function LoginPage() {
         {/* Register link */}
         <p style={{ textAlign: 'center', fontSize: 13, color: '#6b7280', marginTop: 24, marginBottom: 0 }}>
           {t('noAccount')}{' '}
-          <a
+          <Link
             href="/auth/inscription"
             style={{ color: 'var(--abed-green)', fontWeight: 700, textDecoration: 'none' }}
           >
             {t('register')}
-          </a>
+          </Link>
         </p>
       </div>
     </div>
