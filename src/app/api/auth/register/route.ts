@@ -39,39 +39,50 @@ export async function POST(req: NextRequest) {
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://myabed.vercel.app'
 
-  // If an unconfirmed account already exists with this email, delete it so the
-  // user can re-register (e.g. after an expired confirmation link).
-  try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-    const res = await fetch(
-      `${supabaseUrl}/auth/v1/admin/users?email=${encodeURIComponent(email)}`,
-      { headers: { Authorization: `Bearer ${serviceKey}`, apikey: serviceKey } }
-    )
-    if (res.ok) {
-      const body = await res.json()
-      const users: any[] = body.users ?? (Array.isArray(body) ? body : [])
-      const ghost = users.find(u => u.email === email && !u.email_confirmed_at)
-      if (ghost) {
-        await admin.auth.admin.deleteUser(ghost.id)
-      }
-    }
-  } catch (_) {}
-
-  // Generate signup link — creates user + generates email confirmation link
-  const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
-    type: 'signup',
+  const generateLinkOpts = {
+    type: 'signup' as const,
     email,
     password,
     options: {
       data: { nom, prenoms },
       redirectTo: `${appUrl}/auth/callback?next=/auth/email-confirmed`,
     },
-  })
+  }
+
+  // First attempt to generate signup link
+  let { data: linkData, error: linkError } = await admin.auth.admin.generateLink(generateLinkOpts)
+
+  // If the email already exists, check if the account is unconfirmed (ghost from expired OTP).
+  // If so, delete it and retry — the user should be able to re-register freely.
+  if (linkError && (linkError.message.includes('already registered') || linkError.message.includes('already exists'))) {
+    // Scan users to find the one matching this email
+    let ghostId: string | null = null
+    let page = 1
+    outer: while (true) {
+      const { data: { users }, error: listErr } = await admin.auth.admin.listUsers({ page, perPage: 1000 })
+      if (listErr || !users.length) break
+      for (const u of users) {
+        if (u.email === email) {
+          if (!u.email_confirmed_at) ghostId = u.id
+          break outer
+        }
+      }
+      if (users.length < 1000) break
+      page++
+    }
+
+    if (ghostId) {
+      await admin.auth.admin.deleteUser(ghostId)
+      // Retry after deleting the ghost account
+      const retry = await admin.auth.admin.generateLink(generateLinkOpts)
+      linkData = retry.data
+      linkError = retry.error
+    }
+  }
 
   if (linkError || !linkData?.user) {
     const msg = linkError?.message ?? 'Erreur création du compte'
-    if (msg.toLowerCase().includes('already registered') || msg.toLowerCase().includes('already exists')) {
+    if (msg.includes('already registered') || msg.includes('already exists')) {
       return NextResponse.json({ error: 'Un compte existe déjà avec cet email.' }, { status: 400 })
     }
     return NextResponse.json({ error: msg }, { status: 400 })
