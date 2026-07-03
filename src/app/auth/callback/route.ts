@@ -9,7 +9,16 @@ export async function GET(request: NextRequest) {
 
   if (code) {
     const supabase = await createClient()
-    await supabase.auth.exchangeCodeForSession(code)
+    const { data } = await supabase.auth.exchangeCodeForSession(code)
+
+    // After email confirmation, move registration_status pending_email → pending_activation
+    if (data?.user && next.includes('email-confirmed')) {
+      await supabase
+        .from('profiles')
+        .update({ registration_status: 'pending_activation' })
+        .eq('id', data.user.id)
+        .eq('registration_status', 'pending_email')
+    }
   }
 
   return NextResponse.redirect(`${appUrl}${next}`)
