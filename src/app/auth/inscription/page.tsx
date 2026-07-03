@@ -120,8 +120,18 @@ export default function InscriptionPage() {
   )
 
   return (
+    <>
+    <style>{`
+      .insc-grid-3 { display: grid; grid-template-columns: 110px 1fr 1fr; gap: 10px; }
+      .insc-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      @media (max-width: 480px) {
+        .insc-grid-3 { grid-template-columns: 1fr 1fr; }
+        .insc-grid-3 > :first-child { grid-column: 1 / -1; }
+        .insc-grid-2 { grid-template-columns: 1fr; }
+      }
+    `}</style>
     <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: '24px 16px', background: 'var(--abed-bg, #f4f6f9)' }}>
-      <div style={{ background: 'white', borderRadius: 18, boxShadow: '0 4px 32px rgba(0,0,0,.10)', padding: '36px 32px', width: 560, maxWidth: '100%' }}>
+      <div style={{ background: 'white', borderRadius: 18, boxShadow: '0 4px 32px rgba(0,0,0,.10)', padding: 'clamp(20px, 5vw, 36px) clamp(16px, 5vw, 32px)', width: '100%', maxWidth: 560 }}>
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
           <h1 style={{ fontSize: 22, fontWeight: 900, color: '#111827', margin: '0 0 4px' }}>Créer votre compte</h1>
           <p style={{ fontSize: 13, color: '#6b7280', margin: 0 }}>Rejoignez la plateforme My ABED</p>
@@ -129,7 +139,7 @@ export default function InscriptionPage() {
 
         <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {/* Civilité + Nom + Prénoms */}
-          <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr 1fr', gap: 10 }}>
+          <div className="insc-grid-3">
             <div>
               <label style={lbl}>Civilité <span style={{ color: '#ef4444' }}>*</span></label>
               <select style={inp(false)} value={form.civilite} onChange={e => set('civilite', e.target.value)} required>
@@ -196,7 +206,7 @@ export default function InscriptionPage() {
           </div>
 
           {/* Téléphone + Fonction */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <div className="insc-grid-2">
             <div>
               <label style={lbl}>Téléphone <span style={{ color: '#ef4444' }}>*</span></label>
               <div style={{ display: 'flex', gap: 6 }}>
@@ -238,7 +248,7 @@ export default function InscriptionPage() {
           </div>
 
           {/* Date & lieu naissance */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <div className="insc-grid-2">
             <div>
               <label style={lbl}>Date de naissance <span style={{ color: '#ef4444' }}>*</span></label>
               <input style={inp(false)} type="date" value={form.date_naissance} onChange={e => set('date_naissance', e.target.value)} required />
@@ -256,7 +266,7 @@ export default function InscriptionPage() {
           </div>
 
           {/* IFU + Grade */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <div className="insc-grid-2">
             <div>
               <label style={lbl}>Numéro IFU <span style={{ color: '#ef4444' }}>*</span></label>
               <input style={inp(false)} value={form.ifu} onChange={e => set('ifu', e.target.value)} required placeholder="Ex: 1234567890123" />
@@ -291,5 +301,6 @@ export default function InscriptionPage() {
         </p>
       </div>
     </div>
+    </>
   )
 }
