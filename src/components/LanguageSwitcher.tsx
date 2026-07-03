@@ -2,54 +2,56 @@
 import { useEffect, useState } from 'react'
 import { Globe } from 'lucide-react'
 
-function getCookie(name: string) {
+function getGoogTrans() {
   if (typeof document === 'undefined') return ''
-  const m = document.cookie.match(new RegExp('(?:^|;)\\s*' + name + '=([^;]*)'))
+  const m = document.cookie.match(/(?:^|;)\s*googtrans=([^;]*)/)
   return m ? decodeURIComponent(m[1]) : ''
 }
 
-function setCookie(name: string, value: string) {
+function setGoogTrans(value: string) {
   const host = window.location.hostname
-  document.cookie = `${name}=${value}; path=/; max-age=31536000`
+  // Must set on both root domain and with domain= for GT to pick it up
+  document.cookie = `googtrans=${value}; path=/`
   if (host !== 'localhost') {
-    document.cookie = `${name}=${value}; path=/; max-age=31536000; domain=${host}`
+    document.cookie = `googtrans=${value}; path=/; domain=.${host}`
   }
 }
 
-function deleteCookie(name: string) {
+function clearGoogTrans() {
   const host = window.location.hostname
-  document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC`
+  document.cookie = 'googtrans=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC'
   if (host !== 'localhost') {
-    document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC; domain=${host}`
+    document.cookie = `googtrans=; path=/; domain=.${host}; expires=Thu, 01 Jan 1970 00:00:00 UTC`
   }
-}
-
-function applyGoogleTranslate(lang: string) {
-  const sel = document.querySelector('.goog-te-combo') as HTMLSelectElement | null
-  if (!sel) {
-    setTimeout(() => applyGoogleTranslate(lang), 300)
-    return
-  }
-  sel.value = lang
-  sel.dispatchEvent(new Event('change'))
 }
 
 export default function LanguageSwitcher({ currentLocale }: { currentLocale?: string }) {
   const [isEN, setIsEN] = useState(false)
 
   useEffect(() => {
-    setIsEN(getCookie('googtrans') === '/fr/en')
+    setIsEN(getGoogTrans() === '/fr/en')
   }, [])
 
   function toggle() {
     if (isEN) {
-      deleteCookie('googtrans')
-      applyGoogleTranslate('fr')
+      clearGoogTrans()
       setIsEN(false)
+      // Reset GT to French
+      if (typeof window !== 'undefined' && (window as any).__gtApplyLang) {
+        (window as any).__gtApplyLang('fr')
+        setTimeout(() => window.location.reload(), 400)
+      } else {
+        window.location.reload()
+      }
     } else {
-      setCookie('googtrans', '/fr/en')
-      applyGoogleTranslate('en')
+      setGoogTrans('/fr/en')
       setIsEN(true)
+      // Apply EN immediately via GT widget
+      if (typeof window !== 'undefined' && (window as any).__gtApplyLang) {
+        (window as any).__gtApplyLang('en')
+      } else {
+        window.location.reload()
+      }
     }
   }
 
@@ -62,7 +64,6 @@ export default function LanguageSwitcher({ currentLocale }: { currentLocale?: st
         background: 'none', border: '1px solid var(--abed-border)',
         borderRadius: 8, padding: '4px 10px', cursor: 'pointer',
         fontSize: 12, fontWeight: 700, color: 'var(--abed-text)',
-        transition: 'opacity 0.15s',
       }}
     >
       <Globe size={13} />

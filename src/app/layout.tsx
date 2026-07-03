@@ -28,11 +28,16 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang={locale}>
       <head>
         <style>{`
-          /* Masquer la barre Google Translate */
-          .goog-te-banner-frame, .goog-te-gadget, #goog-gt-tt,
-          .goog-te-balloon-frame, .goog-tooltip { display: none !important; }
+          /* Masquer la barre et gadget Google Translate */
+          .goog-te-banner-frame { display: none !important; }
+          #goog-gt-tt, .goog-te-balloon-frame { display: none !important; }
           body { top: 0px !important; }
-          .skiptranslate { display: none !important; }
+          /* Rendre le widget invisible mais présent dans le DOM (display:none empêche l'init) */
+          #google_translate_element {
+            position: absolute; width: 1px; height: 1px;
+            overflow: hidden; opacity: 0; pointer-events: none;
+          }
+          #google_translate_element .skiptranslate { display: none !important; }
         `}</style>
       </head>
       <body>
@@ -40,30 +45,29 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           {children}
         </NextIntlClientProvider>
 
-        {/* Google Translate — élément caché, piloté par LanguageSwitcher */}
-        <div id="google_translate_element" style={{ display: 'none' }} />
+        {/* Google Translate widget — invisible mais actif */}
+        <div id="google_translate_element" />
         <Script id="gt-init" strategy="afterInteractive">{`
-          window.googleTranslateElementInit = function() {
+          function googleTranslateElementInit() {
             new google.translate.TranslateElement(
-              { pageLanguage: 'fr', includedLanguages: 'en' },
+              { pageLanguage: 'fr', includedLanguages: 'en', autoDisplay: false },
               'google_translate_element'
             );
-          };
-
-          // Applique la langue dès que le widget GT est prêt
-          window.__abedApplyLang = function(targetLang) {
-            var sel = document.querySelector('.goog-te-combo');
-            if (!sel) { setTimeout(function(){ window.__abedApplyLang(targetLang); }, 300); return; }
-            sel.value = targetLang;
-            sel.dispatchEvent(new Event('change'));
-          };
-
-          // Si le cookie indique EN, appliquer après init
-          if (document.cookie.indexOf('googtrans=/fr/en') !== -1) {
-            window.addEventListener('load', function() {
-              setTimeout(function(){ window.__abedApplyLang('en'); }, 800);
-            });
+            // Après init, appliquer la langue mémorisée dans le cookie
+            if (document.cookie.indexOf('googtrans=/fr/en') !== -1) {
+              applyGTLang('en');
+            }
           }
+
+          function applyGTLang(lang) {
+            var sel = document.querySelector('select.goog-te-combo');
+            if (!sel) { setTimeout(function(){ applyGTLang(lang); }, 200); return; }
+            if (sel.value === lang) return;
+            sel.value = lang;
+            sel.dispatchEvent(new Event('change'));
+          }
+
+          window.__gtApplyLang = applyGTLang;
         `}</Script>
         <Script
           src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"
