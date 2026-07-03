@@ -62,7 +62,16 @@ export default function ProjetsSidebar() {
   const [deleteEspaceId, setDeleteEspaceId] = useState<string | null>(null)
   const [deletingEspace, setDeletingEspace] = useState(false)
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (background = false) => {
+    // On first load, restore from cache immediately to avoid flash
+    if (!background) {
+      try {
+        const ce = sessionStorage.getItem('sidebar_espaces')
+        const cp = sessionStorage.getItem('sidebar_projets')
+        if (ce) setEspaces(JSON.parse(ce))
+        if (cp) setProjets(JSON.parse(cp))
+      } catch {}
+    }
     const [re, rp, rpr] = await Promise.all([
       fetch('/api/espaces'),
       fetch('/api/projets'),
@@ -71,8 +80,14 @@ export default function ProjetsSidebar() {
     const je = await re.json()
     const jp = await rp.json()
     const jpr = await rpr.json()
-    if (je.data) setEspaces(je.data)
-    if (jp.data) setProjets(jp.data)
+    if (je.data) {
+      setEspaces(je.data)
+      try { sessionStorage.setItem('sidebar_espaces', JSON.stringify(je.data)) } catch {}
+    }
+    if (jp.data) {
+      setProjets(jp.data)
+      try { sessionStorage.setItem('sidebar_projets', JSON.stringify(jp.data)) } catch {}
+    }
     if (jpr.data) setAllProfiles(jpr.data)
   }, [])
 
@@ -136,7 +151,7 @@ export default function ProjetsSidebar() {
       })
       const j = await r.json()
       if (r.ok) {
-        setEspaces(e => [...e, j.data])
+        setEspaces(e => { const n = [...e, j.data]; try { sessionStorage.setItem('sidebar_espaces', JSON.stringify(n)) } catch {} return n })
         setNewEspaceNom('')
         setShowNewEspace(false)
       } else {
@@ -160,7 +175,7 @@ export default function ProjetsSidebar() {
       })
       const j = await r.json()
       if (r.ok) {
-        setProjets(p => [...p, { ...j.data, activites: [] }])
+        setProjets(p => { const n = [...p, { ...j.data, activites: [] }]; try { sessionStorage.setItem('sidebar_projets', JSON.stringify(n)) } catch {} return n })
         setNewProjetNom('')
         setShowNewProjet(null)
         router.push(`/projets/${j.data.id}`)
@@ -191,8 +206,8 @@ export default function ProjetsSidebar() {
     try {
       const r = await fetch(`/api/espaces/${id}`, { method: 'DELETE' })
       if (r.ok) {
-        setEspaces(e => e.filter(x => x.id !== id))
-        setProjets(p => p.filter(x => x.espace_id !== id))
+        setEspaces(e => { const n = e.filter(x => x.id !== id); try { sessionStorage.setItem('sidebar_espaces', JSON.stringify(n)) } catch {} return n })
+        setProjets(p => { const n = p.filter(x => x.espace_id !== id); try { sessionStorage.setItem('sidebar_projets', JSON.stringify(n)) } catch {} return n })
         setDeleteEspaceId(null)
       }
     } finally {
