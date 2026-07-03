@@ -89,7 +89,7 @@ export default function UserArchiveButton({
       {/* Modal archivage */}
       {modal === 'archive' && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <div style={{ background: 'white', borderRadius: 14, padding: 28, width: '100%', maxWidth: 420 }}>
+          <div style={{ background: 'white', borderRadius: 14, padding: 28, width: '100%', maxWidth: 420, overflowWrap: 'break-word', wordBreak: 'break-word', overflow: 'hidden' }}>
             <h3 style={{ margin: '0 0 6px', fontSize: 16, color: '#111827' }}>{ta('archive')} {tc('common', { defaultValue: '' })}</h3>
             <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 20px' }}>
               <strong>{name}</strong> {ta('archiveWarning')}
@@ -126,7 +126,7 @@ export default function UserArchiveButton({
       {/* Modal restauration */}
       {modal === 'restore' && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <div style={{ background: 'white', borderRadius: 14, padding: 28, width: '100%', maxWidth: 380 }}>
+          <div style={{ background: 'white', borderRadius: 14, padding: 28, width: '100%', maxWidth: 380, overflowWrap: 'break-word', wordBreak: 'break-word', overflow: 'hidden' }}>
             <h3 style={{ margin: '0 0 12px', fontSize: 16, color: '#111827' }}>{ta('restore')}</h3>
             <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 20px' }}>
               <strong>{name}</strong> {ta('restoreConfirm')}
@@ -145,7 +145,7 @@ export default function UserArchiveButton({
       {/* Modal suppression définitive */}
       {modal === 'delete' && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <div style={{ background: 'white', borderRadius: 14, padding: 28, width: '100%', maxWidth: 380 }}>
+          <div style={{ background: 'white', borderRadius: 14, padding: 28, width: '100%', maxWidth: 380, overflowWrap: 'break-word', wordBreak: 'break-word', overflow: 'hidden' }}>
             <h3 style={{ margin: '0 0 6px', fontSize: 16, color: 'var(--abed-danger)' }}>{tc('delete')}</h3>
             <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 8px' }}>
               <strong>{name}</strong> — {ta('deleteWarning')}
