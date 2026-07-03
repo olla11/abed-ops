@@ -79,6 +79,11 @@ export async function POST(req: NextRequest) {
 
   // Send custom confirmation email
   if (actionLink) {
+    // Wrap the Supabase action link via /auth/go?to=BASE64 so email scanners
+    // (Gmail Safe Browsing, Outlook Safe Links) cannot pre-fetch and consume the OTP.
+    // Those scanners don't execute JavaScript, so window.location.href in /auth/go
+    // is only triggered by a real browser click.
+    const safeLink = `${appUrl}/auth/go?to=${Buffer.from(actionLink).toString('base64')}`
     try {
       await sendEmail({
         to: email,
@@ -94,7 +99,7 @@ export async function POST(req: NextRequest) {
               <p style="font-size:14px;color:#374151;margin:0 0 24px">
                 Merci de vous être inscrit(e) sur <strong>My ABED</strong>. Veuillez confirmer votre adresse email en cliquant sur le bouton ci-dessous.
               </p>
-              <a href="${actionLink}" style="display:block;text-align:center;background:#16a34a;color:white;padding:14px 0;border-radius:8px;font-size:15px;font-weight:700;text-decoration:none;margin-bottom:20px">
+              <a href="${safeLink}" style="display:block;text-align:center;background:#16a34a;color:white;padding:14px 0;border-radius:8px;font-size:15px;font-weight:700;text-decoration:none;margin-bottom:20px">
                 ✅ Valider mon email
               </a>
               <p style="font-size:12px;color:#9ca3af;margin:0;text-align:center">

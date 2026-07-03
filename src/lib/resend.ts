@@ -28,6 +28,8 @@ export async function sendEmail({
       to: Array.isArray(to) ? to : [to],
       subject,
       html,
+      // Disable link tracking so Resend does not pre-fetch OTP links before the user clicks
+      tags: [{ name: 'track_clicks', value: 'false' }],
     }),
   })
 
