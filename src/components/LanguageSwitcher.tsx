@@ -24,6 +24,16 @@ function deleteCookie(name: string) {
   }
 }
 
+function applyGoogleTranslate(lang: string) {
+  const sel = document.querySelector('.goog-te-combo') as HTMLSelectElement | null
+  if (!sel) {
+    setTimeout(() => applyGoogleTranslate(lang), 300)
+    return
+  }
+  sel.value = lang
+  sel.dispatchEvent(new Event('change'))
+}
+
 export default function LanguageSwitcher({ currentLocale }: { currentLocale?: string }) {
   const [isEN, setIsEN] = useState(false)
 
@@ -34,10 +44,13 @@ export default function LanguageSwitcher({ currentLocale }: { currentLocale?: st
   function toggle() {
     if (isEN) {
       deleteCookie('googtrans')
+      applyGoogleTranslate('fr')
+      setIsEN(false)
     } else {
       setCookie('googtrans', '/fr/en')
+      applyGoogleTranslate('en')
+      setIsEN(true)
     }
-    window.location.reload()
   }
 
   return (

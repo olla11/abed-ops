@@ -45,10 +45,25 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <Script id="gt-init" strategy="afterInteractive">{`
           window.googleTranslateElementInit = function() {
             new google.translate.TranslateElement(
-              { pageLanguage: 'fr', includedLanguages: 'en', autoDisplay: false },
+              { pageLanguage: 'fr', includedLanguages: 'en' },
               'google_translate_element'
             );
           };
+
+          // Applique la langue dès que le widget GT est prêt
+          window.__abedApplyLang = function(targetLang) {
+            var sel = document.querySelector('.goog-te-combo');
+            if (!sel) { setTimeout(function(){ window.__abedApplyLang(targetLang); }, 300); return; }
+            sel.value = targetLang;
+            sel.dispatchEvent(new Event('change'));
+          };
+
+          // Si le cookie indique EN, appliquer après init
+          if (document.cookie.indexOf('googtrans=/fr/en') !== -1) {
+            window.addEventListener('load', function() {
+              setTimeout(function(){ window.__abedApplyLang('en'); }, 800);
+            });
+          }
         `}</Script>
         <Script
           src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"
