@@ -100,29 +100,88 @@ export async function POST(req: NextRequest) {
     await sendEmail({
       to: email,
       subject: 'Confirmez votre adresse email — My ABED',
-      html: `
-        <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#f9fafb;border-radius:12px">
+      html: `<!DOCTYPE html>
+<html lang="fr">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f0f4f8;font-family:'Segoe UI',Arial,sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f4f8;padding:40px 16px">
+    <tr><td align="center">
+      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px">
+
+        <!-- Header -->
+        <tr><td style="background:#16a34a;border-radius:12px 12px 0 0;padding:28px 32px;text-align:center">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:10px">
+            <rect x="2" y="3" width="20" height="14" rx="2"/><polyline points="8 21 12 17 16 21"/><line x1="12" y1="17" x2="12" y2="3"/>
+          </svg>
+          <span style="color:white;font-size:22px;font-weight:800;vertical-align:middle;letter-spacing:-0.5px">My ABED</span>
+          <p style="color:rgba(255,255,255,0.8);font-size:12px;margin:6px 0 0;letter-spacing:0.5px">PLATEFORME DE GESTION · ABED ONG</p>
+        </td></tr>
+
+        <!-- Body -->
+        <tr><td style="background:white;padding:36px 32px">
+
+          <!-- Icon -->
           <div style="text-align:center;margin-bottom:24px">
-            <h1 style="color:#16a34a;font-size:22px;margin:0 0 4px">My ABED</h1>
-            <p style="color:#6b7280;font-size:13px;margin:0">Plateforme de gestion ABED ONG</p>
+            <div style="display:inline-block;background:#f0fdf4;border-radius:50%;padding:16px;border:2px solid #bbf7d0">
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                <polyline points="22,6 12,13 2,6"/>
+              </svg>
+            </div>
           </div>
-          <div style="background:white;border-radius:10px;padding:28px 24px;border:1px solid #e5e7eb">
-            <p style="font-size:15px;color:#111827;margin:0 0 16px">Bonjour <strong>${civilite || 'M.'} ${prenoms} ${nom}</strong>,</p>
-            <p style="font-size:14px;color:#374151;margin:0 0 24px">
-              Merci de vous être inscrit(e) sur <strong>My ABED</strong>. Veuillez confirmer votre adresse email en cliquant sur le bouton ci-dessous.
-            </p>
-            <a href="${verifyLink}" style="display:block;text-align:center;background:#16a34a;color:white;padding:14px 0;border-radius:8px;font-size:15px;font-weight:700;text-decoration:none;margin-bottom:20px">
-              ✅ Valider mon email
-            </a>
-            <p style="font-size:12px;color:#9ca3af;margin:0;text-align:center">
-              Ce lien est valable 7 jours. Si vous n'avez pas créé de compte, ignorez cet email.
-            </p>
-          </div>
-          <p style="text-align:center;font-size:12px;color:#9ca3af;margin-top:20px">
-            My ABED — ABED ONG · Parakou, Bénin
+
+          <p style="font-size:16px;color:#111827;margin:0 0 8px;font-weight:700">Bonjour ${civilite || 'M.'} ${prenoms} ${nom},</p>
+          <p style="font-size:14px;color:#6b7280;margin:0 0 28px;line-height:1.6">
+            Merci de rejoindre <strong style="color:#111827">My ABED</strong>. Pour activer votre compte, veuillez confirmer votre adresse email en cliquant sur le bouton ci-dessous.
           </p>
-        </div>
-      `,
+
+          <!-- CTA -->
+          <div style="text-align:center;margin-bottom:28px">
+            <a href="${verifyLink}" style="display:inline-block;background:#16a34a;color:white;padding:14px 36px;border-radius:8px;font-size:15px;font-weight:700;text-decoration:none;letter-spacing:0.2px">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:8px;margin-bottom:2px">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              Valider mon adresse email
+            </a>
+          </div>
+
+          <!-- Info box -->
+          <div style="background:#f9fafb;border-left:3px solid #16a34a;border-radius:0 8px 8px 0;padding:14px 16px;margin-bottom:24px">
+            <div style="display:flex;align-items:flex-start;gap:10px">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              <div>
+                <p style="font-size:12px;color:#374151;margin:0;line-height:1.6">
+                  Ce lien est valable <strong>7 jours</strong>. Après confirmation, votre compte sera examiné par un administrateur avant activation.<br>
+                  Si vous n'êtes pas à l'origine de cette inscription, ignorez simplement cet email.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <p style="font-size:12px;color:#9ca3af;margin:0;word-break:break-all">
+            Ou copiez ce lien dans votre navigateur :<br>
+            <span style="color:#6b7280">${verifyLink}</span>
+          </p>
+        </td></tr>
+
+        <!-- Footer -->
+        <tr><td style="background:#f9fafb;border-radius:0 0 12px 12px;padding:20px 32px;text-align:center;border-top:1px solid #e5e7eb">
+          <div style="margin-bottom:8px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:4px">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+            </svg>
+            <span style="font-size:11px;color:#9ca3af">ABED ONG · Parakou, Bénin</span>
+          </div>
+          <p style="font-size:11px;color:#d1d5db;margin:0">© 2025 My ABED — Tous droits réservés</p>
+        </td></tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`,
     })
   } catch (e) {
     console.error('[register] email error:', e)

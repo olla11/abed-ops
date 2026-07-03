@@ -21,7 +21,11 @@ function verifyToken(token: string): { userId: string; email: string } | null {
     const [userId, email, expiresAtStr, sig] = parts
     const payload = `${userId}|${email}|${expiresAtStr}`
     const expected = crypto.createHmac('sha256', getSecret()).update(payload).digest('hex')
-    if (!crypto.timingSafeEqual(Buffer.from(sig, 'hex'), Buffer.from(expected, 'hex'))) return null
+    // timingSafeEqual requires equal-length buffers — guard against tampered tokens
+    const sigBuf = Buffer.from(sig, 'hex')
+    const expBuf = Buffer.from(expected, 'hex')
+    if (sigBuf.length !== expBuf.length) return null
+    if (!crypto.timingSafeEqual(sigBuf, expBuf)) return null
     if (Date.now() > parseInt(expiresAtStr)) return null
     return { userId, email }
   } catch {
@@ -31,7 +35,9 @@ function verifyToken(token: string): { userId: string; email: string } | null {
 
 export async function GET(req: NextRequest) {
   const token = req.nextUrl.searchParams.get('t')
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://myabed.vercel.app'
+  // Derive appUrl from the request origin so it works on any domain (my.abedong.org, vercel preview, etc.)
+  const origin = `${req.nextUrl.protocol}//${req.nextUrl.host}`
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? origin
 
   if (!token) {
     return NextResponse.redirect(`${appUrl}/auth/email-confirmed?status=invalid`)
@@ -53,6 +59,7 @@ export async function GET(req: NextRequest) {
   })
 
   if (error) {
+    console.error('[verify-email] updateUserById error:', error.message)
     return NextResponse.redirect(`${appUrl}/auth/email-confirmed?status=error`)
   }
 
