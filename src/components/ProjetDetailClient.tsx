@@ -281,6 +281,22 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
   async function toggleDone(act: Activite) {
     const newStatut = act.statut === 'termine' ? 'a_faire' : 'termine'
     await patchActivite(act.id, { statut: newStatut })
+
+    // If this is a subtask, check if all siblings are done → auto-complete parent
+    if (act.parent_id && newStatut === 'termine') {
+      const siblings = projet.activites.filter(a => a.parent_id === act.parent_id && a.id !== act.id)
+      const allDone = siblings.every(s => s.statut === 'termine')
+      if (allDone) {
+        await patchActivite(act.parent_id, { statut: 'termine' })
+      }
+    }
+    // If unchecking a subtask, un-complete the parent too
+    if (act.parent_id && newStatut === 'a_faire') {
+      const parent = projet.activites.find(a => a.id === act.parent_id)
+      if (parent?.statut === 'termine') {
+        await patchActivite(act.parent_id, { statut: 'en_cours' })
+      }
+    }
   }
 
   async function deleteActivite(activiteId: string) {
@@ -351,8 +367,10 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
     if (r.ok) { setProjet(p => ({ ...p, statut })); setEditingStatut(false) }
   }
 
-  const total = projet.activites.length
-  const done = projet.activites.filter(a => a.statut === 'termine').length
+  // Only count top-level tasks (not subtasks) for progress
+  const topLevelActivites = projet.activites.filter(a => !a.parent_id)
+  const total = topLevelActivites.length
+  const done = topLevelActivites.filter(a => a.statut === 'termine').length
   const pct = total > 0 ? Math.round(done / total * 100) : 0
   const isCreator = projet.created_by === userId
   const PSC: Record<string, { bg: string; color: string }> = {
