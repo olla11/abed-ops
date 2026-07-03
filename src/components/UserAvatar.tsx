@@ -182,9 +182,9 @@ export default function UserAvatar({ userName, userRole, avatarUrl }: Props) {
           {tab === 'menu' && (
             <div>
               {([
-                ...(['caf', 'admin'].includes(userRole ?? '') ? [{ href: '/parametres', label: 'Paramètres', icon: <Settings size={14} /> }] : []),
-                { href: '/profile', label: tc('profile'), icon: <User size={14} /> },
-                ...(userRole === 'admin' ? [{ href: '/admin', label: 'Administration', icon: <Wrench size={14} /> }] : []),
+                ...(['caf', 'admin'].includes(userRole ?? '') ? [{ href: '/parametres', label: 'Paramètres', icon: <Settings size={15} /> }] : []),
+                { href: '/profile', label: tc('profile'), icon: <User size={15} /> },
+                ...(userRole === 'admin' ? [{ href: '/admin', label: 'Administration', icon: <Wrench size={15} /> }] : []),
               ] as { href: string; label: string; icon: React.ReactNode }[]).map(item => (
                 <Link key={item.href} href={item.href} onClick={() => setOpen(false)} style={{
                   display: 'flex', alignItems: 'center', gap: 10,
@@ -207,7 +207,7 @@ export default function UserAvatar({ userName, userRole, avatarUrl }: Props) {
                 onMouseEnter={e => (e.currentTarget.style.background = '#fff5f5')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'none')}
               >
-                <LogOut size={14} />
+                <LogOut size={15} />
                 {tc('logout')}
               </button>
             </div>
