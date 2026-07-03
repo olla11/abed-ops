@@ -75,16 +75,16 @@ export default function InscriptionPage() {
             <div>
               <label style={lbl}>Civilité <span style={{ color: '#ef4444' }}>*</span></label>
               <select style={inp} value={form.civilite} onChange={e => set('civilite', e.target.value)} required>
-                <option>M.</option><option>Mme</option><option>Dr</option><option>Pr</option>
+                <option value="M.">Monsieur</option><option value="Mme">Madame</option>
               </select>
             </div>
             <div>
               <label style={lbl}>Nom <span style={{ color: '#ef4444' }}>*</span></label>
-              <input style={inp} value={form.nom} onChange={e => set('nom', e.target.value)} required placeholder="DUPONT" />
+              <input style={inp} value={form.nom} onChange={e => set('nom', e.target.value)} required placeholder="TCHICHE" />
             </div>
             <div>
               <label style={lbl}>Prénom(s) <span style={{ color: '#ef4444' }}>*</span></label>
-              <input style={inp} value={form.prenoms} onChange={e => set('prenoms', e.target.value)} required placeholder="Jean" />
+              <input style={inp} value={form.prenoms} onChange={e => set('prenoms', e.target.value)} required placeholder="Aurès" />
             </div>
           </div>
 
@@ -118,7 +118,7 @@ export default function InscriptionPage() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <div>
               <label style={lbl}>Téléphone <span style={{ color: '#ef4444' }}>*</span></label>
-              <input style={inp} value={form.telephone} onChange={e => set('telephone', e.target.value)} required placeholder="+229 97 00 00 00" />
+              <input style={inp} value={form.telephone} onChange={e => set('telephone', e.target.value)} required placeholder="+229 01 97 00 00 00" />
             </div>
             <div>
               <label style={lbl}>Fonction <span style={{ color: '#ef4444' }}>*</span></label>
@@ -150,11 +150,11 @@ export default function InscriptionPage() {
             <input style={inp} value={form.nationalite} onChange={e => set('nationalite', e.target.value)} required />
           </div>
 
-          {/* IFU + Grade (optionnels) */}
+          {/* IFU + Grade */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <div>
-              <label style={lbl}>Numéro IFU</label>
-              <input style={inp} value={form.ifu} onChange={e => set('ifu', e.target.value)} placeholder="Facultatif" />
+              <label style={lbl}>Numéro IFU <span style={{ color: '#ef4444' }}>*</span></label>
+              <input style={inp} value={form.ifu} onChange={e => set('ifu', e.target.value)} required placeholder="Ex: 1234567890123" />
             </div>
             <div>
               <label style={lbl}>Grade / Indice</label>

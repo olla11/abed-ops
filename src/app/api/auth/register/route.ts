@@ -17,7 +17,7 @@ const RegisterSchema = z.object({
   date_naissance: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date invalide'),
   lieu_naissance: z.string().min(1, 'Lieu de naissance requis').max(100),
   nationalite:    z.string().min(1, 'Nationalité requise').max(100),
-  ifu:            z.string().max(20).optional(),
+  ifu:            z.string().min(1, 'Numéro IFU requis').max(20),
   grade_indice:   z.string().max(50).optional(),
 })
 
