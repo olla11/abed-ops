@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import Link from 'next/link'
-import { Eye, EyeOff, CheckCircle, XCircle } from 'lucide-react'
+import { Eye, EyeOff, CheckCircle, XCircle, Mail } from 'lucide-react'
 
 const inp = (hasError: boolean): React.CSSProperties => ({
   width: '100%', padding: '10px 12px', borderRadius: 8,
@@ -102,17 +102,19 @@ export default function InscriptionPage() {
   }
 
   if (done) return (
-    <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 20, background: 'var(--abed-bg, #f4f6f9)' }}>
-      <div style={{ background: 'white', borderRadius: 18, boxShadow: '0 4px 32px rgba(0,0,0,.10)', padding: '48px 36px', width: 420, maxWidth: '100%', textAlign: 'center' }}>
-        <div style={{ fontSize: 52, marginBottom: 16 }}>📧</div>
-        <h2 style={{ color: '#111827', fontSize: 20, fontWeight: 800, margin: '0 0 12px' }}>Vérifiez votre email !</h2>
-        <p style={{ fontSize: 14, color: '#6b7280', margin: '0 0 8px' }}>
-          Un email de confirmation a été envoyé à <strong>{form.email}</strong>.
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', background: 'var(--abed-bg, #f4f6f9)' }}>
+      <div style={{ background: 'white', borderRadius: 18, boxShadow: '0 4px 32px rgba(0,0,0,.10)', padding: 'clamp(28px, 6vw, 48px) clamp(20px, 5vw, 36px)', width: '100%', maxWidth: 440, textAlign: 'center' }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#eff6ff', borderRadius: '50%', padding: 18, marginBottom: 20, border: '2px solid #bfdbfe' }}>
+          <Mail size={40} color="#2563eb" strokeWidth={1.5} />
+        </div>
+        <h2 style={{ color: '#111827', fontSize: 'clamp(17px, 4vw, 20px)', fontWeight: 800, margin: '0 0 12px' }}>Vérifiez votre email !</h2>
+        <p style={{ fontSize: 'clamp(13px, 3.5vw, 14px)', color: '#6b7280', margin: '0 0 8px', wordBreak: 'break-word' }}>
+          Un email de confirmation a été envoyé à <strong style={{ color: '#111827' }}>{form.email}</strong>.
         </p>
-        <p style={{ fontSize: 14, color: '#6b7280', margin: '0 0 24px' }}>
+        <p style={{ fontSize: 'clamp(13px, 3.5vw, 14px)', color: '#6b7280', margin: '0 0 28px' }}>
           Cliquez sur le bouton <strong>«&nbsp;Valider mon email&nbsp;»</strong> dans cet email pour activer votre compte.
         </p>
-        <Link href="/login" style={{ fontSize: 13, color: 'var(--abed-green)', fontWeight: 600, textDecoration: 'none' }}>
+        <Link href="/login" style={{ display: 'inline-block', fontSize: 13, color: 'var(--abed-green)', fontWeight: 600, textDecoration: 'none' }}>
           ← Retour à la connexion
         </Link>
       </div>
