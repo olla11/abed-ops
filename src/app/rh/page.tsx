@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { unstable_cache } from 'next/cache'
+import { getCachedProfile, getCachedPersonnel, getCachedContrats, getCachedCongesRH, getCachedEvaluations } from '@/lib/cache'
 import RHDashboardClient from './RHDashboardClient'
 
 export const dynamic = 'force-dynamic'
@@ -9,7 +11,8 @@ export default async function RHDashboardPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
-  const { data: me } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+
+  const me = await getCachedProfile(user.id)
   if (!['rh', 'admin'].includes(me?.role ?? '')) redirect('/rh/conges')
 
   const service = createServiceClient(
@@ -23,57 +26,34 @@ export default async function RHDashboardPage() {
   const currentMois = now.getMonth() + 1
   const currentAnnee = now.getFullYear()
 
-  // Personnel : select only base columns that always exist
-  // Columns like direction/matricule require migration_022 to be run
-  const { data: personnel, error: personnelError } = await service
-    .from('profiles')
-    .select('id, nom, prenoms, role, type_emploi, fonction')
-    .neq('role', 'admin')
-    .order('prenoms')
+  const getCongesCount = unstable_cache(
+    async () => {
+      const { count } = await service.from('conges').select('*', { count: 'exact', head: true }).eq('statut', 'en_attente')
+      return count ?? 0
+    },
+    ['conges-en-attente-count'],
+    { tags: ['conges'], revalidate: 120 }
+  )
 
-  if (personnelError) {
-    console.error('[RH dashboard] personnel error:', personnelError.message)
-  }
+  const getActiveMois = unstable_cache(
+    async () => {
+      const { count } = await service.from('rapports_allocations')
+        .select('prestataire_id', { count: 'exact', head: true })
+        .eq('periode_mois', currentMois)
+        .eq('periode_annee', currentAnnee)
+      return count ?? 0
+    },
+    [`activite-mois-${currentMois}-${currentAnnee}`],
+    { tags: ['rapports-allocations'], revalidate: 600 }
+  )
 
-  // Try to add direction column — may not exist before migration_022
-  let personnelWithDirection = personnel ?? []
-  if (!personnelError) {
-    const { data: withDir } = await service
-      .from('profiles')
-      .select('id, nom, prenoms, role, type_emploi, fonction, direction')
-      .neq('role', 'admin')
-      .order('prenoms')
-    if (withDir) personnelWithDirection = withDir
-  }
-
-  // These tables require migrations 023/024/025 to exist
-  const [
-    { data: contrats },
-    { data: congesRecents },
-    { data: evaluations },
-    { count: congesEnAttenteCount },
-    { count: activeMoisCount },
-  ] = await Promise.all([
-    service.from('contrats')
-      .select('id, type_contrat, statut, date_fin, date_debut, poste, profile_id, profile:profiles!profile_id(nom, prenoms)')
-      .order('date_fin', { ascending: true })
-      .limit(200),
-    service.from('conges')
-      .select('id, statut, date_debut, date_fin, nb_jours, created_at, profile:profiles!profile_id(nom, prenoms), type_conge:types_conge(nom)')
-      .order('created_at', { ascending: false })
-      .limit(15),
-    service.from('evaluations')
-      .select('id, statut, score_moyen, declenchee_le, profile:profiles!profile_id(nom, prenoms)')
-      .order('declenchee_le', { ascending: false })
-      .limit(10),
-    service.from('conges')
-      .select('*', { count: 'exact', head: true })
-      .eq('statut', 'en_attente'),
-    // Agents ayant soumis au moins un rapport/timesheet ce mois
-    service.from('rapports_allocations')
-      .select('prestataire_id', { count: 'exact', head: true })
-      .eq('periode_mois', currentMois)
-      .eq('periode_annee', currentAnnee),
+  const [personnel, contrats, congesRecents, evaluations, congesEnAttenteCount, activeMoisCount] = await Promise.all([
+    getCachedPersonnel(),
+    getCachedContrats(),
+    getCachedCongesRH().then(d => d.slice(0, 15)),
+    getCachedEvaluations().then(d => d.slice(0, 10)),
+    getCongesCount(),
+    getActiveMois(),
   ])
 
   const contratsExpirants = (contrats ?? []).filter((c: any) =>
@@ -85,7 +65,7 @@ export default async function RHDashboardPage() {
 
   return (
     <RHDashboardClient
-      personnel={personnelWithDirection as any[]}
+      personnel={personnel as any[]}
       contrats={(contrats ?? []) as any[]}
       contratsExpirants={contratsExpirants as any[]}
       congesRecents={(congesRecents ?? []) as any[]}

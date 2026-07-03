@@ -1,20 +1,19 @@
 export const dynamic = 'force-dynamic'
 import { createClient } from '@/lib/supabase-server'
+import { getCachedProfile, getCachedPersonnel } from '@/lib/cache'
 import AdminUserCreate from '../AdminUserCreate'
 import ComptesTableClient from './ComptesTableClient'
 
 export default async function ComptesPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const { data: profile } = await supabase
-    .from('profiles').select('role').eq('id', user!.id).single()
 
-  const { data: users } = await supabase
-    .from('profiles')
-    .select('id, civilite, nom, prenoms, email, telephone, role, fonction, type_emploi, manager_id')
-    .order('nom')
+  const [profile, users] = await Promise.all([
+    getCachedProfile(user!.id),
+    getCachedPersonnel(),
+  ])
 
-  const managers = (users ?? []).filter(u => ['manager', 'caf', 'de', 'aaf', 'rh', 'admin', 'administrateur'].includes(u.role ?? ''))
+  const managers = (users ?? []).filter((u: any) => ['manager', 'caf', 'de', 'aaf', 'rh', 'admin', 'administrateur'].includes(u.role ?? ''))
   const canManage = ['admin', 'de'].includes(profile?.role ?? '')
   const isAdmin = profile?.role === 'admin'
 
@@ -33,7 +32,7 @@ export default async function ComptesPage() {
           </p>
         )}
         <ComptesTableClient
-          users={users ?? []}
+          users={users as any[]}
           managers={managers}
           canManage={canManage}
           isAdmin={isAdmin}

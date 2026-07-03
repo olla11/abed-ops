@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { getCachedProfile, getCachedContrats, getCachedPersonnel } from '@/lib/cache'
 import ContratsClient from './ContratsClient'
 
 export const dynamic = 'force-dynamic'
@@ -9,22 +9,14 @@ export default async function ContratsPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
-  const { data: me } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+
+  const me = await getCachedProfile(user.id)
   if (!['rh', 'admin'].includes(me?.role ?? '')) redirect('/rh/conges')
 
-  const service = createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-
-  const [{ data: contrats }, { data: personnel }] = await Promise.all([
-    service.from('contrats')
-      .select('*, profile:profiles!profile_id(id, nom, prenoms, email, role)')
-      .order('date_fin', { ascending: true }),
-    service.from('profiles')
-      .select('id, nom, prenoms, role, fonction')
-      .order('prenoms'),
+  const [contrats, personnel] = await Promise.all([
+    getCachedContrats(),
+    getCachedPersonnel(),
   ])
 
-  return <ContratsClient contrats={contrats ?? []} personnel={personnel ?? []} />
+  return <ContratsClient contrats={contrats as any[]} personnel={personnel as any[]} />
 }

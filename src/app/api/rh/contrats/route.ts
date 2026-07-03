@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
+import { revalidateTag } from 'next/cache'
 import { sendEmail } from '@/lib/resend'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://myabed.app'
@@ -178,6 +179,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  revalidateTag('contrats')
   const finalContrat = { ...contrat, numero, demande_signature_id: demandeId }
   return NextResponse.json({ contrat: finalContrat })
 }

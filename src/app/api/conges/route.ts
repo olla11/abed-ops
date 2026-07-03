@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { revalidateTag } from 'next/cache'
 import { sendEmail } from '@/lib/resend'
 
 function countWorkingDays(start: string, end: string): number {
@@ -70,6 +71,7 @@ export async function POST(req: NextRequest) {
   }).select('*, type_conge:types_conge(nom)').single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  revalidateTag('conges')
 
   await service.from('notifications').insert({
     user_id: profile.manager_id,

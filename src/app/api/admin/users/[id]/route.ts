@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { revalidateTag } from 'next/cache'
 
 // DELETE /api/admin/users/[id] — supprime le compte Auth + toutes les données (admin uniquement)
 export async function DELETE(
@@ -92,5 +93,7 @@ export async function DELETE(
   const { error: authErr } = await admin.auth.admin.deleteUser(id)
   if (authErr) return fail('auth.deleteUser', authErr.message)
 
+  revalidateTag('profiles')
+  revalidateTag('personnel')
   return NextResponse.json({ ok: true })
 }
