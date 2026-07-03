@@ -17,7 +17,13 @@ export const s = {
   nom:         z.string().min(1, 'Nom requis').max(100, 'Nom trop long'),
   prenoms:     z.string().min(1, 'Prénom requis').max(100, 'Prénom trop long'),
   email:       z.string().email('Email invalide').max(254),
-  password:    z.string().min(8, 'Mot de passe trop court').max(128, 'Mot de passe trop long'),
+  password:    z.string()
+    .min(8, 'Minimum 8 caractères')
+    .max(128, 'Mot de passe trop long')
+    .regex(/[A-Z]/, 'Au moins une majuscule requise')
+    .regex(/[a-z]/, 'Au moins une minuscule requise')
+    .regex(/[0-9]/, 'Au moins un chiffre requis')
+    .regex(/[^A-Za-z0-9]/, 'Au moins un caractère spécial requis (!@#$%…)'),
   text:        z.string().max(5000, 'Texte trop long').optional(),
   shortText:   z.string().max(255, 'Texte trop long').optional(),
   uuid:        z.string().uuid('ID invalide'),
