@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
-import { ChevronDown, Lock, Zap, Users, Folder, X, Pencil } from 'lucide-react'
+import { ChevronDown, Lock, Zap, Users, Folder, X, Pencil, Trash2 } from 'lucide-react'
 
 function EspaceIcon({ icon, size = 15 }: { icon: string; size?: number }) {
   if (!icon || icon === 'folder') return <Folder size={size} color="#6b7280" strokeWidth={1.5} />
@@ -52,6 +52,8 @@ export default function ProjetsSidebar() {
   const [renamingProjet, setRenamingProjet] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
   const renameRef = useRef<HTMLInputElement>(null)
+  const [deleteEspaceId, setDeleteEspaceId] = useState<string | null>(null)
+  const [deletingEspace, setDeletingEspace] = useState(false)
 
   const load = useCallback(async () => {
     const [re, rp, rpr] = await Promise.all([
@@ -175,6 +177,20 @@ export default function ProjetsSidebar() {
     setRenamingProjet(p.id)
     setRenameValue(p.nom)
     setTimeout(() => renameRef.current?.select(), 30)
+  }
+
+  async function deleteEspace(id: string) {
+    setDeletingEspace(true)
+    try {
+      const r = await fetch(`/api/espaces/${id}`, { method: 'DELETE' })
+      if (r.ok) {
+        setEspaces(e => e.filter(x => x.id !== id))
+        setProjets(p => p.filter(x => x.espace_id !== id))
+        setDeleteEspaceId(null)
+      }
+    } finally {
+      setDeletingEspace(false)
+    }
   }
 
   async function commitRenameEspace(id: string) {
@@ -416,15 +432,26 @@ export default function ProjetsSidebar() {
                     title="Double-clic pour renommer"
                   >{esp.nom}</span>
                 )}
-                {/* Rename button for espace */}
+                {/* Rename + Delete buttons for espace creator */}
                 {renamingEspace !== esp.id && (
-                  <button onClick={e => { e.stopPropagation(); startRenameEspace(esp) }}
-                    title="Renommer l'espace"
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex', alignItems: 'center', color: '#9ca3af', flexShrink: 0 }}
-                    onMouseEnter={e => (e.currentTarget.style.color = '#374151')}
-                    onMouseLeave={e => (e.currentTarget.style.color = '#9ca3af')}>
-                    <Pencil size={11} strokeWidth={1.5} color="currentColor" />
-                  </button>
+                  <>
+                    <button onClick={e => { e.stopPropagation(); startRenameEspace(esp) }}
+                      title="Renommer l'espace"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex', alignItems: 'center', color: '#9ca3af', flexShrink: 0 }}
+                      onMouseEnter={e => (e.currentTarget.style.color = '#374151')}
+                      onMouseLeave={e => (e.currentTarget.style.color = '#9ca3af')}>
+                      <Pencil size={11} strokeWidth={1.5} color="currentColor" />
+                    </button>
+                    {esp.created_by === currentUserId && (
+                      <button onClick={e => { e.stopPropagation(); setDeleteEspaceId(esp.id) }}
+                        title="Supprimer l'espace"
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex', alignItems: 'center', color: '#9ca3af', flexShrink: 0 }}
+                        onMouseEnter={e => (e.currentTarget.style.color = '#dc2626')}
+                        onMouseLeave={e => (e.currentTarget.style.color = '#9ca3af')}>
+                        <Trash2 size={11} strokeWidth={1.5} color="currentColor" />
+                      </button>
+                    )}
+                  </>
                 )}
                 {/* Members button */}
                 {renamingEspace !== esp.id && <button onClick={e => { e.stopPropagation(); toggleMembresPanel(esp.id) }}
@@ -483,6 +510,31 @@ export default function ProjetsSidebar() {
           )
         })()}
       </div>
+
+      {/* Confirm delete espace */}
+      {deleteEspaceId && (() => {
+        const esp = espaces.find(e => e.id === deleteEspaceId)
+        return (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            onClick={() => setDeleteEspaceId(null)}>
+            <div style={{ background: 'white', borderRadius: 14, padding: '24px 22px', width: 340, maxWidth: 'calc(100vw - 32px)', boxShadow: '0 16px 40px rgba(0,0,0,0.2)' }}
+              onClick={e => e.stopPropagation()}>
+              <p style={{ fontWeight: 800, fontSize: 15, color: '#111827', margin: '0 0 8px' }}>Supprimer l&apos;espace ?</p>
+              <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 18px', lineHeight: 1.5 }}>
+                L&apos;espace <strong>&quot;{esp?.nom}&quot;</strong> sera supprimé. Les projets qu&apos;il contient seront déliés mais pas supprimés.
+              </p>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                <button onClick={() => setDeleteEspaceId(null)}
+                  style={{ padding: '7px 14px', border: '1px solid #e5e7eb', borderRadius: 8, background: 'white', cursor: 'pointer', fontSize: 13 }}>Annuler</button>
+                <button onClick={() => deleteEspace(deleteEspaceId)} disabled={deletingEspace}
+                  style={{ padding: '7px 14px', border: 'none', borderRadius: 8, background: '#dc2626', color: 'white', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+                  {deletingEspace ? '…' : 'Supprimer'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 }

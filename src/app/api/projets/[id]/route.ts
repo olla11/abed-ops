@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase-server'
+import { createClient, createAdminClient } from '@/lib/supabase-server'
 
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -55,7 +55,14 @@ export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id:
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
 
-  const { error } = await supabase.from('projets_internes').delete().eq('id', id)
+  const admin = createAdminClient()
+  const { data: activites } = await admin.from('activites').select('id').eq('projet_id', id)
+  if (activites?.length) {
+    const ids = activites.map((a: { id: string }) => a.id)
+    await admin.from('commentaires_activites').delete().in('activite_id', ids)
+    await admin.from('activites').delete().eq('projet_id', id)
+  }
+  const { error } = await admin.from('projets_internes').delete().eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })
 }
