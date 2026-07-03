@@ -1,36 +1,59 @@
 'use client'
-import { useTransition } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import { Globe } from 'lucide-react'
-import { setLocale } from '@/app/actions/locale'
 
-export default function LanguageSwitcher({ currentLocale }: { currentLocale: string }) {
-  const [isPending, startTransition] = useTransition()
-  const router = useRouter()
+function getCookie(name: string) {
+  if (typeof document === 'undefined') return ''
+  const m = document.cookie.match(new RegExp('(?:^|;)\\s*' + name + '=([^;]*)'))
+  return m ? decodeURIComponent(m[1]) : ''
+}
+
+function setCookie(name: string, value: string) {
+  const host = window.location.hostname
+  document.cookie = `${name}=${value}; path=/; max-age=31536000`
+  if (host !== 'localhost') {
+    document.cookie = `${name}=${value}; path=/; max-age=31536000; domain=${host}`
+  }
+}
+
+function deleteCookie(name: string) {
+  const host = window.location.hostname
+  document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC`
+  if (host !== 'localhost') {
+    document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC; domain=${host}`
+  }
+}
+
+export default function LanguageSwitcher({ currentLocale }: { currentLocale?: string }) {
+  const [isEN, setIsEN] = useState(false)
+
+  useEffect(() => {
+    setIsEN(getCookie('googtrans') === '/fr/en')
+  }, [])
 
   function toggle() {
-    const next = currentLocale === 'fr' ? 'en' : 'fr'
-    startTransition(async () => {
-      await setLocale(next as 'fr' | 'en')
-      router.refresh()
-    })
+    if (isEN) {
+      deleteCookie('googtrans')
+    } else {
+      setCookie('googtrans', '/fr/en')
+    }
+    window.location.reload()
   }
 
   return (
     <button
       onClick={toggle}
-      disabled={isPending}
-      title={currentLocale === 'fr' ? 'Switch to English' : 'Passer en français'}
+      title={isEN ? 'Passer en français' : 'Switch to English'}
       style={{
         display: 'flex', alignItems: 'center', gap: 5,
         background: 'none', border: '1px solid var(--abed-border)',
         borderRadius: 8, padding: '4px 10px', cursor: 'pointer',
         fontSize: 12, fontWeight: 700, color: 'var(--abed-text)',
-        opacity: isPending ? 0.6 : 1, transition: 'opacity 0.15s',
+        transition: 'opacity 0.15s',
       }}
     >
       <Globe size={13} />
-      {currentLocale === 'fr' ? '🇫🇷 FR' : '🇬🇧 EN'}
+      {isEN ? '🇬🇧 EN' : '🇫🇷 FR'}
     </button>
   )
 }
