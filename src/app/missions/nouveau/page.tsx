@@ -96,7 +96,7 @@ export default function NouvelleMission() {
             <input className="input" value={form.lieu} onChange={e => set('lieu', e.target.value)} required />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <div className="grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <div className="field">
               <label className="label">Moyen de transport</label>
               <select className="input" value={form.moyen_transport} onChange={e => set('moyen_transport', e.target.value)}>
@@ -117,7 +117,7 @@ export default function NouvelleMission() {
           <p style={{ fontSize: 13, color: 'var(--abed-muted)', margin: '4px 0 12px' }}>
             Dates du voyage — le départ doit être au minimum demain.
           </p>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <div className="grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <div className="field">
               <label className="label">Départ de l'origine *</label>
               <input className="input" type="date" value={form.date_depart}

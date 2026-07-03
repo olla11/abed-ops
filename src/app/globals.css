@@ -94,25 +94,54 @@ th { color: var(--abed-muted); font-size: 12px; text-transform: uppercase; lette
   .nav-desktop { display: none !important; }
 }
 
+/* ── Sidebar projets ── */
+.projets-sidebar {
+  width: 260px;
+  flex-shrink: 0;
+}
+.projets-main {
+  margin-left: 260px;
+  flex: 1;
+  min-width: 0;
+}
+
 /* ── Responsive ── */
 @media (max-width: 768px) {
   .card { padding: 16px; }
   .field { margin-bottom: 12px; }
 
-  /* Grilles 2 colonnes → 1 colonne sur mobile */
   .grid-2 { grid-template-columns: 1fr !important; }
-  /* Grilles 3 colonnes → 1 colonne sur mobile */
   .grid-3 { grid-template-columns: 1fr !important; }
-
-  /* Padding pages */
   .page-content { padding: 16px !important; }
 
   /* Hero accueil */
-  .hero-accueil { padding: 28px 24px !important; }
+  .hero-accueil { padding: 24px 20px !important; }
+
+  /* Sidebar projets → masquée sur mobile */
+  .projets-sidebar { display: none !important; }
+  .projets-main { margin-left: 0 !important; }
+
+  /* Panel latéral tâche → plein écran sur mobile */
+  .task-panel {
+    width: 100% !important;
+    left: 0 !important;
+    right: 0 !important;
+  }
+
+  /* Header h1 */
+  h1 { font-size: clamp(20px, 5vw, 32px) !important; }
+
+  /* Flex rows qui débordent */
+  .flex-wrap-mobile { flex-wrap: wrap !important; }
+
+  /* Stats accueil hero */
+  .hero-stats { grid-template-columns: repeat(2, 1fr) !important; }
 }
 
 @media (max-width: 480px) {
   .card { padding: 12px; border-radius: 8px; }
   .btn { padding: 9px 14px; font-size: 13px; }
   th, td { padding: 8px 10px; font-size: 13px; }
+
+  .hero-stats { grid-template-columns: 1fr 1fr !important; }
 }

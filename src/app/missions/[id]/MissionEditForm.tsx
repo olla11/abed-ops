@@ -72,7 +72,7 @@ export default function MissionEditForm({ mission }: { mission: Mission }) {
           <label className="label">Lieu *</label>
           <input className="input" value={form.lieu} onChange={e => set('lieu', e.target.value)} required />
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <div className="grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           <div className="field">
             <label className="label">Moyen de transport</label>
             <select className="input" value={form.moyen_transport} onChange={e => set('moyen_transport', e.target.value)}>
@@ -88,7 +88,7 @@ export default function MissionEditForm({ mission }: { mission: Mission }) {
             <input className="input" value={form.conducteur_a_bord} onChange={e => set('conducteur_a_bord', e.target.value)} />
           </div>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <div className="grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           <div className="field">
             <label className="label">Depart de l origine *</label>
             <input className="input" type="date" value={form.date_depart} onChange={e => set('date_depart', e.target.value)} required />

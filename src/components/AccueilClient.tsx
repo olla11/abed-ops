@@ -93,7 +93,7 @@ export default function AccueilClient({ prenom, role, roleLabel, fonction, omEnC
   return (
     <main className="page-container">
       {/* Hero welcome */}
-      <div style={{
+      <div className="hero-accueil" style={{
         background: 'linear-gradient(135deg, #064e3b 0%, #065f46 60%, #047857 100%)',
         borderRadius: 20, padding: '40px 48px', marginBottom: 32, position: 'relative', overflow: 'hidden', width: '100%',
       }}>
@@ -116,7 +116,7 @@ export default function AccueilClient({ prenom, role, roleLabel, fonction, omEnC
       </div>
 
       {/* Stats row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 32 }}>
+      <div className="hero-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 32 }}>
         {stats.map(s => (
           <button
             key={s.label}

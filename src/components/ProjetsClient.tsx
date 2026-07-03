@@ -152,7 +152,7 @@ export default function ProjetsClient({ projets: initial, userId }: { projets: P
       {showForm && (
         <div style={{ background: '#f0fdf4', border: '2px solid var(--abed-green)', borderRadius: 16, padding: 24, marginBottom: 28 }}>
           <h3 style={{ margin: '0 0 16px', color: 'var(--abed-green)', fontSize: 16 }}>Nouveau projet</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+          <div className="grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
             <div style={{ gridColumn: '1/-1' }}>
               <label className="label">Nom du projet *</label>
               <input className="input" placeholder="Ex: Campagne de sensibilisation Q3"
@@ -170,7 +170,7 @@ export default function ProjetsClient({ projets: initial, userId }: { projets: P
                 {Object.entries(STATUT_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div className="grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <div>
                 <label className="label">Date début</label>
                 <input className="input" type="date" value={form.date_debut} onChange={e => setForm(f => ({ ...f, date_debut: e.target.value }))} />

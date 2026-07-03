@@ -287,7 +287,7 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
           {DIRECTIONS.map(d => <option key={d} value={d}>{d}</option>)}
         </select>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+      <div className="grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
         <div>
           <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Date début *</label>
           <input type="date" value={form.date_debut ?? ''} onChange={e => setForm((f: any) => ({ ...f, date_debut: e.target.value }))} style={inputStyle} />
@@ -454,7 +454,7 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
       {renewTarget && (
         <Modal title={`Renouveler — ${renewTarget.profile?.prenoms} ${renewTarget.profile?.nom}`} onSubmit={renouveler} onClose={() => { setRenewTarget(null); setErr(null) }} loading={loading} err={err}>
           <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 16 }}>{renewTarget.categorie_document ?? 'Contrat'} {renewTarget.type_contrat} — Expiré le {renewTarget.date_fin}</p>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div className="grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
               <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Nouveau début *</label>
               <input type="date" value={form.date_debut ?? ''} onChange={e => setForm((f: any) => ({ ...f, date_debut: e.target.value }))} style={inputStyle} />

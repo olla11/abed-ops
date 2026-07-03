@@ -161,7 +161,7 @@ export default function RHDashboardClient({ personnel, contrats, contratsExpiran
       )}
 
       {/* Charts row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
+      <div className="grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
 
         {/* Répartition par type d'emploi */}
         <div style={card}>
@@ -209,7 +209,7 @@ export default function RHDashboardClient({ personnel, contrats, contratsExpiran
       </div>
 
       {/* Bottom row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      <div className="grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
 
         {/* Congés récents */}
         <div style={card}>
