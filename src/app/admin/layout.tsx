@@ -15,6 +15,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   if (!profile || !['admin', 'rh', 'caf'].includes(profile.role)) redirect('/dashboard')
 
+  const { count: pendingCount } = await supabase
+    .from('profiles')
+    .select('id', { count: 'exact', head: true })
+    .eq('registration_status', 'pending_activation')
+
   return (
     <>
       <AppHeader
@@ -25,7 +30,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         avatarUrl={profile?.avatar_url ?? null}
       />
       <div className="page-container">
-        <AdminNav role={profile.role} />
+        <AdminNav role={profile.role} pendingCount={pendingCount ?? 0} />
         {children}
       </div>
     </>

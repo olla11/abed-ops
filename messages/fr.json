@@ -317,7 +317,8 @@
     "civilTitle": "Civ.",
     "nameAndFirstname": "Nom & Prénoms",
     "employmentType": "Type emploi",
-    "function": "Fonction"
+    "function": "Fonction",
+    "inscriptions": "Inscriptions"
   },
   "auth": {
     "changePassword": "Changer mon mot de passe",

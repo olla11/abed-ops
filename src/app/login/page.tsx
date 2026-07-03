@@ -27,8 +27,18 @@ export default function LoginPage() {
     if (error) { setErr(error.message); return }
 
     const { data: profile } = await supabase
-      .from('profiles').select('must_change_password').eq('id', data.user.id).single()
+      .from('profiles').select('must_change_password, registration_status').eq('id', data.user.id).single()
 
+    if (profile?.registration_status === 'pending_email') {
+      await supabase.auth.signOut()
+      setErr('Veuillez confirmer votre adresse email avant de vous connecter.')
+      return
+    }
+    if (profile?.registration_status === 'pending_activation') {
+      await supabase.auth.signOut()
+      setErr('Votre compte est en attente d\'activation par l\'administrateur système. Vous serez notifié(e) par email dès que votre accès sera configuré.')
+      return
+    }
     if (profile?.must_change_password) {
       router.push('/auth/changer-mot-de-passe')
     } else {
