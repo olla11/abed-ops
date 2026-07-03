@@ -1,6 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { sendEmail } from '@/lib/resend'
+import { rateLimit } from '@/lib/rate-limit'
+import { validate, s } from '@/lib/validate'
+import { z } from 'zod'
+
+const DemandeSchema = z.object({
+  nom_complet:      z.string().min(1).max(200),
+  email_contact:    s.email,
+  departement:      z.string().min(1).max(100),
+  objet:            z.string().min(1).max(500),
+  code_budgetaire:  z.string().min(1).max(100),
+  projet:           z.string().min(1).max(200),
+  nature_depense:   z.string().min(1).max(200),
+  montant:          s.montant,
+  mode_paiement:    z.string().min(1).max(100),
+  beneficiaire:     z.string().min(1).max(200),
+  reference_piece:  z.string().min(1).max(200),
+  justification:    z.string().min(1).max(2000),
+  urgence:          z.string().min(1).max(50),
+  soumission_id:    z.string().uuid().nullable().optional(),
+})
 
 export async function GET(req: NextRequest) {
   const supabase = await createClient()
@@ -26,24 +46,22 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const limited = rateLimit(req, { limit: 5, window: 60 })
+  if (limited) return limited
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
 
-  const body = await req.json()
-  const required = ['nom_complet','email_contact','departement','objet','code_budgetaire',
-    'projet','nature_depense','montant','mode_paiement','beneficiaire','reference_piece','justification','urgence']
+  const body = await req.json().catch(() => null)
+  const v = validate(DemandeSchema, body)
+  if ('error' in v) return v.error
 
-  for (const f of required) {
-    if (!body[f]) return NextResponse.json({ error: `Champ requis : ${f}` }, { status: 400 })
-  }
-
-  const { soumission_id, ...demandeBody } = body
+  const { soumission_id, ...demandeFields } = v.data
 
   const { data, error } = await supabase.from('demandes_paiement').insert({
     demandeur_id: user.id,
-    ...demandeBody,
-    montant: +body.montant,
+    ...demandeFields,
   }).select().single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
@@ -65,7 +83,7 @@ export async function POST(req: NextRequest) {
     await supabase.from('notifications').insert({
       user_id: aaf.id,
       titre: 'Nouvelle demande de paiement',
-      message: `${body.nom_complet} — ${body.objet} — ${Number(body.montant).toLocaleString('fr-FR')} FCFA`,
+      message: `${v.data.nom_complet} — ${v.data.objet} — ${Number(v.data.montant).toLocaleString('fr-FR')} FCFA`,
       lien: '/demandes',
     })
     if (aaf.email) {
@@ -73,7 +91,7 @@ export async function POST(req: NextRequest) {
         await sendEmail({
           to: aaf.email,
           subject: `[ABED-ONG] Nouvelle demande de paiement à traiter`,
-          html: buildEmailAAF({ body, aafNom: `${aaf.prenoms} ${aaf.nom}`, id: data.id }),
+          html: buildEmailAAF({ body: v.data, aafNom: `${aaf.prenoms} ${aaf.nom}`, id: data.id }),
         })
       } catch (e) { console.error('[Email] AAF notif:', e) }
     }

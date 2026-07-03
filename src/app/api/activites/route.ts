@@ -1,6 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { sendEmail } from '@/lib/resend'
+import { rateLimit } from '@/lib/rate-limit'
+import { validate, s } from '@/lib/validate'
+import { z } from 'zod'
+
+const ActiviteSchema = z.object({
+  nom:          s.nom,
+  projet_id:    s.uuid,
+  description:  s.text,
+  statut:       z.string().max(20).optional(),
+  priorite:     z.string().max(20).optional(),
+  assignee_id:  z.string().uuid('assignee_id invalide').nullable().optional(),
+  date_echeance:s.date,
+  parent_id:    z.string().uuid('parent_id invalide').nullable().optional(),
+})
 
 function emailAssignation(activiteNom: string, projetNom: string, assignePrenom: string, assigneNom: string, assigneurPrenom: string, echeance: string | null) {
   const dateStr = echeance ? new Date(echeance).toLocaleDateString('fr-FR') : 'non définie'
@@ -22,25 +36,27 @@ function emailAssignation(activiteNom: string, projetNom: string, assignePrenom:
 }
 
 export async function POST(req: NextRequest) {
+  const limited = rateLimit(req, { limit: 30, window: 60 })
+  if (limited) return limited
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
 
   const body = await req.json().catch(() => null)
-  if (!body?.nom?.trim() || !body?.projet_id) {
-    return NextResponse.json({ error: 'Nom et projet_id requis' }, { status: 400 })
-  }
+  const v = validate(ActiviteSchema, body)
+  if ('error' in v) return v.error
 
   const { data, error } = await supabase.from('activites').insert({
-    projet_id: body.projet_id,
-    nom: body.nom.trim(),
-    description: body.description?.trim() || null,
-    statut: body.statut ?? 'a_faire',
-    priorite: body.priorite ?? 'normale',
-    assignee_id: body.assignee_id || null,
-    date_echeance: body.date_echeance || null,
+    projet_id: v.data.projet_id,
+    nom: v.data.nom.trim(),
+    description: v.data.description?.trim() || null,
+    statut: v.data.statut ?? 'a_faire',
+    priorite: v.data.priorite ?? 'normale',
+    assignee_id: v.data.assignee_id || null,
+    date_echeance: v.data.date_echeance || null,
     created_by: user.id,
-    parent_id: body.parent_id || null,
+    parent_id: v.data.parent_id || null,
   }).select(`*, assignee:profiles!activites_assignee_id_fkey(id, nom, prenoms, email), created_by_profile:profiles!activites_created_by_fkey(id, nom, prenoms), commentaires_activites(id), projet:projets_internes!activites_projet_id_fkey(nom)`).single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
