@@ -6,7 +6,6 @@ import { useState, useEffect, useRef } from 'react'
 import { useTranslations, useLocale } from 'next-intl'
 import UserAvatar from './UserAvatar'
 import AgaWidget from './AgaWidget'
-import LanguageSwitcher from './LanguageSwitcher'
 
 type Props = {
   userName?: string
@@ -142,7 +141,6 @@ export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, s
 
         {/* Avatar + lang switcher + hamburger */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
-          <LanguageSwitcher currentLocale={locale} />
           <UserAvatar userName={userName} userRole={userRole} avatarUrl={avatarUrl} />
 
           {/* Hamburger — visible only on mobile */}

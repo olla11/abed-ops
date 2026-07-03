@@ -6,7 +6,6 @@ import Link from 'next/link'
 import { Eye, EyeOff } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase-client'
-import LanguageSwitcher from '@/components/LanguageSwitcher'
 import { useLocale } from 'next-intl'
 
 export default function LoginPage() {
@@ -55,11 +54,6 @@ export default function LoginPage() {
       padding: 20,
       background: 'var(--abed-bg, #f4f6f9)',
     }}>
-      {/* Lang switcher top-right */}
-      <div style={{ position: 'fixed', top: 16, right: 20 }}>
-        <LanguageSwitcher currentLocale={locale} />
-      </div>
-
       {/* Card */}
       <div style={{
         background: 'white',
