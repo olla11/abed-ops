@@ -55,7 +55,7 @@ export default async function Dashboard() {
         avatarUrl={profile?.avatar_url ?? null}
       />
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}
-      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '24px 32px' }}>
+      <div className="page-container">
 
       {notifs && notifs.length > 0 && (
         <div className="card" style={{ marginBottom: 24, borderLeft: '4px solid var(--abed-amber)' }}>

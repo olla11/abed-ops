@@ -221,7 +221,7 @@ export default function ParametresClient() {
   const active = TABS.find(t => t.key === tab)!
 
   return (
-    <div style={{ maxWidth: 1200, margin: '0 auto', padding: '28px 32px' }}>
+    <div className="page-container">
 
       {/* ── En-tête ── */}
       <div style={{ marginBottom: 32 }}>

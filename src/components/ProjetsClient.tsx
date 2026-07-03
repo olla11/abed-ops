@@ -124,7 +124,7 @@ export default function ProjetsClient({ projets: initial, userId }: { projets: P
   })
 
   return (
-    <div style={{ maxWidth: 1200, margin: '0 auto', padding: '28px 24px' }}>
+    <div className="page-container">
       {/* En-tête */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <div>

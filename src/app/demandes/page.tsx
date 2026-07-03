@@ -31,7 +31,7 @@ export default async function DemandesPage() {
         avatarUrl={profile?.avatar_url ?? null}
       />
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 32px", display: "grid", gap: 28 }}>
+      <div className="page-container" style={{ display: 'grid', gap: 28 }}>
       <DemandesClient
         role={role}
         userEmail={profile?.email ?? ''}
