@@ -59,9 +59,9 @@ export default function LoginPage() {
         background: 'white',
         borderRadius: 18,
         boxShadow: '0 4px 32px rgba(0,0,0,0.10)',
-        padding: '40px 36px',
-        width: 400,
-        maxWidth: '100%',
+        padding: 'clamp(20px, 6vw, 40px) clamp(16px, 5vw, 36px)',
+        width: '100%',
+        maxWidth: 400,
       }}>
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 28 }}>

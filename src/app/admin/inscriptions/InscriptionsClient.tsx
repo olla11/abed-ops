@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { UserCheck, ChevronUp } from 'lucide-react'
+import { UserCheck, ChevronUp, CheckCircle2 } from 'lucide-react'
 
 type Pending = {
   id: string; civilite: string | null; nom: string; prenoms: string; email: string
@@ -176,7 +176,7 @@ export default function InscriptionsClient({
 
       {pending.length === 0 ? (
         <div style={{ background: 'white', border: '1px solid var(--abed-border)', borderRadius: 10, padding: '48px 24px', textAlign: 'center', color: '#9ca3af' }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>✅</div>
+          <CheckCircle2 size={48} color="#16a34a" style={{ marginBottom: 12 }} />
           <p style={{ fontSize: 14, margin: 0 }}>Aucune inscription en attente d&apos;activation.</p>
         </div>
       ) : (
