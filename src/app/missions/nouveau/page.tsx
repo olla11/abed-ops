@@ -5,11 +5,13 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 import Link from 'next/link'
 
-// Départ minimum : demain
+// Départ minimum : aujourd'hui (mais un avertissement s'affiche si c'est aujourd'hui)
 function minDepart() {
-  const d = new Date()
-  d.setDate(d.getDate() + 1)
-  return d.toISOString().split('T')[0]
+  return new Date().toISOString().split('T')[0]
+}
+
+function isToday(dateStr: string) {
+  return dateStr === new Date().toISOString().split('T')[0]
 }
 
 // Retour maximum : départ + 1 an
@@ -43,9 +45,9 @@ export default function NouvelleMission() {
   }
 
   function validate(): string | null {
-    const min5 = minDepart()
-    if (form.date_depart && form.date_depart < min5) {
-      return `La date de départ doit être au minimum demain (${new Date(min5).toLocaleDateString('fr-FR')}).`
+    const today = minDepart()
+    if (form.date_depart && form.date_depart < today) {
+      return `La date de départ ne peut pas être dans le passé.`
     }
     if (form.date_retour && form.date_depart && form.date_retour <= form.date_depart) {
       return 'La date de retour doit être après la date de départ.'
@@ -77,7 +79,8 @@ export default function NouvelleMission() {
     else router.push('/dashboard')
   }
 
-  const min5 = minDepart()
+  const today = minDepart()
+  const sameDayWarning = form.date_depart && isToday(form.date_depart)
 
   return (
     <div className="page-container">
@@ -115,31 +118,39 @@ export default function NouvelleMission() {
           </div>
 
           <p style={{ fontSize: 13, color: 'var(--abed-muted)', margin: '4px 0 12px' }}>
-            Dates du voyage — le départ doit être au minimum demain.
+            Dates du voyage — le départ peut être aujourd&apos;hui ou plus tard.
           </p>
+          {sameDayWarning && (
+            <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 8, padding: '10px 14px', marginBottom: 14, display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+              <span style={{ fontSize: 18, lineHeight: 1 }}>⚠️</span>
+              <p style={{ margin: 0, fontSize: 13, color: '#92400e', lineHeight: 1.5 }}>
+                <strong>Attention :</strong> Vous effectuez une demande d&apos;ordre de mission le jour même de la mission. Cela n&apos;est pas conforme aux procédures internes qui exigent que la demande soit soumise à l&apos;avance. Votre demande sera traitée, mais veuillez respecter les délais à l&apos;avenir.
+              </p>
+            </div>
+          )}
           <div className="grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <div className="field">
               <label className="label">Départ de l'origine *</label>
               <input className="input" type="date" value={form.date_depart}
-                min={min5}
+                min={today}
                 onChange={e => set('date_depart', e.target.value)} required />
             </div>
             <div className="field">
               <label className="label">Arrivée à destination</label>
               <input className="input" type="date" value={form.date_arrivee_destination}
-                min={form.date_depart || min5}
+                min={form.date_depart || today}
                 onChange={e => set('date_arrivee_destination', e.target.value)} />
             </div>
             <div className="field">
               <label className="label">Départ de la destination</label>
               <input className="input" type="date" value={form.date_depart_destination}
-                min={form.date_arrivee_destination || form.date_depart || min5}
+                min={form.date_arrivee_destination || form.date_depart || today}
                 onChange={e => set('date_depart_destination', e.target.value)} />
             </div>
             <div className="field">
               <label className="label">Retour à l'origine *</label>
               <input className="input" type="date" value={form.date_retour}
-                min={form.date_depart_destination || form.date_depart || min5}
+                min={form.date_depart_destination || form.date_depart || today}
                 max={maxRetour(form.date_depart)}
                 onChange={e => set('date_retour', e.target.value)} required />
             </div>
