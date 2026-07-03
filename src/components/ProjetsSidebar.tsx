@@ -343,7 +343,7 @@ export default function ProjetsSidebar() {
   }
 
   return (
-    <div style={{ width: 260, flexShrink: 0, borderRight: '1px solid #e5e7eb', background: '#fafafa', height: 'calc(100vh - 60px)', position: 'fixed', top: 60, left: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', zIndex: 100 }}>
+    <div style={{ width: 260, flexShrink: 0, borderRight: '1px solid #e5e7eb', background: '#fafafa', height: 'calc(100vh - 60px)', position: 'fixed', top: 60, left: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', zIndex: 150 }}>
       {/* Header */}
       <div style={{ padding: '14px 12px 10px', borderBottom: '1px solid #e5e7eb' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>

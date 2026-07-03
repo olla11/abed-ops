@@ -66,7 +66,7 @@ export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, s
   return (
     <>
     <nav style={{
-      position: 'sticky', top: 0, zIndex: 100,
+      position: 'sticky', top: 0, zIndex: 200,
       background: 'white',
       borderBottom: '1px solid var(--abed-border)',
       boxShadow: '0 1px 8px rgba(0,0,0,.06)',
