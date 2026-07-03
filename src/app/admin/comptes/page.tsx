@@ -1,8 +1,27 @@
 export const dynamic = 'force-dynamic'
 import { createClient } from '@/lib/supabase-server'
-import { getCachedProfile, getCachedPersonnel } from '@/lib/cache'
+import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { unstable_cache } from 'next/cache'
+import { getCachedProfile } from '@/lib/cache'
 import AdminUserCreate from '../AdminUserCreate'
 import ComptesTableClient from './ComptesTableClient'
+
+// Inclut les archivés pour l'admin
+const getAllUsers = unstable_cache(
+  async () => {
+    const service = createServiceClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+    const { data } = await service
+      .from('profiles')
+      .select('id, civilite, nom, prenoms, email, telephone, role, fonction, type_emploi, manager_id, archived, archived_at, archived_reason')
+      .order('nom')
+    return data ?? []
+  },
+  ['all-users-admin'],
+  { tags: ['profiles', 'personnel'], revalidate: 300 }
+)
 
 export default async function ComptesPage() {
   const supabase = await createClient()
@@ -10,10 +29,10 @@ export default async function ComptesPage() {
 
   const [profile, users] = await Promise.all([
     getCachedProfile(user!.id),
-    getCachedPersonnel(),
+    getAllUsers(),
   ])
 
-  const managers = (users ?? []).filter((u: any) => ['manager', 'caf', 'de', 'aaf', 'rh', 'admin', 'administrateur'].includes(u.role ?? ''))
+  const managers = (users ?? []).filter((u: any) => !u.archived && ['manager', 'caf', 'de', 'aaf', 'rh', 'admin', 'administrateur'].includes(u.role ?? ''))
   const canManage = ['admin', 'de'].includes(profile?.role ?? '')
   const isAdmin = profile?.role === 'admin'
 

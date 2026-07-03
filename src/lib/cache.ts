@@ -23,7 +23,7 @@ export const getCachedProfile = (userId: string) =>
     { tags: [`profile-${userId}`, 'profiles'], revalidate: 300 }
   )()
 
-// ── Personnel RH (liste globale) ───────────────────────────────────────────────
+// ── Personnel RH (liste globale — actifs uniquement) ──────────────────────────
 export const getCachedPersonnel = () =>
   unstable_cache(
     async () => {
@@ -31,6 +31,7 @@ export const getCachedPersonnel = () =>
         .from('profiles')
         .select('id, nom, prenoms, role, type_emploi, direction, fonction, email, telephone, civilite, manager_id')
         .neq('role', 'admin')
+        .eq('archived', false)
         .order('prenoms')
       return data ?? []
     },
@@ -38,7 +39,7 @@ export const getCachedPersonnel = () =>
     { tags: ['personnel', 'profiles'], revalidate: 600 }
   )()
 
-// ── Managers (dropdown) ────────────────────────────────────────────────────────
+// ── Managers (dropdown — actifs uniquement) ────────────────────────────────────
 export const getCachedManagers = () =>
   unstable_cache(
     async () => {
@@ -46,6 +47,7 @@ export const getCachedManagers = () =>
         .from('profiles')
         .select('id, nom, prenoms, role, email, avatar_url, type_emploi')
         .in('role', ['admin', 'rh', 'de', 'caf', 'manager', 'aaf'])
+        .eq('archived', false)
         .order('prenoms')
       return data ?? []
     },

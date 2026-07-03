@@ -3,38 +3,112 @@ import { createClient } from '@/lib/supabase-server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { revalidateTag } from 'next/cache'
 
-// DELETE /api/admin/users/[id] — supprime le compte Auth + toutes les données (admin uniquement)
-export async function DELETE(
-  _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id } = await params
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'non authentifie' }, { status: 401 })
+type RouteContext = { params: Promise<{ id: string }> }
 
-  const { data: profile } = await supabase
-    .from('profiles').select('role').eq('id', user.id).single()
-
-  if (profile?.role !== 'admin') {
-    return NextResponse.json({ error: 'acces refuse — admin uniquement' }, { status: 403 })
-  }
-
-  if (id === user.id) {
-    return NextResponse.json({ error: 'Impossible de supprimer son propre compte' }, { status: 400 })
-  }
-
-  const admin = createServiceClient(
+function adminClient() {
+  return createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
+}
 
-  // Helper : retourne une erreur 400 avec le contexte exact de l'échec
+async function checkAdmin(supabase: Awaited<ReturnType<typeof createClient>>) {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: NextResponse.json({ error: 'non authentifie' }, { status: 401 }) }
+  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+  if (profile?.role !== 'admin') return { error: NextResponse.json({ error: 'acces refuse — admin uniquement' }, { status: 403 }) }
+  return { userId: user.id }
+}
+
+// PATCH /api/admin/users/[id] — archive le compte (désactive sans supprimer l'historique)
+export async function PATCH(req: NextRequest, { params }: RouteContext) {
+  const { id } = await params
+  const supabase = await createClient()
+  const check = await checkAdmin(supabase)
+  if ('error' in check) return check.error
+
+  if (id === check.userId) {
+    return NextResponse.json({ error: 'Impossible d\'archiver son propre compte' }, { status: 400 })
+  }
+
+  const body = await req.json()
+  const reason: string = body.reason ?? 'Non précisé'
+
+  const admin = adminClient()
+
+  // Vérifier si le compte existe et n'est pas déjà archivé
+  const { data: target } = await admin.from('profiles').select('archived, nom, prenoms').eq('id', id).single()
+  if (!target) return NextResponse.json({ error: 'Compte introuvable' }, { status: 404 })
+  if (target.archived) return NextResponse.json({ error: 'Ce compte est déjà archivé' }, { status: 400 })
+
+  // Désactiver le compte Auth (ban = ne peut plus se connecter)
+  await admin.auth.admin.updateUserById(id, { ban_duration: '876000h' }) // ~100 ans
+
+  // Marquer le profil comme archivé + retirer le rôle actif
+  const { error } = await admin.from('profiles').update({
+    archived: true,
+    archived_at: new Date().toISOString(),
+    archived_reason: reason,
+  }).eq('id', id)
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Détacher de tous les sous-profils qui l'avaient comme manager
+  await admin.from('profiles').update({ manager_id: null }).eq('manager_id', id)
+
+  revalidateTag('profiles')
+  revalidateTag('personnel')
+  return NextResponse.json({ ok: true, archived: true })
+}
+
+// PUT /api/admin/users/[id] — restaure un compte archivé
+export async function PUT(req: NextRequest, { params }: RouteContext) {
+  const { id } = await params
+  const supabase = await createClient()
+  const check = await checkAdmin(supabase)
+  if ('error' in check) return check.error
+
+  const admin = adminClient()
+
+  const { data: target } = await admin.from('profiles').select('archived').eq('id', id).single()
+  if (!target) return NextResponse.json({ error: 'Compte introuvable' }, { status: 404 })
+  if (!target.archived) return NextResponse.json({ error: 'Ce compte n\'est pas archivé' }, { status: 400 })
+
+  // Réactiver le compte Auth
+  await admin.auth.admin.updateUserById(id, { ban_duration: 'none' })
+
+  const { error } = await admin.from('profiles').update({
+    archived: false,
+    archived_at: null,
+    archived_reason: null,
+  }).eq('id', id)
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  revalidateTag('profiles')
+  revalidateTag('personnel')
+  return NextResponse.json({ ok: true, restored: true })
+}
+
+// DELETE /api/admin/users/[id] — suppression définitive (comptes sans historique uniquement)
+export async function DELETE(
+  _req: NextRequest,
+  { params }: RouteContext
+) {
+  const { id } = await params
+  const supabase = await createClient()
+  const check = await checkAdmin(supabase)
+  if ('error' in check) return check.error
+
+  if (id === check.userId) {
+    return NextResponse.json({ error: 'Impossible de supprimer son propre compte' }, { status: 400 })
+  }
+
+  const admin = adminClient()
+
   function fail(step: string, msg: string) {
     return NextResponse.json({ error: `[${step}] ${msg}` }, { status: 400 })
   }
-
-  // Supprimer dans l'ordre des dépendances FK pour éviter les erreurs de contrainte
 
   // ── timesheets ──
   await admin.from('timesheets').update({ caf_valide_par: null }).eq('caf_valide_par', id)
