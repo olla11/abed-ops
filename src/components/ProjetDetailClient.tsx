@@ -186,6 +186,7 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
   const [deleting, setDeleting] = useState(false)
   const [deleteProjetModal, setDeleteProjetModal] = useState(false)
   const [deleteActiviteId, setDeleteActiviteId] = useState<string | null>(null)
+  const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set())
   const [editingCell, setEditingCell] = useState<{ id: string; field: string } | null>(null)
   const [calendarFor, setCalendarFor] = useState<{ id: string; rect: DOMRect } | null>(null)
   const [addRowCalendar, setAddRowCalendar] = useState<DOMRect | null>(null)
@@ -278,25 +279,12 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
     }
   }
 
-  async function toggleDone(act: Activite) {
-    const newStatut = act.statut === 'termine' ? 'a_faire' : 'termine'
-    await patchActivite(act.id, { statut: newStatut })
-
-    // If this is a subtask, check if all siblings are done → auto-complete parent
-    if (act.parent_id && newStatut === 'termine') {
-      const siblings = projet.activites.filter(a => a.parent_id === act.parent_id && a.id !== act.id)
-      const allDone = siblings.every(s => s.statut === 'termine')
-      if (allDone) {
-        await patchActivite(act.parent_id, { statut: 'termine' })
-      }
-    }
-    // If unchecking a subtask, un-complete the parent too
-    if (act.parent_id && newStatut === 'a_faire') {
-      const parent = projet.activites.find(a => a.id === act.parent_id)
-      if (parent?.statut === 'termine') {
-        await patchActivite(act.parent_id, { statut: 'en_cours' })
-      }
-    }
+  function toggleSelected(id: string) {
+    setSelectedTasks(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
   }
 
   async function deleteActivite(activiteId: string) {
@@ -536,9 +524,9 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
                   onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = '#fafafa' }}
                   onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = 'white' }}>
 
-                  <div onClick={() => toggleDone(act)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', borderRight: '1px solid #f3f4f6' }}>
-                    <div style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${isDone ? '#16a34a' : COL_COLORS[act.statut] ?? '#6b7280'}`, background: isDone ? '#16a34a' : 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
-                      {isDone && <svg width="10" height="8" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="white" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                  <div onClick={e => { e.stopPropagation(); toggleSelected(act.id) }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', borderRight: '1px solid #f3f4f6' }}>
+                    <div style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${selectedTasks.has(act.id) ? '#16a34a' : '#d1d5db'}`, background: selectedTasks.has(act.id) ? '#16a34a' : 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
+                      {selectedTasks.has(act.id) && <svg width="10" height="8" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="white" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                     </div>
                   </div>
 
@@ -645,9 +633,9 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
                   const subOverdue = sub.date_echeance && new Date(sub.date_echeance + 'T00:00:00') < todayD && !subDone
                   return (
                     <div key={sub.id} style={{ display: 'grid', gridTemplateColumns: '36px 1fr 170px 140px 110px 130px 36px', borderBottom: '1px solid #f3f4f6', background: '#fafafa' }}>
-                      <div onClick={() => toggleDone(sub)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', borderRight: '1px solid #f3f4f6' }}>
-                        <div style={{ width: 13, height: 13, borderRadius: 3, border: `2px solid ${subDone ? '#16a34a' : COL_COLORS[sub.statut] ?? '#6b7280'}`, background: subDone ? '#16a34a' : 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          {subDone && <svg width="8" height="6" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="white" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                      <div onClick={e => { e.stopPropagation(); toggleSelected(sub.id) }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', borderRight: '1px solid #f3f4f6' }}>
+                        <div style={{ width: 13, height: 13, borderRadius: 3, border: `2px solid ${selectedTasks.has(sub.id) ? '#16a34a' : '#d1d5db'}`, background: selectedTasks.has(sub.id) ? '#16a34a' : 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          {selectedTasks.has(sub.id) && <svg width="8" height="6" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="white" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                         </div>
                       </div>
                       <div onClick={() => openActivite(sub)} style={{ padding: '8px 12px 8px 28px', display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', borderRight: '1px solid #f3f4f6', minWidth: 0 }}>
@@ -1087,9 +1075,9 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
                           onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = '#fafafa' }}
                           onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = 'white' }}>
 
-                          <div onClick={() => toggleDone(act)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', borderRight: '1px solid #f3f4f6' }}>
-                            <div style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${isDone ? '#16a34a' : COL_COLORS[act.statut] ?? '#6b7280'}`, background: isDone ? '#16a34a' : 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
-                              {isDone && <svg width="10" height="8" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="white" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                          <div onClick={e => { e.stopPropagation(); toggleSelected(act.id) }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', borderRight: '1px solid #f3f4f6' }}>
+                            <div style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${selectedTasks.has(act.id) ? '#16a34a' : '#d1d5db'}`, background: selectedTasks.has(act.id) ? '#16a34a' : 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
+                              {selectedTasks.has(act.id) && <svg width="10" height="8" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="white" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                             </div>
                           </div>
 
@@ -1244,7 +1232,7 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
           <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--abed-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div style={{ flex: 1, paddingRight: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                <div onClick={() => toggleDone(selectedActivite)} style={{ cursor: 'pointer', flexShrink: 0 }}>
+                <div style={{ flexShrink: 0 }}>
                   <div style={{ width: 18, height: 18, borderRadius: 5, border: `2px solid ${selectedActivite.statut === 'termine' ? '#16a34a' : '#d1d5db'}`, background: selectedActivite.statut === 'termine' ? '#16a34a' : 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     {selectedActivite.statut === 'termine' && <svg width="11" height="9" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="white" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                   </div>
