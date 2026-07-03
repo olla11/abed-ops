@@ -2,22 +2,15 @@
 import { useEffect, useState } from 'react'
 import { Globe } from 'lucide-react'
 
-function getGoogTrans() {
-  if (typeof document === 'undefined') return ''
-  const m = document.cookie.match(/(?:^|;)\s*googtrans=([^;]*)/)
-  return m ? decodeURIComponent(m[1]) : ''
-}
-
-function setGoogTrans(value: string) {
+function setGTCookie(value: string) {
   const host = window.location.hostname
-  // Must set on both root domain and with domain= for GT to pick it up
   document.cookie = `googtrans=${value}; path=/`
   if (host !== 'localhost') {
     document.cookie = `googtrans=${value}; path=/; domain=.${host}`
   }
 }
 
-function clearGoogTrans() {
+function clearGTCookie() {
   const host = window.location.hostname
   document.cookie = 'googtrans=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC'
   if (host !== 'localhost') {
@@ -29,26 +22,18 @@ export default function LanguageSwitcher({ currentLocale }: { currentLocale?: st
   const [isEN, setIsEN] = useState(false)
 
   useEffect(() => {
-    setIsEN(getGoogTrans() === '/fr/en')
+    setIsEN(document.cookie.includes('googtrans=/fr/en'))
   }, [])
 
   function toggle() {
     if (isEN) {
-      clearGoogTrans()
-      setIsEN(false)
-      // Reset GT to French
-      if (typeof window !== 'undefined' && (window as any).__gtApplyLang) {
-        (window as any).__gtApplyLang('fr')
-        setTimeout(() => window.location.reload(), 400)
-      } else {
-        window.location.reload()
-      }
+      clearGTCookie()
+      window.location.reload()
     } else {
-      setGoogTrans('/fr/en')
+      setGTCookie('/fr/en')
       setIsEN(true)
-      // Apply EN immediately via GT widget
-      if (typeof window !== 'undefined' && (window as any).__gtApplyLang) {
-        (window as any).__gtApplyLang('en')
+      if (typeof window !== 'undefined' && (window as any).doGTranslate) {
+        ;(window as any).doGTranslate('en')
       } else {
         window.location.reload()
       }

@@ -3,6 +3,7 @@ import type { Viewport } from 'next'
 import { NextIntlClientProvider } from 'next-intl'
 import { getLocale, getMessages } from 'next-intl/server'
 import Script from 'next/script'
+import { GoogleTranslateReapply } from '@/components/GoogleTranslate'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -28,46 +29,60 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang={locale}>
       <head>
         <style>{`
-          /* Masquer la barre et gadget Google Translate */
-          .goog-te-banner-frame { display: none !important; }
-          #goog-gt-tt, .goog-te-balloon-frame { display: none !important; }
+          .goog-te-banner-frame, .goog-te-balloon-frame { display: none !important; }
+          #goog-gt-tt { display: none !important; }
           body { top: 0px !important; }
-          /* Rendre le widget invisible mais présent dans le DOM (display:none empêche l'init) */
           #google_translate_element {
-            position: absolute; width: 1px; height: 1px;
-            overflow: hidden; opacity: 0; pointer-events: none;
+            position: fixed; bottom: -100px; left: 0;
+            width: 1px; height: 1px; overflow: hidden; opacity: 0.01;
           }
-          #google_translate_element .skiptranslate { display: none !important; }
         `}</style>
       </head>
       <body>
         <NextIntlClientProvider messages={messages} locale={locale}>
           {children}
+          <GoogleTranslateReapply />
         </NextIntlClientProvider>
 
-        {/* Google Translate widget — invisible mais actif */}
+        {/* GT widget hors du flux, opacity 0.01 pour éviter display:none qui bloque l'init */}
         <div id="google_translate_element" />
+
         <Script id="gt-init" strategy="afterInteractive">{`
-          function googleTranslateElementInit() {
+          function GTranslateFireEvent(el, ev) {
+            try {
+              var e = document.createEvent('HTMLEvents');
+              e.initEvent(ev, true, true);
+              el.dispatchEvent(e);
+            } catch(e) {}
+          }
+
+          function doGTranslate(lang) {
+            var sels = document.getElementsByTagName('select');
+            var combo = null;
+            for (var i = 0; i < sels.length; i++) {
+              if (sels[i].className.indexOf('goog-te-combo') >= 0) { combo = sels[i]; break; }
+            }
+            var el = document.getElementById('google_translate_element');
+            if (!el || !el.innerHTML || !combo) {
+              setTimeout(function(){ doGTranslate(lang); }, 300);
+              return;
+            }
+            combo.value = lang;
+            GTranslateFireEvent(combo, 'change');
+            setTimeout(function(){ GTranslateFireEvent(combo, 'change'); }, 150);
+          }
+
+          window.doGTranslate = doGTranslate;
+
+          window.googleTranslateElementInit = function() {
             new google.translate.TranslateElement(
               { pageLanguage: 'fr', includedLanguages: 'en', autoDisplay: false },
               'google_translate_element'
             );
-            // Après init, appliquer la langue mémorisée dans le cookie
-            if (document.cookie.indexOf('googtrans=/fr/en') !== -1) {
-              applyGTLang('en');
+            if (document.cookie.indexOf('googtrans=/fr/en') >= 0) {
+              setTimeout(function(){ doGTranslate('en'); }, 500);
             }
-          }
-
-          function applyGTLang(lang) {
-            var sel = document.querySelector('select.goog-te-combo');
-            if (!sel) { setTimeout(function(){ applyGTLang(lang); }, 200); return; }
-            if (sel.value === lang) return;
-            sel.value = lang;
-            sel.dispatchEvent(new Event('change'));
-          }
-
-          window.__gtApplyLang = applyGTLang;
+          };
         `}</Script>
         <Script
           src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"
