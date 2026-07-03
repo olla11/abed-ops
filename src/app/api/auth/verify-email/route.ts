@@ -131,3 +131,4 @@ export async function GET(req: NextRequest) {
     <a href="/login" class="btn">Retour à la connexion</a>
   `)
 }
+
