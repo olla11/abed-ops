@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Eye, EyeOff, Globe } from 'lucide-react'
 import { createClient } from '@/lib/supabase-client'
+import Image from 'next/image'
 
 const T = {
   fr: {
@@ -94,11 +95,13 @@ export default function LoginPage() {
       }}>
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <Image
             src="/logoabed2.png"
-            alt="ABED Logo"
-            style={{ height: 56, maxWidth: 180, objectFit: 'contain' }}
+            alt="Logo ABED"
+            width={160}
+            height={56}
+            style={{ objectFit: 'contain' }}
+            priority
           />
           <p style={{ fontSize: 14, color: '#6b7280', marginTop: 12, fontWeight: 500 }}>
             {t.title}
