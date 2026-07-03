@@ -15,11 +15,18 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+html {
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+}
+
 body {
   font-family: 'Segoe UI', system-ui, sans-serif;
   background: var(--abed-bg);
   color: var(--abed-text);
   line-height: 1.5;
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 a { color: var(--abed-blue); text-decoration: none; }
@@ -83,6 +90,9 @@ th { color: var(--abed-muted); font-size: 12px; text-transform: uppercase; lette
 
   /* Padding pages */
   .page-content { padding: 16px !important; }
+
+  /* Hero accueil */
+  .hero-accueil { padding: 28px 24px !important; }
 }
 
 @media (max-width: 480px) {
