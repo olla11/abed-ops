@@ -42,14 +42,12 @@ export default async function MesCongesPage() {
         avatarUrl={profile?.avatar_url ?? null}
       />
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}
-      <div className="page-container">
-        <MesCongesClient
+      <MesCongesClient
           conges={conges ?? []}
           typesConge={typesConge ?? []}
           soldes={soldes ?? []}
           hasManager={!!profile?.manager_id}
         />
-      </div>
     </>
   )
 }

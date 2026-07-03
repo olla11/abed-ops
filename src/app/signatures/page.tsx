@@ -90,15 +90,13 @@ export default async function SignaturesPage() {
         avatarUrl={profile?.avatar_url ?? null}
       />
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}
-      <div className="page-container">
-        <SignaturesClient
+      <SignaturesClient
           userId={user.id}
           mesDemandesASign={mesDemandesASign}
           mesCreations={mesCreations}
           toutesSignees={toutesSignees}
           profiles={(profiles ?? []) as ProfileOption[]}
         />
-      </div>
     </>
   )
 }
