@@ -20,7 +20,7 @@ export default async function ComptesPage() {
   const isAdmin = profile?.role === 'admin'
 
   return (
-    <div style={{ display: 'grid', gap: 24 }}>
+    <div className="page-container" style={{ display: 'grid', gap: 24 }}>
       <div className="card">
         <h3 style={{ marginBottom: 16, fontSize: 15 }}>Créer un compte</h3>
         <AdminUserCreate />

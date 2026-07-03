@@ -80,7 +80,7 @@ export default function NouvelleMission() {
   const min5 = minDepart()
 
   return (
-    <div style={{ maxWidth: 760, margin: '0 auto', padding: 32 }}>
+    <div className="page-container">
       <Link href="/dashboard" style={{ fontSize: 13, color: 'var(--abed-muted)' }}>← Retour</Link>
       <h2 style={{ color: 'var(--abed-green)', margin: '12px 0 24px' }}>Demander un Ordre de Mission</h2>
       <div className="card">

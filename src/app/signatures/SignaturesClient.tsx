@@ -200,7 +200,7 @@ export default function SignaturesClient({ userId, mesDemandesASign: initialASig
   })
 
   return (
-    <div>
+    <div className="page-container">
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <h2 style={{ color: 'var(--abed-green)', fontSize: 22, margin: 0 }}>Signatures électroniques</h2>

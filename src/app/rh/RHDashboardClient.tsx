@@ -73,7 +73,7 @@ export default function RHDashboardClient({ personnel, contrats, contratsExpiran
   }
 
   return (
-    <div>
+    <div className="page-container">
       <h2 style={{ color: 'var(--abed-green)', marginBottom: 24, fontSize: 22 }}>Tableau de bord RH</h2>
 
       {/* KPI Row */}
