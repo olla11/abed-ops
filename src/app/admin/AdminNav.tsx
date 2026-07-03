@@ -2,31 +2,35 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Users, Shield, Tag, Zap, HardDrive } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import type { LucideIcon } from 'lucide-react'
 
-const TABS: { href: string; label: string; Icon: LucideIcon }[] = [
-  { href: '/admin/comptes',  label: 'Comptes',       Icon: Users },
-  { href: '/admin/roles',    label: 'Rôles',         Icon: Shield },
-  { href: '/admin/titres',   label: 'Titres',        Icon: Tag },
-  { href: '/admin/actions',  label: 'Actions par lot', Icon: Zap },
-  { href: '/admin/stockage', label: 'Stockage',      Icon: HardDrive },
+type Tab = { href: string; labelKey: string; Icon: LucideIcon }
+
+const TABS: Tab[] = [
+  { href: '/admin/comptes',  labelKey: 'accounts',     Icon: Users },
+  { href: '/admin/roles',    labelKey: 'roles',        Icon: Shield },
+  { href: '/admin/titres',   labelKey: 'titles',       Icon: Tag },
+  { href: '/admin/actions',  labelKey: 'batchActions', Icon: Zap },
+  { href: '/admin/stockage', labelKey: 'storage',      Icon: HardDrive },
 ]
 
 export default function AdminNav({ role }: { role: string }) {
   const path = usePathname()
+  const ta = useTranslations('admin')
   const tabs = role === 'admin' ? TABS : TABS.filter(t => t.href !== '/admin/stockage')
 
   return (
     <div style={{ marginBottom: 28 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-        <Link href="/dashboard" style={{ fontSize: 13, color: 'var(--abed-muted)' }}>← Retour</Link>
-        <h2 style={{ color: 'var(--abed-green)', margin: 0 }}>Administration</h2>
+        <Link href="/dashboard" style={{ fontSize: 13, color: 'var(--abed-muted)' }}>← {ta('title')}</Link>
+        <h2 style={{ color: 'var(--abed-green)', margin: 0 }}>{ta('title')}</h2>
       </div>
       <div style={{ display: 'flex', gap: 4, borderBottom: '2px solid var(--abed-border)', paddingBottom: 0, overflowX: 'auto', WebkitOverflowScrolling: 'touch' as any }}>
-        {tabs.map(t => {
-          const active = path === t.href || (path === '/admin' && t.href === '/admin/comptes')
+        {tabs.map(tab => {
+          const active = path === tab.href || (path === '/admin' && tab.href === '/admin/comptes')
           return (
-            <Link key={t.href} href={t.href} style={{
+            <Link key={tab.href} href={tab.href} style={{
               padding: '10px 18px',
               fontSize: 14,
               fontWeight: active ? 700 : 500,
@@ -39,8 +43,8 @@ export default function AdminNav({ role }: { role: string }) {
               alignItems: 'center',
               gap: 7,
             }}>
-              <t.Icon size={15} strokeWidth={1.75} />
-              {t.label}
+              <tab.Icon size={15} strokeWidth={1.75} />
+              {ta(tab.labelKey as any)}
             </Link>
           )
         })}

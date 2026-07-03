@@ -3,8 +3,10 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
+import { useTranslations, useLocale } from 'next-intl'
 import UserAvatar from './UserAvatar'
 import AgaWidget from './AgaWidget'
+import LanguageSwitcher from './LanguageSwitcher'
 
 type Props = {
   userName?: string
@@ -20,6 +22,8 @@ const RAPPORT_TYPES = ['benevole','stagiaire_n1','stagiaire_n2','cdd','cdi']
 
 export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, showRH, avatarUrl }: Props) {
   const pathname = usePathname()
+  const locale = useLocale()
+  const t = useTranslations('nav')
   const showOverview = OVERVIEW_ROLES.includes(userRole ?? '')
   const estRapport = RAPPORT_TYPES.includes(typeEmploi ?? '')
   const [dossierOpen, setDossierOpen] = useState(false)
@@ -27,19 +31,19 @@ export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, s
   const mobileRef = useRef<HTMLDivElement>(null)
 
   const subTabs = [
-    { href: '/dashboard', label: 'Ordres de mission', match: ['/dashboard', '/missions'] },
-    { href: '/timesheets', label: estRapport ? 'Rapport mensuel' : 'Timesheet', match: ['/timesheets'] },
-    { href: '/demandes', label: 'Demande de paiement', match: ['/demandes'] },
-    { href: '/conges', label: 'Mes congés', match: ['/conges'] },
-    { href: '/signatures', label: 'Signatures', match: ['/signatures'] },
+    { href: '/dashboard', label: t('missions'), match: ['/dashboard', '/missions'] },
+    { href: '/timesheets', label: estRapport ? t('monthlyReport') : t('timesheets'), match: ['/timesheets'] },
+    { href: '/demandes', label: t('payments'), match: ['/demandes'] },
+    { href: '/conges', label: t('leaves'), match: ['/conges'] },
+    { href: '/signatures', label: t('signatures'), match: ['/signatures'] },
   ]
 
   const mainTabs = [
-    { href: '/statut', label: 'Statut', match: ['/statut'] },
-    { href: '/projets', label: 'Projets', match: ['/projets'] },
-    ...(showOverview ? [{ href: '/overview', label: "Vue d'ensemble", match: ['/overview'] }] : []),
-    ...(showRH ? [{ href: '/rh', label: 'RH', match: ['/rh'] }] : []),
-    ...(showAdmin ? [{ href: '/admin', label: 'Admin', match: ['/admin'] }] : []),
+    { href: '/statut', label: t('status'), match: ['/statut'] },
+    { href: '/projets', label: t('projects'), match: ['/projets'] },
+    ...(showOverview ? [{ href: '/overview', label: t('overview'), match: ['/overview'] }] : []),
+    ...(showRH ? [{ href: '/rh', label: t('rh'), match: ['/rh'] }] : []),
+    ...(showAdmin ? [{ href: '/admin', label: t('admin'), match: ['/admin'] }] : []),
   ]
 
   function isActive(match: string[]) {
@@ -95,7 +99,7 @@ export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, s
             onMouseLeave={() => setDossierOpen(false)}
           >
             <button style={tabStyle(dossierActive)}>
-              Mon espace <span style={{ fontSize: 9, marginLeft: 4, opacity: 0.7 }}>▼</span>
+              {t('dossier')} <span style={{ fontSize: 9, marginLeft: 4, opacity: 0.7 }}>▼</span>
             </button>
             {dossierOpen && (
               <div style={{
@@ -136,8 +140,9 @@ export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, s
           ))}
         </div>
 
-        {/* Avatar + hamburger */}
+        {/* Avatar + lang switcher + hamburger */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
+          <LanguageSwitcher currentLocale={locale} />
           <UserAvatar userName={userName} userRole={userRole} avatarUrl={avatarUrl} />
 
           {/* Hamburger — visible only on mobile */}
@@ -166,7 +171,7 @@ export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, s
         }}>
           {/* Mon espace */}
           <div style={{ padding: '8px 16px 4px', fontSize: 11, fontWeight: 700, color: 'var(--abed-muted)', textTransform: 'uppercase', letterSpacing: '.05em' }}>
-            Mon espace
+            {t('dossier')}
           </div>
           {subTabs.map(s => {
             const active = isActive(s.match)
