@@ -39,6 +39,25 @@ export async function POST(req: NextRequest) {
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://myabed.vercel.app'
 
+  // If an unconfirmed account already exists with this email, delete it so the
+  // user can re-register (e.g. after an expired confirmation link).
+  try {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+    const res = await fetch(
+      `${supabaseUrl}/auth/v1/admin/users?email=${encodeURIComponent(email)}`,
+      { headers: { Authorization: `Bearer ${serviceKey}`, apikey: serviceKey } }
+    )
+    if (res.ok) {
+      const body = await res.json()
+      const users: any[] = body.users ?? (Array.isArray(body) ? body : [])
+      const ghost = users.find(u => u.email === email && !u.email_confirmed_at)
+      if (ghost) {
+        await admin.auth.admin.deleteUser(ghost.id)
+      }
+    }
+  } catch (_) {}
+
   // Generate signup link — creates user + generates email confirmation link
   const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
     type: 'signup',
