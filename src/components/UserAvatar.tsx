@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase-client'
 import { useRouter, usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
+import { Settings, User, Wrench, LogOut } from 'lucide-react'
 
 type Props = {
   userName?: string
@@ -180,30 +181,34 @@ export default function UserAvatar({ userName, userRole, avatarUrl }: Props) {
           {/* Menu tab */}
           {tab === 'menu' && (
             <div>
-              {[
-                ...(['caf', 'admin'].includes(userRole ?? '') ? [{ href: '/parametres', label: '⚙️ Paramètres' }] : []),
-                { href: '/profile', label: `👤 ${tc('profile')}` },
-                ...(userRole === 'admin' ? [{ href: '/admin', label: '🛠️ Administration' }] : []),
-              ].map(item => (
+              {([
+                ...(['caf', 'admin'].includes(userRole ?? '') ? [{ href: '/parametres', label: 'Paramètres', icon: <Settings size={14} /> }] : []),
+                { href: '/profile', label: tc('profile'), icon: <User size={14} /> },
+                ...(userRole === 'admin' ? [{ href: '/admin', label: 'Administration', icon: <Wrench size={14} /> }] : []),
+              ] as { href: string; label: string; icon: React.ReactNode }[]).map(item => (
                 <Link key={item.href} href={item.href} onClick={() => setOpen(false)} style={{
-                  display: 'block', padding: '10px 16px', fontSize: 13, color: '#374151',
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '10px 16px', fontSize: 13, color: '#374151',
                   textDecoration: 'none', borderBottom: '1px solid #f3f4f6',
                 }}
                   onMouseEnter={e => (e.currentTarget.style.background = '#f9fafb')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'white')}
                 >
+                  <span style={{ color: '#6b7280', display: 'flex' }}>{item.icon}</span>
                   {item.label}
                 </Link>
               ))}
               <button onClick={signOut} style={{
-                display: 'block', width: '100%', textAlign: 'left',
+                display: 'flex', alignItems: 'center', gap: 10,
+                width: '100%', textAlign: 'left',
                 padding: '10px 16px', fontSize: 13, color: '#dc2626',
                 background: 'none', border: 'none', cursor: 'pointer',
               }}
                 onMouseEnter={e => (e.currentTarget.style.background = '#fff5f5')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'none')}
               >
-                🚪 {tc('logout')}
+                <LogOut size={14} />
+                {tc('logout')}
               </button>
             </div>
           )}
