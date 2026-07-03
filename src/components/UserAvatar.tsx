@@ -3,6 +3,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase-client'
 import { useRouter, usePathname } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 
 type Props = {
   userName?: string
@@ -25,6 +26,7 @@ const ROLE_LABELS: Record<string, string> = {
 }
 
 export default function UserAvatar({ userName, userRole, avatarUrl }: Props) {
+  const tc = useTranslations('common')
   const [open, setOpen] = useState(false)
   const [notifs, setNotifs] = useState<Notif[]>([])
   const [tab, setTab] = useState<'menu' | 'notifs'>('menu')
@@ -154,7 +156,7 @@ export default function UserAvatar({ userName, userRole, avatarUrl }: Props) {
                 borderBottom: tab === 'menu' ? '2px solid var(--abed-green)' : '2px solid transparent',
               }}
             >
-              Profil
+              {tc('profile')}
             </button>
             <button
               onClick={() => { setTab('notifs'); markAllRead() }}
@@ -180,7 +182,7 @@ export default function UserAvatar({ userName, userRole, avatarUrl }: Props) {
             <div>
               {[
                 ...(['caf', 'admin'].includes(userRole ?? '') ? [{ href: '/parametres', label: '⚙️ Paramètres' }] : []),
-                { href: '/profile', label: '👤 Mon profil' },
+                { href: '/profile', label: `👤 ${tc('profile')}` },
                 ...(userRole === 'admin' ? [{ href: '/admin', label: '🛠️ Administration' }] : []),
               ].map(item => (
                 <Link key={item.href} href={item.href} onClick={() => setOpen(false)} style={{
@@ -201,7 +203,7 @@ export default function UserAvatar({ userName, userRole, avatarUrl }: Props) {
                 onMouseEnter={e => (e.currentTarget.style.background = '#fff5f5')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'none')}
               >
-                🚪 Déconnexion
+                🚪 {tc('logout')}
               </button>
             </div>
           )}
@@ -211,7 +213,7 @@ export default function UserAvatar({ userName, userRole, avatarUrl }: Props) {
             <div style={{ maxHeight: 360, overflowY: 'auto' }}>
               {notifs.length === 0 ? (
                 <div style={{ padding: '24px 16px', textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>
-                  Aucune notification
+                  {tc('noData')}
                 </div>
               ) : (
                 notifs.map(n => (

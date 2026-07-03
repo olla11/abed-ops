@@ -2,9 +2,11 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
+import { useTranslations } from 'next-intl'
 
 export default function LogoutButton() {
   const router = useRouter()
+  const tc = useTranslations('common')
   const [loading, setLoading] = useState(false)
 
   async function logout() {
@@ -21,7 +23,7 @@ export default function LogoutButton() {
       disabled={loading}
       style={{ fontSize: 13 }}
     >
-      {loading ? '...' : 'Déconnexion'}
+      {loading ? '...' : tc('logout')}
     </button>
   )
 }

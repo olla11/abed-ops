@@ -131,7 +131,15 @@
     "missionnaire_myMissions": "My missions",
     "missionnaire_myPayments": "My requests",
     "missionnaire_myLeaves": "My leaves",
-    "missionnaire_myTimesheets": "My timesheets"
+    "missionnaire_myTimesheets": "My timesheets",
+    "overview": "Overview",
+    "missions": "Mission orders",
+    "payments": "Payments",
+    "leaves": "Leaves",
+    "rh": "HR",
+    "admin": "Administration",
+    "settings": "Settings",
+    "timesheets": "Timesheets"
   },
   "dashboard": {
     "title": "Mission orders",
@@ -264,7 +272,15 @@
     "expiringContracts": "Expiring contracts",
     "expiredContracts": "Expired contracts",
     "activeStaff": "Active",
-    "manager": "Direct manager"
+    "manager": "Direct manager",
+    "staffByType": "Staff by employment type",
+    "staffByDir": "Staff by department",
+    "recentLeaves": "Recent leaves",
+    "recentEvals": "Recent evaluations",
+    "noLeaves": "No leaves",
+    "noEvals": "No evaluations",
+    "expiringSoon": "contract(s) expiring soon",
+    "contractEndLabel": "End:"
   },
   "admin": {
     "title": "Administration",

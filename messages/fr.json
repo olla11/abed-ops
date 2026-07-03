@@ -100,8 +100,8 @@
     "afternoonSub": "L'élan de l'après-midi, continuez comme ça !",
     "evening": "Bonsoir",
     "eveningSub": "La journée tire à sa fin, bien joué !",
-    "night": "Bonne soirée",
-    "nightSub": "La nuit tombe, pensez à vous reposer.",
+    "night": "Bonsoir",
+    "nightSub": "Il se fait tard... reposez-vous bientôt !",
     "missionsInProgress": "missions en cours",
     "pendingLeaves": "congé(s) en attente",
     "pendingPayments": "demande(s) en cours",
@@ -131,7 +131,15 @@
     "missionnaire_myMissions": "Mes missions",
     "missionnaire_myPayments": "Mes demandes",
     "missionnaire_myLeaves": "Mes congés",
-    "missionnaire_myTimesheets": "Mes feuilles"
+    "missionnaire_myTimesheets": "Mes feuilles",
+    "overview": "Vue d'ensemble",
+    "missions": "Ordres de mission",
+    "payments": "Paiements",
+    "leaves": "Congés",
+    "rh": "RH",
+    "admin": "Administration",
+    "settings": "Paramètres",
+    "timesheets": "Feuilles de temps"
   },
   "dashboard": {
     "title": "Ordres de mission",
@@ -264,7 +272,15 @@
     "expiringContracts": "Contrats à expirer",
     "expiredContracts": "Contrats expirés",
     "activeStaff": "Actifs",
-    "manager": "Responsable direct"
+    "manager": "Responsable direct",
+    "staffByType": "Répartition par type d'emploi",
+    "staffByDir": "Répartition par direction",
+    "recentLeaves": "Congés récents",
+    "recentEvals": "Évaluations récentes",
+    "noLeaves": "Aucun congé",
+    "noEvals": "Aucune évaluation",
+    "expiringSoon": "contrat(s) expirant bientôt",
+    "contractEndLabel": "Fin :"
   },
   "admin": {
     "title": "Administration",

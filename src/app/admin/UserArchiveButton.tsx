@@ -2,8 +2,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Archive, RotateCcw, Trash2 } from 'lucide-react'
-
-const REASONS = ['Démission', 'Fin de contrat', 'Mutation', 'Retraite', 'Autre']
+import { useTranslations } from 'next-intl'
 
 export default function UserArchiveButton({
   userId, name, archived,
@@ -13,8 +12,17 @@ export default function UserArchiveButton({
   archived: boolean
 }) {
   const router = useRouter()
+  const ta = useTranslations('admin')
+  const tc = useTranslations('common')
+  const REASONS = [
+    ta('archiveReasons.resignation'),
+    ta('archiveReasons.contractEnd'),
+    ta('archiveReasons.transfer'),
+    ta('archiveReasons.retirement'),
+    ta('archiveReasons.other'),
+  ]
   const [modal, setModal] = useState<'archive' | 'restore' | 'delete' | null>(null)
-  const [reason, setReason] = useState('Démission')
+  const [reason, setReason] = useState(REASONS[0])
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState('')
 
@@ -58,15 +66,15 @@ export default function UserArchiveButton({
             title="Restaurer ce compte"
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#16a34a', padding: '2px 4px', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}
           >
-            <RotateCcw size={13} /> Restaurer
+            <RotateCcw size={13} /> {ta('restore')}
           </button>
         ) : (
           <button
             onClick={() => { setModal('archive'); setErr('') }}
-            title={`Archiver ${name}`}
+            title={`${ta('archive')} ${name}`}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#92400e', padding: '2px 4px', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}
           >
-            <Archive size={13} /> Archiver
+            <Archive size={13} /> {ta('archive')}
           </button>
         )}
         <button
@@ -82,15 +90,15 @@ export default function UserArchiveButton({
       {modal === 'archive' && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div style={{ background: 'white', borderRadius: 14, padding: 28, width: '100%', maxWidth: 420 }}>
-            <h3 style={{ margin: '0 0 6px', fontSize: 16, color: '#111827' }}>Archiver le compte</h3>
+            <h3 style={{ margin: '0 0 6px', fontSize: 16, color: '#111827' }}>{ta('archive')} {tc('common', { defaultValue: '' })}</h3>
             <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 20px' }}>
-              <strong>{name}</strong> ne pourra plus se connecter, mais tout son historique (missions, contrats, rapports…) sera conservé.
+              <strong>{name}</strong> {ta('archiveWarning')}
             </p>
             <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 8, padding: '10px 14px', marginBottom: 20, fontSize: 13, color: '#92400e' }}>
-              💡 Pour créer un successeur, créez simplement un nouveau compte après l'archivage.
+              💡 {ta('archiveTip')}
             </div>
             <label style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 6 }}>
-              Raison du départ
+              {ta('archiveReason')}
             </label>
             <select
               value={reason}
@@ -101,14 +109,14 @@ export default function UserArchiveButton({
             </select>
             {err && <p style={{ color: 'var(--abed-danger)', fontSize: 13, marginBottom: 12 }}>{err}</p>}
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button className="btn secondary" style={{ fontSize: 13 }} onClick={() => setModal(null)}>Annuler</button>
+              <button className="btn secondary" style={{ fontSize: 13 }} onClick={() => setModal(null)}>{tc('cancel')}</button>
               <button
                 className="btn"
                 style={{ fontSize: 13, background: '#92400e', borderColor: '#92400e', display: 'flex', alignItems: 'center', gap: 6 }}
                 disabled={loading}
                 onClick={archive}
               >
-                <Archive size={14} />{loading ? 'Archivage…' : 'Archiver le compte'}
+                <Archive size={14} />{loading ? tc('loading') : ta('archive')}
               </button>
             </div>
           </div>
@@ -119,15 +127,15 @@ export default function UserArchiveButton({
       {modal === 'restore' && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div style={{ background: 'white', borderRadius: 14, padding: 28, width: '100%', maxWidth: 380 }}>
-            <h3 style={{ margin: '0 0 12px', fontSize: 16, color: '#111827' }}>Restaurer le compte</h3>
+            <h3 style={{ margin: '0 0 12px', fontSize: 16, color: '#111827' }}>{ta('restore')}</h3>
             <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 20px' }}>
-              <strong>{name}</strong> pourra à nouveau se connecter avec son compte existant.
+              <strong>{name}</strong> {ta('restoreConfirm')}
             </p>
             {err && <p style={{ color: 'var(--abed-danger)', fontSize: 13, marginBottom: 12 }}>{err}</p>}
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button className="btn secondary" style={{ fontSize: 13 }} onClick={() => setModal(null)}>Annuler</button>
+              <button className="btn secondary" style={{ fontSize: 13 }} onClick={() => setModal(null)}>{tc('cancel')}</button>
               <button className="btn" style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }} disabled={loading} onClick={restore}>
-                <RotateCcw size={14} />{loading ? 'Restauration…' : 'Restaurer'}
+                <RotateCcw size={14} />{loading ? tc('loading') : ta('restore')}
               </button>
             </div>
           </div>
@@ -138,23 +146,23 @@ export default function UserArchiveButton({
       {modal === 'delete' && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div style={{ background: 'white', borderRadius: 14, padding: 28, width: '100%', maxWidth: 380 }}>
-            <h3 style={{ margin: '0 0 6px', fontSize: 16, color: 'var(--abed-danger)' }}>Suppression définitive</h3>
+            <h3 style={{ margin: '0 0 6px', fontSize: 16, color: 'var(--abed-danger)' }}>{tc('delete')}</h3>
             <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 8px' }}>
-              <strong>{name}</strong> — toutes les données associées seront <strong>effacées définitivement</strong>.
+              <strong>{name}</strong> — {ta('deleteWarning')}
             </p>
             <p style={{ fontSize: 12, color: '#92400e', background: '#fef3c7', padding: '8px 12px', borderRadius: 6, marginBottom: 20 }}>
-              ⚠️ Utilisez l'archivage si cette personne a des actions enregistrées dans le système.
+              ⚠️ {ta('deleteAdvice')}
             </p>
             {err && <p style={{ color: 'var(--abed-danger)', fontSize: 13, marginBottom: 12 }}>{err}</p>}
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button className="btn secondary" style={{ fontSize: 13 }} onClick={() => setModal(null)}>Annuler</button>
+              <button className="btn secondary" style={{ fontSize: 13 }} onClick={() => setModal(null)}>{tc('cancel')}</button>
               <button
                 className="btn"
                 style={{ fontSize: 13, background: 'var(--abed-danger)', borderColor: 'var(--abed-danger)', display: 'flex', alignItems: 'center', gap: 6 }}
                 disabled={loading}
                 onClick={del}
               >
-                <Trash2 size={14} />{loading ? 'Suppression…' : 'Supprimer définitivement'}
+                <Trash2 size={14} />{loading ? tc('loading') : tc('delete')}
               </button>
             </div>
           </div>

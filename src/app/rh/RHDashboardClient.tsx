@@ -1,5 +1,6 @@
 'use client'
 import { Users, FileText, Palmtree, ClipboardEdit, BarChart3 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 type Personnel = { id: string; nom: string; prenoms: string; role: string; type_emploi: string | null; direction: string | null; fonction: string | null }
 type Contrat = { id: string; type_contrat: string; statut: string; date_fin: string | null; date_debut: string; direction: string | null; poste: string | null; profile_id: string; profile: { nom: string; prenoms: string } | null }
@@ -39,6 +40,8 @@ const STATUT_EVAL: Record<string, { label: string; color: string }> = {
 }
 
 export default function RHDashboardClient({ personnel, contrats, contratsExpirants, congesRecents, congesEnAttenteCount, evaluations, tauxActivite, activeMoisCount, totalActifs }: Props) {
+  const tr = useTranslations('rh')
+  const tc = useTranslations('common')
   const today = new Date().toISOString().split('T')[0]
   const in7 = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0]
 
@@ -75,15 +78,15 @@ export default function RHDashboardClient({ personnel, contrats, contratsExpiran
 
   return (
     <div className="page-container">
-      <h2 style={{ color: 'var(--abed-green)', marginBottom: 24, fontSize: 22 }}>Tableau de bord RH</h2>
+      <h2 style={{ color: 'var(--abed-green)', marginBottom: 24, fontSize: 22 }}>{tr('title')}</h2>
 
       {/* KPI Row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: 16, marginBottom: 24 }}>
         {[
-          { label: 'Effectif total', value: personnel.length, Icon: Users, color: '#166534', bg: '#dcfce7' },
-          { label: 'Contrats actifs', value: contratsActifs, Icon: FileText, color: '#1e40af', bg: '#dbeafe' },
-          { label: 'Congés en attente', value: congesEnAttenteCount, Icon: Palmtree, color: '#92400e', bg: '#fef3c7' },
-          { label: 'Évaluations en cours', value: evalsEnCours, Icon: ClipboardEdit, color: '#5b21b6', bg: '#ede9fe' },
+          { label: tr('totalStaff'), value: personnel.length, Icon: Users, color: '#166534', bg: '#dcfce7' },
+          { label: tr('activeContracts'), value: contratsActifs, Icon: FileText, color: '#1e40af', bg: '#dbeafe' },
+          { label: tr('pendingLeaves'), value: congesEnAttenteCount, Icon: Palmtree, color: '#92400e', bg: '#fef3c7' },
+          { label: tr('pendingEvals'), value: evalsEnCours, Icon: ClipboardEdit, color: '#5b21b6', bg: '#ede9fe' },
         ].map(kpi => (
           <div key={kpi.label} style={{ ...card, display: 'flex', alignItems: 'center', gap: 16 }}>
             <div style={{ width: 48, height: 48, borderRadius: 12, background: kpi.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -108,7 +111,7 @@ export default function RHDashboardClient({ personnel, contrats, contratsExpiran
               </div>
               <div style={{ fontSize: 11, color: '#6b7280' }}>{activeMoisCount}/{totalActifs}</div>
             </div>
-            <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>Activité ce mois</div>
+            <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>{tr('activityRate')}</div>
             <div style={{ background: '#f3f4f6', borderRadius: 4, height: 5, marginTop: 6, overflow: 'hidden' }}>
               <div style={{ height: '100%', borderRadius: 4, transition: 'width .4s',
                 background: tauxActivite >= 80 ? '#16a34a' : tauxActivite >= 50 ? '#f59e0b' : '#dc2626',
@@ -123,7 +126,7 @@ export default function RHDashboardClient({ personnel, contrats, contratsExpiran
         <div style={{ marginBottom: 24 }}>
           <div style={{ ...card, borderLeft: '4px solid #f59e0b', background: '#fffbeb' }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: '#92400e', marginBottom: 12 }}>
-              ⚠️ {contratsExpirants.length} contrat{contratsExpirants.length > 1 ? 's' : ''} expirant bientôt
+              ⚠️ {contratsExpirants.length} {tr('expiringSoon')}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {contratsExpirants.map(c => {
@@ -145,7 +148,7 @@ export default function RHDashboardClient({ personnel, contrats, contratsExpiran
                       </span>
                     </div>
                     <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                      <span style={{ fontSize: 12, color: '#6b7280' }}>Fin : {c.date_fin}</span>
+                      <span style={{ fontSize: 12, color: '#6b7280' }}>{tr('contractEndLabel')} {c.date_fin}</span>
                       <span style={{
                         fontSize: 12, fontWeight: 700, padding: '2px 10px', borderRadius: 20,
                         background: urgent ? '#dc2626' : '#f59e0b', color: 'white',
@@ -166,9 +169,9 @@ export default function RHDashboardClient({ personnel, contrats, contratsExpiran
 
         {/* Répartition par type d'emploi */}
         <div style={card}>
-          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 16, color: '#111827' }}>Répartition par type d&apos;emploi</div>
+          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 16, color: '#111827' }}>{tr('staffByType')}</div>
           {typesSorted.length === 0 ? (
-            <div style={{ color: '#9ca3af', fontSize: 13 }}>Aucune donnée</div>
+            <div style={{ color: '#9ca3af', fontSize: 13 }}>{tc('noData')}</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {typesSorted.map(([type, count]) => (
@@ -188,9 +191,9 @@ export default function RHDashboardClient({ personnel, contrats, contratsExpiran
 
         {/* Répartition par direction */}
         <div style={card}>
-          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 16, color: '#111827' }}>Répartition par direction</div>
+          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 16, color: '#111827' }}>{tr('staffByDir')}</div>
           {dirsSorted.length === 0 ? (
-            <div style={{ color: '#9ca3af', fontSize: 13 }}>Aucune donnée</div>
+            <div style={{ color: '#9ca3af', fontSize: 13 }}>{tc('noData')}</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {dirsSorted.map(([dir, count]) => (
@@ -214,9 +217,9 @@ export default function RHDashboardClient({ personnel, contrats, contratsExpiran
 
         {/* Congés récents */}
         <div style={card}>
-          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 16, color: '#111827' }}>Congés récents</div>
+          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 16, color: '#111827' }}>{tr('recentLeaves')}</div>
           {congesRecents.length === 0 ? (
-            <div style={{ color: '#9ca3af', fontSize: 13 }}>Aucun congé</div>
+            <div style={{ color: '#9ca3af', fontSize: 13 }}>{tr('noLeaves')}</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {congesRecents.map(c => {
@@ -237,9 +240,9 @@ export default function RHDashboardClient({ personnel, contrats, contratsExpiran
 
         {/* Évaluations récentes */}
         <div style={card}>
-          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 16, color: '#111827' }}>Évaluations récentes</div>
+          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 16, color: '#111827' }}>{tr('recentEvals')}</div>
           {evaluations.length === 0 ? (
-            <div style={{ color: '#9ca3af', fontSize: 13 }}>Aucune évaluation</div>
+            <div style={{ color: '#9ca3af', fontSize: 13 }}>{tr('noEvals')}</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {evaluations.map(e => {

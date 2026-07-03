@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 import Pagination, { paginate } from '@/components/Pagination'
 import ManagerAssignSelect from '@/components/ManagerAssignSelect'
 import UserArchiveButton from '../UserArchiveButton'
@@ -21,6 +22,8 @@ export default function ComptesTableClient({
   canManage: boolean
   isAdmin: boolean
 }) {
+  const ta = useTranslations('admin')
+  const tc = useTranslations('common')
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const [showArchived, setShowArchived] = useState(false)
@@ -43,14 +46,14 @@ export default function ComptesTableClient({
         <table style={{ minWidth: 900 }}>
           <thead>
             <tr>
-              <th>Civ.</th>
-              <th>Nom &amp; Prénoms</th>
-              <th>Email</th>
-              <th>Rôle</th>
-              <th>Type emploi</th>
-              <th>Fonction</th>
-              {canManage && !showArchived && <th>Responsable direct</th>}
-              {showArchived && <th>Raison / Date</th>}
+              <th>{ta('civilTitle')}</th>
+              <th>{ta('nameAndFirstname')}</th>
+              <th>{tc('email')}</th>
+              <th>{tc('role')}</th>
+              <th>{ta('employmentType')}</th>
+              <th>{ta('function')}</th>
+              {canManage && !showArchived && <th>{ta('directManager')}</th>}
+              {showArchived && <th>{ta('archiveDate')}</th>}
               {isAdmin && <th></th>}
             </tr>
           </thead>
@@ -91,7 +94,7 @@ export default function ComptesTableClient({
             ))}
             {rows.length === 0 && (
               <tr><td colSpan={colSpan} style={{ color: 'var(--abed-muted)', textAlign: 'center', padding: '24px 0' }}>
-                {showArchived ? 'Aucun compte archivé.' : 'Aucun compte.'}
+                {showArchived ? ta('noArchived') : ta('noAccounts')}
               </td></tr>
             )}
           </tbody>
@@ -107,14 +110,14 @@ export default function ComptesTableClient({
         <input
           className="input"
           style={{ maxWidth: 280, fontSize: 13 }}
-          placeholder="Rechercher nom, prénom, email…"
+          placeholder={ta('searchPlaceholder')}
           value={search}
           onChange={e => { setSearch(e.target.value); setPage(1) }}
         />
         <span style={{ fontSize: 13, color: 'var(--abed-muted)' }}>
-          {filtered.length} compte{filtered.length > 1 ? 's' : ''}
+          {filtered.length} {tc('noResults').replace('Aucun', '').trim() || 'compte(s)'}
           {!showArchived && archives.length > 0 && (
-            <span style={{ marginLeft: 6, color: '#9ca3af' }}>({archives.length} archivé{archives.length > 1 ? 's' : ''})</span>
+            <span style={{ marginLeft: 6, color: '#9ca3af' }}>({archives.length} {ta('archived').toLowerCase()})</span>
           )}
         </span>
         {archives.length > 0 && (
@@ -127,7 +130,7 @@ export default function ComptesTableClient({
               border: '1px solid #92400e', fontWeight: 600,
             }}
           >
-            {showArchived ? '← Comptes actifs' : `Archivés (${archives.length})`}
+            {showArchived ? `← ${ta('activeAccounts')}` : `${ta('archived')} (${archives.length})`}
           </button>
         )}
       </div>
