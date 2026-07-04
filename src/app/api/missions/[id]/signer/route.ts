@@ -1,5 +1,6 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
+import { sendEmail } from '@/lib/resend'
 
 export async function POST(
   _req: NextRequest,
@@ -61,15 +62,89 @@ export async function POST(
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
   const { data: mission } = await supabase
-    .from('missions').select('missionnaire_id, objet').eq('id', id).single()
+    .from('missions')
+    .select('missionnaire_id, objet, date_depart, date_retour, lieu, missionnaire:profiles!missions_missionnaire_id_fkey(nom, prenoms, email, civilite)')
+    .eq('id', id).single()
 
   if (mission) {
+    // Notif in-app
     await supabase.from('notifications').insert({
       user_id: mission.missionnaire_id,
       titre: 'Ordre de Mission signé',
       message: `Votre OM "${mission.objet}" (réf. ${reference}) est signé et disponible au téléchargement.`,
       lien: `/missions/${id}`,
     })
+
+    // Email au missionnaire
+    const m = mission.missionnaire as any
+    if (m?.email) {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://myabed.vercel.app'
+      const signedBy = `${profile.prenoms} ${profile.nom}${profile.fonction ? ` — ${profile.fonction}` : ''}`
+      try {
+        await sendEmail({
+          to: m.email,
+          subject: `✅ Votre Ordre de Mission est signé — Réf. ${reference}`,
+          html: `<!DOCTYPE html>
+<html lang="fr">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f0f4f8;font-family:'Segoe UI',Arial,sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f4f8;padding:40px 16px">
+    <tr><td align="center">
+      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px">
+        <tr><td style="background:#16a34a;border-radius:12px 12px 0 0;padding:24px 32px;text-align:center">
+          <span style="color:white;font-size:20px;font-weight:800;letter-spacing:-0.5px">My ABED</span>
+          <p style="color:rgba(255,255,255,0.8);font-size:11px;margin:4px 0 0;letter-spacing:0.5px">PLATEFORME DE GESTION · ABED ONG</p>
+        </td></tr>
+        <tr><td style="background:white;padding:36px 32px">
+          <div style="text-align:center;margin-bottom:24px">
+            <div style="display:inline-block;background:#f0fdf4;border-radius:50%;padding:16px;border:2px solid #bbf7d0">
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </div>
+          </div>
+          <p style="font-size:16px;color:#111827;margin:0 0 8px;font-weight:700">Bonjour ${m.civilite || ''} ${m.prenoms} ${m.nom},</p>
+          <p style="font-size:14px;color:#6b7280;margin:0 0 24px;line-height:1.6">
+            Votre ordre de mission a été <strong style="color:#16a34a">signé</strong>. Vous pouvez dès maintenant le télécharger depuis votre espace My ABED.
+          </p>
+          <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:20px 24px;margin-bottom:24px">
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr><td style="font-size:12px;color:#6b7280;padding-bottom:6px">RÉFÉRENCE</td>
+                  <td style="font-size:14px;font-weight:700;color:#111827;text-align:right">${reference}</td></tr>
+              <tr><td colspan="2"><hr style="border:none;border-top:1px solid #e5e7eb;margin:10px 0"></td></tr>
+              <tr><td style="font-size:12px;color:#6b7280;padding-bottom:6px">OBJET</td>
+                  <td style="font-size:13px;color:#374151;text-align:right">${mission.objet}</td></tr>
+              <tr><td colspan="2"><hr style="border:none;border-top:1px solid #e5e7eb;margin:10px 0"></td></tr>
+              <tr><td style="font-size:12px;color:#6b7280;padding-bottom:6px">LIEU</td>
+                  <td style="font-size:13px;color:#374151;text-align:right">${mission.lieu ?? '—'}</td></tr>
+              <tr><td colspan="2"><hr style="border:none;border-top:1px solid #e5e7eb;margin:10px 0"></td></tr>
+              <tr><td style="font-size:12px;color:#6b7280">PÉRIODE</td>
+                  <td style="font-size:13px;color:#374151;text-align:right">${mission.date_depart ?? '—'} → ${mission.date_retour ?? '—'}</td></tr>
+              <tr><td colspan="2"><hr style="border:none;border-top:1px solid #e5e7eb;margin:10px 0"></td></tr>
+              <tr><td style="font-size:12px;color:#6b7280">SIGNÉ PAR</td>
+                  <td style="font-size:13px;color:#374151;text-align:right">${signedBy}</td></tr>
+            </table>
+          </div>
+          <div style="text-align:center;margin-bottom:24px">
+            <a href="${appUrl}/missions/${id}" style="display:inline-block;background:#16a34a;color:white;padding:13px 32px;border-radius:8px;font-size:14px;font-weight:700;text-decoration:none">
+              Voir mon ordre de mission
+            </a>
+          </div>
+          <p style="font-size:12px;color:#9ca3af;margin:0">Cet email a été envoyé automatiquement par My ABED. Ne pas répondre à cet email.</p>
+        </td></tr>
+        <tr><td style="background:#f9fafb;border-radius:0 0 12px 12px;padding:16px 32px;text-align:center;border-top:1px solid #e5e7eb">
+          <p style="font-size:11px;color:#d1d5db;margin:0">© 2025 My ABED — ABED ONG · Parakou, Bénin</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`,
+        })
+      } catch (e) {
+        console.error('[signer] email error:', e)
+      }
+    }
   }
 
   return NextResponse.json({ ok: true, reference })
