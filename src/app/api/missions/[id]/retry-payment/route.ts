@@ -44,7 +44,7 @@ export async function POST(
   })
 
   try {
-    const { fedapayTxId, paymentUrl } = await createMomoDebit({
+    const { fedapayTxId } = await createMomoDebit({
       montant: mission.prelevement_20,
       telephone: profile.telephone,
       description: `Prélèvement 20% mission ${mission.reference ?? id}`,
@@ -56,8 +56,7 @@ export async function POST(
 
     return NextResponse.json({
       ok: true,
-      paymentUrl,
-      message: `Lien de paiement généré. Cliquez pour payer le prélèvement de ${Number(mission.prelevement_20).toLocaleString('fr-FR')} F CFA.`,
+      message: `Push MTN MoMo envoyé au ${profile.telephone}. Confirmez sur votre téléphone.`,
     })
   } catch (e: any) {
     await supabase.from('payments').update({ status: 'echoue' }).eq('mission_id', id).is('fedapay_tx_id', null)
