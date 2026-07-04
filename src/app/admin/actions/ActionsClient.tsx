@@ -98,6 +98,30 @@ export default function ActionsClient({
   const allFilteredSelected = filtered.length > 0 && filtered.every(u => selected.has(u.id))
   const someSelected = selected.size > 0
 
+  function exportExcel() {
+    const BOM = '﻿'
+    const headers = ['Civilité', 'Nom', 'Prénoms', 'Email', 'Rôle', "Type d'emploi", 'Fonction']
+    const rows = users.map(u => [
+      u.civilite ?? '',
+      u.nom,
+      u.prenoms,
+      u.email,
+      u.role ?? '',
+      u.type_emploi ? ((TYPE_EMPLOI_LABELS as Record<string, string>)[u.type_emploi] ?? u.type_emploi) : '',
+      u.fonction ?? '',
+    ])
+    const csv = BOM + [headers, ...rows]
+      .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(';'))
+      .join('\r\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `utilisateurs_abed_${new Date().toISOString().split('T')[0]}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <div className="page-container" style={{ display: 'grid', gap: 20 }}>
 
@@ -140,6 +164,14 @@ export default function ActionsClient({
             {filtered.length} utilisateur{filtered.length > 1 ? 's' : ''} correspondant{filtered.length > 1 ? 's' : ''}
           </span>
         </div>
+      </div>
+
+      {/* ── Export Excel ── */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <button className="btn secondary" style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}
+          onClick={exportExcel}>
+          📊 Exporter tous les utilisateurs (.csv / Excel)
+        </button>
       </div>
 
       {/* ── Barre d'actions ── */}
