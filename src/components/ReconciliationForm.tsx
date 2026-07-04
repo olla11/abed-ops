@@ -40,6 +40,7 @@ export default function ReconciliationForm({
   const [submitted, setSubmitted] = useState(false)
   const [emailFailed, setEmailFailed] = useState(false)
   const [retryingEmail, setRetryingEmail] = useState(false)
+  const [paymentUrl, setPaymentUrl] = useState<string | null>(null)
 
   const totalDepenses = lignes.reduce((s, l) => s + (l.montant || 0), 0)
   const prelevement = aChargePartenaire ? Math.round(montantRecu * 0.2) : 0
@@ -100,6 +101,7 @@ export default function ReconciliationForm({
     setSubmitted(true)
     setMsg(data.message ?? 'Réconciliation enregistrée.')
     setMsgType(data.status === 'reconciliation_caf' ? 'warn' : 'ok')
+    if (data.paymentUrl) setPaymentUrl(data.paymentUrl)
     if (data.email_sent === false) {
       setEmailFailed(true)
     }
@@ -115,8 +117,9 @@ export default function ReconciliationForm({
       setMsgType('err')
       setPaymentFailed(true)
     } else {
-      setMsg(data.message ?? 'Push MoMo envoyé. Confirmez sur votre téléphone.')
+      setMsg(data.message ?? 'Lien de paiement généré.')
       setMsgType('warn')
+      if (data.paymentUrl) setPaymentUrl(data.paymentUrl)
     }
   }
 
@@ -256,8 +259,7 @@ export default function ReconciliationForm({
 
       {aChargePartenaire && prelevement > 0 && !submitted && (
         <p style={{ fontSize: 13, color: 'var(--abed-amber)', background: '#fef3c7', padding: '10px 14px', borderRadius: 8 }}>
-          ⚠ À la validation, un push MTN Mobile Money de <strong>{prelevement.toLocaleString('fr-FR')} F CFA</strong> sera
-          envoyé sur votre téléphone. Confirmez-le pour clôturer la mission.
+          ⚠ À la validation, un lien de paiement FedaPay de <strong>{prelevement.toLocaleString('fr-FR')} F CFA</strong> (prélèvement 20%) vous sera envoyé par email et notification.
         </p>
       )}
 
@@ -294,13 +296,33 @@ export default function ReconciliationForm({
         </div>
       )}
 
-      {paymentFailed && (
+      {paymentUrl && (
+        <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: 16 }}>
+          <p style={{ fontWeight: 700, marginBottom: 12, color: '#166534', fontSize: 14 }}>
+            💳 Lien de paiement FedaPay disponible
+          </p>
+          <a
+            href={paymentUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn"
+            style={{ display: 'inline-flex', background: '#16a34a', textDecoration: 'none' }}
+          >
+            Payer maintenant →
+          </a>
+          <p style={{ fontSize: 12, color: '#6b7280', marginTop: 10 }}>
+            Ce lien a aussi été envoyé par email et notification. Après paiement, la mission sera clôturée automatiquement.
+          </p>
+        </div>
+      )}
+
+      {paymentFailed && !paymentUrl && (
         <div style={{ background: '#fff7ed', border: '1px solid #f59e0b', borderRadius: 8, padding: 16 }}>
           <p style={{ fontWeight: 600, marginBottom: 8, color: '#92400e' }}>
-            Le prélèvement MTN MoMo a échoué. Vous pouvez réessayer ci-dessous.
+            Le lien de paiement n'a pas pu être généré. Vous pouvez réessayer ci-dessous.
           </p>
           <button className="btn" style={{ background: '#d97706' }} onClick={retryPayment} disabled={retrying}>
-            {retrying ? '⏳ Envoi en cours…' : '🔄 Réessayer le prélèvement MTN MoMo'}
+            {retrying ? '⏳ Génération…' : '🔄 Réessayer le paiement FedaPay'}
           </button>
         </div>
       )}

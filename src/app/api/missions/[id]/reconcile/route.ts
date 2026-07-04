@@ -68,17 +68,62 @@ export async function POST(
     })
 
     try {
-      const { fedapayTxId } = await createMomoDebit({
+      const { fedapayTxId, paymentUrl } = await createMomoDebit({
         montant: mission.prelevement_20,
         telephone: profile.telephone,
         description: `Prélèvement 20% mission ${mission.reference ?? mission.id}`,
         missionId: mission.id,
       })
       await supabase.from('payments').update({ fedapay_tx_id: fedapayTxId }).eq('mission_id', mission.id)
+
+      // Notif in-app avec lien de paiement
+      await admin.from('notifications').insert({
+        user_id: user.id,
+        titre: 'Paiement du prélèvement ABED requis',
+        message: `Un prélèvement de ${Number(mission.prelevement_20).toLocaleString('fr-FR')} F CFA (20%) est dû pour votre mission ${mission.reference ?? ''}. Cliquez pour payer.`,
+        lien: paymentUrl,
+      })
+
+      // Email avec lien de paiement
+      try {
+        await sendEmail({
+          to: profile.telephone ? (await supabase.from('profiles').select('email').eq('id', user.id).single()).data?.email ?? '' : '',
+          subject: `💳 Paiement requis — Prélèvement mission ${mission.reference ?? ''}`,
+          html: `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#f0f4f8;font-family:'Segoe UI',Arial,sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f4f8;padding:40px 16px">
+    <tr><td align="center">
+      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px">
+        <tr><td style="background:#63a521;border-radius:12px 12px 0 0;padding:22px 28px;text-align:center">
+          <span style="color:white;font-size:19px;font-weight:800">My ABED</span>
+        </td></tr>
+        <tr><td style="background:white;padding:32px 28px;border-radius:0 0 12px 12px">
+          <h2 style="color:#111827;font-size:18px;margin:0 0 16px">Prélèvement ABED — 20%</h2>
+          <p style="font-size:14px;color:#6b7280;margin:0 0 20px;line-height:1.6">
+            Votre réconciliation pour la mission <strong>${mission.reference ?? mission.id}</strong> a été enregistrée.<br>
+            Un prélèvement de <strong style="color:#c0392b">${Number(mission.prelevement_20).toLocaleString('fr-FR')} F CFA</strong> est dû (20% mission à charge partenaire).
+          </p>
+          <div style="text-align:center;margin:24px 0">
+            <a href="${paymentUrl}" style="display:inline-block;background:#63a521;color:white;padding:13px 32px;border-radius:8px;font-size:14px;font-weight:700;text-decoration:none">
+              💳 Payer maintenant
+            </a>
+          </div>
+          <p style="font-size:12px;color:#9ca3af;margin:0">Ce lien est valable 24h. En cas de problème, contactez l'administration.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`,
+        })
+      } catch (emailErr) {
+        console.error('[reconcile] email error:', emailErr)
+      }
+
       return NextResponse.json({
         ok: true,
         prelevement: mission.prelevement_20,
-        message: 'Confirmez le paiement sur votre téléphone (MTN MoMo).',
+        paymentUrl,
+        message: `Un lien de paiement de ${Number(mission.prelevement_20).toLocaleString('fr-FR')} F CFA a été envoyé par email et notification. Cliquez pour payer.`,
       })
     } catch (e: any) {
       await supabase.from('payments').update({ status: 'echoue' }).eq('mission_id', mission.id)

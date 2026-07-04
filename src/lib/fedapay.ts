@@ -49,7 +49,7 @@ async function fedapayFetch(path: string, init?: RequestInit) {
   return data
 }
 
-export async function createMomoDebit(p: CreateDebitParams) {
+export async function createMomoDebit(p: CreateDebitParams): Promise<{ fedapayTxId: string; paymentUrl: string }> {
   // 1. Créer la transaction
   const tx = await fedapayFetch('/transactions', {
     method: 'POST',
@@ -65,22 +65,15 @@ export async function createMomoDebit(p: CreateDebitParams) {
   const txId = tx['v1/transaction']?.id ?? tx.transaction?.id ?? tx.id
   if (!txId) throw new Error(`FedaPay : impossible d'extraire l'id de transaction. Réponse : ${JSON.stringify(tx)}`)
 
-  // 2. Générer le token de paiement
+  // 2. Générer le token de paiement → récupérer l'URL de checkout FedaPay
   const tokenRes = await fedapayFetch(`/transactions/${txId}/token`, { method: 'POST' })
-  const token = tokenRes.token
-  if (!token) throw new Error(`FedaPay : token manquant. ${JSON.stringify(tokenRes)}`)
+  // FedaPay renvoie { token: "...", url: "https://checkout.fedapay.com/..." }
+  const paymentUrl: string =
+    tokenRes.url ??
+    tokenRes.payment_url ??
+    `https://checkout.fedapay.com/checkout/${tokenRes.token ?? ''}`
 
-  // 3. Initier le débit Mobile Money MTN — endpoint correct : /transactions/{id}/payments
-  await fedapayFetch(`/transactions/${txId}/payments`, {
-    method: 'POST',
-    body: JSON.stringify({
-      token,
-      type: 'MTN_BENIN',
-      phone_number: { number: p.telephone, country: 'BJ' },
-    }),
-  })
-
-  return { fedapayTxId: String(txId) }
+  return { fedapayTxId: String(txId), paymentUrl }
 }
 
 export function verifyWebhookSignature(rawBody: string, signature: string | null): boolean {
