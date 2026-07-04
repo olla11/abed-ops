@@ -1,5 +1,6 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { Archive, RotateCcw, Trash2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
@@ -25,6 +26,8 @@ export default function UserArchiveButton({
   const [reason, setReason] = useState(REASONS[0])
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState('')
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
 
   async function archive() {
     setLoading(true); setErr('')
@@ -86,11 +89,10 @@ export default function UserArchiveButton({
         </button>
       </div>
 
-      {/* Modal archivage */}
-      {modal === 'archive' && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <div style={{ background: 'white', borderRadius: 14, padding: 28, width: '100%', maxWidth: 420, overflowWrap: 'break-word', wordBreak: 'break-word', overflow: 'hidden' }}>
-            <h3 style={{ margin: '0 0 6px', fontSize: 16, color: '#111827' }}>{ta('archive')} {tc('common', { defaultValue: '' })}</h3>
+      {mounted && modal === 'archive' && createPortal(
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: 'white', borderRadius: 14, padding: 28, width: '100%', maxWidth: 420, overflowWrap: 'break-word', wordBreak: 'break-word' }}>
+            <h3 style={{ margin: '0 0 6px', fontSize: 16, color: '#111827' }}>{ta('archive')}</h3>
             <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 20px' }}>
               <strong>{name}</strong> {ta('archiveWarning')}
             </p>
@@ -120,13 +122,13 @@ export default function UserArchiveButton({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {/* Modal restauration */}
-      {modal === 'restore' && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <div style={{ background: 'white', borderRadius: 14, padding: 28, width: '100%', maxWidth: 380, overflowWrap: 'break-word', wordBreak: 'break-word', overflow: 'hidden' }}>
+      {mounted && modal === 'restore' && createPortal(
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: 'white', borderRadius: 14, padding: 28, width: '100%', maxWidth: 380, overflowWrap: 'break-word', wordBreak: 'break-word' }}>
             <h3 style={{ margin: '0 0 12px', fontSize: 16, color: '#111827' }}>{ta('restore')}</h3>
             <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 20px' }}>
               <strong>{name}</strong> {ta('restoreConfirm')}
@@ -139,13 +141,13 @@ export default function UserArchiveButton({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {/* Modal suppression définitive */}
-      {modal === 'delete' && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <div style={{ background: 'white', borderRadius: 14, padding: 28, width: '100%', maxWidth: 380, overflowWrap: 'break-word', wordBreak: 'break-word', overflow: 'hidden' }}>
+      {mounted && modal === 'delete' && createPortal(
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: 'white', borderRadius: 14, padding: 28, width: '100%', maxWidth: 420, overflowWrap: 'break-word', wordBreak: 'break-word' }}>
             <h3 style={{ margin: '0 0 6px', fontSize: 16, color: 'var(--abed-danger)' }}>{tc('delete')}</h3>
             <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 8px' }}>
               <strong>{name}</strong> — {ta('deleteWarning')}
@@ -166,7 +168,8 @@ export default function UserArchiveButton({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   )
