@@ -58,12 +58,13 @@ export default async function MissionDetail({ params }: { params: Promise<{ id: 
   }
 
   return (
-    <div className="page-container">
+    <>
       <AppHeader
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={role}
         showAdmin={role === 'admin'}
       />
+    <div className="page-container">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div>
           <Link href="/dashboard" style={{ fontSize: 13, color: 'var(--abed-muted)' }}>← Retour</Link>
@@ -173,6 +174,7 @@ export default async function MissionDetail({ params }: { params: Promise<{ id: 
         </div>
       )}
     </div>
+    </>
   )
 }
 

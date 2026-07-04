@@ -29,12 +29,13 @@ export default async function ReconciliationPage({ params }: { params: Promise<{
     .from('profiles').select('role, nom, prenoms').eq('id', user.id).single()
 
   return (
-    <div className="page-container">
+    <>
       <AppHeader
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={profile?.role}
         showAdmin={profile?.role === 'admin'}
       />
+    <div className="page-container">
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
         <Link href={`/missions/${id}`} style={{ fontSize: 13, color: 'var(--abed-muted)' }}>← Retour</Link>
         <h2 style={{ color: 'var(--abed-green)', margin: 0 }}>Réconciliation</h2>
@@ -53,5 +54,6 @@ export default async function ReconciliationPage({ params }: { params: Promise<{
         commentaireRejet={mission.reconciliation_commentaire}
       />
     </div>
+    </>
   )
 }
