@@ -69,12 +69,10 @@ export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, s
   return (
     <>
     <nav style={{
-      position: 'sticky', top: 0, zIndex: 200,
+      position: 'fixed', top: 0, left: 0, right: 0, zIndex: 200,
       background: 'white',
       borderBottom: '1px solid var(--abed-border)',
       boxShadow: '0 1px 8px rgba(0,0,0,.06)',
-      width: '100vw',
-      marginLeft: 'calc(-50vw + 50%)',
     }}>
       <div className="page-container" style={{
         paddingTop: 0, paddingBottom: 0,
