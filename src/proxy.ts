@@ -31,7 +31,7 @@ export async function proxy(req: NextRequest) {
   const isPublic =
     path.startsWith('/login') ||
     path.startsWith('/auth/') ||
-    path.startsWith('/api/auth/register') ||
+    path.startsWith('/api/auth/') ||
     path.startsWith('/api/fedapay')
 
   if (!user && !isPublic) {
