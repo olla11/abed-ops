@@ -4,13 +4,26 @@ import { createAdminClient } from '@/lib/supabase-server'
 
 export async function POST(req: NextRequest) {
   const raw = await req.text()
-  const signature = req.headers.get('x-fedapay-signature')
 
-  if (!verifyWebhookSignature(raw, signature)) {
-    return NextResponse.json({ error: 'signature invalide' }, { status: 401 })
+  // Vérifier la signature seulement si FEDAPAY_WEBHOOK_SECRET est configuré
+  const webhookSecret = process.env.FEDAPAY_WEBHOOK_SECRET
+  if (webhookSecret) {
+    const signature =
+      req.headers.get('x-fedapay-signature') ??
+      req.headers.get('x-fedapay-webhook-signature') ??
+      req.headers.get('x-webhook-signature')
+    if (!verifyWebhookSignature(raw, signature)) {
+      console.warn('[fedapay-webhook] signature invalide — rejeté')
+      return NextResponse.json({ error: 'signature invalide' }, { status: 401 })
+    }
   }
 
-  const event = JSON.parse(raw)
+  let event: any
+  try {
+    event = JSON.parse(raw)
+  } catch {
+    return NextResponse.json({ error: 'JSON invalide' }, { status: 400 })
+  }
   const name: string = event.name || event.event
   const tx = event.entity || event.data?.object || {}
   const missionId = tx?.custom_metadata?.mission_id
