@@ -49,7 +49,7 @@ async function fedapayFetch(path: string, init?: RequestInit) {
   return data
 }
 
-export async function createMomoDebit(p: CreateDebitParams): Promise<{ fedapayTxId: string }> {
+export async function createMomoDebit(p: CreateDebitParams): Promise<{ fedapayTxId: string; paymentUrl: string }> {
   // 1. Créer la transaction
   const tx = await fedapayFetch('/transactions', {
     method: 'POST',
@@ -65,17 +65,14 @@ export async function createMomoDebit(p: CreateDebitParams): Promise<{ fedapayTx
   const txId = tx['v1/transaction']?.id ?? tx.transaction?.id ?? tx.id
   if (!txId) throw new Error(`FedaPay : impossible d'extraire l'id de transaction. Réponse : ${JSON.stringify(tx)}`)
 
-  // 2. Envoyer le push Mobile Money directement sur le téléphone du missionnaire
-  // FedaPay endpoint : POST /v1/transactions/{id}/pay
-  await fedapayFetch(`/transactions/${txId}/pay`, {
-    method: 'POST',
-    body: JSON.stringify({
-      phone_number: { number: p.telephone, country: 'BJ' },
-      payment_method: 'mtn_benin',
-    }),
-  })
+  // 2. Générer le token → récupérer l'URL de paiement checkout FedaPay
+  const tokenRes = await fedapayFetch(`/transactions/${txId}/token`, { method: 'POST' })
+  const paymentUrl: string =
+    tokenRes.url ??
+    tokenRes.payment_url ??
+    `https://checkout.fedapay.com/checkout/${tokenRes.token ?? txId}`
 
-  return { fedapayTxId: String(txId) }
+  return { fedapayTxId: String(txId), paymentUrl }
 }
 
 export function verifyWebhookSignature(rawBody: string, signature: string | null): boolean {

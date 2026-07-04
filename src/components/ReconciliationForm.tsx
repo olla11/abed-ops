@@ -118,7 +118,7 @@ export default function ReconciliationForm({
       setPaymentFailed(true)
     } else {
       setMsg(data.message ?? 'Lien de paiement généré.')
-      setMsgType('warn')
+      setMsgType('ok')
       if (data.paymentUrl) setPaymentUrl(data.paymentUrl)
     }
   }
@@ -259,7 +259,7 @@ export default function ReconciliationForm({
 
       {aChargePartenaire && prelevement > 0 && !submitted && (
         <p style={{ fontSize: 13, color: 'var(--abed-amber)', background: '#fef3c7', padding: '10px 14px', borderRadius: 8 }}>
-          ⚠ À la validation, un push MTN Mobile Money de <strong>{prelevement.toLocaleString('fr-FR')} F CFA</strong> (prélèvement 20%) sera envoyé sur votre téléphone. Confirmez-le pour clôturer la mission.
+          ⚠ À la validation, un lien de paiement FedaPay de <strong>{prelevement.toLocaleString('fr-FR')} F CFA</strong> (prélèvement 20%) sera généré. Cliquez dessus pour payer et clôturer la mission.
         </p>
       )}
 
