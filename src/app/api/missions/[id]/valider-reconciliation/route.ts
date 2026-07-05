@@ -16,8 +16,8 @@ export async function POST(
 
   const { data: profile } = await supabase
     .from('profiles').select('role, nom, prenoms').eq('id', user.id).single()
-  if (!profile || !['caf', 'admin', 'administrateur'].includes(profile.role)) {
-    return NextResponse.json({ error: 'Accès réservé à la CAF ou au Président du CA' }, { status: 403 })
+  if (!profile || !['caf', 'admin'].includes(profile.role)) {
+    return NextResponse.json({ error: 'Accès réservé à la CAF' }, { status: 403 })
   }
 
   const { action, commentaire } = await req.json()
@@ -116,25 +116,23 @@ export async function POST(
         </table>
 
         <p style="margin-top:24px; font-size:12px; color:#6b7280;">
-          Ce rapport a été validé le ${new Date().toLocaleDateString('fr-FR')} par ${profile.role === 'administrateur' ? 'le Président du CA' : 'la CAF'}.
+          Ce rapport a été validé le ${new Date().toLocaleDateString('fr-FR')} par la CAF.
         </p>
       </div>
     </div>
   `
 
-  const validatorLabel = profile.role === 'administrateur' ? 'le Président du CA' : 'la CAF'
-
   // Notifier le missionnaire
   await admin.from('notifications').insert({
     user_id: mission.missionnaire_id,
     titre: 'Réconciliation validée — mission clôturée',
-    message: `Votre réconciliation pour la mission ${mission.reference ?? ''} a été validée par ${validatorLabel}. La mission est définitivement clôturée.`,
+    message: `Votre réconciliation pour la mission ${mission.reference ?? ''} a été validée par la CAF. La mission est définitivement clôturée.`,
     lien: `/missions/${id}`,
   })
 
-  // Envoyer email au DE, CAF et administrateur pour archivage
+  // Envoyer email au DE et CAF pour archivage
   const { data: gestionnaires } = await admin
-    .from('profiles').select('email, id').in('role', ['de', 'caf', 'administrateur'])
+    .from('profiles').select('email, id').in('role', ['de', 'caf'])
 
   const emails = (gestionnaires ?? []).map(g => g.email).filter(Boolean)
   if (emails.length > 0) {

@@ -186,24 +186,13 @@ export async function POST(
   }
 
   // ── Cas non-partenaire crédit ou avance → validation CAF ──
-  // Si le missionnaire est DE, notifier aussi l'administrateur (Président du CA)
-  const { data: userProfile } = await supabase
-    .from('profiles').select('role').eq('id', user.id).single()
-  const isDE = userProfile?.role === 'de'
-
-  const rolesToNotify = isDE ? ['caf', 'admin', 'administrateur'] : ['caf', 'admin']
-  const { data: validators } = await supabase
-    .from('profiles').select('id').in('role', rolesToNotify)
-
-  const deLabel = isDE
-    ? 'La réconciliation du Directeur Exécutif nécessite votre autorisation (Président du CA) et la validation financière de la CAF.'
-    : `La réconciliation de la mission « ${mission.objet} » est soumise pour validation CAF. Mode financement : ${modeLabelFr(mode_financement)}.`
-
-  for (const c of validators ?? []) {
+  const { data: cafs } = await supabase
+    .from('profiles').select('id').in('role', ['caf', 'admin'])
+  for (const c of cafs ?? []) {
     await supabase.from('notifications').insert({
       user_id: c.id,
       titre: `Réconciliation à valider — Mission ${mission.reference ?? id}`,
-      message: isDE ? deLabel : `La réconciliation de la mission « ${mission.objet} » est soumise pour validation CAF. Mode financement : ${modeLabelFr(mode_financement)}.`,
+      message: `La réconciliation de la mission « ${mission.objet} » est soumise pour validation CAF. Mode financement : ${modeLabelFr(mode_financement)}.`,
       lien: `/missions/${id}`,
     })
   }
@@ -211,9 +200,7 @@ export async function POST(
   return NextResponse.json({
     ok: true,
     status: 'reconciliation_caf',
-    message: isDE
-      ? 'Réconciliation transmise à la CAF et au Président du CA pour validation.'
-      : 'Réconciliation transmise à la CAF pour validation.',
+    message: 'Réconciliation transmise à la CAF pour validation.',
   })
 }
 
