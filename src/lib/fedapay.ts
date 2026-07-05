@@ -66,7 +66,13 @@ export async function createMomoDebit(p: CreateDebitParams): Promise<{ fedapayTx
   if (!txId) throw new Error(`FedaPay : impossible d'extraire l'id de transaction. Réponse : ${JSON.stringify(tx)}`)
 
   // 2. Générer le token → récupérer l'URL de paiement checkout FedaPay
-  const tokenRes = await fedapayFetch(`/transactions/${txId}/token`, { method: 'POST' })
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://my.abedong.org').replace(/\/$/, '')
+  const tokenRes = await fedapayFetch(`/transactions/${txId}/token`, {
+    method: 'POST',
+    body: JSON.stringify({
+      redirect_url: `${appUrl}/missions/${p.missionId}?paiement=ok`,
+    }),
+  })
   const paymentUrl: string =
     tokenRes.url ??
     tokenRes.payment_url ??
