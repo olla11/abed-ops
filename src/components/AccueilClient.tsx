@@ -21,7 +21,7 @@ function buildShortcuts(t: (k: string) => string): Record<string, Shortcut[]> {
     admin: [
       { href: '/overview',          Icon: BarChart2,  label: t('overview'),       desc: t('shortcuts_desc') },
       { href: '/missions',          Icon: Plane,      label: t('missions'),        desc: t('missions_desc') },
-      { href: '/demandes-paiement', Icon: CreditCard, label: t('payments'),        desc: t('payments_desc') },
+      { href: '/demandes', Icon: CreditCard, label: t('payments'),        desc: t('payments_desc') },
       { href: '/conges',            Icon: Palmtree,   label: t('leaves'),          desc: t('leaves_desc') },
       { href: '/rh',                Icon: Users,      label: t('rh'),              desc: t('rh_desc') },
       { href: '/admin',             Icon: Settings,   label: t('admin'),           desc: t('admin_desc') },
@@ -33,7 +33,7 @@ function buildShortcuts(t: (k: string) => string): Record<string, Shortcut[]> {
       { href: '/missions',   Icon: Plane,    label: t('missions'),   desc: t('missions_desc') },
     ],
     caf: [
-      { href: '/demandes-paiement', Icon: CreditCard, label: t('payments'),    desc: t('cafValidation_desc') },
+      { href: '/demandes', Icon: CreditCard, label: t('payments'),    desc: t('cafValidation_desc') },
       { href: '/timesheets',        Icon: Clock,      label: t('timesheets'),  desc: t('livrables_desc') },
       { href: '/parametres',        Icon: Settings,   label: t('settings'),    desc: t('config_desc') },
       { href: '/overview',          Icon: BarChart2,  label: t('overview'),    desc: t('shortcuts_desc') },
@@ -41,18 +41,18 @@ function buildShortcuts(t: (k: string) => string): Record<string, Shortcut[]> {
     de: [
       { href: '/overview',          Icon: BarChart2,  label: t('overview'),  desc: t('shortcuts_desc') },
       { href: '/missions',          Icon: Plane,      label: t('missions'),  desc: t('signValidate_desc') },
-      { href: '/demandes-paiement', Icon: CreditCard, label: t('payments'),  desc: t('finalApproval_desc') },
+      { href: '/demandes', Icon: CreditCard, label: t('payments'),  desc: t('finalApproval_desc') },
       { href: '/conges',            Icon: Palmtree,   label: t('leaves'),    desc: t('finalApprovalLeaves_desc') },
     ],
     aaf: [
-      { href: '/demandes-paiement', Icon: CreditCard, label: t('payments'),  desc: t('aafValidation_desc') },
+      { href: '/demandes', Icon: CreditCard, label: t('payments'),  desc: t('aafValidation_desc') },
       { href: '/overview',          Icon: BarChart2,  label: t('overview'),  desc: t('shortcuts_desc') },
       { href: '/missions',          Icon: Plane,      label: t('missions'),  desc: t('missions_desc') },
     ],
     administrateur: [
       { href: '/overview',          Icon: BarChart2,  label: t('overview'),  desc: t('shortcuts_desc') },
       { href: '/missions',          Icon: Plane,      label: t('missions'),  desc: t('missions_desc') },
-      { href: '/demandes-paiement', Icon: CreditCard, label: t('payments'),  desc: t('payments_desc') },
+      { href: '/demandes', Icon: CreditCard, label: t('payments'),  desc: t('payments_desc') },
     ],
     manager: [
       { href: '/timesheets', Icon: Clock,    label: t('timesheets'), desc: t('validateTimesheets_desc') },
@@ -61,13 +61,13 @@ function buildShortcuts(t: (k: string) => string): Record<string, Shortcut[]> {
     ],
     missionnaire: [
       { href: '/missions',          Icon: Plane,      label: t('missionnaire_myMissions'),  desc: t('myMissions_desc') },
-      { href: '/demandes-paiement', Icon: CreditCard, label: t('missionnaire_myPayments'),  desc: t('myPayments_desc') },
+      { href: '/demandes', Icon: CreditCard, label: t('missionnaire_myPayments'),  desc: t('myPayments_desc') },
       { href: '/conges',            Icon: Palmtree,   label: t('missionnaire_myLeaves'),    desc: t('myLeaves_desc') },
       { href: '/timesheets',        Icon: Clock,      label: t('missionnaire_myTimesheets'), desc: t('myTimesheets_desc') },
     ],
     prestataire: [
       { href: '/timesheets',        Icon: Clock,      label: t('timesheets'),               desc: t('activities_desc') },
-      { href: '/demandes-paiement', Icon: CreditCard, label: t('missionnaire_myPayments'),  desc: t('myPayments_desc') },
+      { href: '/demandes', Icon: CreditCard, label: t('missionnaire_myPayments'),  desc: t('myPayments_desc') },
       { href: '/missions',          Icon: Plane,      label: t('missionnaire_myMissions'),  desc: t('myMissions_desc') },
     ],
   }
@@ -90,9 +90,9 @@ export default function AccueilClient({ prenom, role, roleLabel, fonction, omEnC
 
   const stats = [
     { Icon: Plane,      label: t('missionsInProgress'), value: omEnCours,       href: '/missions',          color: '#1e40af', bg: '#dbeafe' },
-    { Icon: CreditCard, label: t('pendingPayments'),    value: demandesEnCours, href: '/demandes-paiement', color: '#6d28d9', bg: '#ede9fe' },
+    { Icon: CreditCard, label: t('pendingPayments'),    value: demandesEnCours, href: '/demandes',          color: '#6d28d9', bg: '#ede9fe' },
     { Icon: Palmtree,   label: t('pendingLeaves'),      value: congesEnAttente, href: '/conges',            color: '#b45309', bg: '#fef3c7' },
-    { Icon: Bell,       label: t('unreadNotifs'),       value: notifsNonLues,   href: '/notifications',     color: '#991b1b', bg: '#fee2e2' },
+    { Icon: Bell,       label: t('unreadNotifs'),       value: notifsNonLues,   href: '/dashboard',         color: '#991b1b', bg: '#fee2e2' },
   ]
 
   return (
