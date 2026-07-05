@@ -39,7 +39,7 @@ export default async function MissionDetail({ params }: { params: Promise<{ id: 
   const pdfDispo = !['brouillon', 'soumis'].includes(mission.status)
   const canReconcile = user.id === mission.missionnaire_id
     && ['signe', 'en_mission', 'reconciliation'].includes(mission.status)
-  const canValidateReconc = ['caf', 'admin'].includes(role) && mission.status === 'reconciliation_caf'
+  const canValidateReconc = ['caf', 'admin', 'administrateur'].includes(role) && mission.status === 'reconciliation_caf'
   const canRetryPayment = user.id === mission.missionnaire_id && mission.status === 'paiement_attente'
 
   const STATUS_LABELS: Record<string, string> = {
