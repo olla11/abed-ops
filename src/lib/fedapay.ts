@@ -77,7 +77,24 @@ export async function createMomoDebit(p: CreateDebitParams): Promise<{ fedapayTx
   const txId = tx['v1/transaction']?.id ?? tx.transaction?.id ?? tx.id
   if (!txId) throw new Error(`FedaPay : impossible d'extraire l'id de transaction. Réponse : ${JSON.stringify(tx)}`)
 
-  // 2. Générer le token → récupérer l'URL de paiement checkout FedaPay
+  // 2. Tenter un paiement direct MTN (sans checkout) — FedaPay initie le push USSD immédiatement
+  const telLocal = p.telephone.replace(/^\+229/, '').replace(/^0/, '')
+  try {
+    await fedapayFetch(`/transactions/${txId}/pay`, {
+      method: 'POST',
+      body: JSON.stringify({
+        payment_method: 'mtn_open',
+        phone_number: telLocal,
+      }),
+    })
+    // Si succès → pas besoin de checkout, retourner le lien de suivi mission
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://my.abedong.org').replace(/\/$/, '')
+    return { fedapayTxId: String(txId), paymentUrl: `${appUrl}/missions/${p.missionId}` }
+  } catch {
+    // Fallback : générer le lien checkout si le paiement direct échoue
+  }
+
+  // 3. Fallback checkout — l'utilisateur paie via le formulaire FedaPay
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://my.abedong.org').replace(/\/$/, '')
   const tokenRes = await fedapayFetch(`/transactions/${txId}/token`, {
     method: 'POST',
