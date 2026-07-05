@@ -118,7 +118,7 @@ export default async function MissionDetail({ params }: { params: Promise<{ id: 
         <div className="card" style={{ marginBottom: 20 }}>
           <h3 style={{ marginBottom: 12, fontSize: 15 }}>Signature</h3>
           <table><tbody>
-            <Row label="Signé par" value={`${mission.signataire?.prenoms ?? ''} ${mission.signataire?.nom ?? ''} (${mission.signataire?.fonction ?? ''})`} />
+            <Row label="Signé par" value={[`${mission.signataire?.prenoms ?? ''} ${mission.signataire?.nom ?? ''}`.trim(), mission.signataire?.fonction].filter(Boolean).join(' — ')} />
             <Row label="Le" value={new Date(mission.signe_le).toLocaleDateString('fr-FR', { dateStyle: 'long' })} />
           </tbody></table>
         </div>
