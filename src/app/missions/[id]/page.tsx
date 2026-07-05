@@ -7,6 +7,7 @@ import MissionEditForm from './MissionEditForm'
 import MissionDeleteButton from './MissionDeleteButton'
 import AppHeader from '@/components/AppHeader'
 import ReconciliationValidationCAF from '@/components/ReconciliationValidationCAF'
+import RetryPaymentButton from './RetryPaymentButton'
 
 export default async function MissionDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -39,6 +40,7 @@ export default async function MissionDetail({ params }: { params: Promise<{ id: 
   const canReconcile = user.id === mission.missionnaire_id
     && ['signe', 'en_mission', 'reconciliation'].includes(mission.status)
   const canValidateReconc = ['caf', 'admin'].includes(role) && mission.status === 'reconciliation_caf'
+  const canRetryPayment = user.id === mission.missionnaire_id && mission.status === 'paiement_attente'
 
   const STATUS_LABELS: Record<string, string> = {
     brouillon: 'Brouillon',
@@ -94,6 +96,9 @@ export default async function MissionDetail({ params }: { params: Promise<{ id: 
             <Link className="btn" href={`/missions/${mission.id}/reconciliation`}>
               Faire la réconciliation
             </Link>
+          )}
+          {canRetryPayment && (
+            <RetryPaymentButton missionId={mission.id} prelevement={mission.prelevement_20} />
           )}
         </div>
       </div>

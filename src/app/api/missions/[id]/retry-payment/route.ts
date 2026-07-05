@@ -26,13 +26,13 @@ export async function POST(
   }
 
   const { data: profile } = await supabase
-    .from('profiles').select('telephone, nom, prenoms').eq('id', user.id).single()
+    .from('profiles').select('telephone, nom, prenoms, email').eq('id', user.id).single()
 
   if (!profile?.telephone) {
     return NextResponse.json({ error: 'Numéro Mobile Money manquant dans le profil.' }, { status: 400 })
   }
 
-  // Marquer le paiement existant comme échoué
+  // Marquer le paiement existant comme annulé
   await supabase.from('payments').update({ status: 'annule' }).eq('mission_id', id).eq('status', 'en_attente')
 
   // Créer une nouvelle tentative de paiement
@@ -49,6 +49,9 @@ export async function POST(
       telephone: profile.telephone,
       description: `Prélèvement 20% mission ${mission.reference ?? id}`,
       missionId: id,
+      nom: profile.nom ?? undefined,
+      prenoms: profile.prenoms ?? undefined,
+      email: profile.email ?? undefined,
     })
     await supabase.from('payments').update({ fedapay_tx_id: fedapayTxId, status: 'en_attente' })
       .eq('mission_id', id).is('fedapay_tx_id', null)
