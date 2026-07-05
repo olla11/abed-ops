@@ -69,14 +69,27 @@ export default function NouvelleMission() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/login'); return }
 
-    const { error } = await supabase.from('missions').insert({
-      ...form,
-      missionnaire_id: user.id,
-      status: statut,
-    })
-    setSaving(false)
-    if (error) setErr(error.message)
-    else router.push('/dashboard')
+    if (statut === 'soumis') {
+      // Passer par l'API pour déclencher les notifications aux signataires (DE, CAF, administrateur)
+      const res = await fetch('/api/missions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...form, status: statut }),
+      })
+      const data = await res.json()
+      setSaving(false)
+      if (!res.ok) setErr(data.error ?? 'Erreur lors de la soumission')
+      else router.push('/dashboard')
+    } else {
+      const { error } = await supabase.from('missions').insert({
+        ...form,
+        missionnaire_id: user.id,
+        status: statut,
+      })
+      setSaving(false)
+      if (error) setErr(error.message)
+      else router.push('/dashboard')
+    }
   }
 
   const today = minDepart()
