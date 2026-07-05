@@ -1,13 +1,14 @@
 'use client'
 import { useState } from 'react'
 import dynamic from 'next/dynamic'
-import { FileText, FileBarChart2, CreditCard, ClipboardList, BarChart3, CheckCircle2, ShieldCheck, type LucideIcon } from 'lucide-react'
+import { FileText, FileBarChart2, CreditCard, ClipboardList, BarChart3, CheckCircle2, ShieldCheck, Wallet, type LucideIcon } from 'lucide-react'
 
 const SoumissionForm = dynamic(() => import('@/components/SoumissionForm'), { ssr: false })
 const ValidationManager = dynamic(() => import('@/components/ValidationManager'), { ssr: false })
 const ValidationCAF = dynamic(() => import('@/components/ValidationCAF'), { ssr: false })
 const RapportAllocationForm = dynamic(() => import('@/components/RapportAllocationForm'), { ssr: false })
 const ValidationRapportsAAF = dynamic(() => import('@/components/ValidationRapportsAAF'), { ssr: false })
+const SoldeCredit = dynamic(() => import('@/components/SoldeCredit'), { ssr: false })
 
 type Tab = {
   key: string
@@ -48,9 +49,16 @@ export default function TimesheetsClient({
   // Construire les onglets selon les droits
   const tabs: Tab[] = []
 
+  const estCredit = typeEmploi === 'prestataire_credit'
+
   // Soumission personnelle
   if (estPrestataire) {
     tabs.push({ key: 'mes_soumissions', icon: FileText, label: 'Mes soumissions', desc: 'Timesheets & livrables' })
+  }
+
+  // Solde crédit (prestataire à crédit uniquement)
+  if (estCredit) {
+    tabs.push({ key: 'mon_solde', icon: Wallet, label: 'Mon solde crédit', desc: 'Heures validées & versements' })
   }
   if (estRapportMensuel) {
     tabs.push({ key: 'mon_rapport', icon: FileBarChart2, label: 'Mon rapport mensuel', desc: estSalarie ? 'Fiche de paie' : 'Rapport d\'allocation' })
@@ -201,6 +209,7 @@ export default function TimesheetsClient({
                 </div>
           )}
           {activeTab === 'mon_rapport' && <RapportAllocationForm typeEmploi={typeEmploi} />}
+          {activeTab === 'mon_solde' && <SoldeCredit />}
           {activeTab === 'caf_timesheets' && <ValidationCAF />}
           {activeTab === 'aaf_rapports' && <ValidationRapportsAAF role="aaf" />}
           {activeTab === 'caf_rapports' && <ValidationRapportsAAF role="caf" />}
