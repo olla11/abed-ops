@@ -1,5 +1,5 @@
 export const dynamic = 'force-dynamic'
-import { createClient } from '@/lib/supabase-server'
+import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import MissionActions from './MissionActions'
@@ -14,7 +14,8 @@ export default async function MissionDetail({ params }: { params: Promise<{ id: 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: mission } = await supabase
+  const admin = createAdminClient()
+  const { data: mission } = await admin
     .from('missions')
     .select(`
       *,
