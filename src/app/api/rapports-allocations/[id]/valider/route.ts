@@ -20,7 +20,7 @@ export async function POST(
 
   const { data: rapport } = await supabase
     .from('rapports_allocations')
-    .select('*, prestataire:profiles!rapports_allocations_prestataire_id_fkey(nom,prenoms,email,id,type_emploi), manager:profiles!rapports_allocations_manager_id_fkey(nom,prenoms)')
+    .select('*, prestataire:profiles!rapports_allocations_prestataire_id_fkey(nom,prenoms,email,id,type_emploi,role), manager:profiles!rapports_allocations_manager_id_fkey(nom,prenoms)')
     .eq('id', id).single()
 
   if (!rapport) return NextResponse.json({ error: 'introuvable' }, { status: 404 })
@@ -55,10 +55,16 @@ export async function POST(
     }
   } else if (role === 'caf' && rapport.status === 'traite_aaf') {
     if (action === 'valider') {
+      // Si le soumetteur est lui-même le DE, son supérieur hiérarchique (Président du CA) doit autoriser
+      const soumetteurEstDE = (rapport.prestataire as any)?.role === 'de'
       update = { status: 'valide_caf', caf_id: user.id, caf_le: now, commentaire_caf: null }
-      nextRole = 'de'
-      nextEmailSubject = '[ABED-ONG] Rapport mensuel — Autorisation DE requise'
-      nextEmailMsg = 'validé par la CAF, en attente de votre autorisation'
+      nextRole = soumetteurEstDE ? 'administrateur' : 'de'
+      nextEmailSubject = soumetteurEstDE
+        ? '[ABED-ONG] Rapport mensuel DE — Autorisation Président du CA requise'
+        : '[ABED-ONG] Rapport mensuel — Autorisation DE requise'
+      nextEmailMsg = soumetteurEstDE
+        ? 'validé par la CAF, en attente de votre autorisation en tant que Président du CA'
+        : 'validé par la CAF, en attente de votre autorisation'
     } else {
       if (!commentaire?.trim()) return NextResponse.json({ error: 'Commentaire requis' }, { status: 400 })
       update = { status: 'rejete_caf', caf_id: user.id, caf_le: now, commentaire_caf: commentaire }
