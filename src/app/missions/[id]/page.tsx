@@ -19,7 +19,7 @@ export default async function MissionDetail({ params }: { params: Promise<{ id: 
     .select(`
       *,
       missionnaire:profiles!missions_missionnaire_id_fkey(nom, prenoms, email, telephone, fonction),
-      signataire:profiles!missions_signe_par_fkey(nom, prenoms, fonction)
+      signataire:profiles!missions_signe_par_fkey(nom, prenoms, fonction, role)
     `)
     .eq('id', id)
     .single()
@@ -118,7 +118,14 @@ export default async function MissionDetail({ params }: { params: Promise<{ id: 
         <div className="card" style={{ marginBottom: 20 }}>
           <h3 style={{ marginBottom: 12, fontSize: 15 }}>Signature</h3>
           <table><tbody>
-            <Row label="Signé par" value={[`${mission.signataire?.prenoms ?? ''} ${mission.signataire?.nom ?? ''}`.trim(), mission.signataire?.fonction].filter(Boolean).join(' — ')} />
+            <Row label="Signé par" value={(() => {
+              const s = mission.signataire as any
+              if (!s) return '—'
+              const ROLE_LABELS: Record<string, string> = { de: 'Directeur Exécutif', caf: 'CAF', admin: 'Administrateur', administrateur: 'Président du CA' }
+              const nom = `${s.prenoms ?? ''} ${s.nom ?? ''}`.trim()
+              const titre = s.fonction || ROLE_LABELS[s.role] || ''
+              return [nom, titre].filter(Boolean).join(' — ')
+            })()} />
             <Row label="Le" value={new Date(mission.signe_le).toLocaleDateString('fr-FR', { dateStyle: 'long' })} />
           </tbody></table>
         </div>
