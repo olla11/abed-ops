@@ -54,7 +54,7 @@ export async function POST(
     await admin.from('missions').update({ status: 'paiement_attente' }).eq('id', id)
 
     const { data: profile } = await supabase
-      .from('profiles').select('telephone, nom, prenoms').eq('id', user.id).single()
+      .from('profiles').select('telephone, nom, prenoms, email').eq('id', user.id).single()
 
     if (!profile?.telephone) {
       return NextResponse.json({ error: 'Numéro Mobile Money manquant dans le profil' }, { status: 400 })
@@ -73,6 +73,9 @@ export async function POST(
         telephone: profile.telephone,
         description: `Prélèvement 20% mission ${mission.reference ?? mission.id}`,
         missionId: mission.id,
+        nom: profile.nom ?? undefined,
+        prenoms: profile.prenoms ?? undefined,
+        email: profile.email ?? undefined,
       })
       await supabase.from('payments').update({ fedapay_tx_id: fedapayTxId }).eq('mission_id', mission.id)
 

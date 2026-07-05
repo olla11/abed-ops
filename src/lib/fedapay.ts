@@ -8,6 +8,9 @@ type CreateDebitParams = {
   telephone: string
   description: string
   missionId: string
+  nom?: string
+  prenoms?: string
+  email?: string
 }
 
 async function fedapayFetch(path: string, init?: RequestInit) {
@@ -51,6 +54,9 @@ async function fedapayFetch(path: string, init?: RequestInit) {
 
 export async function createMomoDebit(p: CreateDebitParams): Promise<{ fedapayTxId: string; paymentUrl: string }> {
   // 1. Créer la transaction
+  // Normaliser le numéro : ajouter +229 si pas déjà présent
+  const tel = p.telephone.startsWith('+') ? p.telephone : `+229${p.telephone.replace(/^0/, '')}`
+
   const tx = await fedapayFetch('/transactions', {
     method: 'POST',
     body: JSON.stringify({
@@ -59,6 +65,12 @@ export async function createMomoDebit(p: CreateDebitParams): Promise<{ fedapayTx
       currency: { iso: 'XOF' },
       custom_metadata: { mission_id: p.missionId },
       callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/missions/${p.missionId}`,
+      customer: {
+        firstname: p.prenoms ?? '',
+        lastname: p.nom ?? '',
+        ...(p.email ? { email: p.email } : {}),
+        phone_number: { number: tel, country: 'bj' },
+      },
     }),
   })
 
