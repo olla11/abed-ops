@@ -27,7 +27,7 @@ export default async function AccueilPage() {
     { count: demandesEnCours },
     { count: notifsNonLues },
   ] = await Promise.all([
-    supabase.from('missions').select('*', { count: 'exact', head: true }).not('status', 'in', '(cloture,annule)'),
+    supabase.from('missions').select('*', { count: 'exact', head: true }).eq('status', 'en_mission'),
     supabase.from('conges').select('*', { count: 'exact', head: true }).eq('statut', 'en_attente'),
     supabase.from('demandes_paiement').select('*', { count: 'exact', head: true }).not('status', 'in', '(autorise,rejete_aaf,rejete_caf,refuse_caf,refuse_de)'),
     supabase.from('notifications').select('*', { count: 'exact', head: true }).eq('lu', false),

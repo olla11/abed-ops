@@ -89,7 +89,7 @@ export default function AccueilClient({ prenom, role, roleLabel, fonction, omEnC
                  :           { text: t('night'),             sub: t('nightSub') }
 
   const stats = [
-    { Icon: Plane,      label: t('missionsInProgress'), value: omEnCours,       href: '/missions',          color: '#1e40af', bg: '#dbeafe' },
+    { Icon: Plane,      label: t('missionsInProgress'), value: omEnCours,       href: '/missions/en-cours', color: '#1e40af', bg: '#dbeafe' },
     { Icon: CreditCard, label: t('pendingPayments'),    value: demandesEnCours, href: '/demandes',          color: '#6d28d9', bg: '#ede9fe' },
     { Icon: Palmtree,   label: t('pendingLeaves'),      value: congesEnAttente, href: '/conges',            color: '#b45309', bg: '#fef3c7' },
     { Icon: Bell,       label: t('unreadNotifs'),       value: notifsNonLues,   href: '/notifications',     color: '#991b1b', bg: '#fee2e2' },
