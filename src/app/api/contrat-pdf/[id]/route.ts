@@ -34,6 +34,28 @@ export async function GET(
   const dateFin = contrat.date_fin ? new Date(contrat.date_fin).toLocaleDateString('fr-FR') : 'Indéterminée'
   const today = new Date().toLocaleDateString('fr-FR')
 
+  // Statut de signature de l'employé
+  const employeSigneLe = contrat.signe_employe_le
+    ? new Date(contrat.signe_employe_le).toLocaleDateString('fr-FR')
+    : null
+
+  // Statut de signature du signataire (DE / PCA / autre) côté employeur
+  let signataireNom: string | null = null
+  let signataireSigneLe: string | null = null
+  if (contrat.demande_signature_id && contrat.signataire_id) {
+    const { data: sigRow } = await admin
+      .from('signataires')
+      .select('signe, signe_le, profile:profiles!profile_id(nom, prenoms)')
+      .eq('demande_id', contrat.demande_signature_id)
+      .eq('profile_id', contrat.signataire_id)
+      .single()
+    if (sigRow?.signe) {
+      const sp = sigRow.profile as any
+      signataireNom = `${sp?.prenoms ?? ''} ${sp?.nom ?? ''}`.trim()
+      signataireSigneLe = sigRow.signe_le ? new Date(sigRow.signe_le).toLocaleDateString('fr-FR') : null
+    }
+  }
+
   const articles: Array<{ titre: string; contenu: string }> = Array.isArray(contrat.articles) ? contrat.articles : []
 
   const articlesHtml = articles.length > 0
@@ -84,10 +106,13 @@ export async function GET(
     .article { margin-bottom: 16px; }
     .article-title { font-size: 11pt; font-weight: bold; margin-bottom: 4px; }
     .article-body { font-size: 10.5pt; line-height: 1.8; text-align: justify; }
+    @font-face { font-family: 'BrittanySignature'; src: url('/fonts/BrittanySignature.ttf') format('truetype'); font-weight: normal; font-style: normal; }
     .sig-block { display: flex; justify-content: space-between; margin-top: 64px; }
     .sig { text-align: center; width: 45%; }
     .sig-role { font-size: 10pt; font-weight: bold; margin-bottom: 4px; }
-    .sig-line { border-top: 1px solid #000; margin-top: 52px; padding-top: 6px; font-size: 10pt; }
+    .sig-line { border-top: 1px solid #000; margin-top: 52px; padding-top: 6px; font-size: 10pt; color: #9ca3af; }
+    .sig-name { font-family: 'BrittanySignature', cursive; font-size: 28pt; line-height: 1; border-top: 1px solid #000; margin-top: 52px; padding-top: 4px; color: #1e3a8a; }
+    .sig-stamp { font-size: 8.5pt; color: #16a34a; margin-top: 4px; font-family: Arial, sans-serif; font-weight: bold; }
     .footer { text-align: center; font-size: 8.5pt; color: #888; margin-top: 40px; border-top: 1px solid #e5e7eb; padding-top: 10px; }
     @media print { .no-print { display: none !important; } body { padding: 24px 32px; } }
   </style>
@@ -172,11 +197,17 @@ export async function GET(
   <div class="sig-block">
     <div class="sig">
       <div class="sig-role">${sigLeft}</div>
-      <div class="sig-line">Signature &amp; Cachet</div>
+      ${signataireNom ? `
+        <div class="sig-name">${signataireNom}</div>
+        <div class="sig-stamp">✓ Signé électroniquement le ${signataireSigneLe ?? ''}</div>
+      ` : `<div class="sig-line">En attente de signature</div>`}
     </div>
     <div class="sig">
       <div class="sig-role">${sigRight}</div>
-      <div class="sig-line">Lu et approuvé</div>
+      ${employeSigneLe ? `
+        <div class="sig-name">${p?.prenoms ?? ''} ${p?.nom ?? ''}</div>
+        <div class="sig-stamp">✓ Signé électroniquement le ${employeSigneLe}</div>
+      ` : `<div class="sig-line">En attente de signature</div>`}
     </div>
   </div>
 

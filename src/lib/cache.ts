@@ -76,7 +76,7 @@ export const getCachedContrats = () =>
     async () => {
       const { data } = await service()
         .from('contrats')
-        .select('id, type_contrat, statut, date_debut, date_fin, poste, direction, profile_id, profile:profiles!profile_id(nom, prenoms)')
+        .select('*, profile:profiles!profile_id(id, nom, prenoms, email, role)')
         .order('date_fin', { ascending: true, nullsFirst: false })
       return data ?? []
     },
