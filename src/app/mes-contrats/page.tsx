@@ -13,11 +13,36 @@ export default async function MesContratsPage() {
     .from('profiles').select('role, nom, prenoms, type_emploi, avatar_url').eq('id', user.id).single()
 
   const admin = createAdminClient()
-  const { data: contrats } = await admin
+  const { data: contrats, error: contratsError } = await admin
     .from('contrats')
-    .select('*, demande:demandes_signature!demande_signature_id(id, statut, fichier_url)')
+    .select('*')
     .eq('profile_id', user.id)
     .order('created_at', { ascending: false })
+
+  if (contratsError) {
+    console.error('[mes-contrats] échec récupération contrats:', contratsError)
+  }
+
+  const demandeIds = (contrats ?? [])
+    .map(c => c.demande_signature_id)
+    .filter((id): id is string => !!id)
+
+  const demandesById = new Map<string, { id: string; statut: string; fichier_url: string | null }>()
+  if (demandeIds.length > 0) {
+    const { data: demandes, error: demandesError } = await admin
+      .from('demandes_signature')
+      .select('id, statut, fichier_url')
+      .in('id', demandeIds)
+    if (demandesError) {
+      console.error('[mes-contrats] échec récupération demandes_signature:', demandesError)
+    }
+    for (const d of demandes ?? []) demandesById.set(d.id, d)
+  }
+
+  const contratsAvecDemande = (contrats ?? []).map(c => ({
+    ...c,
+    demande: c.demande_signature_id ? demandesById.get(c.demande_signature_id) ?? null : null,
+  }))
 
   return (
     <>
@@ -27,7 +52,7 @@ export default async function MesContratsPage() {
         typeEmploi={profile?.type_emploi}
         avatarUrl={profile?.avatar_url ?? null}
       />
-      <MesContratsClient contrats={contrats ?? []} />
+      <MesContratsClient contrats={contratsAvecDemande} />
     </>
   )
 }
