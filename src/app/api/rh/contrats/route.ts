@@ -145,12 +145,13 @@ export async function POST(req: NextRequest) {
   }
 
   // Notification in-app à l'employé
-  await service.from('notifications').insert({
+  const { error: notifError } = await service.from('notifications').insert({
     user_id: profile_id,
     titre: `Nouveau ${categorie} établi à votre nom`,
     message: `${categorie} ${type_contrat} (réf. ${numero}) — Consultez et signez votre document sur My ABED.`,
     lien: '/mes-contrats',
   })
+  if (notifError) console.error('[POST /api/rh/contrats] notif in-app employé:', notifError)
 
   // Send email to employee
   if (profile?.email) {

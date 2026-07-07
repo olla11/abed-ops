@@ -40,12 +40,13 @@ export async function POST(
   // Notifier le RH
   const { data: rhs } = await admin.from('profiles').select('id, email, prenoms').in('role', ['rh', 'admin'])
   for (const rh of rhs ?? []) {
-    await admin.from('notifications').insert({
+    const { error: notifRhErr } = await admin.from('notifications').insert({
       user_id: rh.id,
       titre: 'Contrat signé par l\'employé',
       message: `${nomEmploye} a signé son ${contrat.categorie_document ?? 'contrat'} (réf. ${contrat.numero ?? contrat.id}). Vous pouvez maintenant l'envoyer au signataire.`,
       lien: '/rh/contrats',
     })
+    if (notifRhErr) console.error('[signer-employe] notif in-app RH:', notifRhErr)
     if (rh.email) {
       try {
         await sendEmail({

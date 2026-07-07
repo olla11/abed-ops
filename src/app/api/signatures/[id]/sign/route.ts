@@ -175,12 +175,13 @@ export async function POST(
       await admin.from('contrats').update({ workflow_statut: 'signe_signataire' }).eq('id', contratLie.id)
       const { data: rhs } = await admin.from('profiles').select('id').in('role', ['rh', 'admin'])
       for (const rh of rhs ?? []) {
-        await admin.from('notifications').insert({
+        const { error: notifRhErr } = await admin.from('notifications').insert({
           user_id: rh.id,
           titre: 'Contrat signé par le signataire ✓',
           message: `${signerName} a signé le contrat. Vous pouvez maintenant le finaliser et envoyer le document à l'employé.`,
           lien: '/rh/contrats',
         })
+        if (notifRhErr) console.error('[Signatures] notif in-app RH (contrat signataire):', notifRhErr)
       }
     }
 

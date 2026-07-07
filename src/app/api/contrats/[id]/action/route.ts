@@ -74,12 +74,13 @@ export async function POST(
     }
 
     // Notif in-app + email au signataire
-    await admin.from('notifications').insert({
+    const { error: notifSigErr } = await admin.from('notifications').insert({
       user_id: sigId,
       titre: 'Contrat à signer',
       message: `Le ${contrat.categorie_document ?? 'contrat'} ${contrat.type_contrat} de ${nomEmploye} (réf. ${ref}) attend votre signature.`,
       lien: '/signatures',
     })
+    if (notifSigErr) console.error('[contrat action] notif in-app signataire:', notifSigErr)
 
     if (sigProfile.email) {
       try {
@@ -116,12 +117,13 @@ export async function POST(
     await admin.from('contrats').update({ workflow_statut: 'finalise' }).eq('id', id)
 
     // Notif in-app à l'employé
-    await admin.from('notifications').insert({
+    const { error: notifFinaliseErr } = await admin.from('notifications').insert({
       user_id: contrat.profile_id,
       titre: 'Votre contrat est finalisé ✓',
       message: `Votre ${contrat.categorie_document ?? 'contrat'} ${contrat.type_contrat} (réf. ${ref}) est entièrement signé et disponible.`,
       lien: '/mes-contrats',
     })
+    if (notifFinaliseErr) console.error('[contrat action] notif in-app finalisation:', notifFinaliseErr)
 
     // Email à l'employé
     if (profile?.email) {
@@ -166,12 +168,13 @@ export async function POST(
       signe_employe_le: null,
     }).eq('id', id)
 
-    await admin.from('notifications').insert({
+    const { error: notifRenvoiErr } = await admin.from('notifications').insert({
       user_id: contrat.profile_id,
       titre: 'Votre contrat a été mis à jour',
       message: `Le RH a modifié votre ${contrat.categorie_document ?? 'contrat'} (réf. ${ref}). Merci de le consulter et le signer à nouveau.`,
       lien: '/mes-contrats',
     })
+    if (notifRenvoiErr) console.error('[contrat action] notif in-app renvoi employé:', notifRenvoiErr)
 
     if (profile?.email) {
       try {
