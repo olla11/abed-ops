@@ -82,7 +82,7 @@ export default function UserAvatar({ userName, userRole, avatarUrl }: Props) {
         <div style={{
           position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 300,
           background: 'white', border: '1px solid var(--abed-border)',
-          borderRadius: 12, width: 300,
+          borderRadius: 10, width: 200,
           boxShadow: '0 8px 24px rgba(0,0,0,.12)',
           overflow: 'hidden',
         }}>
