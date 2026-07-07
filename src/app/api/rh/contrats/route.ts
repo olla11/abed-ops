@@ -79,6 +79,7 @@ export async function POST(req: NextRequest) {
     articles: articles || [],
     commentaires_rh: commentaires_rh || null,
     statut: 'actif',
+    workflow_statut: 'envoye_employe',
   }).select('*, profile:profiles!profile_id(id, nom, prenoms, email, role, civilite)').single()
 
   if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 })
@@ -142,6 +143,14 @@ export async function POST(req: NextRequest) {
       await service.from('contrats').update({ demande_signature_id: demandeId }).eq('id', contrat.id)
     }
   }
+
+  // Notification in-app à l'employé
+  await service.from('notifications').insert({
+    user_id: profile_id,
+    titre: `Nouveau ${categorie} établi à votre nom`,
+    message: `${categorie} ${type_contrat} (réf. ${numero}) — Consultez et signez votre document sur My ABED.`,
+    lien: '/mes-contrats',
+  })
 
   // Send email to employee
   if (profile?.email) {

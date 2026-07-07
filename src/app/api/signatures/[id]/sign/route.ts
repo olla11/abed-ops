@@ -168,6 +168,22 @@ export async function POST(
   if (allSigned) {
     await admin.from('demandes_signature').update({ statut: 'complete', updated_at: new Date().toISOString() }).eq('id', demandeId)
 
+    // Si lié à un contrat, mettre à jour le workflow
+    const { data: contratLie } = await admin.from('contrats')
+      .select('id, workflow_statut').eq('demande_signature_id', demandeId).single()
+    if (contratLie && contratLie.workflow_statut === 'envoye_signataire') {
+      await admin.from('contrats').update({ workflow_statut: 'signe_signataire' }).eq('id', contratLie.id)
+      const { data: rhs } = await admin.from('profiles').select('id').in('role', ['rh', 'admin'])
+      for (const rh of rhs ?? []) {
+        await admin.from('notifications').insert({
+          user_id: rh.id,
+          titre: 'Contrat signé par le signataire ✓',
+          message: `${signerName} a signé le contrat. Vous pouvez maintenant le finaliser et envoyer le document à l'employé.`,
+          lien: '/rh/contrats',
+        })
+      }
+    }
+
     const { data: createur } = await admin.from('profiles').select('nom, prenoms, email').eq('id', demande.createur_id).single()
     if (createur?.email) {
       await sendEmail({

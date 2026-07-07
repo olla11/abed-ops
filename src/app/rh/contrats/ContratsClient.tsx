@@ -12,7 +12,17 @@ type Contrat = {
   contrat_parent_id: string | null; objet: string | null
   articles: Article[] | null
   commentaires_employe: string | null; commentaires_rh: string | null
+  workflow_statut: string | null; signe_employe_le: string | null
+  signataire_id: string | null
   profile: { id: string; nom: string; prenoms: string; email: string | null; role: string } | null
+}
+
+const WF_LABELS: Record<string, { label: string; color: string; bg: string }> = {
+  envoye_employe:    { label: '✍️ Att. signature employé', color: '#b45309', bg: '#fef3c7' },
+  signe_employe:     { label: '📨 Att. envoi signataire',  color: '#1e40af', bg: '#dbeafe' },
+  envoye_signataire: { label: '⏳ Chez le signataire',     color: '#6d28d9', bg: '#ede9fe' },
+  signe_signataire:  { label: '✅ Att. finalisation',      color: '#065f46', bg: '#d1fae5' },
+  finalise:          { label: '🎉 Finalisé',               color: '#166534', bg: '#dcfce7' },
 }
 type Personnel = { id: string; nom: string; prenoms: string; role: string; fonction: string | null }
 
@@ -109,6 +119,9 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
   const [search, setSearch] = useState('')
   const [deleteStep, setDeleteStep] = useState<Record<string, number>>({})
   const deleteTimers = useState<Record<string, ReturnType<typeof setTimeout>>>(() => ({}))[0]
+  const [wfTarget, setWfTarget] = useState<Contrat | null>(null)
+  const [wfAction, setWfAction] = useState<string>('')
+  const [wfSignataireId, setWfSignataireId] = useState('')
 
   const filtered = contrats.filter(c => {
     const q = search.toLowerCase()
@@ -194,6 +207,25 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
       const d = await res.json()
       if (res.ok) { setContrats(cs => cs.map(c => c.id === commentTarget.id ? { ...c, commentaires_rh: d.contrat.commentaires_rh } : c)); setCommentTarget(null); setCommentaire('') }
       else setErr(d.error ?? 'Erreur')
+    } catch { setErr('Erreur réseau') }
+    finally { setLoading(false) }
+  }
+
+  async function doWorkflowAction() {
+    if (!wfTarget) return
+    const body: any = { action: wfAction }
+    if (wfAction === 'envoyer_signataire') {
+      if (!wfSignataireId) { setErr('Sélectionnez un signataire.'); return }
+      body.signataire_id = wfSignataireId
+    }
+    setLoading(true); setErr(null)
+    try {
+      const res = await fetch(`/api/contrats/${wfTarget.id}/action`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      const d = await res.json()
+      if (res.ok) {
+        setContrats(cs => cs.map(c => c.id === wfTarget.id ? { ...c, workflow_statut: d.workflow_statut, signataire_id: body.signataire_id ?? c.signataire_id } : c))
+        setWfTarget(null); setWfAction(''); setWfSignataireId('')
+      } else setErr(d.error ?? 'Erreur')
     } catch { setErr('Erreur réseau') }
     finally { setLoading(false) }
   }
@@ -336,7 +368,7 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
           <table style={{ minWidth: 1000, width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#f9fafb' }}>
-                {['N°', 'Catégorie', 'Employé', 'Type', 'Poste', 'Début', 'Fin', 'Statut', 'Actions'].map(h => (
+                {['N°', 'Catégorie', 'Employé', 'Type', 'Poste', 'Début', 'Fin', 'Statut', 'Workflow', 'Actions'].map(h => (
                   <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#6b7280', borderBottom: '1px solid var(--abed-border)', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -361,6 +393,13 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
                       <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 20, background: badge.bg, color: badge.color, whiteSpace: 'nowrap' }}>{badge.label}</span>
                     </td>
                     <td style={{ padding: '10px 12px' }}>
+                      {c.workflow_statut && WF_LABELS[c.workflow_statut] ? (
+                        <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 20, background: WF_LABELS[c.workflow_statut].bg, color: WF_LABELS[c.workflow_statut].color, whiteSpace: 'nowrap' }}>
+                          {WF_LABELS[c.workflow_statut].label}
+                        </span>
+                      ) : <span style={{ color: '#9ca3af', fontSize: 11 }}>—</span>}
+                    </td>
+                    <td style={{ padding: '10px 12px' }}>
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                         <a href={`/api/contrat-pdf/${c.id}`} target="_blank" rel="noreferrer"
                           style={{ padding: '4px 10px', fontSize: 11, borderRadius: 6, background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1d4ed8', textDecoration: 'none', whiteSpace: 'nowrap' }}>
@@ -381,6 +420,26 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
                               style={{ padding: '4px 10px', fontSize: 11, cursor: 'pointer', borderRadius: 6, background: '#fff5f5', border: '1px solid #fecaca', color: '#dc2626', whiteSpace: 'nowrap' }}>
                               Résilier
                             </button>
+                            {/* Boutons workflow */}
+                            {c.workflow_statut === 'signe_employe' && (
+                              <button onClick={() => { setWfTarget(c); setWfAction('envoyer_signataire'); setWfSignataireId(c.signataire_id ?? ''); setErr(null) }}
+                                style={{ padding: '4px 10px', fontSize: 11, cursor: 'pointer', borderRadius: 6, background: '#ede9fe', border: '1px solid #c4b5fd', color: '#6d28d9', whiteSpace: 'nowrap', fontWeight: 700 }}>
+                                📨 → Signataire
+                              </button>
+                            )}
+                            {c.workflow_statut === 'signe_signataire' && (
+                              <button onClick={() => { setWfTarget(c); setWfAction('finaliser'); setErr(null) }}
+                                style={{ padding: '4px 10px', fontSize: 11, cursor: 'pointer', borderRadius: 6, background: '#dcfce7', border: '1px solid #86efac', color: '#166534', whiteSpace: 'nowrap', fontWeight: 700 }}>
+                                🎉 Finaliser
+                              </button>
+                            )}
+                            {['envoye_employe','signe_employe','envoye_signataire','signe_signataire'].includes(c.workflow_statut ?? '') && (
+                              <button onClick={() => { setWfTarget(c); setWfAction('renvoyer_employe'); setErr(null) }}
+                                style={{ padding: '4px 10px', fontSize: 11, cursor: 'pointer', borderRadius: 6, background: '#fef3c7', border: '1px solid #fde68a', color: '#b45309', whiteSpace: 'nowrap' }}
+                                title="Renvoyer à l'employé pour re-signature">
+                                🔄 Renvoyer
+                              </button>
+                            )}
                           </>
                         )}
                         {c.statut !== 'actif' && (
@@ -448,6 +507,43 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
             <textarea value={motif} onChange={e => setMotif(e.target.value)} rows={4} placeholder="Expliquez le motif..." style={{ ...inputStyle, resize: 'vertical' }} />
             <div style={{ fontSize: 11, color: motif.length < 10 ? '#dc2626' : '#16a34a', marginTop: 4 }}>{motif.length} caractères</div>
           </div>
+        </Modal>
+      )}
+
+      {wfTarget && (
+        <Modal
+          title={
+            wfAction === 'envoyer_signataire' ? `Envoyer au signataire — ${wfTarget.profile?.prenoms} ${wfTarget.profile?.nom}` :
+            wfAction === 'finaliser' ? `Finaliser le contrat — ${wfTarget.profile?.prenoms} ${wfTarget.profile?.nom}` :
+            `Renvoyer à l'employé — ${wfTarget.profile?.prenoms} ${wfTarget.profile?.nom}`
+          }
+          onSubmit={doWorkflowAction}
+          onClose={() => { setWfTarget(null); setWfAction(''); setWfSignataireId(''); setErr(null) }}
+          loading={loading} err={err}
+        >
+          <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 16 }}>Réf. {wfTarget.numero ?? '—'} · {wfTarget.categorie_document ?? 'Contrat'} {wfTarget.type_contrat}</p>
+          {wfAction === 'envoyer_signataire' && (
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Signataire (DE, PCA ou autre) *</label>
+              <select value={wfSignataireId} onChange={e => setWfSignataireId(e.target.value)} style={inputStyle}>
+                <option value="">— Choisir un signataire —</option>
+                {personnel.filter(p => ['de', 'administrateur', 'admin'].includes(p.role)).map(p => (
+                  <option key={p.id} value={p.id}>{p.prenoms} {p.nom} ({p.role === 'administrateur' ? 'Président du CA' : p.role.toUpperCase()})</option>
+                ))}
+              </select>
+              <p style={{ fontSize: 12, color: '#6b7280', marginTop: 8 }}>Le signataire recevra une notification in-app et un email avec un lien vers le document.</p>
+            </div>
+          )}
+          {wfAction === 'finaliser' && (
+            <p style={{ fontSize: 14, color: '#374151' }}>
+              Le contrat a été signé par toutes les parties. En finalisant, l'employé recevra une notification et un email confirmant que son contrat est disponible.
+            </p>
+          )}
+          {wfAction === 'renvoyer_employe' && (
+            <p style={{ fontSize: 14, color: '#374151' }}>
+              L'employé recevra une notification et un email lui demandant de signer à nouveau. Sa signature précédente sera réinitialisée.
+            </p>
+          )}
         </Modal>
       )}
 
