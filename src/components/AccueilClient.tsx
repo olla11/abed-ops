@@ -1,6 +1,6 @@
 'use client'
 import { useRouter } from 'next/navigation'
-import { BarChart2, Plane, CreditCard, Palmtree, Users, Settings, Clock, Bell, type LucideIcon } from 'lucide-react'
+import { BarChart2, Plane, CreditCard, Palmtree, Users, Settings, Clock, Bell, FileText, type LucideIcon } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 type Props = {
@@ -64,11 +64,13 @@ function buildShortcuts(t: (k: string) => string): Record<string, Shortcut[]> {
       { href: '/demandes', Icon: CreditCard, label: t('missionnaire_myPayments'),  desc: t('myPayments_desc') },
       { href: '/conges',            Icon: Palmtree,   label: t('missionnaire_myLeaves'),    desc: t('myLeaves_desc') },
       { href: '/timesheets',        Icon: Clock,      label: t('missionnaire_myTimesheets'), desc: t('myTimesheets_desc') },
+      { href: '/mes-contrats',      Icon: FileText,   label: 'Mes contrats',                desc: 'Consulter et signer vos contrats' },
     ],
     prestataire: [
       { href: '/timesheets',        Icon: Clock,      label: t('timesheets'),               desc: t('activities_desc') },
       { href: '/demandes', Icon: CreditCard, label: t('missionnaire_myPayments'),  desc: t('myPayments_desc') },
       { href: '/missions',          Icon: Plane,      label: t('missionnaire_myMissions'),  desc: t('myMissions_desc') },
+      { href: '/mes-contrats',      Icon: FileText,   label: 'Mes contrats',                desc: 'Consulter et signer vos contrats' },
     ],
   }
 }
