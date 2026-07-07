@@ -36,6 +36,7 @@ export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, s
     { href: '/demandes', label: t('payments'), match: ['/demandes'] },
     { href: '/conges', label: t('leaves'), match: ['/conges'] },
     { href: '/signatures', label: t('signatures'), match: ['/signatures'] },
+    { href: '/mes-contrats', label: t('contracts'), match: ['/mes-contrats'] },
   ]
 
   const mainTabs = [
