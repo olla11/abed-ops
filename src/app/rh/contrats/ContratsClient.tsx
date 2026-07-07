@@ -123,7 +123,15 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
   const [wfAction, setWfAction] = useState<string>('')
   const [wfSignataireId, setWfSignataireId] = useState('')
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null)
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+
+  function toggleMenu(id: string, e: React.MouseEvent<HTMLButtonElement>) {
+    if (menuOpenId === id) { setMenuOpenId(null); return }
+    const rect = e.currentTarget.getBoundingClientRect()
+    setMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right })
+    setMenuOpenId(id)
+  }
 
   useEffect(() => {
     if (!menuOpenId) return
@@ -411,9 +419,9 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
                       ) : <span style={{ color: '#9ca3af', fontSize: 11 }}>—</span>}
                     </td>
                     <td style={{ padding: '10px 12px', textAlign: 'right' }}>
-                      <div style={{ position: 'relative', display: 'inline-block' }} ref={menuOpenId === c.id ? menuRef : undefined}>
+                      <div style={{ position: 'relative', display: 'inline-block' }}>
                         <button
-                          onClick={() => setMenuOpenId(o => o === c.id ? null : c.id)}
+                          onClick={(e) => toggleMenu(c.id, e)}
                           title="Actions"
                           style={{
                             width: 30, height: 30, borderRadius: 6, cursor: 'pointer',
@@ -423,9 +431,9 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
                           }}>
                           ⋮
                         </button>
-                        {menuOpenId === c.id && (
-                          <div style={{
-                            position: 'absolute', right: 0, top: 'calc(100% + 4px)', zIndex: 50,
+                        {menuOpenId === c.id && menuPos && (
+                          <div ref={menuRef} style={{
+                            position: 'fixed', top: menuPos.top, right: menuPos.right, zIndex: 500,
                             background: 'white', border: '1px solid var(--abed-border)', borderRadius: 8,
                             boxShadow: '0 8px 24px rgba(0,0,0,.14)', minWidth: 210, overflow: 'hidden',
                             display: 'flex', flexDirection: 'column', textAlign: 'left',
