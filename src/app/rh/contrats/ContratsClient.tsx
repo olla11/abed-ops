@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Pagination, { paginate } from '@/components/Pagination'
 
 type Article = { titre: string; contenu: string }
@@ -122,6 +122,17 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
   const [wfTarget, setWfTarget] = useState<Contrat | null>(null)
   const [wfAction, setWfAction] = useState<string>('')
   const [wfSignataireId, setWfSignataireId] = useState('')
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!menuOpenId) return
+    function handle(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpenId(null)
+    }
+    document.addEventListener('mousedown', handle)
+    return () => document.removeEventListener('mousedown', handle)
+  }, [menuOpenId])
 
   const filtered = contrats.filter(c => {
     const q = search.toLowerCase()
@@ -399,61 +410,78 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
                         </span>
                       ) : <span style={{ color: '#9ca3af', fontSize: 11 }}>—</span>}
                     </td>
-                    <td style={{ padding: '10px 12px' }}>
-                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                        <a href={`/api/contrat-pdf/${c.id}`} target="_blank" rel="noreferrer"
-                          style={{ padding: '4px 10px', fontSize: 11, borderRadius: 6, background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1d4ed8', textDecoration: 'none', whiteSpace: 'nowrap' }}>
-                          📄 Voir
-                        </a>
-                        {c.statut === 'actif' && (
-                          <>
-                            <button onClick={() => openEdit(c)}
-                              style={{ padding: '4px 10px', fontSize: 11, cursor: 'pointer', borderRadius: 6, background: 'white', border: '1px solid var(--abed-border)', color: '#374151', whiteSpace: 'nowrap' }}>
-                              ✏️ Modifier
-                            </button>
-                            <button onClick={() => openComment(c)}
-                              style={{ padding: '4px 10px', fontSize: 11, cursor: 'pointer', borderRadius: 6, background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#166534', whiteSpace: 'nowrap' }}
-                              title={c.commentaires_rh ? c.commentaires_rh : 'Ajouter une note RH'}>
-                              💬 {c.commentaires_rh ? '✓' : '+'} Note
-                            </button>
-                            <button onClick={() => { setResilierTarget(c); setMotif(''); setErr(null) }}
-                              style={{ padding: '4px 10px', fontSize: 11, cursor: 'pointer', borderRadius: 6, background: '#fff5f5', border: '1px solid #fecaca', color: '#dc2626', whiteSpace: 'nowrap' }}>
-                              Résilier
-                            </button>
-                            {/* Boutons workflow */}
-                            {c.workflow_statut === 'signe_employe' && (
-                              <button onClick={() => { setWfTarget(c); setWfAction('envoyer_signataire'); setWfSignataireId(c.signataire_id ?? ''); setErr(null) }}
-                                style={{ padding: '4px 10px', fontSize: 11, cursor: 'pointer', borderRadius: 6, background: '#ede9fe', border: '1px solid #c4b5fd', color: '#6d28d9', whiteSpace: 'nowrap', fontWeight: 700 }}>
-                                📨 → Signataire
+                    <td style={{ padding: '10px 12px', textAlign: 'right' }}>
+                      <div style={{ position: 'relative', display: 'inline-block' }} ref={menuOpenId === c.id ? menuRef : undefined}>
+                        <button
+                          onClick={() => setMenuOpenId(o => o === c.id ? null : c.id)}
+                          title="Actions"
+                          style={{
+                            width: 30, height: 30, borderRadius: 6, cursor: 'pointer',
+                            background: menuOpenId === c.id ? '#f0fdf4' : 'white',
+                            border: '1px solid ' + (menuOpenId === c.id ? 'var(--abed-green)' : 'var(--abed-border)'),
+                            color: '#374151', fontSize: 16, lineHeight: 1,
+                          }}>
+                          ⋮
+                        </button>
+                        {menuOpenId === c.id && (
+                          <div style={{
+                            position: 'absolute', right: 0, top: 'calc(100% + 4px)', zIndex: 50,
+                            background: 'white', border: '1px solid var(--abed-border)', borderRadius: 8,
+                            boxShadow: '0 8px 24px rgba(0,0,0,.14)', minWidth: 210, overflow: 'hidden',
+                            display: 'flex', flexDirection: 'column', textAlign: 'left',
+                          }}>
+                            <a href={`/api/contrat-pdf/${c.id}`} target="_blank" rel="noreferrer" onClick={() => setMenuOpenId(null)}
+                              style={{ padding: '9px 14px', fontSize: 12.5, color: '#1d4ed8', textDecoration: 'none', borderBottom: '1px solid #f3f4f6' }}>
+                              📄 Voir le PDF
+                            </a>
+                            {c.statut === 'actif' && (
+                              <>
+                                <button onClick={() => { openEdit(c); setMenuOpenId(null) }}
+                                  style={{ padding: '9px 14px', fontSize: 12.5, cursor: 'pointer', background: 'white', border: 'none', borderBottom: '1px solid #f3f4f6', color: '#374151', textAlign: 'left' }}>
+                                  ✏️ Modifier
+                                </button>
+                                <button onClick={() => { openComment(c); setMenuOpenId(null) }}
+                                  style={{ padding: '9px 14px', fontSize: 12.5, cursor: 'pointer', background: 'white', border: 'none', borderBottom: '1px solid #f3f4f6', color: '#166534', textAlign: 'left' }}>
+                                  💬 {c.commentaires_rh ? 'Note (✓ existante)' : 'Ajouter une note'}
+                                </button>
+                                {c.workflow_statut === 'signe_employe' && (
+                                  <button onClick={() => { setWfTarget(c); setWfAction('envoyer_signataire'); setWfSignataireId(c.signataire_id ?? ''); setErr(null); setMenuOpenId(null) }}
+                                    style={{ padding: '9px 14px', fontSize: 12.5, cursor: 'pointer', background: 'white', border: 'none', borderBottom: '1px solid #f3f4f6', color: '#6d28d9', fontWeight: 700, textAlign: 'left' }}>
+                                    📨 Envoyer au signataire
+                                  </button>
+                                )}
+                                {c.workflow_statut === 'signe_signataire' && (
+                                  <button onClick={() => { setWfTarget(c); setWfAction('finaliser'); setErr(null); setMenuOpenId(null) }}
+                                    style={{ padding: '9px 14px', fontSize: 12.5, cursor: 'pointer', background: 'white', border: 'none', borderBottom: '1px solid #f3f4f6', color: '#166534', fontWeight: 700, textAlign: 'left' }}>
+                                    🎉 Finaliser
+                                  </button>
+                                )}
+                                {['envoye_employe','signe_employe','envoye_signataire','signe_signataire'].includes(c.workflow_statut ?? '') && (
+                                  <button onClick={() => { setWfTarget(c); setWfAction('renvoyer_employe'); setErr(null); setMenuOpenId(null) }}
+                                    style={{ padding: '9px 14px', fontSize: 12.5, cursor: 'pointer', background: 'white', border: 'none', borderBottom: '1px solid #f3f4f6', color: '#b45309', textAlign: 'left' }}>
+                                    🔄 Renvoyer à l'employé
+                                  </button>
+                                )}
+                                <button onClick={() => { setResilierTarget(c); setMotif(''); setErr(null); setMenuOpenId(null) }}
+                                  style={{ padding: '9px 14px', fontSize: 12.5, cursor: 'pointer', background: 'white', border: 'none', borderBottom: '1px solid #f3f4f6', color: '#dc2626', textAlign: 'left' }}>
+                                  ⛔ Résilier
+                                </button>
+                              </>
+                            )}
+                            {c.statut !== 'actif' && (
+                              <button onClick={() => { setRenewTarget(c); setForm({}); setErr(null); setMenuOpenId(null) }}
+                                style={{ padding: '9px 14px', fontSize: 12.5, cursor: 'pointer', background: 'white', border: 'none', borderBottom: '1px solid #f3f4f6', color: '#374151', textAlign: 'left' }}>
+                                🔁 Renouveler
                               </button>
                             )}
-                            {c.workflow_statut === 'signe_signataire' && (
-                              <button onClick={() => { setWfTarget(c); setWfAction('finaliser'); setErr(null) }}
-                                style={{ padding: '4px 10px', fontSize: 11, cursor: 'pointer', borderRadius: 6, background: '#dcfce7', border: '1px solid #86efac', color: '#166534', whiteSpace: 'nowrap', fontWeight: 700 }}>
-                                🎉 Finaliser
-                              </button>
-                            )}
-                            {['envoye_employe','signe_employe','envoye_signataire','signe_signataire'].includes(c.workflow_statut ?? '') && (
-                              <button onClick={() => { setWfTarget(c); setWfAction('renvoyer_employe'); setErr(null) }}
-                                style={{ padding: '4px 10px', fontSize: 11, cursor: 'pointer', borderRadius: 6, background: '#fef3c7', border: '1px solid #fde68a', color: '#b45309', whiteSpace: 'nowrap' }}
-                                title="Renvoyer à l'employé pour re-signature">
-                                🔄 Renvoyer
-                              </button>
-                            )}
-                          </>
+                            {(() => {
+                              const step = deleteStep[c.id] ?? 1
+                              if (step === 1) return <button data-delete-btn onClick={() => advanceDeleteStep(c.id)} style={{ padding: '9px 14px', fontSize: 12.5, cursor: 'pointer', background: 'white', border: 'none', color: '#6b7280', textAlign: 'left' }}>🗑 Supprimer</button>
+                              if (step === 2) return <button data-delete-btn onClick={() => advanceDeleteStep(c.id)} style={{ padding: '9px 14px', fontSize: 12.5, cursor: 'pointer', background: '#fff7ed', border: 'none', color: '#c2410c', fontWeight: 700, textAlign: 'left' }}>Confirmer la suppression ?</button>
+                              return <button data-delete-btn onClick={() => deleteContrat(c.id)} style={{ padding: '9px 14px', fontSize: 12.5, cursor: 'pointer', background: '#dc2626', border: 'none', color: 'white', fontWeight: 700, textAlign: 'left' }}>SUPPRIMER définitivement</button>
+                            })()}
+                          </div>
                         )}
-                        {c.statut !== 'actif' && (
-                          <button onClick={() => { setRenewTarget(c); setForm({}); setErr(null) }}
-                            style={{ padding: '4px 10px', fontSize: 11, cursor: 'pointer', borderRadius: 6, background: 'white', border: '1px solid var(--abed-border)', color: '#374151', whiteSpace: 'nowrap' }}>
-                            Renouveler
-                          </button>
-                        )}
-                        {(() => {
-                          const step = deleteStep[c.id] ?? 1
-                          if (step === 1) return <button data-delete-btn onClick={() => advanceDeleteStep(c.id)} style={{ padding: '4px 10px', fontSize: 11, cursor: 'pointer', borderRadius: 6, background: 'white', border: '1px solid #e5e7eb', color: '#6b7280' }}>🗑</button>
-                          if (step === 2) return <button data-delete-btn onClick={() => advanceDeleteStep(c.id)} style={{ padding: '4px 10px', fontSize: 11, cursor: 'pointer', borderRadius: 6, background: '#fff7ed', border: '1px solid #fed7aa', color: '#c2410c', fontWeight: 700, whiteSpace: 'nowrap' }}>Confirmer ?</button>
-                          return <button data-delete-btn onClick={() => deleteContrat(c.id)} style={{ padding: '4px 10px', fontSize: 11, cursor: 'pointer', borderRadius: 6, background: '#dc2626', border: 'none', color: 'white', fontWeight: 700, whiteSpace: 'nowrap' }}>SUPPRIMER</button>
-                        })()}
                       </div>
                     </td>
                   </tr>
