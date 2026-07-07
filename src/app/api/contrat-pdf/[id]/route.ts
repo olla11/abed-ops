@@ -27,6 +27,7 @@ export async function GET(
   const p = contrat.profile as any
   const isDE = p?.role === 'de'
   const categorie = contrat.categorie_document ?? 'Contrat'
+  const representantEmployeur = isDE ? "Président du Conseil d'Administration" : 'Directeur Exécutif'
   const sigLeft = isDE ? "Le Président du Conseil d'Administration" : "Le Directeur Exécutif"
   const sigRight = `${p?.civilite ?? ''} ${p?.prenoms ?? ''} ${p?.nom ?? ''}`
   const dateDebut = contrat.date_debut ? new Date(contrat.date_debut).toLocaleDateString('fr-FR') : '—'
@@ -62,9 +63,12 @@ export async function GET(
     body { font-family: 'Times New Roman', serif; font-size: 12pt; color: #111; background: #fff; padding: 48px 56px; max-width: 820px; margin: 0 auto; }
     .no-print { text-align: center; margin-bottom: 24px; }
     .no-print button { padding: 10px 24px; background: #16a34a; color: white; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; font-family: sans-serif; }
-    .header { text-align: center; border-bottom: 3px double #16a34a; padding-bottom: 16px; margin-bottom: 24px; }
-    .header .org-name { font-size: 20pt; font-weight: bold; text-transform: uppercase; letter-spacing: 3px; color: #15803d; }
-    .header .org-sub { font-size: 9pt; color: #555; margin-top: 2px; }
+    .header { display: flex; align-items: center; gap: 16px; border-bottom: 3px double #16a34a; padding-bottom: 16px; margin-bottom: 24px; }
+    .header img { height: 72px; width: auto; flex-shrink: 0; }
+    .header .org-text { flex: 1; text-align: center; }
+    .header .org-name { font-size: 12.5pt; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; color: #111; }
+    .header .org-acronym { font-size: 13pt; font-weight: bold; margin-top: 2px; }
+    .header .org-sub { font-size: 8.5pt; color: #555; margin-top: 3px; line-height: 1.5; }
     .doc-title { text-align: center; margin: 20px 0 8px; }
     .doc-title h1 { font-size: 15pt; text-transform: uppercase; letter-spacing: 2px; border: 2px solid #111; display: inline-block; padding: 6px 24px; }
     .doc-ref { text-align: center; font-size: 10pt; color: #555; margin-bottom: 28px; }
@@ -94,8 +98,16 @@ export async function GET(
   </div>
 
   <div class="header">
-    <div class="org-name">ABED ONG</div>
-    <div class="org-sub">Association Béninoise pour l'Environnement et le Développement · Parakou, Bénin</div>
+    <img src="/logoabed2.png" alt="Logo ABED" />
+    <div class="org-text">
+      <div class="org-name">Agriculture pour le Bien-être et le Développement Durable</div>
+      <div class="org-acronym">(ABED-ONG)</div>
+      <div class="org-sub">
+        Enregistrée sous le N° 2019-4/0008 /PDB/SG/SAG du 16 Janvier 2019<br>
+        Parakou – Bénin &nbsp;·&nbsp; Tél. : +229 0167779141<br>
+        Email : contact@abedong.org &nbsp;|&nbsp; abedcontactpk@gmail.com
+      </div>
+    </div>
   </div>
 
   <div class="doc-title">
@@ -118,7 +130,7 @@ export async function GET(
         <div class="party-head">L'Employeur</div>
         <div class="party-body">
           <strong>ABED ONG</strong><br>
-          Représentée par son Directeur Exécutif<br>
+          Représentée par son ${representantEmployeur}<br>
           Parakou, Bénin<br>
           ci-après dénommée <em>« l'Employeur »</em>
         </div>
