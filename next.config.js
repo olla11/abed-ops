@@ -55,6 +55,7 @@ module.exports = withNextIntl({
   typescript: { ignoreBuildErrors: true },
   outputFileTracingIncludes: {
     '/api/aga/chat': ['./knowledge/**'],
+    '/api/aga/reindex': ['./knowledge/**'],
     '/api/signatures/*/sign': ['./public/fonts/**'],
   },
   async headers() {

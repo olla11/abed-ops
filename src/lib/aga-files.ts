@@ -19,6 +19,12 @@ async function extractText(filePath: string): Promise<string> {
   if (ext === '.txt' || ext === '.md') {
     return readFile(filePath, 'utf-8')
   }
+  if (ext === '.docx') {
+    const mammoth = (await import('mammoth')).default
+    const buf = await readFile(filePath)
+    const { value } = await mammoth.extractRawText({ buffer: buf })
+    return value
+  }
   return ''
 }
 
@@ -33,7 +39,7 @@ export async function loadKnowledgeFilesRaw(): Promise<{ name: string; text: str
 
   const files: { name: string; text: string }[] = []
   for (const name of entries) {
-    if (!/\.(pdf|txt|md)$/i.test(name)) continue
+    if (!/\.(pdf|txt|md|docx)$/i.test(name)) continue
     try {
       const raw = (await extractText(path.join(KNOWLEDGE_DIR, name))).trim()
       if (raw) files.push({ name, text: raw })
@@ -58,7 +64,7 @@ export async function loadKnowledgeFiles(): Promise<string> {
   let total = 0
 
   for (const name of entries) {
-    if (!/\.(pdf|txt|md)$/i.test(name)) continue
+    if (!/\.(pdf|txt|md|docx)$/i.test(name)) continue
     if (total >= MAX_TOTAL_CHARS) break
     try {
       const raw = (await extractText(path.join(KNOWLEDGE_DIR, name))).trim()

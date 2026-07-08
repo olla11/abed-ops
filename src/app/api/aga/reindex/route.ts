@@ -3,6 +3,9 @@ import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { loadKnowledgeFilesRaw } from '@/lib/aga-files'
 import { chunkText, embedText } from '@/lib/aga-embeddings'
 
+export const maxDuration = 300
+const BATCH_SIZE = 8
+
 export async function POST() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -33,26 +36,30 @@ export async function POST() {
 
   for (const file of files) {
     const chunks = chunkText(file.text)
-    for (let i = 0; i < chunks.length; i++) {
-      const result = await embedText(chunks[i], apiKey)
-      if ('error' in result) {
-        failedChunks++
-        if (!firstError) firstError = result.error
-        continue
-      }
-      const { error: insertErr } = await admin.from('aga_chunks').insert({
-        source: file.name,
-        chunk_index: i,
-        content: chunks[i],
-        embedding: result.embedding,
+    for (let start = 0; start < chunks.length; start += BATCH_SIZE) {
+      const batch = chunks.slice(start, start + BATCH_SIZE)
+      const results = await Promise.all(batch.map(chunk => embedText(chunk, apiKey)))
+
+      const rows: { source: string; chunk_index: number; content: string; embedding: number[] }[] = []
+      results.forEach((result, j) => {
+        if ('error' in result) {
+          failedChunks++
+          if (!firstError) firstError = result.error
+          return
+        }
+        rows.push({ source: file.name, chunk_index: start + j, content: batch[j], embedding: result.embedding })
       })
-      if (insertErr) {
-        console.error('[aga/reindex] insert error:', insertErr)
-        failedChunks++
-        if (!firstError) firstError = insertErr.message
-        continue
+
+      if (rows.length > 0) {
+        const { error: insertErr } = await admin.from('aga_chunks').insert(rows)
+        if (insertErr) {
+          console.error('[aga/reindex] insert error:', insertErr)
+          failedChunks += rows.length
+          if (!firstError) firstError = insertErr.message
+        } else {
+          totalChunks += rows.length
+        }
       }
-      totalChunks++
     }
   }
 
