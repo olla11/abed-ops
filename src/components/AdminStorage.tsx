@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 
 function AgaReindexSection() {
   const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState<{ files: string[]; totalChunks: number; failedChunks: number } | null>(null)
+  const [result, setResult] = useState<{ files: string[]; totalChunks: number; failedChunks: number; firstError?: string | null } | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   async function reindex() {
@@ -34,6 +34,11 @@ function AgaReindexSection() {
         <p style={{ fontSize: 13, color: '#166534', marginTop: 8 }}>
           ✓ {result.files.length} fichier(s) indexé(s) ({result.totalChunks} passages
           {result.failedChunks > 0 ? `, ${result.failedChunks} échec(s)` : ''}) : {result.files.join(', ')}
+        </p>
+      )}
+      {result?.firstError && (
+        <p style={{ fontSize: 12, color: '#991b1b', marginTop: 4, fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>
+          Détail du premier échec : {result.firstError}
         </p>
       )}
     </div>

@@ -29,19 +29,29 @@ export async function POST() {
 
   let totalChunks = 0
   let failedChunks = 0
+  let firstError: string | null = null
 
   for (const file of files) {
     const chunks = chunkText(file.text)
     for (let i = 0; i < chunks.length; i++) {
-      const embedding = await embedText(chunks[i], apiKey)
-      if (!embedding) { failedChunks++; continue }
+      const result = await embedText(chunks[i], apiKey)
+      if ('error' in result) {
+        failedChunks++
+        if (!firstError) firstError = result.error
+        continue
+      }
       const { error: insertErr } = await admin.from('aga_chunks').insert({
         source: file.name,
         chunk_index: i,
         content: chunks[i],
-        embedding,
+        embedding: result.embedding,
       })
-      if (insertErr) { console.error('[aga/reindex] insert error:', insertErr); failedChunks++; continue }
+      if (insertErr) {
+        console.error('[aga/reindex] insert error:', insertErr)
+        failedChunks++
+        if (!firstError) firstError = insertErr.message
+        continue
+      }
       totalChunks++
     }
   }
@@ -51,5 +61,6 @@ export async function POST() {
     files: files.map(f => f.name),
     totalChunks,
     failedChunks,
+    firstError,
   })
 }

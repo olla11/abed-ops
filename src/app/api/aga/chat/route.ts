@@ -8,11 +8,14 @@ import { embedText } from '@/lib/aga-embeddings'
 // d'injecter tout le contenu de knowledge/ à chaque requête. Repli sur l'ancien
 // comportement (injection brute) si la base vectorielle n'est pas encore indexée.
 async function getRelevantContext(question: string, apiKey: string): Promise<string | null> {
-  const embedding = await embedText(question, apiKey)
-  if (!embedding) return null
+  const result = await embedText(question, apiKey)
+  if ('error' in result) {
+    console.error('[aga/chat] embedText error:', result.error)
+    return null
+  }
 
   const admin = createAdminClient()
-  const { data, error } = await admin.rpc('match_aga_chunks', { query_embedding: embedding, match_count: 6 })
+  const { data, error } = await admin.rpc('match_aga_chunks', { query_embedding: result.embedding, match_count: 6 })
   if (error) {
     console.error('[aga/chat] match_aga_chunks error:', error)
     return null

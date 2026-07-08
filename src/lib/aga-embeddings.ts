@@ -17,7 +17,9 @@ export function chunkText(text: string, chunkSize = 800, overlap = 100): string[
   return chunks
 }
 
-export async function embedText(text: string, apiKey: string): Promise<number[] | null> {
+export type EmbedResult = { embedding: number[] } | { error: string }
+
+export async function embedText(text: string, apiKey: string): Promise<EmbedResult> {
   try {
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/${EMBEDDING_MODEL}:embedContent?key=${apiKey}`,
@@ -31,14 +33,16 @@ export async function embedText(text: string, apiKey: string): Promise<number[] 
       }
     )
     if (!res.ok) {
-      console.error('[aga-embeddings] embedContent error:', res.status, await res.text().catch(() => ''))
-      return null
+      const body = await res.text().catch(() => '')
+      console.error('[aga-embeddings] embedContent error:', res.status, body)
+      return { error: `HTTP ${res.status} — ${body.slice(0, 300)}` }
     }
     const data = await res.json()
     const values = data?.embedding?.values
-    return Array.isArray(values) ? values : null
+    if (!Array.isArray(values)) return { error: `Réponse inattendue: ${JSON.stringify(data).slice(0, 300)}` }
+    return { embedding: values }
   } catch (e) {
     console.error('[aga-embeddings] network error:', e)
-    return null
+    return { error: e instanceof Error ? e.message : String(e) }
   }
 }
