@@ -307,7 +307,7 @@ export default function SignaturesClient({ userId, mesDemandesASign: initialASig
                 border: '1px solid var(--abed-border)', borderRadius: 8, maxHeight: 200, overflowY: 'auto',
                 background: '#fafafa',
               }}>
-                {profiles.filter(p => p.id !== userId).map(p => {
+                {[...profiles].sort((a, b) => (a.id === userId ? -1 : b.id === userId ? 1 : 0)).map(p => {
                   const selected = selectedSignataires.includes(p.id)
                   return (
                     <label
@@ -327,7 +327,7 @@ export default function SignaturesClient({ userId, mesDemandesASign: initialASig
                         style={{ accentColor: 'var(--abed-green)', width: 15, height: 15, flexShrink: 0 }}
                       />
                       <span style={{ fontWeight: selected ? 600 : 400, color: selected ? 'var(--abed-green)' : '#374151' }}>
-                        {p.prenoms} {p.nom}
+                        {p.prenoms} {p.nom}{p.id === userId ? ' (Moi-même)' : ''}
                       </span>
                       {p.role && (
                         <span style={{ fontSize: 11, color: '#9ca3af', marginLeft: 'auto' }}>{p.role}</span>
