@@ -32,6 +32,11 @@ function dureeMois(debut: string | null | undefined, fin: string | null | undefi
   return months > 0 ? `${months} mois` : ''
 }
 
+// Les prestataires sont payés à l'heure (taux CAF), pas sur un salaire fixe mensuel
+function isPrestataireType(typeContrat: string | null | undefined): boolean {
+  return (typeContrat ?? '').toLowerCase().includes('prestataire')
+}
+
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -232,7 +237,7 @@ export async function GET(
     ${contrat.direction ? `<div class="row"><span class="label">Direction :</span><span class="value">${contrat.direction}</span></div>` : ''}
     <div class="row"><span class="label">Date de prise d'effet :</span><span class="value">${dateDebut}</span></div>
     <div class="row"><span class="label">Date d'échéance :</span><span class="value">${dateFin}</span></div>
-    ${contrat.salaire_brut ? `<div class="row"><span class="label">Rémunération brute :</span><span class="value">${Number(contrat.salaire_brut).toLocaleString('fr-FR')} FCFA / mois</span></div>` : ''}
+    ${contrat.salaire_brut ? `<div class="row"><span class="label">${isPrestataireType(contrat.type_contrat) ? 'Taux horaire (CAF)' : 'Rémunération brute'} :</span><span class="value">${Number(contrat.salaire_brut).toLocaleString('fr-FR')} FCFA${isPrestataireType(contrat.type_contrat) ? ' / heure' : ' / mois'}</span></div>` : ''}
     ${contrat.observations ? `<div class="row"><span class="label">Observations :</span><span class="value">${contrat.observations}</span></div>` : ''}
   </div>
 

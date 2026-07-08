@@ -127,6 +127,19 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null)
   const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+  const [tauxCaf, setTauxCaf] = useState<{ direct: number; credit: number } | null>(null)
+
+  useEffect(() => {
+    fetch('/api/config/taux').then(r => r.json()).then(d => setTauxCaf({ direct: d.taux_direct, credit: d.taux_credit })).catch(() => {})
+  }, [])
+
+  function tauxPourType(type: string | undefined, taux: { direct: number; credit: number } | null): number | null {
+    if (!taux) return null
+    const t = (type ?? '').toLowerCase()
+    if (t.includes('crédit')) return taux.credit
+    if (t.includes('prestataire')) return taux.direct
+    return null
+  }
 
   function toggleMenu(id: string, e: React.MouseEvent<HTMLButtonElement>) {
     if (menuOpenId === id) { setMenuOpenId(null); return }
@@ -320,7 +333,11 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
       )}
       <div style={{ marginBottom: 12 }}>
         <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Type *</label>
-        <select value={form.type_contrat ?? ''} onChange={e => setForm((f: any) => ({ ...f, type_contrat: e.target.value }))} style={inputStyle}>
+        <select value={form.type_contrat ?? ''} onChange={e => {
+          const val = e.target.value
+          const taux = tauxPourType(val, tauxCaf)
+          setForm((f: any) => ({ ...f, type_contrat: val, salaire_brut: taux != null ? taux : f.salaire_brut }))
+        }} style={inputStyle}>
           <option value="">— Choisir —</option>
           {TYPES.map(o => <option key={o} value={o}>{o}</option>)}
         </select>
@@ -354,12 +371,24 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
           <input type="date" value={form.date_fin ?? ''} onChange={e => setForm((f: any) => ({ ...f, date_fin: e.target.value }))} style={inputStyle} />
         </div>
       </div>
-      <div style={{ marginBottom: 12 }}>
-        <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>
-          {categorie === 'Offre de stage' ? 'Allocation mensuelle (FCFA)' : 'Salaire brut (FCFA)'}
-        </label>
-        <input type="number" value={form.salaire_brut ?? ''} onChange={e => setForm((f: any) => ({ ...f, salaire_brut: e.target.value }))} style={inputStyle} />
-      </div>
+      {(form.type_contrat ?? '').toLowerCase().includes('prestataire') ? (
+        <div style={{ marginBottom: 12 }}>
+          <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Taux horaire (défini par la CAF)</label>
+          <div style={{ ...inputStyle, background: '#f9fafb', color: '#374151', display: 'flex', alignItems: 'center' }}>
+            {form.salaire_brut ? `${Number(form.salaire_brut).toLocaleString('fr-FR')} FCFA / heure` : 'Chargement du taux en vigueur...'}
+          </div>
+          <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>
+            Ce prestataire est payé à l'heure sur la base des feuilles de temps soumises, au taux en vigueur (réglable dans RH → Configuration financière), et non sur un salaire fixe.
+          </p>
+        </div>
+      ) : (
+        <div style={{ marginBottom: 12 }}>
+          <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>
+            {categorie === 'Offre de stage' ? 'Allocation mensuelle (FCFA)' : 'Salaire brut (FCFA)'}
+          </label>
+          <input type="number" value={form.salaire_brut ?? ''} onChange={e => setForm((f: any) => ({ ...f, salaire_brut: e.target.value }))} style={inputStyle} />
+        </div>
+      )}
       <div style={{ marginBottom: 16 }}>
         <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Note RH (interne)</label>
         <textarea value={form.commentaires_rh ?? ''} onChange={e => setForm((f: any) => ({ ...f, commentaires_rh: e.target.value }))} rows={2} placeholder="Observations internes RH..." style={{ ...inputStyle, resize: 'vertical' }} />
