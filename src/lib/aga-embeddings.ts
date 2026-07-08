@@ -39,7 +39,9 @@ export function chunkText(text: string, chunkSize = 800, overlap = 100): string[
 
 export type EmbedResult = { embedding: number[] } | { error: string }
 
-export async function embedText(text: string, apiKey: string): Promise<EmbedResult> {
+function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)) }
+
+export async function embedText(text: string, apiKey: string, attempt = 0): Promise<EmbedResult> {
   const model = await getEmbeddingModel(apiKey)
   if (!model) return { error: 'Aucun modèle Gemini supportant embedContent trouvé sur cette clé API.' }
 
@@ -58,6 +60,11 @@ export async function embedText(text: string, apiKey: string): Promise<EmbedResu
     )
     if (!res.ok) {
       const body = await res.text().catch(() => '')
+      // 429 = quota/rate-limit — on retente avec un backoff avant d'abandonner
+      if (res.status === 429 && attempt < 4) {
+        await sleep(2000 * Math.pow(2, attempt))
+        return embedText(text, apiKey, attempt + 1)
+      }
       console.error('[aga-embeddings] embedContent error:', res.status, body)
       return { error: `HTTP ${res.status} — ${body.slice(0, 300)}` }
     }

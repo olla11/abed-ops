@@ -4,7 +4,10 @@ import { loadKnowledgeFilesRaw } from '@/lib/aga-files'
 import { chunkText, embedText } from '@/lib/aga-embeddings'
 
 export const maxDuration = 300
-const BATCH_SIZE = 8
+const BATCH_SIZE = 3
+const PAUSE_BETWEEN_BATCHES_MS = 800
+
+function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)) }
 
 export async function POST() {
   const supabase = await createClient()
@@ -60,6 +63,8 @@ export async function POST() {
           totalChunks += rows.length
         }
       }
+
+      if (start + BATCH_SIZE < chunks.length) await sleep(PAUSE_BETWEEN_BATCHES_MS)
     }
   }
 
