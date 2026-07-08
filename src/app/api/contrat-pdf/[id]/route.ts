@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
 
+// Rendu "manuscrit" de la signature : premier prénom seulement, tout en minuscules
+function formatSignatureName(prenoms: string | null | undefined, nom: string | null | undefined): string {
+  const premierPrenom = (prenoms ?? '').trim().split(/\s+/)[0] ?? ''
+  const n = (nom ?? '').trim()
+  return `${premierPrenom} ${n}`.toLowerCase().trim()
+}
+
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -51,7 +58,7 @@ export async function GET(
       .single()
     if (sigRow?.signe) {
       const sp = sigRow.profile as any
-      signataireNom = `${sp?.prenoms ?? ''} ${sp?.nom ?? ''}`.trim()
+      signataireNom = formatSignatureName(sp?.prenoms, sp?.nom)
       signataireSigneLe = sigRow.signe_le ? new Date(sigRow.signe_le).toLocaleDateString('fr-FR') : null
     }
   }
@@ -133,6 +140,7 @@ export async function GET(
         Email : contact@abedong.org &nbsp;|&nbsp; abedcontactpk@gmail.com
       </div>
     </div>
+    <img src="/logoabed2.png" alt="Logo ABED" />
   </div>
 
   <div class="doc-title">
@@ -205,7 +213,7 @@ export async function GET(
     <div class="sig">
       <div class="sig-role">${sigRight}</div>
       ${employeSigneLe ? `
-        <div class="sig-name">${p?.prenoms ?? ''} ${p?.nom ?? ''}</div>
+        <div class="sig-name">${formatSignatureName(p?.prenoms, p?.nom)}</div>
         <div class="sig-stamp">✓ Signé électroniquement le ${employeSigneLe}</div>
       ` : `<div class="sig-line">En attente de signature</div>`}
     </div>

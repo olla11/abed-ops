@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
+import { FileText, Pencil, MessageSquare, Send, PartyPopper, RotateCcw, Ban, RefreshCw, Trash2 } from 'lucide-react'
 import Pagination, { paginate } from '@/components/Pagination'
 
 type Article = { titre: string; contenu: string }
@@ -439,52 +440,52 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
                             display: 'flex', flexDirection: 'column', textAlign: 'left',
                           }}>
                             <a href={`/api/contrat-pdf/${c.id}`} target="_blank" rel="noreferrer" onClick={() => setMenuOpenId(null)}
-                              style={{ padding: '9px 14px', fontSize: 12.5, color: '#1d4ed8', textDecoration: 'none', borderBottom: '1px solid #f3f4f6' }}>
-                              📄 Voir le PDF
+                              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 14px', fontSize: 12.5, color: '#1d4ed8', textDecoration: 'none', borderBottom: '1px solid #f3f4f6' }}>
+                              <FileText size={14} /> Voir le PDF
                             </a>
                             {c.statut === 'actif' && (
                               <>
                                 <button onClick={() => { openEdit(c); setMenuOpenId(null) }}
-                                  style={{ padding: '9px 14px', fontSize: 12.5, cursor: 'pointer', background: 'white', border: 'none', borderBottom: '1px solid #f3f4f6', color: '#374151', textAlign: 'left' }}>
-                                  ✏️ Modifier
+                                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 14px', fontSize: 12.5, cursor: 'pointer', background: 'white', border: 'none', borderBottom: '1px solid #f3f4f6', color: '#374151', textAlign: 'left' }}>
+                                  <Pencil size={14} /> Modifier
                                 </button>
                                 <button onClick={() => { openComment(c); setMenuOpenId(null) }}
-                                  style={{ padding: '9px 14px', fontSize: 12.5, cursor: 'pointer', background: 'white', border: 'none', borderBottom: '1px solid #f3f4f6', color: '#166534', textAlign: 'left' }}>
-                                  💬 {c.commentaires_rh ? 'Note (✓ existante)' : 'Ajouter une note'}
+                                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 14px', fontSize: 12.5, cursor: 'pointer', background: 'white', border: 'none', borderBottom: '1px solid #f3f4f6', color: '#166534', textAlign: 'left' }}>
+                                  <MessageSquare size={14} /> {c.commentaires_rh ? 'Note (✓ existante)' : 'Ajouter une note'}
                                 </button>
                                 {c.workflow_statut === 'signe_employe' && (
                                   <button onClick={() => { setWfTarget(c); setWfAction('envoyer_signataire'); setWfSignataireId(c.signataire_id ?? ''); setErr(null); setMenuOpenId(null) }}
-                                    style={{ padding: '9px 14px', fontSize: 12.5, cursor: 'pointer', background: 'white', border: 'none', borderBottom: '1px solid #f3f4f6', color: '#6d28d9', fontWeight: 700, textAlign: 'left' }}>
-                                    📨 Envoyer au signataire
+                                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 14px', fontSize: 12.5, cursor: 'pointer', background: 'white', border: 'none', borderBottom: '1px solid #f3f4f6', color: '#6d28d9', fontWeight: 700, textAlign: 'left' }}>
+                                    <Send size={14} /> Envoyer au signataire
                                   </button>
                                 )}
                                 {c.workflow_statut === 'signe_signataire' && (
                                   <button onClick={() => { setWfTarget(c); setWfAction('finaliser'); setErr(null); setMenuOpenId(null) }}
-                                    style={{ padding: '9px 14px', fontSize: 12.5, cursor: 'pointer', background: 'white', border: 'none', borderBottom: '1px solid #f3f4f6', color: '#166534', fontWeight: 700, textAlign: 'left' }}>
-                                    🎉 Finaliser
+                                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 14px', fontSize: 12.5, cursor: 'pointer', background: 'white', border: 'none', borderBottom: '1px solid #f3f4f6', color: '#166534', fontWeight: 700, textAlign: 'left' }}>
+                                    <PartyPopper size={14} /> Finaliser
                                   </button>
                                 )}
                                 {['envoye_employe','signe_employe','envoye_signataire','signe_signataire'].includes(c.workflow_statut ?? '') && (
                                   <button onClick={() => { setWfTarget(c); setWfAction('renvoyer_employe'); setErr(null); setMenuOpenId(null) }}
-                                    style={{ padding: '9px 14px', fontSize: 12.5, cursor: 'pointer', background: 'white', border: 'none', borderBottom: '1px solid #f3f4f6', color: '#b45309', textAlign: 'left' }}>
-                                    🔄 Renvoyer à l'employé
+                                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 14px', fontSize: 12.5, cursor: 'pointer', background: 'white', border: 'none', borderBottom: '1px solid #f3f4f6', color: '#b45309', textAlign: 'left' }}>
+                                    <RotateCcw size={14} /> Renvoyer à l'employé
                                   </button>
                                 )}
                                 <button onClick={() => { setResilierTarget(c); setMotif(''); setErr(null); setMenuOpenId(null) }}
-                                  style={{ padding: '9px 14px', fontSize: 12.5, cursor: 'pointer', background: 'white', border: 'none', borderBottom: '1px solid #f3f4f6', color: '#dc2626', textAlign: 'left' }}>
-                                  ⛔ Résilier
+                                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 14px', fontSize: 12.5, cursor: 'pointer', background: 'white', border: 'none', borderBottom: '1px solid #f3f4f6', color: '#dc2626', textAlign: 'left' }}>
+                                  <Ban size={14} /> Résilier
                                 </button>
                               </>
                             )}
                             {c.statut !== 'actif' && (
                               <button onClick={() => { setRenewTarget(c); setForm({}); setErr(null); setMenuOpenId(null) }}
-                                style={{ padding: '9px 14px', fontSize: 12.5, cursor: 'pointer', background: 'white', border: 'none', borderBottom: '1px solid #f3f4f6', color: '#374151', textAlign: 'left' }}>
-                                🔁 Renouveler
+                                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 14px', fontSize: 12.5, cursor: 'pointer', background: 'white', border: 'none', borderBottom: '1px solid #f3f4f6', color: '#374151', textAlign: 'left' }}>
+                                <RefreshCw size={14} /> Renouveler
                               </button>
                             )}
                             {(() => {
                               const step = deleteStep[c.id] ?? 1
-                              if (step === 1) return <button data-delete-btn onClick={() => advanceDeleteStep(c.id)} style={{ padding: '9px 14px', fontSize: 12.5, cursor: 'pointer', background: 'white', border: 'none', color: '#6b7280', textAlign: 'left' }}>🗑 Supprimer</button>
+                              if (step === 1) return <button data-delete-btn onClick={() => advanceDeleteStep(c.id)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 14px', fontSize: 12.5, cursor: 'pointer', background: 'white', border: 'none', color: '#6b7280', textAlign: 'left' }}><Trash2 size={14} /> Supprimer</button>
                               if (step === 2) return <button data-delete-btn onClick={() => advanceDeleteStep(c.id)} style={{ padding: '9px 14px', fontSize: 12.5, cursor: 'pointer', background: '#fff7ed', border: 'none', color: '#c2410c', fontWeight: 700, textAlign: 'left' }}>Confirmer la suppression ?</button>
                               return <button data-delete-btn onClick={() => deleteContrat(c.id)} style={{ padding: '9px 14px', fontSize: 12.5, cursor: 'pointer', background: '#dc2626', border: 'none', color: 'white', fontWeight: 700, textAlign: 'left' }}>SUPPRIMER définitivement</button>
                             })()}
