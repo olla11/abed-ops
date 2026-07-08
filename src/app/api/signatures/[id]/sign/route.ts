@@ -170,7 +170,8 @@ export async function POST(
 
     // Si lié à un contrat, mettre à jour le workflow
     const { data: contratLie } = await admin.from('contrats')
-      .select('id, workflow_statut').eq('demande_signature_id', demandeId).single()
+      .select('id, workflow_statut, categorie_document, type_contrat, numero, profile_id')
+      .eq('demande_signature_id', demandeId).single()
     if (contratLie && contratLie.workflow_statut === 'envoye_signataire') {
       await admin.from('contrats').update({ workflow_statut: 'signe_signataire' }).eq('id', contratLie.id)
       const { data: rhs } = await admin.from('profiles').select('id').in('role', ['rh', 'admin'])
@@ -182,6 +183,30 @@ export async function POST(
           lien: '/rh/contrats',
         })
         if (notifRhErr) console.error('[Signatures] notif in-app RH (contrat signataire):', notifRhErr)
+      }
+    } else if (contratLie && contratLie.workflow_statut === 'envoye_de') {
+      // Offre de stage : le DE vient de signer → bascule automatique vers le stagiaire
+      await admin.from('contrats').update({ workflow_statut: 'envoye_employe' }).eq('id', contratLie.id)
+      const { data: stagiaire } = await admin.from('profiles').select('email, prenoms, nom, civilite').eq('id', contratLie.profile_id).single()
+      const { error: notifStagiaireErr } = await admin.from('notifications').insert({
+        user_id: contratLie.profile_id,
+        titre: 'Offre de stage à signer',
+        message: `Votre offre de stage (réf. ${contratLie.numero ?? contratLie.id}) est signée par la direction et attend votre signature.`,
+        lien: '/mes-contrats',
+      })
+      if (notifStagiaireErr) console.error('[Signatures] notif in-app stagiaire:', notifStagiaireErr)
+      if (stagiaire?.email) {
+        await sendEmail({
+          to: stagiaire.email,
+          subject: `[My ABED] Votre offre de stage à signer`,
+          html: `<div style="font-family:sans-serif;max-width:560px;margin:0 auto;">
+            <h2 style="color:#16a34a;">ABED ONG — Votre offre de stage</h2>
+            <p>Bonjour ${stagiaire.civilite ?? ''} ${stagiaire.prenoms} ${stagiaire.nom},</p>
+            <p>Votre offre de stage (réf. ${contratLie.numero ?? ''}) a été signée par la direction et est disponible pour votre signature.</p>
+            <a href="${APP_URL}/mes-contrats" style="display:inline-block;background:#16a34a;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold;">Consulter et signer</a>
+            <p style="margin-top:24px;color:#9ca3af;font-size:12px;">ABED-ONG · my.abedong.org</p>
+          </div>`,
+        }).catch(err => console.error('[Signatures] email stagiaire error:', err))
       }
     }
 

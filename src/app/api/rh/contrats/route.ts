@@ -43,6 +43,7 @@ export async function POST(req: NextRequest) {
   }
 
   const categorie = categorie_document || 'Contrat'
+  const isOffreStage = categorie === 'Offre de stage'
 
   const service = createAdminClient()
 
@@ -79,7 +80,7 @@ export async function POST(req: NextRequest) {
     articles: articles || [],
     commentaires_rh: commentaires_rh || null,
     statut: 'actif',
-    workflow_statut: 'envoye_employe',
+    workflow_statut: isOffreStage ? 'envoye_de' : 'envoye_employe',
   }).select('*, profile:profiles!profile_id(id, nom, prenoms, email, role, civilite)').single()
 
   if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 })
@@ -106,17 +107,18 @@ export async function POST(req: NextRequest) {
   }
   const profile = contrat.profile as ProfileRow | null
 
-  // Determine signatory based on employee role
-  let signataireProfile: { id: string; nom: string; prenoms: string } | null = null
+  // Determine signatory based on employee role.
+  // Offre de stage : toujours le DE (il signe en premier, avant le stagiaire).
+  let signataireProfile: { id: string; nom: string; prenoms: string; email?: string | null } | null = null
   if (profile) {
-    const signatoryRole = profile.role === 'de' ? 'administrateur' : 'de'
+    const signatoryRole = isOffreStage ? 'de' : (profile.role === 'de' ? 'administrateur' : 'de')
     const { data: signatories } = await service
       .from('profiles')
-      .select('id, nom, prenoms')
+      .select('id, nom, prenoms, email')
       .eq('role', signatoryRole)
       .limit(1)
     if (signatories && signatories.length > 0) {
-      signataireProfile = signatories[0] as { id: string; nom: string; prenoms: string }
+      signataireProfile = signatories[0] as { id: string; nom: string; prenoms: string; email?: string | null }
     }
   }
 
@@ -145,48 +147,86 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Notification in-app à l'employé
-  const { error: notifError } = await service.from('notifications').insert({
-    user_id: profile_id,
-    titre: `Nouveau ${categorie} établi à votre nom`,
-    message: `${categorie} ${type_contrat} (réf. ${numero}) — Consultez et signez votre document sur My ABED.`,
-    lien: '/mes-contrats',
-  })
-  if (notifError) console.error('[POST /api/rh/contrats] notif in-app employé:', notifError)
-
-  // Send email to employee
-  if (profile?.email) {
-    const civilite = profile.civilite ?? ''
-    try {
-      await sendEmail({
-        to: profile.email,
-        subject: `Votre ${categorie} ${type_contrat} — ABED ONG`,
-        html: `
-          <div style="font-family:sans-serif;max-width:600px;margin:0 auto;">
-            <h2 style="color:#16a34a;">ABED ONG — ${categorie}</h2>
-            <p>Bonjour ${civilite} ${profile.prenoms} ${profile.nom},</p>
-            <p>Un nouveau ${categorie.toLowerCase()} a été établi à votre nom :</p>
-            <ul>
-              <li><strong>Référence :</strong> ${numero}</li>
-              <li><strong>Catégorie :</strong> ${categorie}</li>
-              <li><strong>Type :</strong> ${type_contrat}</li>
-              <li><strong>Poste :</strong> ${poste ?? '—'}</li>
-              <li><strong>Date de début :</strong> ${date_debut}</li>
-              ${date_fin ? `<li><strong>Date de fin :</strong> ${date_fin}</li>` : ''}
-            </ul>
-            <p>Ce document requiert votre signature électronique. Vous pouvez aussi y ajouter des commentaires.</p>
-            <p>
-              <a href="${APP_URL}/signatures"
-                 style="display:inline-block;background:#16a34a;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold;">
-                Accéder aux signatures
-              </a>
-            </p>
-            <p style="color:#6b7280;font-size:12px;">ABED ONG — Système de gestion RH</p>
-          </div>
-        `,
+  if (isOffreStage) {
+    // Offre de stage : le DE signe en premier, le stagiaire n'est pas encore notifié
+    if (signataireProfile) {
+      const { error: notifDeErr } = await service.from('notifications').insert({
+        user_id: signataireProfile.id,
+        titre: 'Offre de stage à signer',
+        message: `Offre de stage pour ${profile?.prenoms ?? ''} ${profile?.nom ?? ''} (réf. ${numero}) — à signer avant envoi au stagiaire.`,
+        lien: '/signatures',
       })
-    } catch (emailErr) {
-      console.error('[POST /api/rh/contrats] Email error:', emailErr)
+      if (notifDeErr) console.error('[POST /api/rh/contrats] notif in-app DE:', notifDeErr)
+
+      if (signataireProfile.email) {
+        try {
+          await sendEmail({
+            to: signataireProfile.email,
+            subject: `Offre de stage à signer — ${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`,
+            html: `
+              <div style="font-family:sans-serif;max-width:600px;margin:0 auto;">
+                <h2 style="color:#16a34a;">ABED ONG — Offre de stage à signer</h2>
+                <p>Bonjour ${signataireProfile.prenoms} ${signataireProfile.nom},</p>
+                <p>Une nouvelle offre de stage a été établie pour <strong>${profile?.prenoms ?? ''} ${profile?.nom ?? ''}</strong> (réf. ${numero}) et attend votre signature avant envoi au stagiaire.</p>
+                <p>
+                  <a href="${APP_URL}/signatures"
+                     style="display:inline-block;background:#16a34a;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold;">
+                    Accéder aux signatures
+                  </a>
+                </p>
+                <p style="color:#6b7280;font-size:12px;">ABED ONG — Système de gestion RH</p>
+              </div>
+            `,
+          })
+        } catch (emailErr) {
+          console.error('[POST /api/rh/contrats] Email DE error:', emailErr)
+        }
+      }
+    }
+  } else {
+    // Notification in-app à l'employé
+    const { error: notifError } = await service.from('notifications').insert({
+      user_id: profile_id,
+      titre: `Nouveau ${categorie} établi à votre nom`,
+      message: `${categorie} ${type_contrat} (réf. ${numero}) — Consultez et signez votre document sur My ABED.`,
+      lien: '/mes-contrats',
+    })
+    if (notifError) console.error('[POST /api/rh/contrats] notif in-app employé:', notifError)
+
+    // Send email to employee
+    if (profile?.email) {
+      const civilite = profile.civilite ?? ''
+      try {
+        await sendEmail({
+          to: profile.email,
+          subject: `Votre ${categorie} ${type_contrat} — ABED ONG`,
+          html: `
+            <div style="font-family:sans-serif;max-width:600px;margin:0 auto;">
+              <h2 style="color:#16a34a;">ABED ONG — ${categorie}</h2>
+              <p>Bonjour ${civilite} ${profile.prenoms} ${profile.nom},</p>
+              <p>Un nouveau ${categorie.toLowerCase()} a été établi à votre nom :</p>
+              <ul>
+                <li><strong>Référence :</strong> ${numero}</li>
+                <li><strong>Catégorie :</strong> ${categorie}</li>
+                <li><strong>Type :</strong> ${type_contrat}</li>
+                <li><strong>Poste :</strong> ${poste ?? '—'}</li>
+                <li><strong>Date de début :</strong> ${date_debut}</li>
+                ${date_fin ? `<li><strong>Date de fin :</strong> ${date_fin}</li>` : ''}
+              </ul>
+              <p>Ce document requiert votre signature électronique. Vous pouvez aussi y ajouter des commentaires.</p>
+              <p>
+                <a href="${APP_URL}/signatures"
+                   style="display:inline-block;background:#16a34a;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold;">
+                  Accéder aux signatures
+                </a>
+              </p>
+              <p style="color:#6b7280;font-size:12px;">ABED ONG — Système de gestion RH</p>
+            </div>
+          `,
+        })
+      } catch (emailErr) {
+        console.error('[POST /api/rh/contrats] Email error:', emailErr)
+      }
     }
   }
 

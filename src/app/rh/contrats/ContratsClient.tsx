@@ -19,6 +19,7 @@ type Contrat = {
 }
 
 const WF_LABELS: Record<string, { label: string; color: string; bg: string }> = {
+  envoye_de:         { label: '✍️ Att. signature DE',      color: '#6d28d9', bg: '#ede9fe' },
   envoye_employe:    { label: '✍️ Att. signature employé', color: '#b45309', bg: '#fef3c7' },
   signe_employe:     { label: '📨 Att. envoi signataire',  color: '#1e40af', bg: '#dbeafe' },
   envoye_signataire: { label: '⏳ Chez le signataire',     color: '#6d28d9', bg: '#ede9fe' },
@@ -34,7 +35,7 @@ const inputStyle: React.CSSProperties = {
 
 const TYPES = ['CDD', 'CDI', 'Stage N1', 'Stage N2', 'Bénévolat', 'Prestataire direct', 'Prestataire à crédit', 'Consultant']
 const DIRECTIONS = ['Administration', 'Direction Exécutive', 'Direction des Programmes', 'Exploitation', 'Autre']
-const CATEGORIES = ['Contrat', 'Convention', 'Avenant']
+const CATEGORIES = ['Contrat', 'Convention', 'Avenant', 'Offre de stage']
 
 function statutBadge(statut: string, dateFin: string | null) {
   const today = new Date().toISOString().split('T')[0]
