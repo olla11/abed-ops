@@ -165,7 +165,7 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
 
   function openEdit(c: Contrat) {
     setEditTarget(c)
-    setForm({ type_contrat: c.type_contrat, poste: c.poste ?? '', direction: c.direction ?? '', date_debut: c.date_debut, date_fin: c.date_fin ?? '', salaire_brut: c.salaire_brut ?? '', observations: c.observations ?? '', objet: c.objet ?? '', commentaires_rh: c.commentaires_rh ?? '' })
+    setForm({ categorie_document: c.categorie_document ?? 'Contrat', type_contrat: c.type_contrat, poste: c.poste ?? '', direction: c.direction ?? '', date_debut: c.date_debut, date_fin: c.date_fin ?? '', salaire_brut: c.salaire_brut ?? '', observations: c.observations ?? '', objet: c.objet ?? '', commentaires_rh: c.commentaires_rh ?? '' })
     setArticles(Array.isArray(c.articles) ? c.articles : [])
     setErr(null)
   }
@@ -326,8 +326,12 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
         </select>
       </div>
       <div style={{ marginBottom: 12 }}>
-        <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Objet du document</label>
-        <textarea value={form.objet ?? ''} onChange={e => setForm((f: any) => ({ ...f, objet: e.target.value }))} rows={2} placeholder="Décrivez l'objet de ce document..." style={{ ...inputStyle, resize: 'vertical' }} />
+        <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>
+          {categorie === 'Offre de stage' ? 'Modalités du stage (supervision, horaires, home office...)' : 'Objet du document'}
+        </label>
+        <textarea value={form.objet ?? ''} onChange={e => setForm((f: any) => ({ ...f, objet: e.target.value }))} rows={2}
+          placeholder={categorie === 'Offre de stage' ? 'Ce texte apparaît tel quel dans le corps de la lettre envoyée au stagiaire...' : "Décrivez l'objet de ce document..."}
+          style={{ ...inputStyle, resize: 'vertical' }} />
       </div>
       <div style={{ marginBottom: 12 }}>
         <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Poste</label>
@@ -351,7 +355,9 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
         </div>
       </div>
       <div style={{ marginBottom: 12 }}>
-        <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Salaire brut (FCFA)</label>
+        <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>
+          {categorie === 'Offre de stage' ? 'Allocation mensuelle (FCFA)' : 'Salaire brut (FCFA)'}
+        </label>
         <input type="number" value={form.salaire_brut ?? ''} onChange={e => setForm((f: any) => ({ ...f, salaire_brut: e.target.value }))} style={inputStyle} />
       </div>
       <div style={{ marginBottom: 16 }}>
