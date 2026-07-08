@@ -34,6 +34,7 @@ const inputStyle: React.CSSProperties = {
 }
 
 const TYPES = ['CDD', 'CDI', 'Stage N1', 'Stage N2', 'Bénévolat', 'Prestataire direct', 'Prestataire à crédit', 'Consultant']
+const TYPES_STAGE = ['Stage N1', 'Stage N2']
 const DIRECTIONS = ['Administration', 'Direction Exécutive', 'Direction des Programmes', 'Exploitation', 'Autre']
 const CATEGORIES = ['Contrat', 'Convention', 'Avenant', 'Offre de stage']
 
@@ -303,7 +304,11 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
             <div style={{ display: 'flex', gap: 8 }}>
               {CATEGORIES.map(cat => (
                 <button key={cat} type="button"
-                  onClick={() => setForm((f: any) => ({ ...f, categorie_document: cat, contrat_parent_id: '' }))}
+                  onClick={() => setForm((f: any) => {
+                    const allowedTypes = cat === 'Offre de stage' ? TYPES_STAGE : TYPES
+                    const typeStillValid = allowedTypes.includes(f.type_contrat)
+                    return { ...f, categorie_document: cat, contrat_parent_id: '', type_contrat: typeStillValid ? f.type_contrat : '' }
+                  })}
                   style={{ flex: 1, padding: '7px 0', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontWeight: 700, border: '2px solid', borderColor: categorie === cat ? 'var(--abed-green)' : 'var(--abed-border)', background: categorie === cat ? '#f0fdf4' : 'white', color: categorie === cat ? 'var(--abed-green)' : '#374151' }}>
                   {cat}
                 </button>
@@ -339,7 +344,7 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
           setForm((f: any) => ({ ...f, type_contrat: val, salaire_brut: taux != null ? taux : f.salaire_brut }))
         }} style={inputStyle}>
           <option value="">— Choisir —</option>
-          {TYPES.map(o => <option key={o} value={o}>{o}</option>)}
+          {(categorie === 'Offre de stage' ? TYPES_STAGE : TYPES).map(o => <option key={o} value={o}>{o}</option>)}
         </select>
       </div>
       <div style={{ marginBottom: 12 }}>
