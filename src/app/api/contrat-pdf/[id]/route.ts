@@ -8,6 +8,16 @@ function formatSignatureName(prenoms: string | null | undefined, nom: string | n
   return `${premierPrenom} ${n}`.toLowerCase().trim()
 }
 
+// Désignation de la partie employé dans le préambule, selon le type de contrat
+function partieLabel(typeContrat: string | null | undefined): string {
+  const t = (typeContrat ?? '').toLowerCase()
+  if (t.includes('bénévol')) return 'Bénévole'
+  if (t.includes('stage') || t.includes('stagiaire')) return 'Stagiaire'
+  if (t.includes('prestataire')) return 'Prestataire'
+  if (t.includes('consultant')) return 'Consultant'
+  return 'Employé(e)'
+}
+
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -20,7 +30,7 @@ export async function GET(
   const admin = createAdminClient()
   const { data: contrat, error } = await admin
     .from('contrats')
-    .select('*, profile:profiles!profile_id(id, nom, prenoms, civilite, role, fonction)')
+    .select('*, profile:profiles!profile_id(id, nom, prenoms, civilite, role, fonction, telephone, email, adresse)')
     .eq('id', id)
     .single()
 
@@ -40,6 +50,18 @@ export async function GET(
   const dateDebut = contrat.date_debut ? new Date(contrat.date_debut).toLocaleDateString('fr-FR') : '—'
   const dateFin = contrat.date_fin ? new Date(contrat.date_fin).toLocaleDateString('fr-FR') : 'Indéterminée'
   const today = new Date().toLocaleDateString('fr-FR')
+  const partie = partieLabel(contrat.type_contrat)
+
+  // Représentant d'ABED : le DE, sauf si le contrat concerne le DE lui-même → le PCA
+  const { data: repProfile } = await admin
+    .from('profiles')
+    .select('nom, prenoms, telephone, email, adresse')
+    .eq('role', isDE ? 'administrateur' : 'de')
+    .single()
+  const repNom = `${repProfile?.prenoms ?? ''} ${repProfile?.nom ?? ''}`.trim() || '—'
+  const repTel = repProfile?.telephone ?? '—'
+  const repEmail = repProfile?.email ?? '—'
+  const repAdresse = repProfile?.adresse ?? 'Parakou, Bénin'
 
   // Statut de signature de l'employé
   const employeSigneLe = contrat.signe_employe_le
@@ -106,10 +128,7 @@ export async function GET(
     .row { display: flex; gap: 12px; margin-bottom: 6px; font-size: 11pt; }
     .label { font-weight: bold; min-width: 170px; }
     .value { flex: 1; }
-    .parties-block { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 20px; }
-    .party { border: 1px solid #ccc; border-radius: 4px; padding: 12px 16px; }
-    .party-head { font-size: 9pt; font-weight: bold; text-transform: uppercase; color: #16a34a; margin-bottom: 6px; border-bottom: 1px solid #e5e7eb; padding-bottom: 4px; }
-    .party-body { font-size: 10.5pt; line-height: 1.7; }
+    .preambule { font-size: 11pt; line-height: 1.9; text-align: justify; margin-bottom: 10px; }
     .article { margin-bottom: 16px; }
     .article-title { font-size: 11pt; font-weight: bold; margin-bottom: 4px; }
     .article-body { font-size: 10.5pt; line-height: 1.8; text-align: justify; }
@@ -157,26 +176,17 @@ export async function GET(
   </div>` : ''}
 
   <div class="section">
-    <h2>Entre les parties</h2>
-    <div class="parties-block">
-      <div class="party">
-        <div class="party-head">L'Employeur</div>
-        <div class="party-body">
-          <strong>ABED ONG</strong><br>
-          Représentée par son ${representantEmployeur}<br>
-          Parakou, Bénin<br>
-          ci-après dénommée <em>« l'Employeur »</em>
-        </div>
-      </div>
-      <div class="party">
-        <div class="party-head">L'Employé(e)</div>
-        <div class="party-body">
-          <strong>${p?.civilite ?? ''} ${p?.prenoms ?? ''} ${p?.nom ?? ''}</strong><br>
-          ${p?.fonction ? `Fonction : ${p.fonction}<br>` : ''}
-          ci-après dénommé(e) <em>« l'Employé(e) »</em>
-        </div>
-      </div>
-    </div>
+    <h2>Entre les soussignés</h2>
+    <p class="preambule">
+      <strong>ABED-ONG</strong>, représentée par son ${representantEmployeur}, ${repNom}, Tél ${repTel}, Email : ${repEmail}, demeurant à ${repAdresse}, et ci-après dénommée <strong>« ABED »</strong>, d'une part,
+    </p>
+    <p class="preambule">Et</p>
+    <p class="preambule">
+      <strong>${p?.civilite ?? ''} ${p?.prenoms ?? ''} ${p?.nom ?? ''}</strong>, Tél ${p?.telephone ?? '—'}, Email : ${p?.email ?? '—'}, demeurant à ${p?.adresse ?? '—'}, Rép. Bénin, ci-après dénommé(e) <strong>« ${partie} »</strong>, d'autre part.
+    </p>
+    <p class="preambule">
+      « <strong>ABED-ONG</strong> » et le « <strong>${partie}</strong> » désignent collectivement les parties.
+    </p>
   </div>
 
   <div class="section">

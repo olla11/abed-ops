@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
 
   if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 })
 
-  // Generate contract number: 001-2026/ABED/DE/CAF/RH
+  // Generate contract number: 001 /ABED-ONG/DE/DAF/CAF/2026
   const year = new Date().getFullYear()
   let numero: string
 
@@ -92,10 +92,10 @@ export async function POST(req: NextRequest) {
     .rpc('nextval_contrats_seq' as Parameters<typeof service.rpc>[0])
 
   if (!seqError && seqData != null) {
-    numero = `${String(Number(seqData)).padStart(3, '0')}-${year}/ABED/DE/CAF/RH`
+    numero = `${String(Number(seqData)).padStart(3, '0')} /ABED-ONG/DE/DAF/CAF/${year}`
   } else {
     const { count } = await service.from('contrats').select('id', { count: 'exact', head: true })
-    numero = `${String(count ?? 1).padStart(3, '0')}-${year}/ABED/DE/CAF/RH`
+    numero = `${String(count ?? 1).padStart(3, '0')} /ABED-ONG/DE/DAF/CAF/${year}`
   }
 
   await service.from('contrats').update({ numero }).eq('id', contrat.id)
