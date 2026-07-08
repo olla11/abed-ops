@@ -1,7 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase-server'
+import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { AGA_SYSTEM_PROMPT } from '@/lib/aga-knowledge'
 import { loadKnowledgeFiles } from '@/lib/aga-files'
+import { embedText } from '@/lib/aga-embeddings'
+
+// RAG : ne récupère que les passages pertinents pour la dernière question, au lieu
+// d'injecter tout le contenu de knowledge/ à chaque requête. Repli sur l'ancien
+// comportement (injection brute) si la base vectorielle n'est pas encore indexée.
+async function getRelevantContext(question: string, apiKey: string): Promise<string | null> {
+  const embedding = await embedText(question, apiKey)
+  if (!embedding) return null
+
+  const admin = createAdminClient()
+  const { data, error } = await admin.rpc('match_aga_chunks', { query_embedding: embedding, match_count: 6 })
+  if (error) {
+    console.error('[aga/chat] match_aga_chunks error:', error)
+    return null
+  }
+  const rows = (data ?? []) as { source: string; content: string; similarity: number }[]
+  const relevant = rows.filter(r => r.similarity > 0.3)
+  if (relevant.length === 0) return null
+
+  return relevant.map(r => `## ${r.source}\n${r.content}`).join('\n\n')
+}
 
 const MAX_HISTORY = 20
 
@@ -41,9 +62,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'messages requis' }, { status: 400 })
   }
 
-  const filesContent = await loadKnowledgeFiles()
-  const systemInstruction = filesContent
-    ? `${AGA_SYSTEM_PROMPT}\n\n# Documents internes (knowledge/)\n${filesContent}`
+  const lastUserMessage = [...messages].reverse().find((m: any) => m.role === 'user')?.content ?? ''
+  let docContext = lastUserMessage ? await getRelevantContext(String(lastUserMessage), apiKey) : null
+
+  // Repli : base vectorielle pas encore indexée (ou recherche indisponible) → ancien comportement
+  if (docContext === null) {
+    docContext = await loadKnowledgeFiles()
+  }
+
+  const systemInstruction = docContext
+    ? `${AGA_SYSTEM_PROMPT}\n\n# Documents internes (knowledge/)\n${docContext}`
     : AGA_SYSTEM_PROMPT
 
   // Gemini format: contents array with alternating user/model roles

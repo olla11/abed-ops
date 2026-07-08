@@ -22,6 +22,28 @@ async function extractText(filePath: string): Promise<string> {
   return ''
 }
 
+// Lecture par fichier (sans concaténation ni troncature), utilisée pour l'indexation RAG
+export async function loadKnowledgeFilesRaw(): Promise<{ name: string; text: string }[]> {
+  let entries: string[] = []
+  try {
+    entries = await readdir(KNOWLEDGE_DIR)
+  } catch {
+    return []
+  }
+
+  const files: { name: string; text: string }[] = []
+  for (const name of entries) {
+    if (!/\.(pdf|txt|md)$/i.test(name)) continue
+    try {
+      const raw = (await extractText(path.join(KNOWLEDGE_DIR, name))).trim()
+      if (raw) files.push({ name, text: raw })
+    } catch (e) {
+      console.error('[aga-files] erreur lecture', name, e)
+    }
+  }
+  return files
+}
+
 export async function loadKnowledgeFiles(): Promise<string> {
   if (cache && Date.now() - cache.loadedAt < CACHE_TTL_MS) return cache.text
 

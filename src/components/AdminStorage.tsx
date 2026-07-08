@@ -1,6 +1,45 @@
 'use client'
 import { useEffect, useState } from 'react'
 
+function AgaReindexSection() {
+  const [loading, setLoading] = useState(false)
+  const [result, setResult] = useState<{ files: string[]; totalChunks: number; failedChunks: number } | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  async function reindex() {
+    setLoading(true); setError(null); setResult(null)
+    try {
+      const res = await fetch('/api/aga/reindex', { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) setError(data.error ?? 'Erreur')
+      else setResult(data)
+    } catch {
+      setError('Erreur réseau')
+    }
+    setLoading(false)
+  }
+
+  return (
+    <div className="card">
+      <h3 style={{ marginBottom: 4, fontSize: 15 }}>Assistant AGA — Base de connaissances</h3>
+      <p style={{ fontSize: 12, color: 'var(--abed-muted)', marginBottom: 16 }}>
+        Reconstruit l'index de recherche (RAG) à partir des fichiers du dossier knowledge/. À relancer après
+        chaque ajout ou modification de document, pour que les réponses d'AGA en tiennent compte.
+      </p>
+      <button className="btn" style={{ fontSize: 13 }} disabled={loading} onClick={reindex}>
+        {loading ? '⏳ Réindexation…' : '🔄 Réindexer la base de connaissances'}
+      </button>
+      {error && <p style={{ fontSize: 13, color: '#991b1b', marginTop: 8 }}>Erreur : {error}</p>}
+      {result && (
+        <p style={{ fontSize: 13, color: '#166534', marginTop: 8 }}>
+          ✓ {result.files.length} fichier(s) indexé(s) ({result.totalChunks} passages
+          {result.failedChunks > 0 ? `, ${result.failedChunks} échec(s)` : ''}) : {result.files.join(', ')}
+        </p>
+      )}
+    </div>
+  )
+}
+
 type StorageInfo = {
   totalBytes: number; quotaBytes: number
   details: Record<string, number>
@@ -124,6 +163,8 @@ export default function AdminStorage() {
           ))}
         </div>
       </div>
+
+      <AgaReindexSection />
     </div>
   )
 }
