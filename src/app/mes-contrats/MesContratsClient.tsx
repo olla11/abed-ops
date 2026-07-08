@@ -218,12 +218,20 @@ export default function MesContratsClient({ contrats }: { contrats: Contrat[] })
                   {signing ? 'Signature en cours…' : '✍️ Signer ce contrat'}
                 </button>
               )}
+              <a
+                href={`/api/contrat-pdf/${selected.id}`}
+                target="_blank"
+                rel="noreferrer"
+                style={{ display: 'block', textAlign: 'center', background: '#f3f4f6', color: '#374151', borderRadius: 10, padding: '12px', fontSize: 14, fontWeight: 600, textDecoration: 'none' }}
+              >
+                📄 Voir / télécharger le document (PDF)
+              </a>
               {selected.demande?.fichier_url && (
                 <Link
                   href={`/signatures/${selected.demande.id}/view`}
                   style={{ display: 'block', textAlign: 'center', background: '#f3f4f6', color: '#374151', borderRadius: 10, padding: '12px', fontSize: 14, fontWeight: 600, textDecoration: 'none' }}
                 >
-                  📄 Voir le document PDF
+                  📄 Voir le document signé
                 </Link>
               )}
             </div>
