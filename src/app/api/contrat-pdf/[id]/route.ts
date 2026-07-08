@@ -41,6 +41,22 @@ export async function GET(
   const canView = ['rh', 'admin', 'de', 'administrateur', 'aaf', 'caf'].includes(role) || contrat.profile_id === user.id
   if (!canView) return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
 
+  // Backfill : certains contrats plus anciens n'ont jamais reçu de numero (échec silencieux à la création)
+  let numero = contrat.numero as string | null
+  if (!numero) {
+    const year = new Date().getFullYear()
+    const { data: seqData, error: seqError } = await admin
+      .rpc('nextval_contrats_seq' as Parameters<typeof admin.rpc>[0])
+    if (!seqError && seqData != null) {
+      numero = `${String(Number(seqData)).padStart(3, '0')} /ABED-ONG/DE/DAF/CAF/${year}`
+    } else {
+      const { count } = await admin.from('contrats').select('id', { count: 'exact', head: true })
+      numero = `${String(count ?? 1).padStart(3, '0')} /ABED-ONG/DE/DAF/CAF/${year}`
+    }
+    const { error: numeroErr } = await admin.from('contrats').update({ numero }).eq('id', id)
+    if (numeroErr) console.error('[contrat-pdf] échec backfill numero:', numeroErr)
+  }
+
   const p = contrat.profile as any
   const isDE = p?.role === 'de'
   const categorie = contrat.categorie_document ?? 'Contrat'
@@ -108,7 +124,7 @@ export async function GET(
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <title>${categorie} ${contrat.numero ?? ''} — ${p?.prenoms} ${p?.nom}</title>
+  <title>${categorie} ${numero ?? ''} — ${p?.prenoms} ${p?.nom}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Times New Roman', serif; font-size: 12pt; color: #111; background: #fff; padding: 48px 56px; max-width: 820px; margin: 0 auto; }
@@ -166,7 +182,7 @@ export async function GET(
     <h1>${categorie} de ${contrat.type_contrat}</h1>
   </div>
   <div class="doc-ref">
-    Réf. : <strong>${contrat.numero ?? 'N/A'}</strong> &nbsp;·&nbsp; Parakou, le ${today}
+    Réf. : <strong>${numero ?? 'N/A'}</strong> &nbsp;·&nbsp; Parakou, le ${today}
   </div>
 
   ${contrat.objet ? `

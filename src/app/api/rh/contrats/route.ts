@@ -98,7 +98,8 @@ export async function POST(req: NextRequest) {
     numero = `${String(count ?? 1).padStart(3, '0')} /ABED-ONG/DE/DAF/CAF/${year}`
   }
 
-  await service.from('contrats').update({ numero }).eq('id', contrat.id)
+  const { error: numeroErr } = await service.from('contrats').update({ numero }).eq('id', contrat.id)
+  if (numeroErr) console.error('[POST /api/rh/contrats] échec écriture numero:', numeroErr)
 
   type ProfileRow = {
     id: string; nom: string; prenoms: string; email: string | null; role: string; civilite: string | null
