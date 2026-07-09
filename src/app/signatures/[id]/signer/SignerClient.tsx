@@ -444,9 +444,15 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
         </div>
 
         {/* Scrollable PDF canvas area */}
-        <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+        <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', background: contratId && !docUrl ? '#fff' : undefined }}>
           {loadingDoc ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#9ca3af', fontSize: 14 }}>Chargement...</div>
+          ) : !docUrl && contratId ? (
+            <iframe
+              src={`/api/contrat-pdf/${contratId}`}
+              title={titre}
+              style={{ width: '100%', height: '100%', minHeight: '100%', border: 'none', display: 'block' }}
+            />
           ) : !docUrl ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#9ca3af', fontSize: 14, textAlign: 'center', padding: 32 }}>
               Ce document n&apos;a pas de fichier joint
@@ -515,7 +521,12 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
         )}
 
         {/* Instructions */}
-        {!docUrl && !loadingDoc && (
+        {!docUrl && !loadingDoc && contratId && (
+          <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '12px 14px', fontSize: 13, color: '#1e40af' }}>
+            Lisez le contenu du contrat ci-contre. Si tout est correct, signez-le ; sinon, renvoyez-le au RH sans signer en précisant vos corrections.
+          </div>
+        )}
+        {!docUrl && !loadingDoc && !contratId && (
           <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '12px 14px', fontSize: 13, color: '#1e40af' }}>
             Aucun fichier joint — vous pouvez signer directement.
           </div>
