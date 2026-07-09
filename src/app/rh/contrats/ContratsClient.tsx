@@ -13,6 +13,7 @@ type Contrat = {
   contrat_parent_id: string | null; objet: string | null
   articles: Article[] | null
   commentaires_employe: string | null; commentaires_rh: string | null
+  commentaires_signataire: string | null
   workflow_statut: string | null; signe_employe_le: string | null
   signataire_id: string | null
   profile: { id: string; nom: string; prenoms: string; email: string | null; role: string } | null
@@ -25,6 +26,8 @@ const WF_LABELS: Record<string, { label: string; color: string; bg: string }> = 
   envoye_signataire: { label: '⏳ Chez le signataire',     color: '#6d28d9', bg: '#ede9fe' },
   signe_signataire:  { label: '✅ Att. finalisation',      color: '#065f46', bg: '#d1fae5' },
   finalise:          { label: '🎉 Finalisé',               color: '#166534', bg: '#dcfce7' },
+  rejete_employe:    { label: '↩️ Renvoyé par l\'employé', color: '#b91c1c', bg: '#fee2e2' },
+  rejete_signataire: { label: '↩️ Renvoyé par le signataire', color: '#b91c1c', bg: '#fee2e2' },
 }
 type Personnel = { id: string; nom: string; prenoms: string; role: string; fonction: string | null }
 
@@ -494,10 +497,10 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
                                   style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 14px', fontSize: 12.5, cursor: 'pointer', background: 'white', border: 'none', borderBottom: '1px solid #f3f4f6', color: '#166534', textAlign: 'left' }}>
                                   <MessageSquare size={14} /> {c.commentaires_rh ? 'Note (✓ existante)' : 'Ajouter une note'}
                                 </button>
-                                {c.workflow_statut === 'signe_employe' && (
+                                {['signe_employe','rejete_signataire'].includes(c.workflow_statut ?? '') && (
                                   <button onClick={() => { setWfTarget(c); setWfAction('envoyer_signataire'); setWfSignataireId(c.signataire_id ?? ''); setErr(null); setMenuOpenId(null) }}
                                     style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 14px', fontSize: 12.5, cursor: 'pointer', background: 'white', border: 'none', borderBottom: '1px solid #f3f4f6', color: '#6d28d9', fontWeight: 700, textAlign: 'left' }}>
-                                    <Send size={14} /> Envoyer au signataire
+                                    <Send size={14} /> {c.workflow_statut === 'rejete_signataire' ? 'Renvoyer au signataire' : 'Envoyer au signataire'}
                                   </button>
                                 )}
                                 {c.workflow_statut === 'signe_signataire' && (
@@ -506,7 +509,7 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
                                     <PartyPopper size={14} /> Finaliser
                                   </button>
                                 )}
-                                {['envoye_employe','signe_employe','envoye_signataire','signe_signataire'].includes(c.workflow_statut ?? '') && (
+                                {['envoye_employe','signe_employe','envoye_signataire','signe_signataire','rejete_employe'].includes(c.workflow_statut ?? '') && (
                                   <button onClick={() => { setWfTarget(c); setWfAction('renvoyer_employe'); setErr(null); setMenuOpenId(null) }}
                                     style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 14px', fontSize: 12.5, cursor: 'pointer', background: 'white', border: 'none', borderBottom: '1px solid #f3f4f6', color: '#b45309', textAlign: 'left' }}>
                                     <RotateCcw size={14} /> Renvoyer à l'employé
@@ -565,6 +568,11 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
           {commentTarget.commentaires_employe && (
             <div style={{ fontSize: 12, color: '#374151', fontStyle: 'italic', background: '#f9fafb', border: '1px solid var(--abed-border)', borderRadius: 6, padding: '8px 12px', marginBottom: 12 }}>
               <strong>Commentaire de l'employé :</strong><br />« {commentTarget.commentaires_employe} »
+            </div>
+          )}
+          {commentTarget.commentaires_signataire && (
+            <div style={{ fontSize: 12, color: '#374151', fontStyle: 'italic', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: '8px 12px', marginBottom: 12 }}>
+              <strong>Motif du signataire (renvoyé sans signer) :</strong><br />« {commentTarget.commentaires_signataire} »
             </div>
           )}
           <div>

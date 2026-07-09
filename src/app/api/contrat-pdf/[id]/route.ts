@@ -137,12 +137,13 @@ export async function GET(
       </div>`).join('')
     : ''
 
-  const commentsHtml = contrat.commentaires_employe || contrat.commentaires_rh
+  const commentsHtml = contrat.commentaires_employe || contrat.commentaires_rh || contrat.commentaires_signataire
     ? `
     <div class="section">
       <h2>Commentaires</h2>
       ${contrat.commentaires_rh ? `<div class="row"><span class="label">Note RH :</span><span class="value">${contrat.commentaires_rh}</span></div>` : ''}
       ${contrat.commentaires_employe ? `<div class="row"><span class="label">Note employé :</span><span class="value">${contrat.commentaires_employe}</span></div>` : ''}
+      ${contrat.commentaires_signataire ? `<div class="row"><span class="label">Note du signataire :</span><span class="value">${contrat.commentaires_signataire}</span></div>` : ''}
     </div>`
     : ''
 

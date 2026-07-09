@@ -7,6 +7,7 @@ type Props = {
   titre: string
   fichierUrl: string | null
   userName: string
+  contratId?: string | null
 }
 
 function shortHash(s: string): string {
@@ -234,7 +235,7 @@ function PdfCanvasViewer({
   )
 }
 
-export default function SignerClient({ demandeId, titre, fichierUrl, userName }: Props) {
+export default function SignerClient({ demandeId, titre, fichierUrl, userName, contratId }: Props) {
   const router = useRouter()
   const [docUrl, setDocUrl] = useState<string | null>(null)
   const [numPages, setNumPages] = useState<number | null>(null)
@@ -245,6 +246,10 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName }:
   const [signed, setSigned] = useState(false)
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  const [showRefuseForm, setShowRefuseForm] = useState(false)
+  const [motif, setMotif] = useState('')
+  const [refusing, setRefusing] = useState(false)
+  const [refused, setRefused] = useState(false)
 
   const today = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
   const sigHash = shortHash(userName + demandeId + today)
@@ -365,7 +370,35 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName }:
     else { const d = await res.json().catch(() => ({})); setErr(d.error ?? 'Erreur lors de la signature') }
   }
 
+  async function refuserSansSigner() {
+    if (!contratId) return
+    if (motif.trim().length < 10) { setErr('Le motif est obligatoire (minimum 10 caractères).'); return }
+    setRefusing(true); setErr(null)
+    const res = await fetch(`/api/contrats/${contratId}/refuser-signataire`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ motif }),
+    })
+    setRefusing(false)
+    if (res.ok) setRefused(true)
+    else { const d = await res.json().catch(() => ({})); setErr(d.error ?? 'Erreur lors du renvoi') }
+  }
+
   const sigBlock = <SignatureBlock name={userName} date={today} hash={sigHash} />
+
+  if (refused) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: 16 }}>
+        <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 12, padding: '32px 40px', textAlign: 'center', maxWidth: 480 }}>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>↩️</div>
+          <h2 style={{ color: '#991b1b', marginBottom: 8, fontSize: 20 }}>Document renvoyé au RH</h2>
+          <p style={{ color: '#374151', fontSize: 14 }}>Le RH a été notifié de votre motif et pourra apporter les corrections nécessaires.</p>
+          <button onClick={() => router.push('/signatures')}
+            style={{ marginTop: 20, padding: '10px 24px', borderRadius: 8, background: '#b91c1c', color: 'white', border: 'none', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'block', width: '100%' }}>
+            ← Retour aux signatures
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   if (signed) {
     return (
@@ -511,11 +544,42 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName }:
           <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#c0392b' }}>{err}</div>
         )}
 
+        {contratId && showRefuseForm && (
+          <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: 12 }}>
+            <label style={{ fontSize: 12, fontWeight: 700, color: '#991b1b', display: 'block', marginBottom: 6 }}>
+              Motif du renvoi * (min. 10 caractères)
+            </label>
+            <textarea
+              value={motif} onChange={e => setMotif(e.target.value)} rows={3}
+              placeholder="Expliquez les corrections à apporter avant de signer..."
+              style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: '1px solid var(--abed-border)', fontSize: 13, resize: 'vertical', boxSizing: 'border-box' }}
+            />
+          </div>
+        )}
+
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 'auto' }}>
-          {(sigPos || (!docUrl && !loadingDoc)) && (
+          {(sigPos || (!docUrl && !loadingDoc)) && !showRefuseForm && (
             <button onClick={confirmSign} disabled={loading}
               style={{ padding: '12px 20px', borderRadius: 8, fontSize: 14, fontWeight: 700, background: '#16a34a', color: 'white', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1 }}>
               {loading ? 'Signature en cours...' : '✅ Confirmer la signature'}
+            </button>
+          )}
+          {contratId && !showRefuseForm && (
+            <button onClick={() => { setShowRefuseForm(true); setErr(null) }}
+              style={{ padding: '12px 20px', borderRadius: 8, fontSize: 14, fontWeight: 700, background: 'white', border: '1px solid #fecaca', color: '#b91c1c', cursor: 'pointer' }}>
+              ↩️ Renvoyer au RH sans signer
+            </button>
+          )}
+          {contratId && showRefuseForm && (
+            <button onClick={refuserSansSigner} disabled={refusing}
+              style={{ padding: '12px 20px', borderRadius: 8, fontSize: 14, fontWeight: 700, background: '#b91c1c', color: 'white', border: 'none', cursor: refusing ? 'not-allowed' : 'pointer', opacity: refusing ? 0.7 : 1 }}>
+              {refusing ? 'Envoi...' : 'Confirmer le renvoi au RH'}
+            </button>
+          )}
+          {showRefuseForm && (
+            <button onClick={() => { setShowRefuseForm(false); setMotif(''); setErr(null) }}
+              style={{ padding: '10px 20px', borderRadius: 8, fontSize: 13, background: 'white', border: '1px solid #e5e7eb', color: '#374151', cursor: 'pointer' }}>
+              Annuler
             </button>
           )}
           <button onClick={() => router.push('/signatures')}

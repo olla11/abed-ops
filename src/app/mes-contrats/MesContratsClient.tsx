@@ -28,6 +28,8 @@ const WORKFLOW_LABELS: Record<string, { label: string; color: string; bg: string
   envoye_signataire:  { label: 'Chez le signataire',    color: '#6d28d9', bg: '#ede9fe', emoji: '📨' },
   signe_signataire:   { label: 'Signé — en attente finalisation', color: '#065f46', bg: '#d1fae5', emoji: '✅' },
   finalise:           { label: 'Finalisé ✓',             color: '#166534', bg: '#dcfce7', emoji: '🎉' },
+  rejete_employe:     { label: 'Renvoyé sans signature — RH informé', color: '#b91c1c', bg: '#fee2e2', emoji: '↩️' },
+  rejete_signataire:  { label: 'En cours de révision par la direction', color: '#b91c1c', bg: '#fee2e2', emoji: '↩️' },
 }
 
 function fmtDate(d: string | null) {
@@ -40,6 +42,9 @@ export default function MesContratsClient({ contrats }: { contrats: Contrat[] })
   const [signing, setSigning] = useState(false)
   const [signErr, setSignErr] = useState<string | null>(null)
   const [localContrats, setLocalContrats] = useState<Contrat[]>(contrats)
+  const [showRefuseForm, setShowRefuseForm] = useState(false)
+  const [motif, setMotif] = useState('')
+  const [refusing, setRefusing] = useState(false)
 
   async function signer(id: string) {
     if (!confirm('Confirmer votre signature électronique sur ce contrat ?')) return
@@ -50,6 +55,20 @@ export default function MesContratsClient({ contrats }: { contrats: Contrat[] })
     if (!res.ok) { setSignErr(json.error ?? 'Erreur'); return }
     setLocalContrats(prev => prev.map(c => c.id === id ? { ...c, workflow_statut: 'signe_employe', signe_employe_le: new Date().toISOString() } : c))
     setSelected(prev => prev?.id === id ? { ...prev, workflow_statut: 'signe_employe', signe_employe_le: new Date().toISOString() } : prev)
+  }
+
+  async function refuser(id: string) {
+    if (motif.trim().length < 10) { setSignErr('Le motif est obligatoire (minimum 10 caractères).'); return }
+    setRefusing(true); setSignErr(null)
+    const res = await fetch(`/api/contrats/${id}/refuser-employe`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ motif }),
+    })
+    const json = await res.json()
+    setRefusing(false)
+    if (!res.ok) { setSignErr(json.error ?? 'Erreur'); return }
+    setLocalContrats(prev => prev.map(c => c.id === id ? { ...c, workflow_statut: 'rejete_employe' } : c))
+    setSelected(prev => prev?.id === id ? { ...prev, workflow_statut: 'rejete_employe' } : prev)
+    setShowRefuseForm(false); setMotif('')
   }
 
   if (localContrats.length === 0) {
@@ -205,18 +224,50 @@ export default function MesContratsClient({ contrats }: { contrats: Contrat[] })
               </div>
             )}
 
+            {/* Renvoyer sans signer */}
+            {selected.workflow_statut === 'envoye_employe' && showRefuseForm && (
+              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: 12, marginBottom: 16 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: '#991b1b', display: 'block', marginBottom: 6 }}>
+                  Motif du renvoi * (min. 10 caractères)
+                </label>
+                <textarea
+                  value={motif} onChange={e => setMotif(e.target.value)} rows={3}
+                  placeholder="Expliquez les corrections à apporter avant de signer..."
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: '1px solid var(--abed-border)', fontSize: 13, resize: 'vertical', boxSizing: 'border-box' }}
+                />
+                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                  <button onClick={() => refuser(selected.id)} disabled={refusing}
+                    style={{ flex: 1, background: '#b91c1c', color: 'white', border: 'none', borderRadius: 8, padding: '10px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                    {refusing ? 'Envoi…' : 'Confirmer le renvoi au RH'}
+                  </button>
+                  <button onClick={() => { setShowRefuseForm(false); setMotif(''); setSignErr(null) }}
+                    style={{ padding: '10px 16px', borderRadius: 8, border: '1px solid var(--abed-border)', background: 'white', fontSize: 13, cursor: 'pointer' }}>
+                    Annuler
+                  </button>
+                </div>
+              </div>
+            )}
+
             {signErr && <p style={{ color: '#ef4444', fontSize: 13 }}>{signErr}</p>}
 
             {/* Actions */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 20 }}>
-              {selected.workflow_statut === 'envoye_employe' && (
-                <button
-                  onClick={() => signer(selected.id)}
-                  disabled={signing}
-                  style={{ background: 'var(--abed-green)', color: 'white', border: 'none', borderRadius: 10, padding: '12px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
-                >
-                  {signing ? 'Signature en cours…' : '✍️ Signer ce contrat'}
-                </button>
+              {selected.workflow_statut === 'envoye_employe' && !showRefuseForm && (
+                <>
+                  <button
+                    onClick={() => signer(selected.id)}
+                    disabled={signing}
+                    style={{ background: 'var(--abed-green)', color: 'white', border: 'none', borderRadius: 10, padding: '12px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    {signing ? 'Signature en cours…' : '✍️ Signer ce contrat'}
+                  </button>
+                  <button
+                    onClick={() => { setShowRefuseForm(true); setSignErr(null) }}
+                    style={{ background: 'white', color: '#b91c1c', border: '1px solid #fecaca', borderRadius: 10, padding: '12px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    ↩️ Renvoyer sans signer
+                  </button>
+                </>
               )}
               <a
                 href={`/api/contrat-pdf/${selected.id}`}
