@@ -81,7 +81,7 @@ export async function GET(
   const categorie = contrat.categorie_document ?? 'Contrat'
   const representantEmployeur = isDE ? "Président du Conseil d'Administration" : 'Directeur Exécutif'
   const sigLeft = isDE ? "Le Président du Conseil d'Administration" : "Le Directeur Exécutif"
-  const sigRight = `${p?.civilite ?? ''} ${p?.prenoms ?? ''} ${p?.nom ?? ''}`
+  const sigRight = `${p?.civilite === 'Mme' ? 'La' : 'Le'} ${partieLabel(contrat.type_contrat)}`
   const dateDebut = contrat.date_debut ? new Date(contrat.date_debut).toLocaleDateString('fr-FR') : '—'
   const dateFin = contrat.date_fin ? new Date(contrat.date_fin).toLocaleDateString('fr-FR') : 'Indéterminée'
   const today = new Date().toLocaleDateString('fr-FR')
