@@ -509,7 +509,7 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
                                     <PartyPopper size={14} /> Finaliser
                                   </button>
                                 )}
-                                {['envoye_employe','signe_employe','envoye_signataire','signe_signataire','rejete_employe'].includes(c.workflow_statut ?? '') && (
+                                {['envoye_employe','signe_employe','rejete_employe'].includes(c.workflow_statut ?? '') && (
                                   <button onClick={() => { setWfTarget(c); setWfAction('renvoyer_employe'); setErr(null); setMenuOpenId(null) }}
                                     style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 14px', fontSize: 12.5, cursor: 'pointer', background: 'white', border: 'none', borderBottom: '1px solid #f3f4f6', color: '#b45309', textAlign: 'left' }}>
                                     <RotateCcw size={14} /> Renvoyer à l'employé
