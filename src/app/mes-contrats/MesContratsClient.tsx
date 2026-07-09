@@ -45,18 +45,19 @@ export default function MesContratsClient({ contrats }: { contrats: Contrat[] })
   const [showRefuseForm, setShowRefuseForm] = useState(false)
   const [motif, setMotif] = useState('')
   const [refusing, setRefusing] = useState(false)
+  const [confirmSignId, setConfirmSignId] = useState<string | null>(null)
 
   useEffect(() => {
-    if (selected) {
+    if (selected || confirmSignId) {
       document.body.classList.add('panel-open')
     } else {
       document.body.classList.remove('panel-open')
     }
     return () => document.body.classList.remove('panel-open')
-  }, [selected])
+  }, [selected, confirmSignId])
 
   async function signer(id: string) {
-    if (!confirm('Confirmer votre signature électronique sur ce contrat ?')) return
+    setConfirmSignId(null)
     setSigning(true); setSignErr(null)
     const res = await fetch(`/api/contrats/${id}/signer-employe`, { method: 'POST' })
     const json = await res.json()
@@ -141,7 +142,7 @@ export default function MesContratsClient({ contrats }: { contrats: Contrat[] })
               <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
                 {needsSignature && (
                   <button
-                    onClick={e => { e.stopPropagation(); signer(c.id) }}
+                    onClick={e => { e.stopPropagation(); setConfirmSignId(c.id) }}
                     disabled={signing}
                     style={{
                       background: '#b45309', color: 'white', border: 'none',
@@ -264,7 +265,7 @@ export default function MesContratsClient({ contrats }: { contrats: Contrat[] })
               {selected.workflow_statut === 'envoye_employe' && !showRefuseForm && (
                 <>
                   <button
-                    onClick={() => signer(selected.id)}
+                    onClick={() => setConfirmSignId(selected.id)}
                     disabled={signing}
                     style={{ background: 'var(--abed-green)', color: 'white', border: 'none', borderRadius: 10, padding: '12px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
                   >
@@ -294,6 +295,33 @@ export default function MesContratsClient({ contrats }: { contrats: Contrat[] })
                   📄 Voir le document signé
                 </Link>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation de signature */}
+      {confirmSignId && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+          onClick={() => setConfirmSignId(null)}>
+          <div
+            style={{ background: 'white', borderRadius: 14, padding: 28, width: '100%', maxWidth: 400, boxShadow: '0 16px 48px rgba(0,0,0,.25)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ fontSize: 40, textAlign: 'center', marginBottom: 8 }}>✍️</div>
+            <h3 style={{ margin: '0 0 8px', fontSize: 17, color: '#111827', textAlign: 'center' }}>Confirmer la signature</h3>
+            <p style={{ fontSize: 14, color: '#6b7280', textAlign: 'center', margin: '0 0 22px' }}>
+              Confirmer votre signature électronique sur ce contrat ?
+            </p>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => setConfirmSignId(null)}
+                style={{ flex: 1, padding: '10px 16px', borderRadius: 8, border: '1px solid var(--abed-border)', background: 'white', color: '#374151', fontSize: 14, cursor: 'pointer' }}>
+                Annuler
+              </button>
+              <button onClick={() => signer(confirmSignId)} disabled={signing}
+                style={{ flex: 1, padding: '10px 16px', borderRadius: 8, border: 'none', background: 'var(--abed-green)', color: 'white', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
+                {signing ? 'Signature…' : 'Confirmer'}
+              </button>
             </div>
           </div>
         </div>
