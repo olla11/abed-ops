@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 
 type Contrat = {
@@ -45,6 +45,15 @@ export default function MesContratsClient({ contrats }: { contrats: Contrat[] })
   const [showRefuseForm, setShowRefuseForm] = useState(false)
   const [motif, setMotif] = useState('')
   const [refusing, setRefusing] = useState(false)
+
+  useEffect(() => {
+    if (selected) {
+      document.body.classList.add('panel-open')
+    } else {
+      document.body.classList.remove('panel-open')
+    }
+    return () => document.body.classList.remove('panel-open')
+  }, [selected])
 
   async function signer(id: string) {
     if (!confirm('Confirmer votre signature électronique sur ce contrat ?')) return

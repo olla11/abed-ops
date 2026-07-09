@@ -133,6 +133,16 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
   const menuRef = useRef<HTMLDivElement>(null)
   const [tauxCaf, setTauxCaf] = useState<{ direct: number; credit: number } | null>(null)
 
+  const anyModalOpen = showNew || !!editTarget || !!renewTarget || !!resilierTarget || !!commentTarget || !!wfTarget
+  useEffect(() => {
+    if (anyModalOpen) {
+      document.body.classList.add('panel-open')
+    } else {
+      document.body.classList.remove('panel-open')
+    }
+    return () => document.body.classList.remove('panel-open')
+  }, [anyModalOpen])
+
   useEffect(() => {
     fetch('/api/config/taux').then(r => r.json()).then(d => setTauxCaf({ direct: d.taux_direct, credit: d.taux_credit })).catch(() => {})
   }, [])
