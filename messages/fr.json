@@ -73,14 +73,14 @@
     "register": "Inscrivez-vous"
   },
   "nav": {
-    "dossier": "Mon dossier",
+    "dossier": "Mon espace",
     "missions": "Ordres de mission",
     "timesheets": "Timesheet",
     "monthlyReport": "Rapport mensuel",
     "payments": "Demande de paiement",
-    "leaves": "Mes congés",
+    "leaves": "Congés",
     "signatures": "Signatures",
-    "contracts": "Mes contrats",
+    "contracts": "Contrat",
     "status": "Statut",
     "projects": "Projets",
     "overview": "Vue d'ensemble",
