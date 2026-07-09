@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { sendEmail } from '@/lib/resend'
+import { revalidateTag } from 'next/cache'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://myabed.app'
 
@@ -131,6 +132,7 @@ export async function POST(
       } catch (e) { console.error('[contrat action] email signataire:', e) }
     }
 
+    revalidateTag('contrats')
     return NextResponse.json({ ok: true, workflow_statut: 'envoye_signataire' })
   }
 
@@ -180,6 +182,7 @@ export async function POST(
       } catch (e) { console.error('[contrat action] email finalise:', e) }
     }
 
+    revalidateTag('contrats')
     return NextResponse.json({ ok: true, workflow_statut: 'finalise' })
   }
 
@@ -224,6 +227,7 @@ export async function POST(
       } catch (e) { console.error('[contrat action] email renvoyer:', e) }
     }
 
+    revalidateTag('contrats')
     return NextResponse.json({ ok: true, workflow_statut: 'envoye_employe' })
   }
 

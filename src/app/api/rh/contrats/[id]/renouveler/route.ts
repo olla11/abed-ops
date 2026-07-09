@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { revalidateTag } from 'next/cache'
 
 type RouteContext = { params: Promise<{ id: string }> }
 
@@ -39,5 +40,6 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
   }).select().single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  revalidateTag('contrats')
   return NextResponse.json({ contrat: nouveau })
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
+import { revalidateTag } from 'next/cache'
 
 export async function PUT(
   req: NextRequest,
@@ -37,6 +38,7 @@ export async function PUT(
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  revalidateTag('contrats')
   return NextResponse.json({ contrat: data })
 }
 
@@ -78,6 +80,7 @@ export async function PATCH(
       .single()
 
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    revalidateTag('contrats')
     return NextResponse.json({ contrat: data })
   }
 
@@ -96,6 +99,7 @@ export async function PATCH(
       .single()
 
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    revalidateTag('contrats')
     return NextResponse.json({ contrat: data })
   }
 
@@ -118,5 +122,6 @@ export async function DELETE(
   const { error } = await admin.from('contrats').delete().eq('id', id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  revalidateTag('contrats')
   return NextResponse.json({ ok: true })
 }

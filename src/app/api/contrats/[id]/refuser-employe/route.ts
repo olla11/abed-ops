@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { sendEmail } from '@/lib/resend'
+import { revalidateTag } from 'next/cache'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://myabed.app'
 
@@ -80,5 +81,6 @@ export async function POST(
     }
   }
 
+  revalidateTag('contrats')
   return NextResponse.json({ ok: true, workflow_statut: 'rejete_employe' })
 }
