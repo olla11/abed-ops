@@ -124,13 +124,9 @@ export default function MesContratsClient({ contrats, contratsASigner, canSign }
   }
 
   async function signerSignataire(id: string) {
-    const c = localASigner.find(x => x.id === id)
     setConfirmSignIdSig(null)
-    if (!c?.demande_signature_id) { setErrSig("Ce contrat n'a pas de circuit de signature valide. Contactez le RH."); return }
     setSigningSig(true); setErrSig(null)
-    const res = await fetch(`/api/signatures/${c.demande_signature_id}/sign`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}),
-    })
+    const res = await fetch(`/api/contrats/${id}/signer-signataire`, { method: 'POST' })
     const json = await res.json().catch(() => ({}))
     setSigningSig(false)
     if (!res.ok) { setErrSig(json.error ?? 'Erreur lors de la signature'); return }
