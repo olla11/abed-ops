@@ -110,20 +110,32 @@ export async function GET(
     ? new Date(contrat.signe_employe_le).toLocaleDateString('fr-FR')
     : null
 
-  // Statut de signature du signataire (DE / PCA / autre) côté employeur
+  // Statut de signature du signataire (DE / PCA / autre) côté employeur.
+  // Source de vérité : contrat.workflow_statut + contrat.signataire_id (jamais le circuit
+  // générique demandes_signature/signataires, qui peut être absent ou désynchronisé).
   let signataireNom: string | null = null
   let signataireSigneLe: string | null = null
-  if (contrat.demande_signature_id && contrat.signataire_id) {
-    const { data: sigRow } = await admin
-      .from('signataires')
-      .select('signe, signe_le, profile:profiles!profile_id(nom, prenoms)')
-      .eq('demande_id', contrat.demande_signature_id)
-      .eq('profile_id', contrat.signataire_id)
+  if (contrat.signataire_id && ['signe_signataire', 'finalise'].includes(contrat.workflow_statut ?? '')) {
+    const { data: sigProfile } = await admin
+      .from('profiles')
+      .select('nom, prenoms')
+      .eq('id', contrat.signataire_id)
       .single()
-    if (sigRow?.signe) {
-      const sp = sigRow.profile as any
-      signataireNom = formatSignatureName(sp?.prenoms, sp?.nom)
-      signataireSigneLe = sigRow.signe_le ? new Date(sigRow.signe_le).toLocaleDateString('fr-FR') : null
+    signataireNom = formatSignatureName(sigProfile?.prenoms, sigProfile?.nom)
+
+    // Date de signature : d'abord la colonne dédiée, sinon best-effort via le circuit générique
+    if (contrat.signe_signataire_le) {
+      signataireSigneLe = new Date(contrat.signe_signataire_le).toLocaleDateString('fr-FR')
+    } else if (contrat.demande_signature_id) {
+      const { data: sigRow } = await admin
+        .from('signataires')
+        .select('signe, signe_le')
+        .eq('demande_id', contrat.demande_signature_id)
+        .eq('profile_id', contrat.signataire_id)
+        .single()
+      if (sigRow?.signe && sigRow.signe_le) {
+        signataireSigneLe = new Date(sigRow.signe_le).toLocaleDateString('fr-FR')
+      }
     }
   }
 
@@ -199,7 +211,7 @@ export async function GET(
       ${repCachetUrl ? `<img src="${repCachetUrl}" alt="Cachet ABED" style="height:70px;margin-top:8px;" />` : ''}
       ${signataireNom ? `
         <div class="sig-name">${signataireNom}</div>
-        <div class="sig-stamp">✓ Signé électroniquement le ${signataireSigneLe ?? ''}</div>
+        <div class="sig-stamp">✓ Signé électroniquement${signataireSigneLe ? ` le ${signataireSigneLe}` : ''}</div>
       ` : `<div class="sig-line">En attente de signature</div>`}
     </div>
   </div>
@@ -259,7 +271,7 @@ export async function GET(
       <div class="sig-role">${sigLeft}</div>
       ${signataireNom ? `
         <div class="sig-name">${signataireNom}</div>
-        <div class="sig-stamp">✓ Signé électroniquement le ${signataireSigneLe ?? ''}</div>
+        <div class="sig-stamp">✓ Signé électroniquement${signataireSigneLe ? ` le ${signataireSigneLe}` : ''}</div>
       ` : `<div class="sig-line">En attente de signature</div>`}
     </div>
     <div class="sig">

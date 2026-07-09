@@ -26,9 +26,17 @@ export async function POST(
     return NextResponse.json({ error: 'Ce contrat ne peut pas être signé à cette étape' }, { status: 400 })
   }
 
-  const { error: updateErr } = await admin.from('contrats').update({
+  let { error: updateErr } = await admin.from('contrats').update({
     workflow_statut: 'signe_signataire',
+    signe_signataire_le: new Date().toISOString(),
   }).eq('id', id)
+  if (updateErr) {
+    // La colonne signe_signataire_le peut ne pas encore exister (migration non appliquée) :
+    // on ne bloque jamais la signature pour ça.
+    console.error('[signer-signataire] update avec signe_signataire_le a échoué, retry sans:', updateErr)
+    const retry = await admin.from('contrats').update({ workflow_statut: 'signe_signataire' }).eq('id', id)
+    updateErr = retry.error
+  }
   if (updateErr) {
     console.error('[signer-signataire] update contrat:', updateErr)
     return NextResponse.json({ error: 'Erreur lors de la signature' }, { status: 500 })
