@@ -23,6 +23,7 @@ type Contrat = {
 
 const WORKFLOW_LABELS: Record<string, { label: string; color: string; bg: string; emoji: string }> = {
   brouillon:          { label: 'Brouillon',              color: '#6b7280', bg: '#f3f4f6', emoji: '📝' },
+  envoye_de:          { label: 'En attente de signature de la direction', color: '#6d28d9', bg: '#ede9fe', emoji: '📨' },
   envoye_employe:     { label: 'En attente de votre signature', color: '#b45309', bg: '#fef3c7', emoji: '✍️' },
   signe_employe:      { label: 'Signé — en attente RH', color: '#1e40af', bg: '#dbeafe', emoji: '⏳' },
   envoye_signataire:  { label: 'Chez le signataire',    color: '#6d28d9', bg: '#ede9fe', emoji: '📨' },
