@@ -1,5 +1,5 @@
 export const dynamic = 'force-dynamic'
-import { createClient } from '@/lib/supabase-server'
+import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import AppHeader from '@/components/AppHeader'
 import RolePreviewBanner from '@/components/RolePreviewBanner'
@@ -50,7 +50,8 @@ export default async function SignaturesPage() {
   const role = await getEffectiveRole(realRole)
   const previewRole = await getRolePreview()
 
-  const [{ data: demandes }, { data: profiles }] = await Promise.all([
+  const admin = createAdminClient()
+  const [{ data: demandes }, { data: profiles }, { data: contratDemandes }] = await Promise.all([
     supabase
       .from('demandes_signature')
       .select(`
@@ -63,14 +64,22 @@ export default async function SignaturesPage() {
       .from('profiles')
       .select('id, nom, prenoms, email, role, avatar_url, type_emploi')
       .order('nom', { ascending: true }),
+    // Client admin : la policy RLS de "contrats" ne couvre pas le rôle 'administrateur' (PCA)
+    admin
+      .from('contrats')
+      .select('demande_signature_id')
+      .not('demande_signature_id', 'is', null),
   ])
 
   const allDemandes = (demandes ?? []) as unknown as DemandeRow[]
+  // Les demandes liées à un contrat sont gérées dans "Contrats à signer", pas ici
+  const contratDemandeIds = new Set((contratDemandes ?? []).map(c => c.demande_signature_id))
 
   // Requests where current user is a signatory and hasn't signed yet
   const mesDemandesASign = allDemandes.filter(d =>
     d.statut === 'en_attente' &&
-    d.signataires?.some(s => s.profile_id === user.id && !s.signe)
+    d.signataires?.some(s => s.profile_id === user.id && !s.signe) &&
+    !contratDemandeIds.has(d.id)
   )
 
   // Requests created by current user
