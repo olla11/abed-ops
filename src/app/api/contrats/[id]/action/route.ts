@@ -41,36 +41,58 @@ export async function POST(
     const { data: sigProfile } = await admin.from('profiles').select('id, nom, prenoms, email').eq('id', sigId).single()
     if (!sigProfile) return NextResponse.json({ error: 'Signataire introuvable' }, { status: 404 })
 
-    // Mettre à jour le contrat
-    await admin.from('contrats').update({
-      workflow_statut: 'envoye_signataire',
-      signataire_id: sigId,
-    }).eq('id', id)
-
-    // Si une demande_signature existe, ajouter le signataire (ou mettre à jour)
-    if (contrat.demande_signature_id) {
+    // Établir le circuit de signature AVANT de faire passer le contrat en "envoye_signataire",
+    // pour ne jamais laisser le contrat dans un état "chez le signataire" sans circuit valide.
+    let demandeSignatureId = contrat.demande_signature_id as string | null
+    if (demandeSignatureId) {
       // Supprimer les anciennes entrées signataire pour cette demande avant de réinsèrer
-      await admin.from('signataires').delete()
-        .eq('demande_id', contrat.demande_signature_id)
+      const { error: delErr } = await admin.from('signataires').delete()
+        .eq('demande_id', demandeSignatureId)
         .eq('profile_id', sigId)
-      await admin.from('signataires').insert({
-        demande_id: contrat.demande_signature_id,
+      if (delErr) console.error('[contrat action] purge ancien signataire:', delErr)
+      const { error: insSigErr } = await admin.from('signataires').insert({
+        demande_id: demandeSignatureId,
         profile_id: sigId,
         signe: false,
         ordre: 2,
       })
+      if (insSigErr) {
+        console.error('[contrat action] insert signataire:', insSigErr)
+        return NextResponse.json({ error: "Échec de la création du circuit de signature. Réessayez." }, { status: 500 })
+      }
     } else {
       // Créer la demande_signature maintenant
-      const { data: demande } = await admin.from('demandes_signature').insert({
+      const { data: demande, error: demandeErr } = await admin.from('demandes_signature').insert({
         titre: `${contrat.categorie_document ?? 'Contrat'} ${contrat.type_contrat} — ${nomEmploye}`,
         description: `Réf. ${ref}`,
         createur_id: user.id,
         statut: 'en_attente',
       }).select('id').single()
-      if (demande) {
-        await admin.from('signataires').insert({ demande_id: demande.id, profile_id: sigId, signe: false, ordre: 1 })
-        await admin.from('contrats').update({ demande_signature_id: demande.id }).eq('id', id)
+      if (demandeErr || !demande) {
+        console.error('[contrat action] création demande_signature:', demandeErr)
+        return NextResponse.json({ error: "Échec de la création du circuit de signature. Réessayez." }, { status: 500 })
       }
+      const { error: insSigErr } = await admin.from('signataires').insert({ demande_id: demande.id, profile_id: sigId, signe: false, ordre: 1 })
+      if (insSigErr) {
+        console.error('[contrat action] insert premier signataire:', insSigErr)
+        return NextResponse.json({ error: "Échec de la création du circuit de signature. Réessayez." }, { status: 500 })
+      }
+      const { error: linkErr } = await admin.from('contrats').update({ demande_signature_id: demande.id }).eq('id', id)
+      if (linkErr) {
+        console.error('[contrat action] liaison contrat/demande:', linkErr)
+        return NextResponse.json({ error: "Échec de la liaison du circuit de signature. Réessayez." }, { status: 500 })
+      }
+      demandeSignatureId = demande.id
+    }
+
+    // Mettre à jour le contrat — uniquement une fois le circuit de signature garanti
+    const { error: updErr } = await admin.from('contrats').update({
+      workflow_statut: 'envoye_signataire',
+      signataire_id: sigId,
+    }).eq('id', id)
+    if (updErr) {
+      console.error('[contrat action] update workflow_statut envoye_signataire:', updErr)
+      return NextResponse.json({ error: "Échec de la mise à jour du contrat. Réessayez." }, { status: 500 })
     }
 
     // Notif in-app + email au signataire
