@@ -42,41 +42,10 @@ export async function POST(
     const { data: sigProfile } = await admin.from('profiles').select('id, nom, prenoms, email').eq('id', sigId).single()
     if (!sigProfile) return NextResponse.json({ error: 'Signataire introuvable' }, { status: 404 })
 
-    // La signature du signataire (POST /signer-signataire) ne dépend plus de ce circuit
-    // générique — il n'est conservé que pour l'affichage/historique dans /signatures.
-    // Sa création est donc entièrement best-effort et ne doit jamais bloquer l'envoi du contrat.
-    let demandeSignatureId = contrat.demande_signature_id as string | null
-    if (demandeSignatureId) {
-      const { error: delErr } = await admin.from('signataires').delete()
-        .eq('demande_id', demandeSignatureId)
-        .eq('profile_id', sigId)
-      if (delErr) console.error('[contrat action] purge ancien signataire (best-effort):', delErr)
-      const { error: insSigErr } = await admin.from('signataires').insert({
-        demande_id: demandeSignatureId,
-        profile_id: sigId,
-        signe: false,
-        ordre: 2,
-      })
-      if (insSigErr) console.error('[contrat action] insert signataire (best-effort):', insSigErr)
-    } else {
-      const { data: demande, error: demandeErr } = await admin.from('demandes_signature').insert({
-        titre: `${contrat.categorie_document ?? 'Contrat'} ${contrat.type_contrat} — ${nomEmploye}`,
-        description: `Réf. ${ref}`,
-        createur_id: user.id,
-        statut: 'en_attente',
-      }).select('id').single()
-      if (demandeErr || !demande) {
-        console.error('[contrat action] création demande_signature (best-effort):', demandeErr)
-      } else {
-        const { error: insSigErr } = await admin.from('signataires').insert({ demande_id: demande.id, profile_id: sigId, signe: false, ordre: 1 })
-        if (insSigErr) console.error('[contrat action] insert premier signataire (best-effort):', insSigErr)
-        const { error: linkErr } = await admin.from('contrats').update({ demande_signature_id: demande.id }).eq('id', id)
-        if (linkErr) console.error('[contrat action] liaison contrat/demande (best-effort):', linkErr)
-        else demandeSignatureId = demande.id
-      }
-    }
-
-    // Mettre à jour le contrat — l'envoi au signataire ne dépend pas du circuit ci-dessus
+    // La signature et le refus du signataire (POST /signer-signataire,
+    // /refuser-signataire) sont gérés directement sur le contrat et ne dépendent plus
+    // du système générique demandes_signature/signataires, qui s'est montré peu fiable
+    // (créait des entrées orphelines en double dans /signatures à chaque nouvel essai).
     const { error: updErr } = await admin.from('contrats').update({
       workflow_statut: 'envoye_signataire',
       signataire_id: sigId,
@@ -91,7 +60,7 @@ export async function POST(
       user_id: sigId,
       titre: 'Contrat à signer',
       message: `Le ${contrat.categorie_document ?? 'contrat'} ${contrat.type_contrat} de ${nomEmploye} (réf. ${ref}) attend votre signature.`,
-      lien: '/signatures',
+      lien: '/mes-contrats',
     })
     if (notifSigErr) console.error('[contrat action] notif in-app signataire:', notifSigErr)
 
@@ -112,7 +81,7 @@ export async function POST(
       <strong>${ref}</strong> — ${contrat.type_contrat}<br/>
       <span style="font-size:13px;color:#6b7280;">Employé(e) : ${nomEmploye}</span>
     </div>
-    <a href="${APP_URL}/signatures" style="display:inline-block;background:#064e3b;color:white;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">
+    <a href="${APP_URL}/mes-contrats" style="display:inline-block;background:#064e3b;color:white;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">
       Signer le document →
     </a>
     <p style="font-size:12px;color:#9ca3af;margin-top:20px;">ABED-ONG · my.abedong.org</p>
@@ -142,9 +111,7 @@ export async function POST(
     // Email à l'employé
     if (profile?.email) {
       try {
-        const pdfLien = contrat.demande_signature_id
-          ? `${APP_URL}/signatures/${contrat.demande_signature_id}/view`
-          : `${APP_URL}/mes-contrats`
+        const pdfLien = `${APP_URL}/mes-contrats`
         await sendEmail({
           to: profile.email,
           subject: `[My ABED] Votre contrat finalisé — ${ref}`,

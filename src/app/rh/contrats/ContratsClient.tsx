@@ -507,10 +507,10 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
                                   style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 14px', fontSize: 12.5, cursor: 'pointer', background: 'white', border: 'none', borderBottom: '1px solid #f3f4f6', color: '#166534', textAlign: 'left' }}>
                                   <MessageSquare size={14} /> {c.commentaires_rh ? 'Note (✓ existante)' : 'Ajouter une note'}
                                 </button>
-                                {(['signe_employe','rejete_signataire'].includes(c.workflow_statut ?? '') || (c.workflow_statut === 'envoye_signataire' && !c.demande_signature_id)) && (
+                                {['signe_employe','rejete_signataire'].includes(c.workflow_statut ?? '') && (
                                   <button onClick={() => { setWfTarget(c); setWfAction('envoyer_signataire'); setWfSignataireId(c.signataire_id ?? ''); setErr(null); setMenuOpenId(null) }}
-                                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 14px', fontSize: 12.5, cursor: 'pointer', background: 'white', border: 'none', borderBottom: '1px solid #f3f4f6', color: c.workflow_statut === 'envoye_signataire' ? '#b91c1c' : '#6d28d9', fontWeight: 700, textAlign: 'left' }}>
-                                    <Send size={14} /> {c.workflow_statut === 'envoye_signataire' ? 'Réparer le circuit de signature' : c.workflow_statut === 'rejete_signataire' ? 'Renvoyer au signataire' : 'Envoyer au signataire'}
+                                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 14px', fontSize: 12.5, cursor: 'pointer', background: 'white', border: 'none', borderBottom: '1px solid #f3f4f6', color: '#6d28d9', fontWeight: 700, textAlign: 'left' }}>
+                                    <Send size={14} /> {c.workflow_statut === 'rejete_signataire' ? 'Renvoyer au signataire' : 'Envoyer au signataire'}
                                   </button>
                                 )}
                                 {c.workflow_statut === 'signe_signataire' && (
@@ -609,7 +609,6 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
       {wfTarget && (
         <Modal
           title={
-            wfAction === 'envoyer_signataire' && wfTarget.workflow_statut === 'envoye_signataire' ? `Réparer le circuit de signature — ${wfTarget.profile?.prenoms} ${wfTarget.profile?.nom}` :
             wfAction === 'envoyer_signataire' ? `Envoyer au signataire — ${wfTarget.profile?.prenoms} ${wfTarget.profile?.nom}` :
             wfAction === 'finaliser' ? `Finaliser le contrat — ${wfTarget.profile?.prenoms} ${wfTarget.profile?.nom}` :
             `Renvoyer à l'employé — ${wfTarget.profile?.prenoms} ${wfTarget.profile?.nom}`
@@ -619,11 +618,6 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
           loading={loading} err={err}
         >
           <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 16 }}>Réf. {wfTarget.numero ?? '—'} · {wfTarget.categorie_document ?? 'Contrat'} {wfTarget.type_contrat}</p>
-          {wfAction === 'envoyer_signataire' && wfTarget.workflow_statut === 'envoye_signataire' && (
-            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontSize: 12.5, color: '#991b1b' }}>
-              Ce contrat est marqué « chez le signataire » mais son circuit de signature n&apos;a pas pu être créé correctement. Confirmez ci-dessous pour le recréer.
-            </div>
-          )}
           {wfAction === 'envoyer_signataire' && (
             <div>
               <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Signataire (DE, PCA ou autre) *</label>
