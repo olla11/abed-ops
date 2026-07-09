@@ -42,27 +42,23 @@ export async function POST(
     const { data: sigProfile } = await admin.from('profiles').select('id, nom, prenoms, email').eq('id', sigId).single()
     if (!sigProfile) return NextResponse.json({ error: 'Signataire introuvable' }, { status: 404 })
 
-    // Établir le circuit de signature AVANT de faire passer le contrat en "envoye_signataire",
-    // pour ne jamais laisser le contrat dans un état "chez le signataire" sans circuit valide.
+    // La signature du signataire (POST /signer-signataire) ne dépend plus de ce circuit
+    // générique — il n'est conservé que pour l'affichage/historique dans /signatures.
+    // Sa création est donc entièrement best-effort et ne doit jamais bloquer l'envoi du contrat.
     let demandeSignatureId = contrat.demande_signature_id as string | null
     if (demandeSignatureId) {
-      // Supprimer les anciennes entrées signataire pour cette demande avant de réinsèrer
       const { error: delErr } = await admin.from('signataires').delete()
         .eq('demande_id', demandeSignatureId)
         .eq('profile_id', sigId)
-      if (delErr) console.error('[contrat action] purge ancien signataire:', delErr)
+      if (delErr) console.error('[contrat action] purge ancien signataire (best-effort):', delErr)
       const { error: insSigErr } = await admin.from('signataires').insert({
         demande_id: demandeSignatureId,
         profile_id: sigId,
         signe: false,
         ordre: 2,
       })
-      if (insSigErr) {
-        console.error('[contrat action] insert signataire:', insSigErr)
-        return NextResponse.json({ error: "Échec de la création du circuit de signature. Réessayez." }, { status: 500 })
-      }
+      if (insSigErr) console.error('[contrat action] insert signataire (best-effort):', insSigErr)
     } else {
-      // Créer la demande_signature maintenant
       const { data: demande, error: demandeErr } = await admin.from('demandes_signature').insert({
         titre: `${contrat.categorie_document ?? 'Contrat'} ${contrat.type_contrat} — ${nomEmploye}`,
         description: `Réf. ${ref}`,
@@ -70,23 +66,17 @@ export async function POST(
         statut: 'en_attente',
       }).select('id').single()
       if (demandeErr || !demande) {
-        console.error('[contrat action] création demande_signature:', demandeErr)
-        return NextResponse.json({ error: "Échec de la création du circuit de signature. Réessayez." }, { status: 500 })
+        console.error('[contrat action] création demande_signature (best-effort):', demandeErr)
+      } else {
+        const { error: insSigErr } = await admin.from('signataires').insert({ demande_id: demande.id, profile_id: sigId, signe: false, ordre: 1 })
+        if (insSigErr) console.error('[contrat action] insert premier signataire (best-effort):', insSigErr)
+        const { error: linkErr } = await admin.from('contrats').update({ demande_signature_id: demande.id }).eq('id', id)
+        if (linkErr) console.error('[contrat action] liaison contrat/demande (best-effort):', linkErr)
+        else demandeSignatureId = demande.id
       }
-      const { error: insSigErr } = await admin.from('signataires').insert({ demande_id: demande.id, profile_id: sigId, signe: false, ordre: 1 })
-      if (insSigErr) {
-        console.error('[contrat action] insert premier signataire:', insSigErr)
-        return NextResponse.json({ error: "Échec de la création du circuit de signature. Réessayez." }, { status: 500 })
-      }
-      const { error: linkErr } = await admin.from('contrats').update({ demande_signature_id: demande.id }).eq('id', id)
-      if (linkErr) {
-        console.error('[contrat action] liaison contrat/demande:', linkErr)
-        return NextResponse.json({ error: "Échec de la liaison du circuit de signature. Réessayez." }, { status: 500 })
-      }
-      demandeSignatureId = demande.id
     }
 
-    // Mettre à jour le contrat — uniquement une fois le circuit de signature garanti
+    // Mettre à jour le contrat — l'envoi au signataire ne dépend pas du circuit ci-dessus
     const { error: updErr } = await admin.from('contrats').update({
       workflow_statut: 'envoye_signataire',
       signataire_id: sigId,
