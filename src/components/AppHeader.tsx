@@ -26,7 +26,6 @@ export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, s
   const t = useTranslations('nav')
   const showOverview = OVERVIEW_ROLES.includes(userRole ?? '')
   const estRapport = RAPPORT_TYPES.includes(typeEmploi ?? '')
-  const isSignataireOrg = ['de', 'administrateur'].includes(userRole ?? '')
   const [dossierOpen, setDossierOpen] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const mobileRef = useRef<HTMLDivElement>(null)
@@ -38,7 +37,6 @@ export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, s
     { href: '/conges', label: t('leaves'), match: ['/conges'] },
     { href: '/signatures', label: t('signatures'), match: ['/signatures'] },
     { href: '/mes-contrats', label: t('contracts'), match: ['/mes-contrats'] },
-    ...(isSignataireOrg ? [{ href: '/contrats-a-signer', label: t('contractsToSign'), match: ['/contrats-a-signer'] }] : []),
   ]
 
   const mainTabs = [

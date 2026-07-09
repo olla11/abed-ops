@@ -12,6 +12,8 @@ export default async function MesContratsPage() {
   const { data: profile } = await supabase
     .from('profiles').select('role, nom, prenoms, type_emploi, avatar_url').eq('id', user.id).single()
 
+  const canSign = ['de', 'administrateur'].includes(profile?.role ?? '')
+
   const admin = createAdminClient()
   const { data: contrats, error: contratsError } = await admin
     .from('contrats')
@@ -44,6 +46,19 @@ export default async function MesContratsPage() {
     demande: c.demande_signature_id ? demandesById.get(c.demande_signature_id) ?? null : null,
   }))
 
+  let contratsASigner: any[] = []
+  if (canSign) {
+    const { data: aSigner, error: aSignerError } = await admin
+      .from('contrats')
+      .select('*, profile:profiles!profile_id(nom, prenoms)')
+      .eq('signataire_id', user.id)
+      .order('created_at', { ascending: false })
+    if (aSignerError) {
+      console.error('[mes-contrats] échec récupération contrats à signer:', aSignerError)
+    }
+    contratsASigner = aSigner ?? []
+  }
+
   return (
     <>
       <AppHeader
@@ -52,7 +67,7 @@ export default async function MesContratsPage() {
         typeEmploi={profile?.type_emploi}
         avatarUrl={profile?.avatar_url ?? null}
       />
-      <MesContratsClient contrats={contratsAvecDemande} />
+      <MesContratsClient contrats={contratsAvecDemande} contratsASigner={contratsASigner} canSign={canSign} />
     </>
   )
 }
