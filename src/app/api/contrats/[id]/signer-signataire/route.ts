@@ -43,23 +43,6 @@ export async function POST(
     return NextResponse.json({ error: 'Erreur lors de la signature' }, { status: 500 })
   }
 
-  // Best-effort : refléter la signature dans le système générique de signatures s'il existe,
-  // mais ne jamais bloquer la signature du contrat si ce circuit est absent ou en échec.
-  if (contrat.demande_signature_id) {
-    const { error: sigErr } = await admin.from('signataires')
-      .update({ signe: true, signe_le: new Date().toISOString() })
-      .eq('demande_id', contrat.demande_signature_id)
-      .eq('profile_id', user.id)
-    if (sigErr) console.error('[signer-signataire] maj signataires (best-effort):', sigErr)
-    const { data: allSigs } = await admin.from('signataires').select('signe').eq('demande_id', contrat.demande_signature_id)
-    if (allSigs?.every(s => s.signe)) {
-      const { error: demErr } = await admin.from('demandes_signature')
-        .update({ statut: 'complete', updated_at: new Date().toISOString() })
-        .eq('id', contrat.demande_signature_id)
-      if (demErr) console.error('[signer-signataire] maj demande complete (best-effort):', demErr)
-    }
-  }
-
   const profile = contrat.profile as any
   const nomEmploye = `${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`.trim()
   const ref = contrat.numero ?? contrat.id

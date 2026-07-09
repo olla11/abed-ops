@@ -18,7 +18,6 @@ type Contrat = {
   articles: { titre: string; contenu: string }[] | null
   commentaires_rh: string | null
   commentaires_employe: string | null
-  demande: { id: string; statut: string; fichier_url: string | null } | null
 }
 
 type ContratASigner = {
@@ -36,7 +35,6 @@ type ContratASigner = {
   commentaires_rh: string | null
   commentaires_employe: string | null
   commentaires_signataire: string | null
-  demande_signature_id: string | null
   profile: { nom: string; prenoms: string } | null
 }
 
@@ -450,14 +448,6 @@ export default function MesContratsClient({ contrats, contratsASigner, canSign }
               >
                 📄 Voir / télécharger le document (PDF)
               </a>
-              {selected.demande?.fichier_url && (
-                <Link
-                  href={`/signatures/${selected.demande.id}/view`}
-                  style={{ display: 'block', textAlign: 'center', background: '#f3f4f6', color: '#374151', borderRadius: 10, padding: '12px', fontSize: 14, fontWeight: 600, textDecoration: 'none' }}
-                >
-                  📄 Voir le document signé
-                </Link>
-              )}
             </div>
           </div>
         </div>

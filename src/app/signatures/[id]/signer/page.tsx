@@ -55,23 +55,13 @@ export default async function SignerPage({
     ? buildSignatureName(profile.prenoms, profile.nom)
     : (user.email ?? 'Utilisateur')
 
-  // Si ce document est lié à un contrat RH dont l'utilisateur est le signataire attendu,
-  // on lui permet de le renvoyer au RH sans signer (avec motif obligatoire).
-  const { data: contratLie } = await admin
-    .from('contrats')
-    .select('id')
-    .eq('demande_signature_id', demandeId)
-    .eq('signataire_id', user.id)
-    .eq('workflow_statut', 'envoye_signataire')
-    .maybeSingle()
-
   return (
     <SignerClient
       demandeId={demandeId}
       titre={demande.titre}
       fichierUrl={demande.fichier_url ?? null}
       userName={userName}
-      contratId={contratLie?.id ?? null}
+      contratId={null}
     />
   )
 }

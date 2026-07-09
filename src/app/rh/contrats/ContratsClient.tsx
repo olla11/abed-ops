@@ -15,7 +15,7 @@ type Contrat = {
   commentaires_employe: string | null; commentaires_rh: string | null
   commentaires_signataire: string | null
   workflow_statut: string | null; signe_employe_le: string | null
-  signataire_id: string | null; demande_signature_id: string | null
+  signataire_id: string | null
   profile: { id: string; nom: string; prenoms: string; email: string | null; role: string } | null
 }
 

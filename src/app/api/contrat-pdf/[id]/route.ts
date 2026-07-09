@@ -124,19 +124,8 @@ export async function GET(
       .single()
     signataireNom = formatSignatureName(sigProfile?.prenoms, sigProfile?.nom)
 
-    // Date de signature : d'abord la colonne dédiée, sinon best-effort via le circuit générique
     if (contrat.signe_signataire_le) {
       signataireSigneLe = new Date(contrat.signe_signataire_le).toLocaleDateString('fr-FR')
-    } else if (contrat.demande_signature_id) {
-      const { data: sigRow } = await admin
-        .from('signataires')
-        .select('signe, signe_le')
-        .eq('demande_id', contrat.demande_signature_id)
-        .eq('profile_id', contrat.signataire_id)
-        .single()
-      if (sigRow?.signe && sigRow.signe_le) {
-        signataireSigneLe = new Date(sigRow.signe_le).toLocaleDateString('fr-FR')
-      }
     }
   }
 
