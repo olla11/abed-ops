@@ -36,6 +36,22 @@ const inputStyle: React.CSSProperties = {
   border: '1px solid var(--abed-border)', outline: 'none', boxSizing: 'border-box',
 }
 
+const DRAFT_KEY_NEW = 'abed_rh_contrat_draft_new'
+const draftKeyEdit = (id: string) => `abed_rh_contrat_draft_edit_${id}`
+
+function loadDraft(key: string): { form: any; articles: Article[]; savedAt: number } | null {
+  try {
+    const raw = localStorage.getItem(key)
+    return raw ? JSON.parse(raw) : null
+  } catch { return null }
+}
+function saveDraft(key: string, form: any, articles: Article[]) {
+  try { localStorage.setItem(key, JSON.stringify({ form, articles, savedAt: Date.now() })) } catch {}
+}
+function clearDraft(key: string) {
+  try { localStorage.removeItem(key) } catch {}
+}
+
 const TYPES = ['CDD', 'CDI', 'Stage N1', 'Stage N2', 'Bénévolat', 'Prestataire direct', 'Prestataire à crédit', 'Consultant']
 const TYPES_STAGE = ['Stage N1', 'Stage N2']
 const DIRECTIONS = ['Administration', 'Direction Exécutive', 'Direction des Programmes', 'Exploitation', 'Autre']
@@ -132,8 +148,17 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
   const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const [tauxCaf, setTauxCaf] = useState<{ direct: number; credit: number } | null>(null)
+  const [draftRestoredAt, setDraftRestoredAt] = useState<number | null>(null)
 
   const anyModalOpen = showNew || !!editTarget || !!renewTarget || !!resilierTarget || !!commentTarget || !!wfTarget
+
+  // Sauvegarde automatique du brouillon (nouveau document / modification) dans le navigateur
+  useEffect(() => {
+    if (!showNew && !editTarget) return
+    const key = showNew ? DRAFT_KEY_NEW : draftKeyEdit(editTarget!.id)
+    const t = setTimeout(() => saveDraft(key, form, articles), 400)
+    return () => clearTimeout(t)
+  }, [form, articles, showNew, editTarget])
   useEffect(() => {
     if (anyModalOpen) {
       document.body.classList.add('panel-open')
@@ -188,13 +213,36 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
     setForm((f: any) => ({ ...f, profile_id: profileId, poste: p?.fonction ?? f.poste ?? '', contrat_parent_id: '' }))
   }
 
-  function openNew() { setForm({ categorie_document: 'Contrat' }); setArticles([]); setErr(null); setShowNew(true) }
+  function openNew() {
+    const draft = loadDraft(DRAFT_KEY_NEW)
+    if (draft) { setForm(draft.form); setArticles(draft.articles); setDraftRestoredAt(draft.savedAt) }
+    else { setForm({ categorie_document: 'Contrat' }); setArticles([]); setDraftRestoredAt(null) }
+    setErr(null); setShowNew(true)
+  }
 
   function openEdit(c: Contrat) {
     setEditTarget(c)
-    setForm({ categorie_document: c.categorie_document ?? 'Contrat', type_contrat: c.type_contrat, poste: c.poste ?? '', direction: c.direction ?? '', date_debut: c.date_debut, date_fin: c.date_fin ?? '', salaire_brut: c.salaire_brut ?? '', observations: c.observations ?? '', objet: c.objet ?? '', commentaires_rh: c.commentaires_rh ?? '' })
-    setArticles(Array.isArray(c.articles) ? c.articles : [])
+    const draft = loadDraft(draftKeyEdit(c.id))
+    if (draft) { setForm(draft.form); setArticles(draft.articles); setDraftRestoredAt(draft.savedAt) }
+    else {
+      setForm({ categorie_document: c.categorie_document ?? 'Contrat', type_contrat: c.type_contrat, poste: c.poste ?? '', direction: c.direction ?? '', date_debut: c.date_debut, date_fin: c.date_fin ?? '', salaire_brut: c.salaire_brut ?? '', observations: c.observations ?? '', objet: c.objet ?? '', commentaires_rh: c.commentaires_rh ?? '' })
+      setArticles(Array.isArray(c.articles) ? c.articles : [])
+      setDraftRestoredAt(null)
+    }
     setErr(null)
+  }
+
+  function discardDraft() {
+    if (showNew) {
+      clearDraft(DRAFT_KEY_NEW)
+      setForm({ categorie_document: 'Contrat' }); setArticles([])
+    } else if (editTarget) {
+      const c = editTarget
+      clearDraft(draftKeyEdit(c.id))
+      setForm({ categorie_document: c.categorie_document ?? 'Contrat', type_contrat: c.type_contrat, poste: c.poste ?? '', direction: c.direction ?? '', date_debut: c.date_debut, date_fin: c.date_fin ?? '', salaire_brut: c.salaire_brut ?? '', observations: c.observations ?? '', objet: c.objet ?? '', commentaires_rh: c.commentaires_rh ?? '' })
+      setArticles(Array.isArray(c.articles) ? c.articles : [])
+    }
+    setDraftRestoredAt(null)
   }
 
   function openComment(c: Contrat) { setCommentTarget(c); setCommentaire(c.commentaires_rh ?? ''); setErr(null) }
@@ -204,7 +252,7 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
     try {
       const res = await fetch('/api/rh/contrats', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, articles }) })
       const d = await res.json()
-      if (res.ok) { setShowNew(false); setForm({}); setArticles([]); setContrats(c => [d.contrat, ...c]) }
+      if (res.ok) { clearDraft(DRAFT_KEY_NEW); setShowNew(false); setForm({}); setArticles([]); setDraftRestoredAt(null); setContrats(c => [d.contrat, ...c]) }
       else setErr(d.error ?? 'Erreur lors de la création')
     } catch { setErr('Erreur réseau — veuillez réessayer') }
     finally { setLoading(false) }
@@ -216,7 +264,7 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
     try {
       const res = await fetch(`/api/rh/contrats/${editTarget.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, articles }) })
       const d = await res.json()
-      if (res.ok) { setContrats(cs => cs.map(c => c.id === editTarget.id ? { ...c, ...d.contrat, articles } : c)); setEditTarget(null); setForm({}); setArticles([]) }
+      if (res.ok) { clearDraft(draftKeyEdit(editTarget.id)); setContrats(cs => cs.map(c => c.id === editTarget.id ? { ...c, ...d.contrat, articles } : c)); setEditTarget(null); setForm({}); setArticles([]); setDraftRestoredAt(null) }
       else setErr(d.error ?? 'Erreur modification')
     } catch { setErr('Erreur réseau') }
     finally { setLoading(false) }
@@ -561,6 +609,12 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
 
       {showNew && (
         <Modal title="Nouveau document RH" onSubmit={createContrat} onClose={() => { setShowNew(false); setErr(null) }} loading={loading} err={err} wide>
+          {draftRestoredAt && (
+            <div style={{ fontSize: 12, background: '#fffbeb', border: '1px solid #fde68a', color: '#92400e', borderRadius: 6, padding: '8px 12px', marginBottom: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+              <span>📝 Brouillon restauré (enregistré le {new Date(draftRestoredAt).toLocaleString('fr-FR')})</span>
+              <button type="button" onClick={discardDraft} style={{ padding: '3px 10px', fontSize: 11, borderRadius: 6, cursor: 'pointer', background: 'white', border: '1px solid #fde68a', color: '#92400e', fontWeight: 700, whiteSpace: 'nowrap' }}>Effacer</button>
+            </div>
+          )}
           {formFields(true)}
         </Modal>
       )}
@@ -568,6 +622,12 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
       {editTarget && (
         <Modal title={`Modifier — ${editTarget.profile?.prenoms} ${editTarget.profile?.nom}`} onSubmit={updateContrat} onClose={() => { setEditTarget(null); setErr(null) }} loading={loading} err={err} wide>
           <p style={{ fontSize: 12, color: 'var(--abed-muted)', marginBottom: 12 }}>Réf. {editTarget.numero ?? '—'} · {editTarget.categorie_document ?? 'Contrat'}</p>
+          {draftRestoredAt && (
+            <div style={{ fontSize: 12, background: '#fffbeb', border: '1px solid #fde68a', color: '#92400e', borderRadius: 6, padding: '8px 12px', marginBottom: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+              <span>📝 Brouillon restauré (enregistré le {new Date(draftRestoredAt).toLocaleString('fr-FR')})</span>
+              <button type="button" onClick={discardDraft} style={{ padding: '3px 10px', fontSize: 11, borderRadius: 6, cursor: 'pointer', background: 'white', border: '1px solid #fde68a', color: '#92400e', fontWeight: 700, whiteSpace: 'nowrap' }}>Effacer</button>
+            </div>
+          )}
           {formFields(false)}
         </Modal>
       )}
