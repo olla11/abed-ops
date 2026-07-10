@@ -115,6 +115,7 @@ export async function GET(
   // Source de vérité : contrat.workflow_statut + contrat.signataire_id (jamais le circuit
   // générique demandes_signature/signataires, qui peut être absent ou désynchronisé).
   let signataireNom: string | null = null
+  let signataireNomReel = ''
   let signataireSigneLe: string | null = null
   if (contrat.signataire_id && ['signe_signataire', 'finalise'].includes(contrat.workflow_statut ?? '')) {
     const { data: sigProfile } = await admin
@@ -123,10 +124,26 @@ export async function GET(
       .eq('id', contrat.signataire_id)
       .single()
     signataireNom = formatSignatureName(sigProfile?.prenoms, sigProfile?.nom)
+    signataireNomReel = `${sigProfile?.prenoms ?? ''} ${sigProfile?.nom ?? ''}`.trim()
 
     if (contrat.signe_signataire_le) {
       signataireSigneLe = new Date(contrat.signe_signataire_le).toLocaleDateString('fr-FR')
     }
+  }
+  const employeNomReel = `${p?.prenoms ?? ''} ${p?.nom ?? ''}`.trim()
+
+  // Bloc de signature : le nom manuscrit (cursif) repose sur le trait, le nom réel imprimé apparaît en dessous
+  function sigBlockHtml(role: string, nomCursif: string | null, nomReel: string, dateStr: string | null, avant = ''): string {
+    return `
+    <div class="sig">
+      <div class="sig-role">${role}</div>
+      ${avant}
+      <div class="sig-area">${nomCursif ? `<div class="sig-cursive">${nomCursif}</div>` : ''}</div>
+      <div class="sig-rule"></div>
+      ${nomCursif
+        ? `<div class="sig-realname">${nomReel}</div><div class="sig-stamp">✓ Signé électroniquement${dateStr ? ` le ${dateStr}` : ''}</div>`
+        : `<div class="sig-pending">En attente de signature</div>`}
+    </div>`
   }
 
   const articles: Array<{ titre: string; contenu: string }> = Array.isArray(contrat.articles) ? contrat.articles : []
@@ -179,21 +196,8 @@ export async function GET(
   </p>
 
   <div class="sig-block">
-    <div class="sig">
-      <div class="sig-role">Pour ${p?.civilite === 'Mme' ? 'la' : 'le'} stagiaire</div>
-      ${employeSigneLe ? `
-        <div class="sig-name">${formatSignatureName(p?.prenoms, p?.nom)}</div>
-        <div class="sig-stamp">✓ Signé électroniquement le ${employeSigneLe}</div>
-      ` : `<div class="sig-line">En attente de signature</div>`}
-    </div>
-    <div class="sig">
-      <div class="sig-role">${titreDirecteur(repProfile?.civilite)}</div>
-      ${repCachetUrl ? `<img src="${repCachetUrl}" alt="Cachet ABED" style="height:70px;margin-top:8px;" />` : ''}
-      ${signataireNom ? `
-        <div class="sig-name">${signataireNom}</div>
-        <div class="sig-stamp">✓ Signé électroniquement${signataireSigneLe ? ` le ${signataireSigneLe}` : ''}</div>
-      ` : `<div class="sig-line">En attente de signature</div>`}
-    </div>
+    ${sigBlockHtml(`Pour ${p?.civilite === 'Mme' ? 'la' : 'le'} stagiaire`, employeSigneLe ? formatSignatureName(p?.prenoms, p?.nom) : null, employeNomReel, employeSigneLe)}
+    ${sigBlockHtml(titreDirecteur(repProfile?.civilite), signataireNom, signataireNomReel, signataireSigneLe, repCachetUrl ? `<img src="${repCachetUrl}" alt="Cachet ABED" style="height:70px;margin-top:8px;" />` : '')}
   </div>
   ` : `
   <div class="doc-title">
@@ -245,20 +249,8 @@ export async function GET(
   </p>
 
   <div class="sig-block">
-    <div class="sig">
-      <div class="sig-role">${sigLeft}</div>
-      ${signataireNom ? `
-        <div class="sig-name">${signataireNom}</div>
-        <div class="sig-stamp">✓ Signé électroniquement${signataireSigneLe ? ` le ${signataireSigneLe}` : ''}</div>
-      ` : `<div class="sig-line">En attente de signature</div>`}
-    </div>
-    <div class="sig">
-      <div class="sig-role">${sigRight}</div>
-      ${employeSigneLe ? `
-        <div class="sig-name">${formatSignatureName(p?.prenoms, p?.nom)}</div>
-        <div class="sig-stamp">✓ Signé électroniquement le ${employeSigneLe}</div>
-      ` : `<div class="sig-line">En attente de signature</div>`}
-    </div>
+    ${sigBlockHtml(sigLeft, signataireNom, signataireNomReel, signataireSigneLe)}
+    ${sigBlockHtml(sigRight, employeSigneLe ? formatSignatureName(p?.prenoms, p?.nom) : null, employeNomReel, employeSigneLe)}
   </div>
   `
 
@@ -295,9 +287,12 @@ export async function GET(
     .sig-block { display: flex; justify-content: space-between; margin-top: 64px; }
     .sig { text-align: center; width: 45%; }
     .sig-role { font-size: 10pt; font-weight: bold; margin-bottom: 4px; }
-    .sig-line { border-top: 1px solid #000; margin-top: 52px; padding-top: 6px; font-size: 10pt; color: #9ca3af; }
-    .sig-name { font-family: 'BrittanySignature', cursive; font-size: 28pt; line-height: 1; border-top: 1px solid #000; margin-top: 52px; padding-top: 4px; color: #1e3a8a; }
-    .sig-stamp { font-size: 8.5pt; color: #16a34a; margin-top: 4px; font-family: Arial, sans-serif; font-weight: bold; }
+    .sig-area { min-height: 54px; margin-top: 30px; display: flex; align-items: flex-end; justify-content: center; }
+    .sig-cursive { font-family: 'BrittanySignature', cursive; font-size: 28pt; line-height: 1; color: #1e3a8a; transform: translateY(-16px); }
+    .sig-rule { border-top: 1px solid #000; }
+    .sig-realname { font-size: 10.5pt; font-weight: bold; margin-top: 14px; color: #111; }
+    .sig-pending { font-size: 10pt; color: #9ca3af; margin-top: 6px; }
+    .sig-stamp { font-size: 8.5pt; color: #16a34a; margin-top: 3px; font-family: Arial, sans-serif; font-weight: bold; }
     .footer { text-align: center; font-size: 8.5pt; color: #888; margin-top: 40px; border-top: 1px solid #e5e7eb; padding-top: 10px; }
     @media print { .no-print { display: none !important; } body { padding: 24px 32px; } }
   </style>
