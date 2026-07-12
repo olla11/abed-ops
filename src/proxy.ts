@@ -32,7 +32,9 @@ export async function proxy(req: NextRequest) {
     path.startsWith('/login') ||
     path.startsWith('/auth/') ||
     path.startsWith('/api/auth/') ||
-    path.startsWith('/api/fedapay')
+    path.startsWith('/api/fedapay') ||
+    path.startsWith('/signatures/externe') ||
+    path.startsWith('/api/signatures/externe')
 
   if (!user && !isPublic) {
     return NextResponse.redirect(new URL('/login', req.url))

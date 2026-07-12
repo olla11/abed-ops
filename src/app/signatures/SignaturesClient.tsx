@@ -18,7 +18,10 @@ function fmtDate(d: string | null) {
 }
 
 function SignataireChip({ s }: { s: SignataireRow }) {
-  const name = s.profile ? `${s.profile.prenoms} ${s.profile.nom}` : s.profile_id
+  const name = s.profile
+    ? `${s.profile.prenoms} ${s.profile.nom}`
+    : (s.nom_externe || s.email || s.profile_id || 'Signataire')
+  const isExterne = !s.profile_id
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 5,
@@ -27,7 +30,7 @@ function SignataireChip({ s }: { s: SignataireRow }) {
       color: s.signe ? '#166534' : '#92400e',
       border: `1px solid ${s.signe ? '#86efac' : '#fde68a'}`,
     }}>
-      {s.signe ? '✓' : '⏳'} {name}
+      {s.signe ? '✓' : '⏳'} {name}{isExterne && <span title="Signataire externe" style={{ fontWeight: 400 }}> (externe)</span>}
       {s.signe && s.signe_le && <span style={{ fontWeight: 400, fontSize: 11, color: '#6b7280' }}>· {fmtDate(s.signe_le)}</span>}
     </span>
   )
@@ -81,7 +84,7 @@ function DemandeCard({ d, userId, onSigned }: { d: DemandeRow; userId: string; o
             )}
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-            {d.signataires.map(s => <SignataireChip key={s.profile_id} s={s} />)}
+            {d.signataires.map(s => <SignataireChip key={s.profile_id ?? s.email} s={s} />)}
           </div>
           <div style={{ fontSize: 12, color: '#6b7280' }}>
             {signed}/{total} signataire{total > 1 ? 's' : ''} ont signé
@@ -141,6 +144,8 @@ export default function SignaturesClient({ userId, mesDemandesASign: initialASig
   // Creation form state
   const [form, setForm] = useState({ titre: '', description: '' })
   const [selectedSignataires, setSelectedSignataires] = useState<string[]>([])
+  const [externalEmails, setExternalEmails] = useState<string[]>([])
+  const [externalEmailInput, setExternalEmailInput] = useState('')
   const [fichier, setFichier] = useState<File | null>(null)
   const [creating, setCreating] = useState(false)
   const [createErr, setCreateErr] = useState<string | null>(null)
@@ -164,9 +169,27 @@ export default function SignaturesClient({ userId, mesDemandesASign: initialASig
     )
   }
 
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+  function addExternalEmail() {
+    const email = externalEmailInput.trim().toLowerCase()
+    if (!email) return
+    if (!EMAIL_RE.test(email)) { setCreateErr('Adresse email invalide.'); return }
+    if (externalEmails.includes(email)) { setExternalEmailInput(''); return }
+    setExternalEmails(prev => [...prev, email])
+    setExternalEmailInput('')
+    setCreateErr(null)
+  }
+
+  function removeExternalEmail(email: string) {
+    setExternalEmails(prev => prev.filter(e => e !== email))
+  }
+
   async function submitCreate() {
     if (!form.titre.trim()) { setCreateErr('Le titre est requis.'); return }
-    if (selectedSignataires.length === 0) { setCreateErr('Choisissez au moins un signataire.'); return }
+    if (selectedSignataires.length === 0 && externalEmails.length === 0) {
+      setCreateErr('Choisissez au moins un signataire.'); return
+    }
 
     setCreating(true); setCreateErr(null)
     const fd = new FormData()
@@ -174,6 +197,7 @@ export default function SignaturesClient({ userId, mesDemandesASign: initialASig
     if (form.description.trim()) fd.append('description', form.description.trim())
     if (fichier) fd.append('fichier', fichier)
     fd.append('signataires', JSON.stringify(selectedSignataires))
+    fd.append('signataires_externes', JSON.stringify(externalEmails))
 
     const res = await fetch('/api/signatures/create', { method: 'POST', body: fd })
     setCreating(false)
@@ -184,6 +208,8 @@ export default function SignaturesClient({ userId, mesDemandesASign: initialASig
       setShowModal(false)
       setForm({ titre: '', description: '' })
       setSelectedSignataires([])
+      setExternalEmails([])
+      setExternalEmailInput('')
       setFichier(null)
       if (fileRef.current) fileRef.current.value = ''
     } else {
@@ -301,8 +327,52 @@ export default function SignaturesClient({ userId, mesDemandesASign: initialASig
               {fichier && <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>📄 {fichier.name}</div>}
             </div>
 
+            <div style={{ marginBottom: 14 }}>
+              <label style={labelStyle}>Inviter des signataires externes (par email)</label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  type="email"
+                  value={externalEmailInput}
+                  onChange={e => setExternalEmailInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addExternalEmail() } }}
+                  placeholder="email@exterieur.com"
+                  style={inputStyle}
+                />
+                <button
+                  type="button"
+                  onClick={addExternalEmail}
+                  style={{ padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: 'var(--abed-green)', color: 'white', border: 'none', whiteSpace: 'nowrap' }}
+                >
+                  + Ajouter
+                </button>
+              </div>
+              <p style={{ fontSize: 11, color: 'var(--abed-muted)', marginTop: 4 }}>
+                La personne recevra un email avec un lien pour saisir son nom et signer, sans avoir besoin de compte.
+              </p>
+              {externalEmails.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                  {externalEmails.map(email => (
+                    <span key={email} style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                      padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600,
+                      background: '#eff6ff', color: '#1e40af', border: '1px solid #bfdbfe',
+                    }}>
+                      ✉️ {email}
+                      <button
+                        type="button"
+                        onClick={() => removeExternalEmail(email)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1e40af', fontWeight: 700, padding: 0, fontSize: 13, lineHeight: 1 }}
+                      >
+                        ✕
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div style={{ marginBottom: 18 }}>
-              <label style={labelStyle}>Signataires * ({selectedSignataires.length} sélectionné{selectedSignataires.length > 1 ? 's' : ''})</label>
+              <label style={labelStyle}>Signataires internes ({selectedSignataires.length} sélectionné{selectedSignataires.length > 1 ? 's' : ''})</label>
               <div style={{
                 border: '1px solid var(--abed-border)', borderRadius: 8, maxHeight: 200, overflowY: 'auto',
                 background: '#fafafa',

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { sendEmail } from '@/lib/resend'
+import { signExternalSignerToken } from '@/lib/external-signer-token'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_URL ?? 'https://myabed.app'
 
@@ -14,6 +15,7 @@ export async function POST(req: NextRequest) {
   const description = (formData.get('description') as string | null)?.trim() || null
   const fichier = formData.get('fichier') as File | null
   const signatairesRaw = formData.get('signataires') as string | null
+  const signatairesExternesRaw = formData.get('signataires_externes') as string | null
 
   if (!titre) {
     return NextResponse.json({ error: 'Le titre est requis' }, { status: 400 })
@@ -22,11 +24,27 @@ export async function POST(req: NextRequest) {
   let signatairesIds: string[] = []
   try {
     signatairesIds = JSON.parse(signatairesRaw ?? '[]')
-    if (!Array.isArray(signatairesIds) || signatairesIds.length === 0) {
-      return NextResponse.json({ error: 'Au moins un signataire est requis' }, { status: 400 })
-    }
+    if (!Array.isArray(signatairesIds)) return NextResponse.json({ error: 'Liste de signataires invalide' }, { status: 400 })
   } catch {
     return NextResponse.json({ error: 'Liste de signataires invalide' }, { status: 400 })
+  }
+
+  let signatairesExternes: { email: string }[] = []
+  try {
+    const parsed = JSON.parse(signatairesExternesRaw ?? '[]')
+    if (!Array.isArray(parsed)) return NextResponse.json({ error: 'Liste de signataires externes invalide' }, { status: 400 })
+    const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    signatairesExternes = parsed
+      .map((e: unknown) => (typeof e === 'string' ? e.trim().toLowerCase() : ''))
+      .filter((e: string) => emailRe.test(e))
+      .filter((e: string, i: number, arr: string[]) => arr.indexOf(e) === i)
+      .map((email: string) => ({ email }))
+  } catch {
+    return NextResponse.json({ error: 'Liste de signataires externes invalide' }, { status: 400 })
+  }
+
+  if (signatairesIds.length === 0 && signatairesExternes.length === 0) {
+    return NextResponse.json({ error: 'Au moins un signataire est requis' }, { status: 400 })
   }
 
   const admin = createAdminClient()
@@ -64,14 +82,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Erreur lors de la création de la demande' }, { status: 500 })
   }
 
-  // Insert signataires
-  const sigRows = signatairesIds.map((pid, idx) => ({
-    demande_id: demande.id,
-    profile_id: pid,
-    ordre: idx,
-  }))
+  // Insert signataires (internes + externes)
+  const sigRows = [
+    ...signatairesIds.map((pid, idx) => ({
+      demande_id: demande.id,
+      profile_id: pid,
+      ordre: idx,
+    })),
+    ...signatairesExternes.map((s, idx) => ({
+      demande_id: demande.id,
+      profile_id: null,
+      email: s.email,
+      ordre: signatairesIds.length + idx,
+    })),
+  ]
 
-  const { error: sigErr } = await admin.from('signataires').insert(sigRows)
+  const { data: insertedSigs, error: sigErr } = await admin.from('signataires').insert(sigRows).select('id, profile_id, email')
   if (sigErr) {
     console.error('[Signatures] Insert signataires error:', sigErr)
     // Clean up demande
@@ -132,10 +158,43 @@ export async function POST(req: NextRequest) {
     )
   }
 
+  // Invite les signataires externes (sans compte) par email, avec un lien magique tokenisé
+  const externalRows = (insertedSigs ?? []).filter(s => !s.profile_id && s.email)
+  if (externalRows.length > 0) {
+    await Promise.allSettled(
+      externalRows.map(async (s) => {
+        const email = s.email as string
+        const token = signExternalSignerToken(s.id, email)
+        const lienSignature = `${APP_URL}/signatures/externe?t=${token}`
+        await sendEmail({
+          to: email,
+          subject: `My ABED — Document à signer : ${titre}`,
+          html: `
+            <div style="font-family:sans-serif;max-width:560px;margin:0 auto;">
+              <h2 style="color:#16a34a;">My ABED — Signature requise</h2>
+              <p>Bonjour,</p>
+              <p><strong>${createurNom}</strong> (ABED ONG) vous invite à signer le document suivant :</p>
+              <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin:16px 0;">
+                <p style="margin:0;font-size:16px;font-weight:700;">${titre}</p>
+                ${description ? `<p style="margin:8px 0 0;color:#6b7280;">${description}</p>` : ''}
+              </div>
+              <p>Aucun compte n'est nécessaire. Cliquez sur le bouton ci-dessous, indiquez votre nom et prénom, puis signez le document :</p>
+              <a href="${lienSignature}" style="display:inline-block;padding:10px 22px;background:#16a34a;color:white;border-radius:8px;text-decoration:none;font-weight:700;">
+                Signer le document
+              </a>
+              <p style="margin-top:16px;color:#9ca3af;font-size:12px;">Ce lien est personnel et valable 30 jours. Ne le partagez pas.</p>
+              <p style="margin-top:24px;color:#9ca3af;font-size:12px;">My ABED · Plateforme de gestion ABED</p>
+            </div>
+          `,
+        }).catch(err => console.error(`[Signatures] Email externe error for ${email}:`, err))
+      })
+    )
+  }
+
   // Fetch signataires rows to return with the demande
   const { data: sigRows2 } = await admin
     .from('signataires')
-    .select('profile_id, signe, signe_le, profile:profiles!signataires_profile_id_fkey(nom, prenoms)')
+    .select('profile_id, email, nom_externe, signe, signe_le, profile:profiles!signataires_profile_id_fkey(nom, prenoms)')
     .eq('demande_id', demande.id)
 
   return NextResponse.json({

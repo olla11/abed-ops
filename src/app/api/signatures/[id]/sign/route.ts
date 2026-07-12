@@ -1,53 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
-import { sendEmail } from '@/lib/resend'
-import { PDFDocument } from 'pdf-lib'
-
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_URL ?? 'https://myabed.app'
-
-function shortHash(s: string): string {
-  let h = 0
-  for (let i = 0; i < s.length; i++) { h = (Math.imul(31, h) + s.charCodeAt(i)) | 0 }
-  return Math.abs(h).toString(16).toUpperCase().padStart(8, '0')
-}
-
-/**
- * Embeds a pre-rendered signature PNG image into the PDF at the given position.
- * The PNG is captured from the browser's own canvas rendering (Brittany font included),
- * so the result in the PDF is pixel-perfect identical to the UI preview.
- */
-async function embedSignatureInPdf(
-  pdfBytes: ArrayBuffer,
-  sigImagePng: string,  // base64 data URL: "data:image/png;base64,..."
-  xPct: number,         // 0-100 % from left (center of signature block)
-  yPct: number,         // 0-100 % from top  (center of signature block)
-  pageIndex = 0
-): Promise<Uint8Array> {
-  const pdfDoc = await PDFDocument.load(pdfBytes)
-  const pages = pdfDoc.getPages()
-  const page = pages[Math.min(pageIndex, pages.length - 1)]
-  const { width, height } = page.getSize()
-
-  // Decode the PNG
-  const base64 = sigImagePng.replace(/^data:image\/png;base64,/, '')
-  const pngBytes = Buffer.from(base64, 'base64')
-  const pngImage = await pdfDoc.embedPng(pngBytes)
-
-  // Maintain the same aspect ratio as the UI block (240 × 90)
-  const sigW = width * 0.30        // ~30% of page width
-  const sigH = sigW * (90 / 240)   // preserve 240:90 aspect ratio
-
-  // Convert % from top to PDF coords (origin = bottom-left)
-  const cx = (xPct / 100) * width
-  const cy = height - (yPct / 100) * height
-
-  const drawX = Math.max(2, Math.min(width - sigW - 2, cx - sigW / 2))
-  const drawY = Math.max(2, Math.min(height - sigH - 2, cy - sigH / 2))
-
-  page.drawImage(pngImage, { x: drawX, y: drawY, width: sigW, height: sigH })
-
-  return pdfDoc.save()
-}
+import { embedSignatureInPdf, shortHash } from '@/lib/pdf-signature'
+import { finalizeAfterSignature } from '@/lib/signature-completion'
 
 export async function POST(
   req: NextRequest,
@@ -148,83 +102,7 @@ export async function POST(
     return NextResponse.json({ error: 'Erreur lors de la signature' }, { status: 500 })
   }
 
-  // Check if all signed
-  const { data: allSigs } = await admin.from('signataires').select('signe').eq('demande_id', demandeId)
-  const allSigned = allSigs?.every(s => s.signe) ?? false
-
-  // Notify creator that this signer has signed (whether or not all are done)
-  // Don't notify if creator signed their own document
-  if (demande.createur_id !== user.id) {
-    await admin.from('notifications').insert({
-      user_id: demande.createur_id,
-      titre: allSigned ? 'Document entièrement signé' : 'Signature reçue',
-      message: allSigned
-        ? `Tous les signataires ont signé « ${demande.titre} » — document complet ✓`
-        : `${signerName} a signé « ${demande.titre} »`,
-      lien: `/signatures/${demandeId}/view`,
-    }).then(({ error: e }) => { if (e) console.error('[Signatures] Creator notif error:', e) })
-  }
-
-  if (allSigned) {
-    await admin.from('demandes_signature').update({ statut: 'complete', updated_at: new Date().toISOString() }).eq('id', demandeId)
-
-    // Si lié à un contrat, mettre à jour le workflow
-    const { data: contratLie } = await admin.from('contrats')
-      .select('id, workflow_statut, categorie_document, type_contrat, numero, profile_id')
-      .eq('demande_signature_id', demandeId).single()
-    if (contratLie && contratLie.workflow_statut === 'envoye_signataire') {
-      await admin.from('contrats').update({ workflow_statut: 'signe_signataire' }).eq('id', contratLie.id)
-      const { data: rhs } = await admin.from('profiles').select('id').in('role', ['rh', 'admin'])
-      for (const rh of rhs ?? []) {
-        const { error: notifRhErr } = await admin.from('notifications').insert({
-          user_id: rh.id,
-          titre: 'Contrat signé par le signataire ✓',
-          message: `${signerName} a signé le contrat. Vous pouvez maintenant le finaliser et envoyer le document à l'employé.`,
-          lien: '/rh/contrats',
-        })
-        if (notifRhErr) console.error('[Signatures] notif in-app RH (contrat signataire):', notifRhErr)
-      }
-    } else if (contratLie && contratLie.workflow_statut === 'envoye_de') {
-      // Offre de stage : le DE vient de signer → bascule automatique vers le stagiaire
-      await admin.from('contrats').update({ workflow_statut: 'envoye_employe' }).eq('id', contratLie.id)
-      const { data: stagiaire } = await admin.from('profiles').select('email, prenoms, nom, civilite').eq('id', contratLie.profile_id).single()
-      const { error: notifStagiaireErr } = await admin.from('notifications').insert({
-        user_id: contratLie.profile_id,
-        titre: 'Offre de stage à signer',
-        message: `Votre offre de stage (réf. ${contratLie.numero ?? contratLie.id}) est signée par la direction et attend votre signature.`,
-        lien: '/mes-contrats',
-      })
-      if (notifStagiaireErr) console.error('[Signatures] notif in-app stagiaire:', notifStagiaireErr)
-      if (stagiaire?.email) {
-        await sendEmail({
-          to: stagiaire.email,
-          subject: `[My ABED] Votre offre de stage à signer`,
-          html: `<div style="font-family:sans-serif;max-width:560px;margin:0 auto;">
-            <h2 style="color:#16a34a;">ABED ONG — Votre offre de stage</h2>
-            <p>Bonjour ${stagiaire.civilite ?? ''} ${stagiaire.prenoms} ${stagiaire.nom},</p>
-            <p>Votre offre de stage (réf. ${contratLie.numero ?? ''}) a été signée par la direction et est disponible pour votre signature.</p>
-            <a href="${APP_URL}/mes-contrats" style="display:inline-block;background:#16a34a;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold;">Consulter et signer</a>
-            <p style="margin-top:24px;color:#9ca3af;font-size:12px;">ABED-ONG · my.abedong.org</p>
-          </div>`,
-        }).catch(err => console.error('[Signatures] email stagiaire error:', err))
-      }
-    }
-
-    const { data: createur } = await admin.from('profiles').select('nom, prenoms, email').eq('id', demande.createur_id).single()
-    if (createur?.email) {
-      await sendEmail({
-        to: createur.email,
-        subject: `My ABED — Document entièrement signé : ${demande.titre}`,
-        html: `<div style="font-family:sans-serif;max-width:560px;margin:0 auto;">
-          <h2 style="color:#16a34a;">My ABED — Toutes les signatures recueillies ✓</h2>
-          <p>Bonjour <strong>${createur.prenoms} ${createur.nom}</strong>,</p>
-          <p>Tous les signataires ont signé le document <strong>${demande.titre}</strong>.</p>
-          <a href="${APP_URL}/signatures/${demandeId}/view" style="display:inline-block;padding:10px 22px;background:#16a34a;color:white;border-radius:8px;text-decoration:none;font-weight:700;">Voir le document</a>
-          <p style="margin-top:24px;color:#9ca3af;font-size:12px;">My ABED · ABED ONG</p>
-        </div>`,
-      }).catch(err => console.error('[Signatures] Creator email error:', err))
-    }
-  }
+  const { allSigned } = await finalizeAfterSignature(admin, demandeId, demande, signerName, user.id)
 
   return NextResponse.json({ ok: true, allSigned })
 }

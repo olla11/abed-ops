@@ -7,7 +7,9 @@ import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
 import SignaturesClient from './SignaturesClient'
 
 export type SignataireRow = {
-  profile_id: string
+  profile_id: string | null
+  email: string | null
+  nom_externe: string | null
   signe: boolean
   signe_le: string | null
   profile: { nom: string; prenoms: string } | null
@@ -56,7 +58,7 @@ export default async function SignaturesPage() {
       .select(`
         id, titre, description, fichier_url, statut, created_at, createur_id,
         createur:profiles!demandes_signature_createur_id_fkey(nom, prenoms),
-        signataires(profile_id, signe, signe_le, profile:profiles!signataires_profile_id_fkey(nom, prenoms))
+        signataires(profile_id, email, nom_externe, signe, signe_le, profile:profiles!signataires_profile_id_fkey(nom, prenoms))
       `)
       .order('created_at', { ascending: false }),
     supabase
