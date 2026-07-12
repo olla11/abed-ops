@@ -1,14 +1,21 @@
 'use client'
 import { useState } from 'react'
+import { BookOpen, BarChart3, Link2, Mail, ExternalLink, Pencil, Trash2, Check, Plus } from 'lucide-react'
 import type { Ressource } from './page'
 
 type Categorie = Ressource['categorie']
 
-const TABS: { key: Categorie; label: string; icon: string; empty: string }[] = [
-  { key: 'guide', label: 'Guide', icon: '📘', empty: "Aucun guide pour l'instant." },
-  { key: 'rapport', label: 'Rapports', icon: '📊', empty: 'Aucun rapport pour le moment.' },
-  { key: 'lien_usuel', label: 'Liens usuels', icon: '🔗', empty: 'Aucun lien pour le moment.' },
+const TABS: { key: Categorie; label: string; Icon: typeof BookOpen; empty: string }[] = [
+  { key: 'guide', label: 'Guide', Icon: BookOpen, empty: "Aucun guide pour l'instant." },
+  { key: 'rapport', label: 'Rapports', Icon: BarChart3, empty: 'Aucun rapport pour le moment.' },
+  { key: 'lien_usuel', label: 'Liens usuels', Icon: Link2, empty: 'Aucun lien pour le moment.' },
 ]
+
+const CATEGORY_ICON: Record<Categorie, typeof BookOpen> = {
+  guide: BookOpen,
+  rapport: BarChart3,
+  lien_usuel: Link2,
+}
 
 const inputStyle: React.CSSProperties = {
   width: '100%', padding: '9px 12px', borderRadius: 8, fontSize: 14,
@@ -17,14 +24,6 @@ const inputStyle: React.CSSProperties = {
 const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }
 
 function isMail(url: string) { return url.startsWith('mailto:') }
-
-function faviconFor(url: string): string | null {
-  if (isMail(url)) return null
-  try {
-    const host = new URL(url).hostname
-    return `https://www.google.com/s2/favicons?sz=64&domain=${host}`
-  } catch { return null }
-}
 
 function ResourceCard({
   r, isManager, onEdit, onDeleted,
@@ -36,7 +35,8 @@ function ResourceCard({
 }) {
   const [armed, setArmed] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const favicon = faviconFor(r.url)
+  const mail = isMail(r.url)
+  const CardIcon = mail ? Mail : CATEGORY_ICON[r.categorie]
 
   async function confirmDelete() {
     setDeleting(true)
@@ -55,18 +55,10 @@ function ResourceCard({
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
         <div style={{
           width: 40, height: 40, borderRadius: 10, flexShrink: 0,
-          background: isMail(r.url) ? '#eff6ff' : '#f0fdf4',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+          background: mail ? '#eff6ff' : '#f0fdf4',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
-          {isMail(r.url) ? (
-            <span style={{ fontSize: 18 }}>✉️</span>
-          ) : favicon ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={favicon} alt="" width={22} height={22} style={{ objectFit: 'contain' }}
-              onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
-          ) : (
-            <span style={{ fontSize: 18 }}>🔗</span>
-          )}
+          <CardIcon size={19} color={mail ? '#2563eb' : 'var(--abed-green)'} strokeWidth={2} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 14.5, fontWeight: 700, color: '#111827', marginBottom: 2 }}>{r.titre}</div>
@@ -79,24 +71,26 @@ function ResourceCard({
           style={{
             flex: 1, textAlign: 'center', padding: '8px 14px', borderRadius: 8, fontSize: 13, fontWeight: 700,
             background: 'var(--abed-green)', color: 'white', textDecoration: 'none',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
           }}>
-          {isMail(r.url) ? '✉️ Écrire' : 'Ouvrir →'}
+          {mail ? <Mail size={14} /> : <ExternalLink size={14} />}
+          {mail ? 'Écrire' : 'Ouvrir'}
         </a>
         {isManager && (
           <>
             <button onClick={() => onEdit(r)} title="Modifier"
-              style={{ padding: '8px 10px', borderRadius: 8, fontSize: 13, cursor: 'pointer', background: 'white', border: '1px solid var(--abed-border)', color: '#374151' }}>
-              ✏️
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px 10px', borderRadius: 8, cursor: 'pointer', background: 'white', border: '1px solid var(--abed-border)', color: '#374151' }}>
+              <Pencil size={14} />
             </button>
             {armed ? (
               <button onClick={confirmDelete} disabled={deleting} title="Confirmer la suppression"
-                style={{ padding: '8px 10px', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: deleting ? 'not-allowed' : 'pointer', background: '#dc2626', border: 'none', color: 'white', opacity: deleting ? 0.7 : 1 }}>
-                {deleting ? '...' : '✓ ?'}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px 10px', borderRadius: 8, cursor: deleting ? 'not-allowed' : 'pointer', background: '#dc2626', border: 'none', color: 'white', opacity: deleting ? 0.7 : 1 }}>
+                <Check size={14} />
               </button>
             ) : (
               <button onClick={() => setArmed(true)} title="Supprimer"
-                style={{ padding: '8px 10px', borderRadius: 8, fontSize: 13, cursor: 'pointer', background: 'white', border: '1px solid var(--abed-border)', color: '#dc2626' }}>
-                🗑️
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px 10px', borderRadius: 8, cursor: 'pointer', background: 'white', border: '1px solid var(--abed-border)', color: '#dc2626' }}>
+                <Trash2 size={14} />
               </button>
             )}
           </>
@@ -202,9 +196,13 @@ export default function RessourcesClient({ ressources: initial, isManager }: { r
         {isManager && (
           <button
             onClick={() => { setEditing(null); setShowForm(true) }}
-            style={{ padding: '9px 20px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: 'var(--abed-green)', color: 'white', border: 'none', whiteSpace: 'nowrap' }}
+            style={{
+              padding: '9px 20px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer',
+              background: 'var(--abed-green)', color: 'white', border: 'none', whiteSpace: 'nowrap',
+              display: 'flex', alignItems: 'center', gap: 6,
+            }}
           >
-            + Ajouter un lien
+            <Plus size={15} /> Ajouter un lien
           </button>
         )}
       </div>
@@ -219,7 +217,7 @@ export default function RessourcesClient({ ressources: initial, isManager }: { r
               color: activeTab === t.key ? 'white' : '#374151',
               display: 'flex', alignItems: 'center', gap: 6,
             }}>
-            <span>{t.icon}</span> {t.label}
+            <t.Icon size={16} /> {t.label}
             {ressources.filter(r => r.categorie === t.key).length > 0 && (
               <span style={{
                 fontSize: 11, fontWeight: 800, padding: '1px 7px', borderRadius: 20,
@@ -235,8 +233,8 @@ export default function RessourcesClient({ ressources: initial, isManager }: { r
 
       {items.length === 0 ? (
         <div style={{ background: 'white', border: '1px solid var(--abed-border)', borderRadius: 10, padding: '48px 24px', textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>
-          <div style={{ fontSize: 32, marginBottom: 10 }}>{activeMeta.icon}</div>
-          {activeMeta.empty}
+          <activeMeta.Icon size={32} style={{ marginBottom: 10 }} />
+          <div>{activeMeta.empty}</div>
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
