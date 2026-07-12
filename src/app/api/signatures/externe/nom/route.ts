@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase-server'
 import { verifyExternalSignerToken } from '@/lib/external-signer-token'
+import { formatSignatureDisplayName } from '@/lib/signature-name'
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null)
@@ -30,7 +31,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Vous avez déjà signé ce document' }, { status: 400 })
   }
 
-  const nomExterne = `${prenoms} ${nom}`.trim()
+  const nomExterne = formatSignatureDisplayName(prenoms, nom)
   const { error: updateErr } = await admin
     .from('signataires')
     .update({ nom_externe: nomExterne })

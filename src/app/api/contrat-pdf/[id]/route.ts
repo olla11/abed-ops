@@ -1,12 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
-
-// Rendu "manuscrit" de la signature : premier prénom seulement, tout en minuscules
-function formatSignatureName(prenoms: string | null | undefined, nom: string | null | undefined): string {
-  const premierPrenom = (prenoms ?? '').trim().split(/\s+/)[0] ?? ''
-  const n = (nom ?? '').trim()
-  return `${premierPrenom} ${n}`.toLowerCase().trim()
-}
+import { formatSignatureDisplayName as formatSignatureName } from '@/lib/signature-name'
 
 // Désignation de la partie employé dans le préambule, selon le type de contrat
 function partieLabel(typeContrat: string | null | undefined): string {

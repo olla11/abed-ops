@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { redirect, notFound } from 'next/navigation'
+import { formatSignatureDisplayName } from '@/lib/signature-name'
 import SignerClient from './SignerClient'
 
 export default async function SignerPage({
@@ -43,16 +44,8 @@ export default async function SignerPage({
     .eq('id', user.id)
     .single()
 
-  // Signature name rules:
-  // 1. If multiple prénoms → keep only the first one
-  // 2. Convert everything to lowercase (calligraphic style)
-  function buildSignatureName(prenoms: string, nom: string): string {
-    const firstPrenom = prenoms.trim().split(/\s+/)[0]
-    return `${firstPrenom} ${nom}`.toLowerCase()
-  }
-
   const userName = profile
-    ? buildSignatureName(profile.prenoms, profile.nom)
+    ? formatSignatureDisplayName(profile.prenoms, profile.nom)
     : (user.email ?? 'Utilisateur')
 
   return (
