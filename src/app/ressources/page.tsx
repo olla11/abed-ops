@@ -33,11 +33,13 @@ export default async function RessourcesPage() {
   const isManager = ['rh', 'admin'].includes(realRole) && !previewRole
 
   const admin = createAdminClient()
-  const { data: ressources } = await admin
+  const { data: ressources, error: ressourcesErr } = await admin
     .from('ressources')
     .select('id, categorie, titre, url, description, ordre, created_at')
     .order('categorie', { ascending: true })
     .order('ordre', { ascending: true })
+
+  if (ressourcesErr) console.error('[ressources/page] fetch error:', ressourcesErr)
 
   return (
     <>
