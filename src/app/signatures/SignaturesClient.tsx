@@ -36,12 +36,16 @@ function SignataireChip({ s }: { s: SignataireRow }) {
   )
 }
 
-function DemandeCard({ d, userId, onSigned }: { d: DemandeRow; userId: string; onSigned: (id: string) => void }) {
+function DemandeCard({ d, userId, onSigned, onDeleted }: { d: DemandeRow; userId: string; onSigned: (id: string) => void; onDeleted: (id: string) => void }) {
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  const [deleteArmed, setDeleteArmed] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const createur = d.createur ? `${d.createur.prenoms} ${d.createur.nom}` : '—'
   const myEntry = d.signataires.find(s => s.profile_id === userId)
   const canSign = !!myEntry && !myEntry.signe && d.statut === 'en_attente'
+  const canDelete = d.createur_id === userId
   const signed = d.signataires.filter(s => s.signe).length
   const total = d.signataires.length
 
@@ -54,6 +58,26 @@ function DemandeCard({ d, userId, onSigned }: { d: DemandeRow; userId: string; o
     } else {
       const data = await res.json().catch(() => ({}))
       setErr(data.error ?? 'Erreur lors de la signature')
+    }
+  }
+
+  function armDelete() {
+    setDeleteArmed(true)
+    if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current)
+    deleteTimerRef.current = setTimeout(() => setDeleteArmed(false), 4000)
+  }
+
+  async function confirmDelete() {
+    if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current)
+    setDeleting(true); setErr(null)
+    const res = await fetch(`/api/signatures/${d.id}`, { method: 'DELETE' })
+    setDeleting(false)
+    if (res.ok) {
+      onDeleted(d.id)
+    } else {
+      const data = await res.json().catch(() => ({}))
+      setErr(data.error ?? 'Erreur lors de la suppression')
+      setDeleteArmed(false)
     }
   }
 
@@ -77,10 +101,25 @@ function DemandeCard({ d, userId, onSigned }: { d: DemandeRow; userId: string; o
           {d.description && (
             <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 8px' }}>{d.description}</p>
           )}
-          <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 10 }}>
-            Créé par <strong style={{ color: '#374151' }}>{createur}</strong> · {fmtDate(d.created_at)}
-            {d.fichier_url && (
-              <> · <a href={`/signatures/${d.id}/view`} style={{ color: 'var(--abed-green)', fontWeight: 600 }}>📄 Voir le document</a></>
+          <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span>
+              Créé par <strong style={{ color: '#374151' }}>{createur}</strong> · {fmtDate(d.created_at)}
+              {d.fichier_url && (
+                <> · <a href={`/signatures/${d.id}/view`} style={{ color: 'var(--abed-green)', fontWeight: 600 }}>📄 Voir le document</a></>
+              )}
+            </span>
+            {canDelete && (
+              deleteArmed ? (
+                <button onClick={confirmDelete} disabled={deleting}
+                  style={{ fontSize: 11, fontWeight: 700, padding: '2px 10px', borderRadius: 20, cursor: deleting ? 'not-allowed' : 'pointer', background: '#dc2626', color: 'white', border: 'none', opacity: deleting ? 0.7 : 1 }}>
+                  {deleting ? 'Suppression...' : 'Confirmer la suppression ?'}
+                </button>
+              ) : (
+                <button onClick={armDelete}
+                  style={{ fontSize: 11, fontWeight: 600, padding: '2px 10px', borderRadius: 20, cursor: 'pointer', background: 'white', color: '#6b7280', border: '1px solid var(--abed-border)' }}>
+                  🗑️ Supprimer
+                </button>
+              )
             )}
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
@@ -150,6 +189,11 @@ export default function SignaturesClient({ userId, mesDemandesASign: initialASig
   const [creating, setCreating] = useState(false)
   const [createErr, setCreateErr] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  function handleDeleted(id: string) {
+    setDemandesASign(list => list.filter(d => d.id !== id))
+    setMesCreations(list => list.filter(d => d.id !== id))
+  }
 
   function handleSigned(id: string) {
     setDemandesASign(list => list.filter(d => d.id !== id))
@@ -262,7 +306,7 @@ export default function SignaturesClient({ userId, mesDemandesASign: initialASig
           ) : (
             <>
               {paginate(demandesASign, pageASign).map(d => (
-                <DemandeCard key={d.id} d={d} userId={userId} onSigned={handleSigned} />
+                <DemandeCard key={d.id} d={d} userId={userId} onSigned={handleSigned} onDeleted={handleDeleted} />
               ))}
               <Pagination page={pageASign} total={demandesASign.length} onChange={setPageASign} />
             </>
@@ -280,7 +324,7 @@ export default function SignaturesClient({ userId, mesDemandesASign: initialASig
           ) : (
             <>
               {paginate(mesCreations, pageCreations).map(d => (
-                <DemandeCard key={d.id} d={d} userId={userId} onSigned={handleSigned} />
+                <DemandeCard key={d.id} d={d} userId={userId} onSigned={handleSigned} onDeleted={handleDeleted} />
               ))}
               <Pagination page={pageCreations} total={mesCreations.length} onChange={setPageCreations} />
             </>
