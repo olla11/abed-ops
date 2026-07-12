@@ -160,6 +160,11 @@ export default function DemandePaiementForm({ onClose, prefill, soumissionId }: 
           value={form[f.key] ?? ''}
           placeholder={f.key === 'objet' ? 'ex : Honoraire consultant formation…' : f.key === 'justification' ? 'Contexte, activité concernée, pourquoi ce paiement est nécessaire…' : ''}
           onChange={e => set(f.key, e.target.value)} />
+        {f.key === 'justification' && (
+          <p style={{ fontSize: 11, color: 'var(--abed-muted)', marginTop: 4 }}>
+            Mettez la référence du TDR autorisé, de l&apos;Ordre de mission autorisé, ou la référence de la fiche d&apos;expression de besoin ou la référence du contrat, ou de la convention ou de l&apos;offre.
+          </p>
+        )}
       </div>
     )
     if (f.type === 'file') return (
