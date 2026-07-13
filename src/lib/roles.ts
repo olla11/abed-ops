@@ -22,6 +22,7 @@ export type TypeEmploi = (typeof TYPES_EMPLOI)[number]
 // --- Titres / fonctions (Politique de rémunération, Tableau 2) ---
 export const TITRES = [
   'directeur_executif',
+  'directeur_programmes',
   'directeur_principal',
   'programme_lead',
   'charge_projet',
@@ -39,11 +40,12 @@ export const TITRES = [
 ] as const
 export type Titre = (typeof TITRES)[number]
 
-export type AccessRole = 'missionnaire' | 'manager' | 'rh' | 'aaf' | 'caf' | 'de' | 'admin' | 'administrateur'
+export type AccessRole = 'missionnaire' | 'manager' | 'rh' | 'aaf' | 'caf' | 'de' | 'dp' | 'admin' | 'administrateur'
 
 // --- Libellés lisibles ---
 export const TITRE_LABELS: Record<Titre, string> = {
   directeur_executif: 'Directeur Exécutif',
+  directeur_programmes: 'Directeur des Programmes',
   directeur_principal: 'Directeur principal',
   programme_lead: 'Programme Lead / Manager',
   charge_projet: 'Chargé de Projet / opérations',
@@ -74,6 +76,7 @@ export const TYPE_EMPLOI_LABELS: Record<TypeEmploi, string> = {
 // C'est ici que "le titre détermine les droits".
 export const TITRE_TO_ACCESS: Record<Titre, AccessRole> = {
   directeur_executif: 'de',
+  directeur_programmes: 'dp',
   caf: 'caf',
   rh: 'rh',
   directeur_principal: 'manager',
@@ -96,11 +99,11 @@ export function accessFromTitre(titre: Titre): AccessRole {
 
 // --- Capacités par niveau d'accès (utilisé pour afficher/masquer des actions) ---
 export const CAN = {
-  signerOM: (r: AccessRole) => r === 'caf' || r === 'de',
+  signerOM: (r: AccessRole) => r === 'caf' || r === 'de' || r === 'dp',
   validerTimesheet: (r: AccessRole) => r === 'manager' || r === 'caf' || r === 'admin',
-  validerPaiement: (r: AccessRole) => r === 'caf' || r === 'de' || r === 'admin',
+  validerPaiement: (r: AccessRole) => r === 'caf' || r === 'de' || r === 'dp' || r === 'admin',
   attribuerTitre: (r: AccessRole) => r === 'admin' || r === 'rh' || r === 'caf',
-  voirToutesMissions: (r: AccessRole) => ['caf', 'de', 'admin'].includes(r),
+  voirToutesMissions: (r: AccessRole) => ['caf', 'de', 'dp', 'admin'].includes(r),
 }
 
 // Qui peut attribuer un titre (décision : Admin, RH, CAF)

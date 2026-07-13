@@ -71,7 +71,7 @@ export async function GET(req: NextRequest) {
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
   const role = profile?.role ?? ''
 
-  if (!['aaf','caf','de','admin','administrateur'].includes(role)) {
+  if (!['aaf','caf','de','dp','admin','administrateur'].includes(role)) {
     return NextResponse.json({ error: 'accès refusé' }, { status: 403 })
   }
 

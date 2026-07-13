@@ -20,8 +20,8 @@ export default async function Dashboard() {
   const realRole = profile?.role ?? 'missionnaire'
   const role = await getEffectiveRole(realRole)
   const previewRole = await getRolePreview()
-  const isManager = ['admin', 'rh', 'caf', 'de', 'administrateur'].includes(role)
-  const isSignataire = ['caf', 'de', 'admin', 'administrateur'].includes(role)
+  const isManager = ['admin', 'rh', 'caf', 'de', 'dp', 'administrateur'].includes(role)
+  const isSignataire = ['caf', 'de', 'dp', 'admin', 'administrateur'].includes(role)
 
   const { data: missions } = await supabase
     .from('missions')

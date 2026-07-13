@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
 
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
   const role = profile?.role ?? ''
-  const isTraiteur = ['aaf', 'caf', 'de', 'admin', 'administrateur'].includes(role)
+  const isTraiteur = ['aaf', 'caf', 'de', 'dp', 'admin', 'administrateur'].includes(role)
 
   let query = supabase
     .from('demandes_paiement')

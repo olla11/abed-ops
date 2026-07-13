@@ -8,7 +8,7 @@ export async function GET(_req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
 
   const { data: me } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  if (!['rh', 'admin', 'de'].includes(me?.role ?? '')) return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+  if (!['rh', 'admin', 'de', 'dp'].includes(me?.role ?? '')) return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
 
   const service = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

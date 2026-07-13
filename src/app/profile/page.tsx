@@ -21,7 +21,7 @@ export default async function ProfilePage() {
   const realRole = profile?.role ?? 'missionnaire'
   const role = await getEffectiveRole(realRole)
   const previewRole = await getRolePreview()
-  const canUpload = ['de', 'caf', 'admin', 'administrateur'].includes(role)
+  const canUpload = ['de', 'dp', 'caf', 'admin', 'administrateur'].includes(role)
 
   return (
     <>

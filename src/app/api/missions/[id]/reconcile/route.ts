@@ -148,7 +148,7 @@ export async function POST(
 
     // Envoyer rapport au DE et CAF par email
     const { data: gestionnaires } = await admin
-      .from('profiles').select('email, id').in('role', ['de', 'caf', 'administrateur'])
+      .from('profiles').select('email, id').in('role', ['de', 'dp', 'caf', 'administrateur'])
     const emails = (gestionnaires ?? []).map((g: any) => g.email).filter(Boolean)
     let emailSent = false
     let emailError: string | null = null

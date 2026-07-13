@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers'
 
-export const VALID_ROLES = ['admin', 'rh', 'caf', 'de', 'aaf', 'administrateur', 'manager', 'missionnaire', 'prestataire']
+export const VALID_ROLES = ['admin', 'rh', 'caf', 'de', 'dp', 'aaf', 'administrateur', 'manager', 'missionnaire', 'prestataire']
 
 export async function getEffectiveRole(realRole: string): Promise<string> {
   if (realRole !== 'admin') return realRole

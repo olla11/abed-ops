@@ -14,22 +14,24 @@ export async function POST(
   const { data: profile } = await supabase
     .from('profiles').select('role, nom, prenoms, fonction').eq('id', user.id).single()
 
-  if (!profile || !['caf', 'de', 'admin', 'administrateur'].includes(profile.role)) {
+  if (!profile || !['caf', 'de', 'dp', 'admin', 'administrateur'].includes(profile.role)) {
     return NextResponse.json({ error: 'accès refusé' }, { status: 403 })
   }
 
-  // Vérifier la mission et la règle : le DE ne peut pas signer ses propres OM (seule la CAF peut)
+  // Vérifier la mission et la règle : un directeur (DE/DP) ne peut pas signer ses propres OM (seule la CAF peut)
   const { data: missionCheck } = await supabase
     .from('missions')
     .select('missionnaire_id, missionnaire:profiles!missions_missionnaire_id_fkey(role)')
     .eq('id', id)
     .single()
 
+  const isDirectorRole = (r: string | undefined) => r === 'de' || r === 'dp'
+
   if (missionCheck) {
     const missionnaireRole = (missionCheck.missionnaire as any)?.role
-    // Si le missionnaire est DE, seule la CAF (ou admin) peut signer
-    if (missionnaireRole === 'de' && profile.role === 'de') {
-      return NextResponse.json({ error: 'Le Directeur Exécutif ne peut pas signer son propre OM. La CAF doit apposer la signature.' }, { status: 403 })
+    // Si le missionnaire est un directeur (DE/DP), seule la CAF (ou admin) peut signer
+    if (isDirectorRole(missionnaireRole) && isDirectorRole(profile.role)) {
+      return NextResponse.json({ error: 'Un directeur ne peut pas signer son propre OM. La CAF doit apposer la signature.' }, { status: 403 })
     }
     // Personne ne peut signer son propre OM
     if (missionCheck.missionnaire_id === user.id) {

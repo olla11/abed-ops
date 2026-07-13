@@ -27,14 +27,14 @@ export async function POST(
 
   const now = new Date().toISOString()
   let update: Record<string, any> = {}
-  let nextRole: string | null = null
+  let nextRoles: string[] | null = null
   let nextEmailSubject = ''
   let nextEmailMsg = ''
 
   if (role === 'manager' && rapport.status === 'soumis') {
     if (action === 'valider') {
       update = { status: 'valide_tech', manager_valide_le: now, commentaire_manager: null }
-      nextRole = 'aaf'
+      nextRoles = ['aaf']
       nextEmailSubject = '[ABED-ONG] Rapport mensuel à traiter (AAF)'
       nextEmailMsg = 'validé techniquement par le responsable'
     } else {
@@ -46,7 +46,7 @@ export async function POST(
       if (!montant_allocation || +montant_allocation <= 0)
         return NextResponse.json({ error: 'Montant requis' }, { status: 400 })
       update = { status: 'traite_aaf', aaf_id: user.id, aaf_le: now, montant_allocation: +montant_allocation, commentaire_aaf: null }
-      nextRole = 'caf'
+      nextRoles = ['caf']
       nextEmailSubject = '[ABED-ONG] Rapport mensuel à valider (CAF)'
       nextEmailMsg = 'traité par l\'AAF'
     } else {
@@ -55,21 +55,21 @@ export async function POST(
     }
   } else if (role === 'caf' && rapport.status === 'traite_aaf') {
     if (action === 'valider') {
-      // Si le soumetteur est lui-même le DE, son supérieur hiérarchique (Président du CA) doit autoriser
-      const soumetteurEstDE = (rapport.prestataire as any)?.role === 'de'
+      // Si le soumetteur est lui-même un directeur (DE/DP), son supérieur hiérarchique (Président du CA) doit autoriser
+      const soumetteurEstDirecteur = ['de', 'dp'].includes((rapport.prestataire as any)?.role)
       update = { status: 'valide_caf', caf_id: user.id, caf_le: now, commentaire_caf: null }
-      nextRole = soumetteurEstDE ? 'administrateur' : 'de'
-      nextEmailSubject = soumetteurEstDE
-        ? '[ABED-ONG] Rapport mensuel DE — Autorisation Président du CA requise'
-        : '[ABED-ONG] Rapport mensuel — Autorisation DE requise'
-      nextEmailMsg = soumetteurEstDE
+      nextRoles = soumetteurEstDirecteur ? ['administrateur'] : ['de', 'dp']
+      nextEmailSubject = soumetteurEstDirecteur
+        ? '[ABED-ONG] Rapport mensuel DE/DP — Autorisation Président du CA requise'
+        : '[ABED-ONG] Rapport mensuel — Autorisation DE/DP requise'
+      nextEmailMsg = soumetteurEstDirecteur
         ? 'validé par la CAF, en attente de votre autorisation en tant que Président du CA'
         : 'validé par la CAF, en attente de votre autorisation'
     } else {
       if (!commentaire?.trim()) return NextResponse.json({ error: 'Commentaire requis' }, { status: 400 })
       update = { status: 'rejete_caf', caf_id: user.id, caf_le: now, commentaire_caf: commentaire }
     }
-  } else if (['de', 'admin', 'administrateur'].includes(role) && rapport.status === 'valide_caf') {
+  } else if (['de', 'dp', 'admin', 'administrateur'].includes(role) && rapport.status === 'valide_caf') {
     if (action === 'autoriser') {
       update = { status: 'autorise', de_id: user.id, de_le: now, commentaire_de: null }
     } else {
@@ -125,9 +125,9 @@ export async function POST(
   }
 
   // Email + notification à la prochaine étape
-  if (nextRole) {
+  if (nextRoles) {
     const { data: nextUsers } = await supabase
-      .from('profiles').select('id, email, prenoms, nom').eq('role', nextRole)
+      .from('profiles').select('id, email, prenoms, nom').in('role', nextRoles)
     for (const u of nextUsers ?? []) {
       await supabase.from('notifications').insert({
         user_id: u.id,

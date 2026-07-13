@@ -75,6 +75,7 @@ export default function AdminUserCreate() {
             <option value="aaf">AAF</option>
             <option value="caf">CAF</option>
             <option value="de">Directeur Exécutif</option>
+            <option value="dp">Directeur des Programmes</option>
             <option value="rh">RH</option>
             <option value="administrateur">Administrateur (CA)</option>
             <option value="admin">Admin système</option>

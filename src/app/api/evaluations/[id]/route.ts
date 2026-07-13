@@ -42,7 +42,7 @@ export async function GET(_req: NextRequest, ctx: RouteContext) {
   const canAccess =
     ev.profile_id === user.id ||
     ev.evaluateur_id === user.id ||
-    ['rh', 'admin', 'de'].includes(me?.role ?? '')
+    ['rh', 'admin', 'de', 'dp'].includes(me?.role ?? '')
 
   if (!canAccess) return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
 
@@ -102,12 +102,12 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
       notifUserId = ev.evaluateur_id
       notifTitre = 'Évaluation — commentaires de l\'évalué(e)'
       notifMessage = `${nomEmploye} a ajouté ses commentaires sur sa fiche d'évaluation.`
-    } else if (ev.statut === 'evalue_complete' && (ev.evaluateur_id === user.id || ['rh', 'admin', 'de'].includes(myRole))) {
+    } else if (ev.statut === 'evalue_complete' && (ev.evaluateur_id === user.id || ['rh', 'admin', 'de', 'dp'].includes(myRole))) {
       newStatut = 'responsable_complete'
       // Notifier RH/admin
       notifTitre = 'Évaluation — avis responsable complété'
       notifMessage = `Le responsable a émis son avis sur l'évaluation de ${nomEmploye}. Décision requise.`
-    } else if (ev.statut === 'responsable_complete' && ['rh', 'admin', 'de'].includes(myRole)) {
+    } else if (ev.statut === 'responsable_complete' && ['rh', 'admin', 'de', 'dp'].includes(myRole)) {
       newStatut = 'cloture'
       notifUserId = ev.profile_id
       notifTitre = 'Évaluation clôturée'

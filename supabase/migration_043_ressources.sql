@@ -27,3 +27,10 @@ CREATE POLICY "ressources_update_rh_admin" ON ressources FOR UPDATE USING (
 CREATE POLICY "ressources_delete_rh_admin" ON ressources FOR DELETE USING (
   EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('rh', 'admin'))
 );
+
+-- Sans ces GRANTs, les requêtes via le client (anon/authenticated) retournent 403,
+-- même via un client admin côté serveur (voir migration_036_grants_tables_core.sql).
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.ressources TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.ressources TO service_role;
+
+NOTIFY pgrst, 'reload schema';

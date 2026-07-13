@@ -41,10 +41,10 @@ export default function TimesheetsClient({
   const estRapportMensuel = ['benevole', 'stagiaire_n1', 'stagiaire_n2', 'cdd', 'cdi'].includes(typeEmploi ?? '')
   const estPrestataire = ['prestataire_direct', 'prestataire_credit'].includes(typeEmploi ?? '')
   const estSalarie = ['cdd', 'cdi'].includes(typeEmploi ?? '')
-  const estManager = ['manager', 'caf', 'admin', 'de', 'aaf'].includes(role)
+  const estManager = ['manager', 'caf', 'admin', 'de', 'dp', 'aaf'].includes(role)
   const estCAF = ['caf', 'admin'].includes(role)
   const estAAF = ['aaf', 'admin'].includes(role)
-  const estDE = ['de', 'administrateur'].includes(role)
+  const estDE = ['de', 'dp', 'administrateur'].includes(role)
 
   // Construire les onglets selon les droits
   const tabs: Tab[] = []

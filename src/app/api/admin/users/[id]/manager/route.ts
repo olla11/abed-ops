@@ -14,7 +14,7 @@ export async function PUT(
   const { data: profile } = await supabase
     .from('profiles').select('role').eq('id', user.id).single()
 
-  if (!['admin', 'de'].includes(profile?.role)) {
+  if (!['admin', 'de', 'dp'].includes(profile?.role)) {
     return NextResponse.json({ error: 'acces refuse' }, { status: 403 })
   }
 

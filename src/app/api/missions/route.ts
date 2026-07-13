@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     const { data: signataires } = await admin
       .from('profiles')
       .select('id, email, nom, prenoms, role')
-      .in('role', ['de', 'caf', 'administrateur'])
+      .in('role', ['de', 'dp', 'caf', 'administrateur'])
 
     for (const s of signataires ?? []) {
       // Notif in-app

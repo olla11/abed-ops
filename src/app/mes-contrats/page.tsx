@@ -12,7 +12,7 @@ export default async function MesContratsPage() {
   const { data: profile } = await supabase
     .from('profiles').select('role, nom, prenoms, type_emploi, avatar_url').eq('id', user.id).single()
 
-  const canSign = ['de', 'administrateur'].includes(profile?.role ?? '')
+  const canSign = ['de', 'dp', 'administrateur'].includes(profile?.role ?? '')
 
   const admin = createAdminClient()
   const { data: contrats, error: contratsError } = await admin

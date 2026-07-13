@@ -43,7 +43,7 @@ export default async function MesEvaluationsPage() {
 
   const showRH = profile?.role === 'rh'
   const showAdmin = profile?.role === 'admin'
-  const showOverview = ['aaf', 'caf', 'de', 'admin', 'administrateur'].includes(profile?.role ?? '')
+  const showOverview = ['aaf', 'caf', 'de', 'dp', 'admin', 'administrateur'].includes(profile?.role ?? '')
 
   return (
     <>

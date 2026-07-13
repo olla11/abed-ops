@@ -683,7 +683,7 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
               <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Signataire (DE, PCA ou autre) *</label>
               <select value={wfSignataireId} onChange={e => setWfSignataireId(e.target.value)} style={inputStyle}>
                 <option value="">— Choisir un signataire —</option>
-                {personnel.filter(p => ['de', 'administrateur', 'admin'].includes(p.role)).map(p => (
+                {personnel.filter(p => ['de', 'dp', 'administrateur', 'admin'].includes(p.role)).map(p => (
                   <option key={p.id} value={p.id}>{p.prenoms} {p.nom} ({p.role === 'administrateur' ? 'Président du CA' : p.role.toUpperCase()})</option>
                 ))}
               </select>

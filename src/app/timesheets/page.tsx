@@ -21,10 +21,10 @@ export default async function TimesheetsPage() {
   const previewRole = await getRolePreview()
   const typeEmploi = profile?.type_emploi ?? null
 
-  const estManager = ['manager', 'caf', 'admin', 'de', 'aaf'].includes(role)
+  const estManager = ['manager', 'caf', 'admin', 'de', 'dp', 'aaf'].includes(role)
   const estCAF = ['caf', 'admin'].includes(role)
   const estAAF = ['aaf', 'admin'].includes(role)
-  const estDE = ['de', 'administrateur', 'admin'].includes(role)
+  const estDE = ['de', 'dp', 'administrateur', 'admin'].includes(role)
 
   // Comptes des items en attente (pour les badges des onglets)
   const [

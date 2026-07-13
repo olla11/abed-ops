@@ -11,7 +11,7 @@ export async function GET(_req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
 
   const { data: me } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  if (!['rh', 'admin', 'de'].includes(me?.role ?? '')) return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+  if (!['rh', 'admin', 'de', 'dp'].includes(me?.role ?? '')) return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
 
   const service = createAdminClient()
 
@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
   // Offre de stage : toujours le DE (il signe en premier, avant le stagiaire).
   let signataireProfile: { id: string; nom: string; prenoms: string; email?: string | null } | null = null
   if (profile) {
-    const signatoryRole = isOffreStage ? 'de' : (profile.role === 'de' ? 'administrateur' : 'de')
+    const signatoryRole = isOffreStage ? 'de' : (['de', 'dp'].includes(profile.role) ? 'administrateur' : 'de')
     const { data: signatories } = await service
       .from('profiles')
       .select('id, nom, prenoms, email')

@@ -26,7 +26,7 @@ export async function GET(
   if (!rapport) return NextResponse.json({ error: 'introuvable' }, { status: 404 })
 
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  const privilegedRoles = ['admin', 'caf', 'de', 'aaf', 'rh', 'administrateur', 'manager']
+  const privilegedRoles = ['admin', 'caf', 'de', 'dp', 'aaf', 'rh', 'administrateur', 'manager']
   const isPrivileged = privilegedRoles.includes(profile?.role ?? '')
   if (!isPrivileged && rapport.prestataire_id !== user.id) {
     return NextResponse.json({ error: 'accès refusé' }, { status: 403 })

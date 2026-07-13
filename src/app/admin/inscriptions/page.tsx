@@ -20,7 +20,7 @@ export default async function InscriptionsPage() {
   const { data: managers } = await supabase
     .from('profiles')
     .select('id, nom, prenoms, role')
-    .in('role', ['manager', 'rh', 'admin', 'de', 'caf', 'aaf', 'administrateur'])
+    .in('role', ['manager', 'rh', 'admin', 'de', 'dp', 'caf', 'aaf', 'administrateur'])
     .is('registration_status', null)
     .eq('archived', false)
     .order('nom')

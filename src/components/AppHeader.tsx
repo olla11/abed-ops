@@ -17,7 +17,7 @@ type Props = {
   avatarUrl?: string | null
 }
 
-const OVERVIEW_ROLES = ['aaf','caf','de','admin','administrateur']
+const OVERVIEW_ROLES = ['aaf','caf','de','dp','admin','administrateur']
 const RAPPORT_TYPES = ['benevole','stagiaire_n1','stagiaire_n2','cdd','cdi']
 
 export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, showRH, avatarUrl }: Props) {

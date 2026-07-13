@@ -11,6 +11,7 @@ const ACCESS_ROLES = [
   { value: 'rh',             label: 'Ressources Humaines' },
   { value: 'caf',            label: 'Comptable / CAF' },
   { value: 'de',             label: 'Directeur Exécutif' },
+  { value: 'dp',             label: 'Directeur des Programmes' },
   { value: 'administrateur', label: 'Administrateur (CA)' },
   { value: 'admin',          label: 'Admin système' },
   { value: 'prestataire',    label: 'Prestataire' },

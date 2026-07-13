@@ -13,7 +13,7 @@ export default async function MissionsEnCours() {
     .from('profiles').select('role, nom, prenoms, avatar_url, type_emploi').eq('id', user.id).single()
 
   const role = profile?.role ?? 'missionnaire'
-  const isManager = ['admin', 'rh', 'caf', 'de', 'administrateur', 'aaf'].includes(role)
+  const isManager = ['admin', 'rh', 'caf', 'de', 'dp', 'administrateur', 'aaf'].includes(role)
 
   const admin = createAdminClient()
   const query = admin

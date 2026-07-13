@@ -12,7 +12,7 @@ const ALL_TABS = [
 
 export default function RHNav({ role }: { role?: string } = {}) {
   const pathname = usePathname()
-  const TABS = ['de', 'administrateur'].includes(role ?? '')
+  const TABS = ['de', 'dp', 'administrateur'].includes(role ?? '')
     ? ALL_TABS.filter(t => t.href === '/rh/conges')
     : ALL_TABS
   return (

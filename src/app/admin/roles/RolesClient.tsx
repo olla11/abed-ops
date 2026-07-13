@@ -60,6 +60,14 @@ const ROLES = [
     acces: ["Mon espace", "Statut", "Vue d'ensemble", "Signature OM et PDF"],
   },
   {
+    key: 'dp',
+    label: 'Directeur des Programmes',
+    color: '#16a34a',
+    bg: '#f0fdf4',
+    description: "Memes acces que le Directeur Executif pour le moment : signe les ordres de mission, valide les documents, acces a la vue d'ensemble complete.",
+    acces: ["Mon espace", "Statut", "Vue d'ensemble", "Signature OM et PDF"],
+  },
+  {
     key: 'administrateur',
     label: 'Administrateur (CA)',
     color: '#15803d',

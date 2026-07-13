@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
 
       // Envoyer le rapport consolidé au DE et à la CAF
       const { data: gestionnaires } = await supabase
-        .from('profiles').select('id').in('role', ['de', 'caf'])
+        .from('profiles').select('id').in('role', ['de', 'dp', 'caf'])
       for (const g of gestionnaires ?? []) {
         await supabase.from('notifications').insert({
           user_id: g.id,

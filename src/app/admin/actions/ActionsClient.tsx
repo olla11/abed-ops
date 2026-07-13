@@ -18,6 +18,7 @@ const ROLES = [
   { value: 'caf', label: 'CAF' },
   { value: 'aaf', label: 'AAF' },
   { value: 'de', label: 'DE' },
+  { value: 'dp', label: 'DP' },
   { value: 'administrateur', label: 'Administrateur' },
   { value: 'admin', label: 'Admin système' },
   { value: 'prestataire', label: 'Prestataire' },

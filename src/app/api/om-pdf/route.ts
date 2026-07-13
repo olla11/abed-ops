@@ -117,7 +117,7 @@ export async function GET(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
 
   const { data: profile } = await supabaseUser.from('profiles').select('role').eq('id', user.id).single()
-  const privilegedRoles = ['admin', 'caf', 'de', 'aaf', 'rh', 'administrateur', 'manager']
+  const privilegedRoles = ['admin', 'caf', 'de', 'dp', 'aaf', 'rh', 'administrateur', 'manager']
   const isPrivileged = privilegedRoles.includes(profile?.role ?? '')
 
   const admin = createAdminClient()

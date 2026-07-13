@@ -77,7 +77,7 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
   let notifMessage = ''
 
   // Vérification que l'utilisateur a le droit d'agir sur ce congé
-  const canAct = ['rh', 'admin', 'de', 'administrateur'].includes(myRole) || conge.valideur_n1_id === user.id
+  const canAct = ['rh', 'admin', 'de', 'dp', 'administrateur'].includes(myRole) || conge.valideur_n1_id === user.id
   if (!canAct) {
     return NextResponse.json({ error: 'Action non autorisée' }, { status: 403 })
   }
@@ -89,7 +89,7 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
     notifMessage = `Votre demande de congé (${conge.date_debut} → ${conge.date_fin}) a été rejetée.${commentaire ? ` Motif : ${commentaire}` : ''}`
   } else if (conge.statut === 'en_attente' && (conge.valideur_n1_id === user.id || ['rh', 'admin'].includes(myRole))) {
     newStatut = 'approuve_n1'
-    const { data: deUsers } = await service.from('profiles').select('id, email, prenoms, nom').in('role', ['de', 'administrateur'])
+    const { data: deUsers } = await service.from('profiles').select('id, email, prenoms, nom').in('role', ['de', 'dp', 'administrateur'])
     for (const de of deUsers ?? []) {
       await service.from('notifications').insert({
         user_id: de.id,
@@ -119,7 +119,7 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
     notifUserId = conge.profile_id
     notifTitre = 'Congé validé (RH)'
     notifMessage = `Votre demande de congé a été validée par les RH. En attente d'autorisation du Directeur Exécutif.`
-  } else if (conge.statut === 'approuve_n1' && ['de', 'administrateur', 'admin'].includes(myRole)) {
+  } else if (conge.statut === 'approuve_n1' && ['de', 'dp', 'administrateur', 'admin'].includes(myRole)) {
     newStatut = 'approuve'
     notifUserId = conge.profile_id
     notifTitre = 'Congé approuvé'

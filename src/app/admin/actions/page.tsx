@@ -13,7 +13,7 @@ export default async function ActionsPage() {
     .select('id, civilite, nom, prenoms, email, role, type_emploi, fonction, manager_id')
     .order('nom')
 
-  const managers = (users ?? []).filter(u => ['manager', 'caf', 'de', 'admin'].includes(u.role ?? ''))
+  const managers = (users ?? []).filter(u => ['manager', 'caf', 'de', 'dp', 'admin'].includes(u.role ?? ''))
 
   return (
     <ActionsClient

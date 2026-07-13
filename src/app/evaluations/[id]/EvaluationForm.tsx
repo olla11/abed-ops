@@ -165,7 +165,7 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole }: Props) 
   // Determine what this user can edit
   const isEvaluateur = ev.evaluateur?.id === myId || ['rh', 'admin'].includes(myRole)
   const isEvalue = ev.profile?.id === myId
-  const isRH = ['rh', 'admin', 'de'].includes(myRole)
+  const isRH = ['rh', 'admin', 'de', 'dp'].includes(myRole)
 
   const canEditSec1to6 = ev.statut === 'en_attente' && isEvaluateur
   const canEditSec7 = ev.statut === 'evaluateur_complete' && isEvalue

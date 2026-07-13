@@ -21,7 +21,7 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
   refuse_de:    { label: '✗ Refusé (DE)',    color: '#991b1b' },
 }
 
-const isTraiteur = (r: string) => ['aaf', 'caf', 'de', 'admin', 'administrateur'].includes(r)
+const isTraiteur = (r: string) => ['aaf', 'caf', 'de', 'dp', 'admin', 'administrateur'].includes(r)
 
 export default function DemandesClient({ role, userEmail, userName }: {
   role: string; userEmail: string; userName: string

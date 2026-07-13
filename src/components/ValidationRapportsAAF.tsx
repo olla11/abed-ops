@@ -32,7 +32,7 @@ export default function ValidationRapportsAAF({ role }: { role: string }) {
   function canAct(r: Rapport) {
     if (['aaf', 'admin'].includes(role)) return STATUS_FOR_AAF.includes(r.status)
     if (role === 'caf') return STATUS_FOR_CAF.includes(r.status)
-    if (['de', 'administrateur'].includes(role)) return STATUS_FOR_DE.includes(r.status)
+    if (['de', 'dp', 'administrateur'].includes(role)) return STATUS_FOR_DE.includes(r.status)
     if (role === 'manager') return r.status === 'soumis'
     return false
   }
@@ -66,7 +66,7 @@ export default function ValidationRapportsAAF({ role }: { role: string }) {
       <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: 12 }}>
         {['aaf', 'admin'].includes(role) && 'Saisissez le montant de l\'allocation et validez.'}
         {role === 'caf' && 'Vérifiez et validez les rapports traités par l\'AAF.'}
-        {['de', 'administrateur'].includes(role) && 'Autorisez les allocations validées par la CAF.'}
+        {['de', 'dp', 'administrateur'].includes(role) && 'Autorisez les allocations validées par la CAF.'}
       </p>
       {aTraiter.map(r => {
         const isOpen = expanded === r.id
@@ -116,8 +116,8 @@ export default function ValidationRapportsAAF({ role }: { role: string }) {
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button className="btn" style={{ background: '#166534', fontSize: 13 }}
                     disabled={submitting === r.id}
-                    onClick={() => agir(r.id, ['de', 'administrateur'].includes(role) ? 'autoriser' : 'valider')}>
-                    {['de', 'administrateur'].includes(role) ? '✓ Autoriser' : '✓ Valider'}
+                    onClick={() => agir(r.id, ['de', 'dp', 'administrateur'].includes(role) ? 'autoriser' : 'valider')}>
+                    {['de', 'dp', 'administrateur'].includes(role) ? '✓ Autoriser' : '✓ Valider'}
                   </button>
                   <button className="btn danger" style={{ fontSize: 13 }}
                     disabled={submitting === r.id} onClick={() => agir(r.id, 'rejeter')}>

@@ -51,7 +51,7 @@ export async function GET(
 
   const me = await admin.from('profiles').select('role').eq('id', user.id).single()
   const role = me.data?.role ?? ''
-  const canView = ['rh', 'admin', 'de', 'administrateur', 'aaf', 'caf'].includes(role) || contrat.profile_id === user.id
+  const canView = ['rh', 'admin', 'de', 'dp', 'administrateur', 'aaf', 'caf'].includes(role) || contrat.profile_id === user.id
   if (!canView) return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
 
   // Backfill : certains contrats plus anciens n'ont jamais reçu de numero (échec silencieux à la création)
@@ -71,7 +71,7 @@ export async function GET(
   }
 
   const p = contrat.profile as any
-  const isDE = p?.role === 'de'
+  const isDE = ['de', 'dp'].includes(p?.role)
   const categorie = contrat.categorie_document ?? 'Contrat'
   const representantEmployeur = isDE ? "Président du Conseil d'Administration" : 'Directeur Exécutif'
   const sigLeft = isDE ? "Le Président du Conseil d'Administration" : "Le Directeur Exécutif"

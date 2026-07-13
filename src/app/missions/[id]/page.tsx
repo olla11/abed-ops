@@ -33,8 +33,8 @@ export default async function MissionDetail({ params }: { params: Promise<{ id: 
 
   const role = profile?.role ?? 'missionnaire'
   const isLocked = mission.status === 'cloture'
-  const canSign = ['caf', 'de', 'admin', 'administrateur'].includes(role) && ['soumis', 'brouillon'].includes(mission.status)
-  const canEdit = ['caf', 'de', 'admin', 'administrateur'].includes(role) && ['soumis', 'brouillon'].includes(mission.status)
+  const canSign = ['caf', 'de', 'dp', 'admin', 'administrateur'].includes(role) && ['soumis', 'brouillon'].includes(mission.status)
+  const canEdit = ['caf', 'de', 'dp', 'admin', 'administrateur'].includes(role) && ['soumis', 'brouillon'].includes(mission.status)
   const canDelete = role === 'admin'
   const pdfDispo = !['brouillon', 'soumis'].includes(mission.status)
   const canReconcile = user.id === mission.missionnaire_id

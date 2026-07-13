@@ -46,7 +46,7 @@ export const getCachedManagers = () =>
       const { data } = await service()
         .from('profiles')
         .select('id, nom, prenoms, role, email, avatar_url, type_emploi')
-        .in('role', ['admin', 'rh', 'de', 'caf', 'manager', 'aaf'])
+        .in('role', ['admin', 'rh', 'de', 'dp', 'caf', 'manager', 'aaf'])
         .eq('archived', false)
         .order('prenoms')
       return data ?? []

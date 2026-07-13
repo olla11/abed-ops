@@ -17,7 +17,7 @@ export async function POST(
     .from('profiles').select('role, nom, prenoms, email').eq('id', user.id).single()
   const role = profile?.role ?? ''
 
-  if (!['aaf', 'caf', 'de', 'admin', 'administrateur'].includes(role)) {
+  if (!['aaf', 'caf', 'de', 'dp', 'admin', 'administrateur'].includes(role)) {
     return NextResponse.json({ error: 'accès refusé' }, { status: 403 })
   }
 
@@ -33,14 +33,14 @@ export async function POST(
 
   const now = new Date().toISOString()
   let update: Record<string, any> = {}
-  let nextRole: string | null = null
+  let nextRoles: string[] | null = null
   let emailSubject = ''
   let emailMsg = ''
 
   if (['aaf', 'admin'].includes(role) && demande.status === 'soumis') {
     if (action === 'valider') {
       update = { status: 'valide_aaf', aaf_id: user.id, aaf_le: now, commentaire_aaf: null }
-      nextRole = 'caf'
+      nextRoles = ['caf']
       emailSubject = '[ABED-ONG] Demande de paiement à valider (CAF)'
       emailMsg = 'validée par l\'AAF, en attente de votre validation'
     } else {
@@ -50,14 +50,14 @@ export async function POST(
   } else if (role === 'caf' && demande.status === 'valide_aaf') {
     if (action === 'valider') {
       update = { status: 'valide_caf', caf_id: user.id, caf_le: now, commentaire_caf: null }
-      nextRole = 'de'
-      emailSubject = '[ABED-ONG] Demande de paiement — Autorisation DE requise'
+      nextRoles = ['de', 'dp']
+      emailSubject = '[ABED-ONG] Demande de paiement — Autorisation DE/DP requise'
       emailMsg = 'validée par la CAF, en attente d\'autorisation du Directeur Exécutif'
     } else {
       if (!commentaire?.trim()) return NextResponse.json({ error: 'Commentaire obligatoire' }, { status: 400 })
       update = { status: action === 'refuser' ? 'refuse_caf' : 'rejete_caf', caf_id: user.id, caf_le: now, commentaire_caf: commentaire }
     }
-  } else if (['de', 'admin', 'administrateur'].includes(role) && demande.status === 'valide_caf') {
+  } else if (['de', 'dp', 'admin', 'administrateur'].includes(role) && demande.status === 'valide_caf') {
     if (action === 'autoriser') {
       update = { status: 'autorise', de_id: user.id, de_le: now, commentaire_de: null }
     } else {
@@ -109,9 +109,9 @@ export async function POST(
   }
 
   // Email à la prochaine étape
-  if (nextRole) {
+  if (nextRoles) {
     const { data: nextUsers } = await supabase
-      .from('profiles').select('id, email, prenoms, nom').eq('role', nextRole)
+      .from('profiles').select('id, email, prenoms, nom').in('role', nextRoles)
     for (const u of nextUsers ?? []) {
       await supabase.from('notifications').insert({
         user_id: u.id,

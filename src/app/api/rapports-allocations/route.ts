@@ -8,7 +8,7 @@ export async function GET() {
 
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
   const role = profile?.role ?? ''
-  const isTraiteur = ['aaf', 'caf', 'de', 'admin', 'administrateur', 'manager'].includes(role)
+  const isTraiteur = ['aaf', 'caf', 'de', 'dp', 'admin', 'administrateur', 'manager'].includes(role)
 
   let query = supabase
     .from('rapports_allocations')

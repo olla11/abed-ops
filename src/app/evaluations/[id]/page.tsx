@@ -37,7 +37,7 @@ export default async function EvaluationPage({ params }: { params: Promise<{ id:
   const canAccess =
     ev.profile_id === user.id ||
     ev.evaluateur_id === user.id ||
-    ['rh', 'admin', 'de'].includes(role)
+    ['rh', 'admin', 'de', 'dp'].includes(role)
 
   if (!canAccess) redirect('/evaluations')
 

@@ -27,7 +27,7 @@ export async function POST(
   }
 
   const { data: gestionnaires } = await admin
-    .from('profiles').select('email').in('role', ['de', 'caf', 'administrateur'])
+    .from('profiles').select('email').in('role', ['de', 'dp', 'caf', 'administrateur'])
   const emails = (gestionnaires ?? []).map((g: any) => g.email).filter(Boolean)
 
   if (emails.length === 0) {

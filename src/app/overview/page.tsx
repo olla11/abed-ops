@@ -17,7 +17,7 @@ export default async function OverviewPage() {
   const realRole = profile?.role ?? ''
   const role = await getEffectiveRole(realRole)
   const previewRole = await getRolePreview()
-  if (!['aaf','caf','de','admin','administrateur'].includes(role)) redirect('/timesheets')
+  if (!['aaf','caf','de','dp','admin','administrateur'].includes(role)) redirect('/timesheets')
 
   return (
     <>

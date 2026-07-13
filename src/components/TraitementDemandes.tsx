@@ -72,7 +72,7 @@ export default function TraitementDemandes({ role }: { role: string }) {
   function canAct(d: Demande) {
     if (role === 'aaf' || role === 'admin') return d.status === 'soumis'
     if (role === 'caf') return d.status === 'valide_aaf'
-    if (role === 'de' || role === 'administrateur') return d.status === 'valide_caf'
+    if (role === 'de' || role === 'dp' || role === 'administrateur') return d.status === 'valide_caf'
     return false
   }
 
@@ -154,7 +154,7 @@ export default function TraitementDemandes({ role }: { role: string }) {
                     placeholder="Motif de rejet ou observation…" />
                 </div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {(role === 'de' || role === 'administrateur') ? (
+                  {(role === 'de' || role === 'dp' || role === 'administrateur') ? (
                     <>
                       <button className="btn" style={{ background: '#166534', fontSize: 13 }}
                         disabled={submitting === d.id} onClick={() => agir(d.id, 'autoriser')}>

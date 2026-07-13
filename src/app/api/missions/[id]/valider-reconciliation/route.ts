@@ -132,7 +132,7 @@ export async function POST(
 
   // Envoyer email au DE et CAF pour archivage
   const { data: gestionnaires } = await admin
-    .from('profiles').select('email, id').in('role', ['de', 'caf'])
+    .from('profiles').select('email, id').in('role', ['de', 'dp', 'caf'])
 
   const emails = (gestionnaires ?? []).map(g => g.email).filter(Boolean)
   if (emails.length > 0) {
