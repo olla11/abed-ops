@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
 
-const CATEGORIES = ['guide', 'rapport', 'lien_usuel']
+const CATEGORIES = ['guide', 'rapport', 'lien_usuel', 'publication']
+const RAPPORT_SOUS_CATEGORIES = ['rapport_annuel', 'rapport_projet', 'rapport_technique']
 
 export async function GET() {
   const supabase = await createClient()
@@ -11,7 +12,7 @@ export async function GET() {
   const admin = createAdminClient()
   const { data, error } = await admin
     .from('ressources')
-    .select('id, categorie, titre, url, description, ordre, created_at')
+    .select('id, categorie, titre, url, description, sous_categorie, ordre, created_at')
     .order('categorie', { ascending: true })
     .order('ordre', { ascending: true })
 
@@ -34,6 +35,8 @@ export async function POST(req: NextRequest) {
   const titre = (body?.titre ?? '').trim()
   const url = (body?.url ?? '').trim()
   const description = (body?.description ?? '').trim() || null
+  const sousCategorieRaw = (body?.sous_categorie ?? '').trim() || null
+  const sous_categorie = categorie === 'rapport' ? sousCategorieRaw : null
 
   if (!CATEGORIES.includes(categorie)) {
     return NextResponse.json({ error: 'Catégorie invalide' }, { status: 400 })
@@ -43,6 +46,9 @@ export async function POST(req: NextRequest) {
   }
   if (!/^https?:\/\//.test(url) && !/^mailto:/.test(url)) {
     return NextResponse.json({ error: 'Le lien doit commencer par http(s):// ou mailto:' }, { status: 400 })
+  }
+  if (sous_categorie && !RAPPORT_SOUS_CATEGORIES.includes(sous_categorie)) {
+    return NextResponse.json({ error: 'Sous-catégorie invalide' }, { status: 400 })
   }
 
   const admin = createAdminClient()
@@ -54,8 +60,8 @@ export async function POST(req: NextRequest) {
 
   const { data, error } = await admin
     .from('ressources')
-    .insert({ categorie, titre, url, description, ordre: count ?? 0, created_by: user.id })
-    .select('id, categorie, titre, url, description, ordre, created_at')
+    .insert({ categorie, titre, url, description, sous_categorie, ordre: count ?? 0, created_by: user.id })
+    .select('id, categorie, titre, url, description, sous_categorie, ordre, created_at')
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

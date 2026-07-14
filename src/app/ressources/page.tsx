@@ -8,10 +8,11 @@ import RessourcesClient from './RessourcesClient'
 
 export type Ressource = {
   id: string
-  categorie: 'guide' | 'rapport' | 'lien_usuel'
+  categorie: 'guide' | 'rapport' | 'lien_usuel' | 'publication'
   titre: string
   url: string
   description: string | null
+  sous_categorie: string | null
   ordre: number
   created_at: string
 }
@@ -35,7 +36,7 @@ export default async function RessourcesPage() {
   const admin = createAdminClient()
   const { data: ressources, error: ressourcesErr } = await admin
     .from('ressources')
-    .select('id, categorie, titre, url, description, ordre, created_at')
+    .select('id, categorie, titre, url, description, sous_categorie, ordre, created_at')
     .order('categorie', { ascending: true })
     .order('ordre', { ascending: true })
 
