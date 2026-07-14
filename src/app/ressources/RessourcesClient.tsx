@@ -2,6 +2,9 @@
 import { useState } from 'react'
 import { BookOpen, BarChart3, Link2, Newspaper, Mail, ExternalLink, Pencil, Trash2, Check, Plus, Search } from 'lucide-react'
 import type { Ressource } from './page'
+import Pagination, { paginate } from '@/components/Pagination'
+
+const PAGE_SIZE = 12
 
 type Categorie = Ressource['categorie']
 
@@ -214,12 +217,24 @@ export default function RessourcesClient({ ressources: initial, isManager }: { r
   const [activeTab, setActiveTab] = useState<Categorie>('guide')
   const [subFilter, setSubFilter] = useState('')
   const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Ressource | null>(null)
 
   function changeTab(tab: Categorie) {
     setActiveTab(tab)
     setSubFilter('')
+    setPage(1)
+  }
+
+  function changeSubFilter(v: string) {
+    setSubFilter(v)
+    setPage(1)
+  }
+
+  function changeSearch(v: string) {
+    setSearch(v)
+    setPage(1)
   }
 
   const byTab = ressources.filter(r => r.categorie === activeTab)
@@ -234,6 +249,9 @@ export default function RessourcesClient({ ressources: initial, isManager }: { r
   const items = search.trim()
     ? bySubFilter.filter(r => r.titre.toLowerCase().includes(search.trim().toLowerCase()))
     : bySubFilter
+
+  const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE))
+  const safePage = Math.min(page, totalPages)
 
   const activeMeta = TABS.find(t => t.key === activeTab)!
 
@@ -301,7 +319,7 @@ export default function RessourcesClient({ ressources: initial, isManager }: { r
         <Search size={15} color="#9ca3af" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
         <input
           value={search}
-          onChange={e => setSearch(e.target.value)}
+          onChange={e => changeSearch(e.target.value)}
           placeholder="Rechercher un document..."
           style={{ ...inputStyle, paddingLeft: 34 }}
         />
@@ -309,7 +327,7 @@ export default function RessourcesClient({ ressources: initial, isManager }: { r
 
       {(activeTab === 'rapport' || activeTab === 'lien_usuel') && (
         <div style={{ display: 'flex', gap: 8, marginBottom: 18, flexWrap: 'wrap' }}>
-          <button onClick={() => setSubFilter('')} style={chipStyle(subFilter === '')}>
+          <button onClick={() => changeSubFilter('')} style={chipStyle(subFilter === '')}>
             Tous
             <span style={{ fontSize: 11, color: 'inherit', opacity: 0.7 }}>{byTab.length}</span>
           </button>
@@ -318,7 +336,7 @@ export default function RessourcesClient({ ressources: initial, isManager }: { r
               activeTab === 'rapport' ? r.sous_categorie === f.value : (f.value === 'email' ? isMail(r.url) : !isMail(r.url))
             ).length
             return (
-              <button key={f.value} onClick={() => setSubFilter(f.value)} style={chipStyle(subFilter === f.value)}>
+              <button key={f.value} onClick={() => changeSubFilter(f.value)} style={chipStyle(subFilter === f.value)}>
                 {f.label}
                 <span style={{ fontSize: 11, color: 'inherit', opacity: 0.7 }}>{count}</span>
               </button>
@@ -333,14 +351,17 @@ export default function RessourcesClient({ ressources: initial, isManager }: { r
           <div>{search.trim() ? 'Aucun document ne correspond à cette recherche.' : activeMeta.empty}</div>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
-          {items.map(r => (
-            <ResourceCard key={r.id} r={r} isManager={isManager}
-              onEdit={rr => { setEditing(rr); setShowForm(true) }}
-              onDeleted={handleDeleted}
-            />
-          ))}
-        </div>
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
+            {paginate(items, safePage, PAGE_SIZE).map(r => (
+              <ResourceCard key={r.id} r={r} isManager={isManager}
+                onEdit={rr => { setEditing(rr); setShowForm(true) }}
+                onDeleted={handleDeleted}
+              />
+            ))}
+          </div>
+          <Pagination page={safePage} total={items.length} pageSize={PAGE_SIZE} onChange={setPage} />
+        </>
       )}
 
       {showForm && (
