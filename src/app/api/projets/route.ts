@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient, createAdminClient } from '@/lib/supabase-server'
+import { createClient } from '@/lib/supabase-server'
 import { rateLimit } from '@/lib/rate-limit'
 import { validate, s } from '@/lib/validate'
 import { z } from 'zod'
@@ -19,38 +19,15 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
 
-  const admin = createAdminClient()
-
-  // Public projects + projects created by user
-  const { data: ownAndPublic, error: e1 } = await admin
+  // RLS (projets_select / can_access_projet) filtre déjà : projets publics,
+  // créés par l'utilisateur, où il a une tâche assignée, ou rattachés à un
+  // espace dont il est membre.
+  const { data, error } = await supabase
     .from('projets_internes')
     .select(`*, created_by_profile:profiles!projets_internes_created_by_fkey(nom, prenoms), activites(id, statut, assignee_id, parent_id)`)
-    .or(`is_public.eq.true,created_by.eq.${user.id}`)
     .order('created_at', { ascending: false })
 
-  if (e1) return NextResponse.json({ error: e1.message }, { status: 500 })
-
-  // Private projects where user has a task assigned (not already included above)
-  const { data: assignedActivites } = await admin
-    .from('activites')
-    .select('projet_id')
-    .eq('assignee_id', user.id)
-
-  const assignedProjectIds = [...new Set((assignedActivites ?? []).map(a => a.projet_id))]
-  const alreadyIncluded = new Set((ownAndPublic ?? []).map(p => p.id))
-  const missingIds = assignedProjectIds.filter(id => !alreadyIncluded.has(id))
-
-  let extra: typeof ownAndPublic = []
-  if (missingIds.length > 0) {
-    const { data: extraProjects } = await admin
-      .from('projets_internes')
-      .select(`*, created_by_profile:profiles!projets_internes_created_by_fkey(nom, prenoms), activites(id, statut, assignee_id, parent_id)`)
-      .in('id', missingIds)
-      .eq('is_public', false)
-    extra = extraProjects ?? []
-  }
-
-  const data = [...(ownAndPublic ?? []), ...extra]
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ data })
 }
 

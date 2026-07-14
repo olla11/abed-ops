@@ -29,14 +29,9 @@ export default async function ProjetDetailPage({ params }: { params: Promise<{ i
     .eq('id', id)
     .single()
 
+  // RLS (projets_select / can_access_projet) ne renvoie déjà que les projets
+  // accessibles à l'utilisateur (public/créateur/assigné, ou membre de l'espace).
   if (!projet) redirect('/projets')
-
-  // Access control: private project only visible to creator or assignees
-  if (projet.is_public === false && projet.created_by !== user.id) {
-    const hasTask = (projet.activites as Array<{ assignee_id: string | null }>)
-      .some(a => a.assignee_id === user.id)
-    if (!hasTask) redirect('/projets')
-  }
 
   // Fetch espace members if project belongs to an espace
   let assignableProfiles: { id: string; nom: string; prenoms: string }[] = []

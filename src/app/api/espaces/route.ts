@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient, createAdminClient } from '@/lib/supabase-server'
+import { createClient } from '@/lib/supabase-server'
 import { rateLimit } from '@/lib/rate-limit'
 import { validate, s } from '@/lib/validate'
 import { z } from 'zod'
@@ -15,8 +15,7 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
 
-  const admin = createAdminClient()
-  const { data, error } = await admin
+  const { data, error } = await supabase
     .from('espaces')
     .select('*')
     .order('created_at', { ascending: true })
@@ -37,8 +36,7 @@ export async function POST(req: NextRequest) {
   const v = validate(EspaceSchema, body)
   if ('error' in v) return v.error
 
-  const admin = createAdminClient()
-  const { data, error } = await admin.from('espaces').insert({
+  const { data, error } = await supabase.from('espaces').insert({
     nom: v.data.nom.trim(),
     couleur: v.data.couleur ?? '#16a34a',
     icon: v.data.icon ?? 'folder',
