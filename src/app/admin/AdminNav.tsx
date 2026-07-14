@@ -27,29 +27,33 @@ export default function AdminNav({ role, pendingCount }: { role: string; pending
         <Link href="/dashboard" style={{ fontSize: 13, color: 'var(--abed-muted)' }}>← {ta('title')}</Link>
         <h2 style={{ color: 'var(--abed-green)', margin: 0 }}>{ta('title')}</h2>
       </div>
-      <div style={{ display: 'flex', gap: 4, borderBottom: '2px solid var(--abed-border)', paddingBottom: 0, overflowX: 'auto', WebkitOverflowScrolling: 'touch' as any }}>
+      <div style={{ display: 'flex', gap: 4, background: '#f9fafb', borderRadius: 10, padding: 4, width: 'fit-content', maxWidth: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch' as any }}>
         {tabs.map(tab => {
           const active = path === tab.href || (path === '/admin' && tab.href === '/admin/comptes')
           const count = tab.href === '/admin/inscriptions' ? (pendingCount ?? 0) : 0
           return (
             <Link key={tab.href} href={tab.href} style={{
-              padding: '10px 18px',
+              padding: '9px 20px',
               fontSize: 14,
               fontWeight: active ? 700 : 500,
-              color: active ? 'var(--abed-green)' : 'var(--abed-muted)',
-              borderBottom: active ? '2px solid var(--abed-green)' : '2px solid transparent',
-              marginBottom: -2,
+              border: 'none',
+              borderRadius: 8,
+              background: active ? 'var(--abed-green)' : 'transparent',
+              color: active ? 'white' : '#374151',
               textDecoration: 'none',
               whiteSpace: 'nowrap',
               display: 'flex',
               alignItems: 'center',
-              gap: 7,
-              position: 'relative',
+              gap: 6,
             }}>
-              <tab.Icon size={15} strokeWidth={1.75} />
+              <tab.Icon size={16} strokeWidth={1.75} />
               {ta(tab.labelKey as any)}
               {count > 0 && (
-                <span style={{ background: '#ef4444', color: 'white', borderRadius: 10, fontSize: 10, fontWeight: 800, padding: '1px 6px', lineHeight: 1.5 }}>
+                <span style={{
+                  fontSize: 11, fontWeight: 800, padding: '1px 7px', borderRadius: 20,
+                  background: active ? 'rgba(255,255,255,.25)' : '#ef4444',
+                  color: 'white',
+                }}>
                   {count}
                 </span>
               )}

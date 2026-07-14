@@ -470,26 +470,33 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
       </div>
 
       {/* Toggle vue */}
-      <div style={{ display: 'flex', gap: 0, marginBottom: 16, borderBottom: '1px solid #e5e7eb' }}>
-        {([
-          { key: 'table', label: 'Liste', Icon: List },
-          { key: 'kanban', label: 'Tableau', Icon: LayoutDashboard },
-          { key: 'calendrier', label: 'Calendrier', Icon: Calendar },
-          { key: 'gantt', label: 'Gantt', Icon: GanttChartSquare },
-          { key: 'tableur', label: 'Tableur', Icon: Table },
-        ] as const).map(v => {
-          const active = view === v.key
-          const col = active ? 'var(--abed-green)' : '#6b7280'
-          return (
-            <button key={v.key} onClick={() => setView(v.key as typeof view)}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px 14px', fontSize: 13, fontWeight: active ? 700 : 500, color: col, borderBottom: active ? '2px solid var(--abed-green)' : '2px solid transparent', marginBottom: -1, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <v.Icon size={14} color={col} strokeWidth={1.5} />
-              {v.label}
-            </button>
-          )
-        })}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 4, background: '#f9fafb', borderRadius: 10, padding: 4, width: 'fit-content', maxWidth: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch' as any }}>
+          {([
+            { key: 'table', label: 'Liste', Icon: List },
+            { key: 'kanban', label: 'Tableau', Icon: LayoutDashboard },
+            { key: 'calendrier', label: 'Calendrier', Icon: Calendar },
+            { key: 'gantt', label: 'Gantt', Icon: GanttChartSquare },
+            { key: 'tableur', label: 'Tableur', Icon: Table },
+          ] as const).map(v => {
+            const active = view === v.key
+            return (
+              <button key={v.key} onClick={() => setView(v.key as typeof view)}
+                style={{
+                  border: 'none', cursor: 'pointer', borderRadius: 8,
+                  padding: '9px 18px', fontSize: 13, fontWeight: active ? 700 : 500,
+                  background: active ? 'var(--abed-green)' : 'transparent',
+                  color: active ? 'white' : '#374151',
+                  display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
+                }}>
+                <v.Icon size={14} strokeWidth={1.5} />
+                {v.label}
+              </button>
+            )
+          })}
+        </div>
         <div style={{ flex: 1 }} />
-        <button className="btn" onClick={() => { setShowAddRow(true); setView('table') }} style={{ fontSize: 12, marginBottom: 6 }}>+ Ajouter une tâche</button>
+        <button className="btn" onClick={() => { setShowAddRow(true); setView('table') }} style={{ fontSize: 12 }}>+ Ajouter une tâche</button>
       </div>
 
       {/* === VUE TABLE === */}

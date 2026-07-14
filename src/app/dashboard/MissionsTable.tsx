@@ -133,7 +133,7 @@ export default function MissionsTable({
   return (
     <div>
       {/* Onglets */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '2px solid var(--abed-border)', paddingBottom: 0 }}>
+      <div style={{ display: 'flex', gap: 4, marginBottom: 20, background: '#f9fafb', borderRadius: 10, padding: 4, width: 'fit-content', maxWidth: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch' as any }}>
         {tabs.map(t => {
           const active = tab === t.key
           return (
@@ -141,22 +141,20 @@ export default function MissionsTable({
               key={t.key}
               onClick={() => setTab(t.key)}
               style={{
-                background: 'none', border: 'none', cursor: 'pointer',
-                padding: '10px 18px', fontSize: 14, fontWeight: active ? 700 : 500,
-                color: active ? 'var(--abed-green)' : (t.color ?? '#6b7280'),
-                borderBottom: active ? '2px solid var(--abed-green)' : '2px solid transparent',
-                marginBottom: -2, display: 'flex', alignItems: 'center', gap: 7,
-                transition: 'all 0.15s',
+                border: 'none', cursor: 'pointer', borderRadius: 8,
+                padding: '9px 20px', fontSize: 14, fontWeight: active ? 700 : 500,
+                background: active ? 'var(--abed-green)' : 'transparent',
+                color: active ? 'white' : (t.color ?? '#374151'),
+                display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
               }}
             >
-              <t.icon size={15} strokeWidth={2} />
+              <t.icon size={16} strokeWidth={2} />
               <span>{t.label}</span>
-              {t.count !== undefined && (
+              {t.count !== undefined && t.count > 0 && (
                 <span style={{
-                  background: t.count > 0 ? '#fef3c7' : '#f3f4f6',
-                  color: t.count > 0 ? '#92400e' : '#9ca3af',
-                  borderRadius: 999, padding: '1px 8px', fontSize: 12, fontWeight: 700,
-                  border: t.count > 0 ? '1px solid #fcd34d' : '1px solid #e5e7eb',
+                  fontSize: 11, fontWeight: 800, padding: '1px 7px', borderRadius: 20,
+                  background: active ? 'rgba(255,255,255,.25)' : '#fef3c7',
+                  color: active ? 'white' : '#92400e',
                 }}>
                   {t.count}
                 </span>

@@ -17,19 +17,19 @@ export default function RHNav({ role }: { role?: string } = {}) {
     : ALL_TABS
   return (
     <div style={{
-      display: 'flex', gap: 0, marginBottom: 28,
-      borderBottom: '2px solid var(--abed-border)',
+      display: 'flex', gap: 4, marginBottom: 28,
+      background: '#f9fafb', borderRadius: 10, padding: 4, width: 'fit-content',
+      maxWidth: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch' as any,
     }}>
       {TABS.map(tab => {
         const active = tab.exact ? pathname === tab.href : pathname.startsWith(tab.href)
         return (
           <Link key={tab.href} href={tab.href} style={{
-            padding: '8px 20px', fontSize: 14, fontWeight: active ? 700 : 500,
-            color: active ? 'var(--abed-green)' : '#374151',
-            textDecoration: 'none',
-            borderBottom: active ? '2px solid var(--abed-green)' : '2px solid transparent',
-            marginBottom: -2, whiteSpace: 'nowrap',
-            transition: 'color .15s',
+            padding: '9px 20px', fontSize: 14, fontWeight: active ? 700 : 500,
+            border: 'none', borderRadius: 8,
+            background: active ? 'var(--abed-green)' : 'transparent',
+            color: active ? 'white' : '#374151',
+            textDecoration: 'none', whiteSpace: 'nowrap',
           }}>
             {tab.label}
           </Link>
