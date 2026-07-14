@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase-server'
+import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { sendEmail } from '@/lib/resend'
 import { rateLimit } from '@/lib/rate-limit'
 import { validate, s } from '@/lib/validate'
@@ -61,11 +61,21 @@ export async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Email si assigné à quelqu'un d'autre que soi-même
-  if (data.assignee_id && data.assignee_id !== user.id && data.assignee?.email) {
+  // Notification (in-app + email) si assigné à quelqu'un d'autre que soi-même
+  if (data.assignee_id && data.assignee_id !== user.id) {
     const { data: creatorProfile } = await supabase.from('profiles').select('prenoms, nom').eq('id', user.id).single()
-    const email = emailAssignation(data.nom, data.projet?.nom ?? '', data.assignee.prenoms, data.assignee.nom, creatorProfile?.prenoms ?? 'Quelqu\'un', data.date_echeance)
-    await sendEmail({ to: data.assignee.email, ...email }).catch(console.error)
+    const admin = createAdminClient()
+    const { error: notifErr } = await admin.from('notifications').insert({
+      user_id: data.assignee_id,
+      titre: 'Nouvelle tâche assignée',
+      message: `${creatorProfile?.prenoms ?? 'Quelqu\'un'} vous a assigné la tâche « ${data.nom} »${data.projet?.nom ? ` (${data.projet.nom})` : ''}.`,
+      lien: `/projets/${data.projet_id}`,
+    })
+    if (notifErr) console.error(notifErr)
+    if (data.assignee?.email) {
+      const email = emailAssignation(data.nom, data.projet?.nom ?? '', data.assignee.prenoms, data.assignee.nom, creatorProfile?.prenoms ?? 'Quelqu\'un', data.date_echeance)
+      await sendEmail({ to: data.assignee.email, ...email }).catch(console.error)
+    }
   }
 
   // On retourne sans les champs email (sécurité)

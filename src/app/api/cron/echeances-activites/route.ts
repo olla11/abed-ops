@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
   // Tâches non terminées avec échéance
   const { data: activites } = await supabase
     .from('activites')
-    .select(`id, nom, date_echeance, statut, priorite,
+    .select(`id, nom, projet_id, date_echeance, statut, priorite,
       assignee:profiles!activites_assignee_id_fkey(id, nom, prenoms, email),
       projet:projets_internes!activites_projet_id_fkey(nom)`)
     .not('assignee_id', 'is', null)
@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
   let sent = 0
   for (const act of activites) {
     const assignee = act.assignee as any
-    if (!assignee?.email) continue
+    if (!assignee) continue
 
     const echeance = new Date(act.date_echeance)
     echeance.setHours(0, 0, 0, 0)
@@ -62,22 +62,32 @@ export async function GET(req: NextRequest) {
       urgenceLabel = `Échéance dans 3 jours (${dateStr})`
     }
 
-    await sendEmail({
-      to: assignee.email,
-      subject,
-      html: `
-        <div style="font-family:sans-serif;max-width:560px;margin:0 auto">
-          <h2 style="color:${urgenceColor}">${urgenceLabel}</h2>
-          <p>Bonjour <strong>${assignee.prenoms}</strong>,</p>
-          <p>Vous avez une tâche qui nécessite votre attention :</p>
-          <div style="background:#fafafa;border-left:4px solid ${urgenceColor};padding:14px 18px;border-radius:0 8px 8px 0;margin:16px 0">
-            <p style="margin:0 0 6px;font-weight:700;font-size:16px">${act.nom}</p>
-            <p style="margin:0;color:#6b7280;font-size:14px">Projet : ${(act.projet as any)?.nom ?? ''} &nbsp;|&nbsp; ${urgenceLabel}</p>
+    const { error: notifErr } = await supabase.from('notifications').insert({
+      user_id: assignee.id,
+      titre: urgenceLabel,
+      message: `« ${act.nom} »${(act.projet as any)?.nom ? ` (${(act.projet as any).nom})` : ''}`,
+      lien: `/projets/${act.projet_id}`,
+    })
+    if (notifErr) console.error(notifErr)
+
+    if (assignee.email) {
+      await sendEmail({
+        to: assignee.email,
+        subject,
+        html: `
+          <div style="font-family:sans-serif;max-width:560px;margin:0 auto">
+            <h2 style="color:${urgenceColor}">${urgenceLabel}</h2>
+            <p>Bonjour <strong>${assignee.prenoms}</strong>,</p>
+            <p>Vous avez une tâche qui nécessite votre attention :</p>
+            <div style="background:#fafafa;border-left:4px solid ${urgenceColor};padding:14px 18px;border-radius:0 8px 8px 0;margin:16px 0">
+              <p style="margin:0 0 6px;font-weight:700;font-size:16px">${act.nom}</p>
+              <p style="margin:0;color:#6b7280;font-size:14px">Projet : ${(act.projet as any)?.nom ?? ''} &nbsp;|&nbsp; ${urgenceLabel}</p>
+            </div>
+            <p style="color:#6b7280;font-size:13px">Connectez-vous à My ABED pour mettre à jour le statut de cette tâche.</p>
           </div>
-          <p style="color:#6b7280;font-size:13px">Connectez-vous à My ABED pour mettre à jour le statut de cette tâche.</p>
-        </div>
-      `,
-    }).catch(console.error)
+        `,
+      }).catch(console.error)
+    }
     sent++
   }
 
