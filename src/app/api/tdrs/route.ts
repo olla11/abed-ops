@@ -41,13 +41,21 @@ export async function POST(req: NextRequest) {
   const v = validate(TdrSchema, body)
   if ('error' in v) return v.error
 
-  const { data: tdr, error } = await supabase.from('tdrs').insert({
+  // UUID généré côté serveur (pas de .select() après l'insert) : PostgREST
+  // évalue la policy SELECT sur la ligne RETURNING dans la même transaction
+  // que l'INSERT, et can_access_tdr() (SECURITY DEFINER) qui se re-interroge
+  // sur "tdrs" ne voit pas encore la ligne toute juste insérée à ce moment-là
+  // (visibilité de snapshot) — ça faisait échouer l'insert avec une fausse
+  // violation de RLS. En connaissant l'id à l'avance, on l'évite entièrement.
+  const id = crypto.randomUUID()
+  const { error } = await supabase.from('tdrs').insert({
+    id,
     titre_activite: v.data.titre_activite.trim(),
     projet: v.data.projet?.trim() || null,
     periode: v.data.periode?.trim() || null,
     initiateur_id: user.id,
     chapitres: CHAPITRES_DEFAUT,
-  }).select('id').single()
+  })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
@@ -61,11 +69,11 @@ export async function POST(req: NextRequest) {
   ])
 
   const { error: sigErr } = await admin.from('tdr_signataires').insert([
-    { tdr_id: tdr.id, role: 'initiateur', profile_id: user.id, ordre: 1 },
-    { tdr_id: tdr.id, role: 'caf', profile_id: caf?.id ?? null, ordre: 3 },
-    { tdr_id: tdr.id, role: 'de', profile_id: de?.id ?? null, ordre: 4 },
+    { tdr_id: id, role: 'initiateur', profile_id: user.id, ordre: 1 },
+    { tdr_id: id, role: 'caf', profile_id: caf?.id ?? null, ordre: 3 },
+    { tdr_id: id, role: 'de', profile_id: de?.id ?? null, ordre: 4 },
   ])
   if (sigErr) return NextResponse.json({ error: sigErr.message }, { status: 500 })
 
-  return NextResponse.json({ data: tdr })
+  return NextResponse.json({ data: { id } })
 }
