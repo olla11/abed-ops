@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
-import { chapitresValides } from '@/lib/tdr'
+import { chapitresValides, STATUT_TOUR, type TdrStatut } from '@/lib/tdr'
 import { sanitizeChapitres } from '@/lib/tdr-sanitize'
 
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -33,25 +33,44 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const { data: tdr } = await supabase.from('tdrs').select('statut, initiateur_id').eq('id', id).single()
   if (!tdr) return NextResponse.json({ error: 'TDR introuvable' }, { status: 404 })
-  if (tdr.statut !== 'brouillon') {
-    return NextResponse.json({ error: "Ce TDR n'est plus modifiable (hors brouillon)" }, { status: 409 })
+
+  // Brouillon : l'initiateur ou un collaborateur en révision édite tout
+  // (titre, méta, chapitres). Pendant une étape de validation, le signataire
+  // dont c'est le tour peut ajuster les chapitres avant de signer/refuser.
+  let canEditMeta = false
+  let canEditChapitres = false
+
+  if (tdr.statut === 'brouillon') {
+    const isInitiateur = tdr.initiateur_id === user.id
+    let estCollabRevision = false
+    if (!isInitiateur) {
+      const { data: collab } = await supabase
+        .from('tdr_collaborateurs').select('permission').eq('tdr_id', id).eq('profile_id', user.id).maybeSingle()
+      estCollabRevision = collab?.permission === 'revision'
+    }
+    canEditMeta = isInitiateur || estCollabRevision
+    canEditChapitres = canEditMeta
+  } else {
+    const roleAttendu = STATUT_TOUR[tdr.statut as TdrStatut]
+    if (roleAttendu) {
+      const { data: sig } = await supabase
+        .from('tdr_signataires').select('profile_id').eq('tdr_id', id).eq('role', roleAttendu).maybeSingle()
+      canEditChapitres = sig?.profile_id === user.id
+    }
   }
 
-  const isInitiateur = tdr.initiateur_id === user.id
-  let canEdit = isInitiateur
-  if (!canEdit) {
-    const { data: collab } = await supabase
-      .from('tdr_collaborateurs').select('permission').eq('tdr_id', id).eq('profile_id', user.id).maybeSingle()
-    canEdit = collab?.permission === 'revision'
-  }
-  if (!canEdit) return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+  if (!canEditMeta && !canEditChapitres) return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
 
   const body = await req.json().catch(() => null)
   const update: Record<string, unknown> = {}
-  if (body?.titre_activite !== undefined) update.titre_activite = String(body.titre_activite).trim()
-  if (body?.projet !== undefined) update.projet = body.projet ? String(body.projet).trim() : null
-  if (body?.periode !== undefined) update.periode = body.periode ? String(body.periode).trim() : null
+  if (body?.titre_activite !== undefined || body?.projet !== undefined || body?.periode !== undefined) {
+    if (!canEditMeta) return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+    if (body.titre_activite !== undefined) update.titre_activite = String(body.titre_activite).trim()
+    if (body.projet !== undefined) update.projet = body.projet ? String(body.projet).trim() : null
+    if (body.periode !== undefined) update.periode = body.periode ? String(body.periode).trim() : null
+  }
   if (body?.chapitres !== undefined) {
+    if (!canEditChapitres) return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     if (!chapitresValides(body.chapitres)) {
       return NextResponse.json({ error: 'Les 8 chapitres du TDR sont obligatoires' }, { status: 400 })
     }

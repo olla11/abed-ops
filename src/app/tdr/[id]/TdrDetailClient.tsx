@@ -1,9 +1,18 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Download, UserPlus, X, Check, Trash2, Send, PenLine, XCircle, Lock } from 'lucide-react'
+import * as Y from 'yjs'
+import { Download, UserPlus, X, Check, Trash2, Send, PenLine, XCircle, Lock, MessageSquare } from 'lucide-react'
 import { CHAPITRE_CLES, TDR_STATUT_LABELS, SIGNATAIRE_ROLE_LABELS, STATUT_TOUR, isColonneNumerique, type Chapitre, type TdrStatut, type SignataireRole } from '@/lib/tdr'
 import RichTextEditor from '@/components/RichTextEditor'
+import { createClient as createBrowserClient } from '@/lib/supabase-client'
+import { SupabaseYjsProvider, couleurPourUser } from '@/lib/yjs-supabase-provider'
+import { amorcerFragmentDepuisHtml } from '@/lib/tdr-collab-seed'
+
+type Commentaire = {
+  id: string; chapitre_cle: string; mark_id: string; texte_cite: string | null; contenu: string
+  created_at: string; auteur: Profile | null
+}
 
 type Profile = { id: string; nom: string; prenoms: string }
 type Signataire = { id: string; role: SignataireRole; profile_id: string | null; ordre: number; statut: string; signe_le: string | null; commentaire: string | null; profile: Profile | null }
@@ -40,13 +49,19 @@ function ordonner(chapitres: Chapitre[]): Chapitre[] {
   return CHAPITRE_CLES.map(cle => chapitres.find(c => c.cle === cle)).filter((c): c is Chapitre => !!c)
 }
 
-function ChapitreEditor({ chapitre, onChange, readOnly }: { chapitre: Chapitre; onChange: (c: Chapitre) => void; readOnly: boolean }) {
+function ChapitreEditor({ chapitre, onChange, readOnly, collab, onComment }: {
+  chapitre: Chapitre; onChange: (c: Chapitre) => void; readOnly: boolean
+  collab?: import('@/components/RichTextEditor').CollabConfig
+  onComment?: (commentId: string, texte: string) => void
+}) {
   if (chapitre.type === 'texte') {
     return (
       <RichTextEditor
         value={chapitre.texte ?? ''}
         onChange={html => onChange({ ...chapitre, texte: html })}
         readOnly={readOnly}
+        collab={collab}
+        onComment={onComment}
       />
     )
   }
@@ -167,9 +182,76 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
   const peutCloturer = tdr.statut === 'actif' && myRole === 'caf'
   const peutTelecharger = tdr.statut === 'actif' || tdr.statut === 'cloture'
   const canEditMeta = tdr.statut === 'brouillon' && (isInitiateur || monCollab?.permission === 'revision')
-  const canEdit = canEditMeta || peutCloturer
+  const canEdit = canEditMeta || peutCloturer || estMonTour
 
   const statutColor = STATUT_COLORS[tdr.statut] ?? STATUT_COLORS.brouillon
+
+  // ── Édition collaborative en temps réel (Yjs sur un canal Supabase Realtime) ──
+  const ydocRef = useRef<Y.Doc | null>(null)
+  const providerRef = useRef<SupabaseYjsProvider | null>(null)
+  const seededRef = useRef<Set<string>>(new Set())
+  const [collabReady, setCollabReady] = useState(false)
+  const monProfil = tdr.initiateur_id === myId ? tdr.initiateur
+    : tdr.collaborateurs.find(c => c.profile_id === myId)?.profile
+    ?? tdr.signataires.find(s => s.profile_id === myId)?.profile
+    ?? null
+  const monNom = monProfil ? `${monProfil.prenoms} ${monProfil.nom}` : 'Moi'
+
+  useEffect(() => {
+    const ydoc = new Y.Doc()
+    ydocRef.current = ydoc
+    const supabase = createBrowserClient()
+    const provider = new SupabaseYjsProvider(supabase, tdr.id, ydoc, {
+      id: myId, name: monNom, color: couleurPourUser(myId),
+    })
+    providerRef.current = provider
+    // Laisse le temps à la synchro initiale de récupérer l'état des pairs déjà
+    // connectés avant d'amorcer depuis la base — sinon deux personnes ouvrant
+    // le TDR en même temps pour la première fois risquent d'amorcer en double.
+    const t = setTimeout(() => {
+      for (const c of chapitres) {
+        if (c.type === 'texte') amorcerFragmentDepuisHtml(ydoc, c.cle, c.texte ?? '')
+      }
+      setCollabReady(true)
+    }, 900)
+    return () => {
+      clearTimeout(t)
+      provider.destroy()
+      ydoc.destroy()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tdr.id])
+
+  // Sauvegarde silencieuse (débounce) à chaque modification locale, pour que
+  // le contenu reste persisté même si tout le monde se déconnecte.
+  useEffect(() => {
+    if (!canEdit) return
+    const t = setTimeout(() => { sauvegarder(true) }, 4000)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chapitres])
+
+  // ── Commentaires ancrés à une sélection ──
+  const [commentaires, setCommentaires] = useState<Commentaire[]>([])
+
+  useEffect(() => {
+    fetch(`/api/tdrs/${tdr.id}/commentaires`).then(r => r.ok ? r.json() : null).then(j => {
+      if (j?.data) setCommentaires(j.data)
+    })
+  }, [tdr.id])
+
+  async function creerCommentaire(chapitreCle: string, markId: string, texteSelectionne: string) {
+    const contenu = window.prompt('Votre commentaire :')
+    if (!contenu?.trim()) return
+    const res = await fetch(`/api/tdrs/${tdr.id}/commentaires`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chapitre_cle: chapitreCle, mark_id: markId, texte_cite: texteSelectionne, contenu: contenu.trim() }),
+    })
+    if (res.ok) {
+      const j = await res.json()
+      setCommentaires(cs => [...cs, j.data])
+    }
+  }
 
   async function refresh() {
     router.refresh()
@@ -181,15 +263,19 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
     }
   }
 
-  async function sauvegarder() {
-    setSaving(true); setErr('')
+  async function sauvegarder(silencieux = false) {
+    if (!silencieux) { setSaving(true); setErr('') }
+    const body: Record<string, unknown> = { chapitres }
+    if (canEditMeta) { body.titre_activite = titreActivite; body.projet = projet; body.periode = periode }
     const res = await fetch(`/api/tdrs/${tdr.id}`, {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ titre_activite: titreActivite, projet, periode, chapitres }),
+      body: JSON.stringify(body),
     })
-    setSaving(false)
-    if (res.ok) await refresh()
-    else { const j = await res.json().catch(() => ({})); setErr(j.error ?? 'Erreur') }
+    if (!silencieux) {
+      setSaving(false)
+      if (res.ok) await refresh()
+      else { const j = await res.json().catch(() => ({})); setErr(j.error ?? 'Erreur') }
+    }
   }
 
   async function soumettre() {
@@ -374,12 +460,37 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
               chapitre={active}
               readOnly={!canEdit}
               onChange={c => setChapitres(cs => cs.map((cc, i) => i === activeIdx ? c : cc))}
+              collab={active.type === 'texte' && collabReady && ydocRef.current && providerRef.current ? {
+                doc: ydocRef.current, fragment: active.cle, provider: providerRef.current,
+                user: { name: monNom, color: couleurPourUser(myId) },
+              } : undefined}
+              onComment={active.type === 'texte' ? (markId, texte) => creerCommentaire(active.cle, markId, texte) : undefined}
             />
           </div>
 
-          {tdr.statut === 'brouillon' && canEdit && (
+          {active.type === 'texte' && (
+            <div className="card" style={{ marginTop: 16 }}>
+              <h3 style={{ fontSize: 13, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <MessageSquare size={14} /> Commentaires de ce chapitre
+              </h3>
+              {commentaires.filter(c => c.chapitre_cle === active.cle).length === 0 && (
+                <p style={{ fontSize: 12, color: 'var(--abed-muted)', margin: 0 }}>Aucun commentaire. Sélectionnez du texte puis cliquez sur l&apos;icône de commentaire dans la barre d&apos;outils.</p>
+              )}
+              {commentaires.filter(c => c.chapitre_cle === active.cle).map(c => (
+                <div key={c.id} style={{ marginBottom: 10, paddingBottom: 10, borderBottom: '1px solid #f3f4f6' }}>
+                  {c.texte_cite && <div style={{ fontSize: 12, color: '#92400e', background: '#fffbeb', borderRadius: 6, padding: '4px 8px', marginBottom: 4 }}>« {c.texte_cite} »</div>}
+                  <div style={{ fontSize: 13 }}>{c.contenu}</div>
+                  <div style={{ fontSize: 11, color: 'var(--abed-muted)', marginTop: 2 }}>
+                    {c.auteur ? `${c.auteur.prenoms} ${c.auteur.nom}` : '—'} · {new Date(c.created_at).toLocaleDateString('fr-FR')}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {(tdr.statut === 'brouillon' || estMonTour) && canEdit && (
             <div style={{ marginTop: 16 }}>
-              <button className="btn" disabled={saving} onClick={sauvegarder}>{saving ? 'Enregistrement…' : 'Enregistrer'}</button>
+              <button className="btn" disabled={saving} onClick={() => sauvegarder()}>{saving ? 'Enregistrement…' : 'Enregistrer'}</button>
             </div>
           )}
         </div>
