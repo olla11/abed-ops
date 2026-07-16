@@ -41,7 +41,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       .not('numero', 'is', null)
       .gte('created_at', `${year}-01-01`)
       .lt('created_at', `${year + 1}-01-01`)
-    numero = `${String((count ?? 0) + 1).padStart(3, '0')}-${year}/ABED/DE/DP/`
+    numero = `${String((count ?? 0) + 1).padStart(3, '0')}-${year}/ABED/DP/DE`
   }
 
   const { error: upErr } = await admin.from('tdrs').update({

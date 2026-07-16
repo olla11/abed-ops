@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { chapitresValides } from '@/lib/tdr'
+import { sanitizeChapitres } from '@/lib/tdr-sanitize'
 
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -54,7 +55,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (!chapitresValides(body.chapitres)) {
       return NextResponse.json({ error: 'Les 8 chapitres du TDR sont obligatoires' }, { status: 400 })
     }
-    update.chapitres = body.chapitres
+    update.chapitres = sanitizeChapitres(body.chapitres)
   }
   update.updated_at = new Date().toISOString()
 

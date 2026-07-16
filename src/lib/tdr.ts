@@ -28,6 +28,11 @@ export const CHAPITRES_DEFAUT: Chapitre[] = [
 
 export const CHAPITRE_CLES = CHAPITRES_DEFAUT.map(c => c.cle)
 
+// Dans le chapitre budget, les colonnes de coût n'acceptent que des chiffres.
+export function isColonneNumerique(chapitreCle: string, nomColonne: string): boolean {
+  return chapitreCle === 'budget' && /co[uû]t/i.test(nomColonne)
+}
+
 export function chapitresValides(chapitres: unknown): chapitres is Chapitre[] {
   if (!Array.isArray(chapitres) || chapitres.length !== CHAPITRE_CLES.length) return false
   const cles = chapitres.map((c: any) => c?.cle)

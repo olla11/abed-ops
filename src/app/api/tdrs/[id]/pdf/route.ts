@@ -2,22 +2,16 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { formatSignatureDisplayName } from '@/lib/signature-name'
 import { CHAPITRE_CLES, SIGNATAIRE_ROLE_LABELS, type Chapitre, type SignataireRole } from '@/lib/tdr'
+import { sanitizeChapitreTexte } from '@/lib/tdr-sanitize'
 
 function esc(s: string | null | undefined): string {
   return (s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
 function renderTexte(texte: string | undefined): string {
-  if (!texte?.trim()) return '<p class="muted">—</p>'
-  const blocs = texte.split(/\n{2,}/)
-  return blocs.map(bloc => {
-    const lignes = bloc.split('\n').filter(l => l.trim())
-    const isListe = lignes.length > 0 && lignes.every(l => /^[-•]\s+/.test(l.trim()))
-    if (isListe) {
-      return `<ul>${lignes.map(l => `<li>${esc(l.trim().replace(/^[-•]\s+/, ''))}</li>`).join('')}</ul>`
-    }
-    return `<p>${lignes.map(esc).join('<br>')}</p>`
-  }).join('')
+  const propre = sanitizeChapitreTexte(texte).trim()
+  if (!propre || propre === '<p></p>') return '<p class="muted">—</p>'
+  return `<div class="rte-content">${propre}</div>`
 }
 
 function renderTableau(tableau: Chapitre['tableau']): string {
@@ -110,6 +104,11 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   table.chapitre-table { width: 100%; border-collapse: collapse; margin: 10px 0 16px; font-size: 9.5pt; }
   table.chapitre-table th, table.chapitre-table td { border: 1px solid #d1d5db; padding: 6px 8px; text-align: left; vertical-align: top; }
   table.chapitre-table th { background: #f0fdf4; font-weight: bold; }
+  .rte-content a { color: #2563eb; }
+  .rte-content ul, .rte-content ol { margin: 0 0 10px; padding-left: 22px; }
+  .rte-content table { width: 100%; border-collapse: collapse; margin: 10px 0 16px; font-size: 9.5pt; }
+  .rte-content table th, .rte-content table td { border: 1px solid #d1d5db; padding: 6px 8px; text-align: left; vertical-align: top; }
+  .rte-content table th { background: #f0fdf4; font-weight: bold; }
   .sig-block { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; margin-top: 50px; page-break-inside: avoid; }
   .sig { text-align: center; width: 22%; min-width: 150px; }
   .sig-role { font-size: 9pt; font-weight: bold; margin-bottom: 4px; min-height: 26px; }

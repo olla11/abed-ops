@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { chapitresValides } from '@/lib/tdr'
+import { sanitizeChapitres } from '@/lib/tdr-sanitize'
 import { notifyTdr } from '@/lib/tdr-notify'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -32,7 +33,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!chapitresValides(body.chapitres)) {
       return NextResponse.json({ error: 'Les 8 chapitres du TDR sont obligatoires' }, { status: 400 })
     }
-    update.chapitres = body.chapitres
+    update.chapitres = sanitizeChapitres(body.chapitres)
   }
 
   const { error } = await admin.from('tdrs').update(update).eq('id', id)

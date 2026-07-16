@@ -2,7 +2,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Download, UserPlus, X, Check, Trash2, Send, PenLine, XCircle, Lock } from 'lucide-react'
-import { CHAPITRE_CLES, TDR_STATUT_LABELS, SIGNATAIRE_ROLE_LABELS, STATUT_TOUR, type Chapitre, type TdrStatut, type SignataireRole } from '@/lib/tdr'
+import { CHAPITRE_CLES, TDR_STATUT_LABELS, SIGNATAIRE_ROLE_LABELS, STATUT_TOUR, isColonneNumerique, type Chapitre, type TdrStatut, type SignataireRole } from '@/lib/tdr'
+import RichTextEditor from '@/components/RichTextEditor'
 
 type Profile = { id: string; nom: string; prenoms: string }
 type Signataire = { id: string; role: SignataireRole; profile_id: string | null; ordre: number; statut: string; signe_le: string | null; commentaire: string | null; profile: Profile | null }
@@ -42,14 +43,10 @@ function ordonner(chapitres: Chapitre[]): Chapitre[] {
 function ChapitreEditor({ chapitre, onChange, readOnly }: { chapitre: Chapitre; onChange: (c: Chapitre) => void; readOnly: boolean }) {
   if (chapitre.type === 'texte') {
     return (
-      <textarea
-        className="input"
+      <RichTextEditor
         value={chapitre.texte ?? ''}
-        onChange={e => onChange({ ...chapitre, texte: e.target.value })}
+        onChange={html => onChange({ ...chapitre, texte: html })}
         readOnly={readOnly}
-        rows={10}
-        placeholder="Rédigez ce chapitre... (une ligne vide sépare les paragraphes, commencez une ligne par « - » pour une liste à puces)"
-        style={{ ...inputStyle, resize: 'vertical', minHeight: 200 }}
       />
     )
   }
@@ -57,7 +54,10 @@ function ChapitreEditor({ chapitre, onChange, readOnly }: { chapitre: Chapitre; 
   const tableau = chapitre.tableau ?? { colonnes: [], lignes: [] }
 
   function updateCell(rowIdx: number, colIdx: number, value: string) {
-    const lignes = tableau.lignes.map((l, i) => i === rowIdx ? l.map((c, j) => j === colIdx ? value : c) : l)
+    const valeur = isColonneNumerique(chapitre.cle, tableau.colonnes[colIdx] ?? '')
+      ? value.replace(/[^0-9.,\s]/g, '')
+      : value
+    const lignes = tableau.lignes.map((l, i) => i === rowIdx ? l.map((c, j) => j === colIdx ? valeur : c) : l)
     onChange({ ...chapitre, tableau: { ...tableau, lignes } })
   }
   function updateColonne(colIdx: number, value: string) {
@@ -101,13 +101,19 @@ function ChapitreEditor({ chapitre, onChange, readOnly }: { chapitre: Chapitre; 
           <tbody>
             {tableau.lignes.map((ligne, rowIdx) => (
               <tr key={rowIdx}>
-                {ligne.map((cell, colIdx) => (
-                  <td key={colIdx}>
-                    {readOnly ? cell : (
-                      <input value={cell} onChange={e => updateCell(rowIdx, colIdx, e.target.value)} style={{ ...inputStyle, padding: '5px 8px', fontSize: 13 }} />
-                    )}
-                  </td>
-                ))}
+                {ligne.map((cell, colIdx) => {
+                  const numerique = isColonneNumerique(chapitre.cle, tableau.colonnes[colIdx] ?? '')
+                  return (
+                    <td key={colIdx}>
+                      {readOnly ? cell : (
+                        <input value={cell} onChange={e => updateCell(rowIdx, colIdx, e.target.value)}
+                          inputMode={numerique ? 'decimal' : 'text'}
+                          placeholder={numerique ? '0' : ''}
+                          style={{ ...inputStyle, padding: '5px 8px', fontSize: 13, textAlign: numerique ? 'right' : 'left' }} />
+                      )}
+                    </td>
+                  )
+                })}
                 {!readOnly && (
                   <td>
                     <button type="button" onClick={() => supprimerLigne(rowIdx)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', display: 'flex' }}><Trash2 size={13} /></button>
