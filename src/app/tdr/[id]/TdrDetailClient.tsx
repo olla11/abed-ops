@@ -240,16 +240,26 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
     })
   }, [tdr.id])
 
-  async function creerCommentaire(chapitreCle: string, markId: string, texteSelectionne: string) {
-    const contenu = window.prompt('Votre commentaire :')
-    if (!contenu?.trim()) return
+  const [pendingComment, setPendingComment] = useState<{ chapitreCle: string; markId: string; texteSelectionne: string } | null>(null)
+  const [commentaireTexte, setCommentaireTexte] = useState('')
+
+  function creerCommentaire(chapitreCle: string, markId: string, texteSelectionne: string) {
+    setPendingComment({ chapitreCle, markId, texteSelectionne })
+    setCommentaireTexte('')
+  }
+
+  async function confirmerCommentaire() {
+    if (!pendingComment || !commentaireTexte.trim()) return
+    const { chapitreCle, markId, texteSelectionne } = pendingComment
     const res = await fetch(`/api/tdrs/${tdr.id}/commentaires`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chapitre_cle: chapitreCle, mark_id: markId, texte_cite: texteSelectionne, contenu: contenu.trim() }),
+      body: JSON.stringify({ chapitre_cle: chapitreCle, mark_id: markId, texte_cite: texteSelectionne, contenu: commentaireTexte.trim() }),
     })
     if (res.ok) {
       const j = await res.json()
       setCommentaires(cs => [...cs, j.data])
+      setPendingComment(null)
+      setCommentaireTexte('')
     }
   }
 
@@ -628,6 +638,30 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
               <button onClick={() => setShowCloture(false)} style={{ padding: '9px 20px', borderRadius: 8, cursor: 'pointer', background: 'white', border: '1px solid var(--abed-border)', fontSize: 13 }}>Annuler</button>
               <button onClick={cloturer} disabled={saving} style={{ padding: '9px 20px', borderRadius: 8, cursor: 'pointer', background: '#374151', color: 'white', border: 'none', fontSize: 13, fontWeight: 700 }}>
                 {saving ? 'Clôture…' : 'Clôturer définitivement'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal : ajouter un commentaire */}
+      {pendingComment && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: 'white', borderRadius: 14, padding: 28, width: '100%', maxWidth: 420 }}>
+            <h3 style={{ marginBottom: 12, fontSize: 16 }}>Ajouter un commentaire</h3>
+            {pendingComment.texteSelectionne && (
+              <div style={{ fontSize: 12, color: '#92400e', background: '#fffbeb', borderRadius: 6, padding: '6px 10px', marginBottom: 14 }}>
+                « {pendingComment.texteSelectionne} »
+              </div>
+            )}
+            <div style={{ marginBottom: 18 }}>
+              <label style={labelStyle}>Votre commentaire *</label>
+              <textarea className="input" rows={3} autoFocus value={commentaireTexte} onChange={e => setCommentaireTexte(e.target.value)} style={{ ...inputStyle, resize: 'vertical' }} />
+            </div>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={() => setPendingComment(null)} style={{ padding: '9px 20px', borderRadius: 8, cursor: 'pointer', background: 'white', border: '1px solid var(--abed-border)', fontSize: 13 }}>Annuler</button>
+              <button onClick={confirmerCommentaire} disabled={!commentaireTexte.trim()} style={{ padding: '9px 20px', borderRadius: 8, cursor: commentaireTexte.trim() ? 'pointer' : 'not-allowed', background: 'var(--abed-green)', color: 'white', border: 'none', fontSize: 13, fontWeight: 700, opacity: commentaireTexte.trim() ? 1 : 0.6 }}>
+                Ajouter
               </button>
             </div>
           </div>
