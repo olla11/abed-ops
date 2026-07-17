@@ -129,7 +129,7 @@ export default function RichTextEditor({
       )}
       <EditorContent editor={editor} />
       <style jsx global>{`
-        .rte-content { padding: 12px 14px; min-height: 180px; font-size: 14px; line-height: 1.6; outline: none; }
+        .rte-content { padding: 16px 20px; min-height: 480px; font-size: 14px; line-height: 1.6; outline: none; }
         .rte-content p { margin: 0 0 10px; }
         .rte-content a { color: #2563eb; text-decoration: underline; }
         .rte-content table { border-collapse: collapse; width: 100%; margin: 10px 0; }
