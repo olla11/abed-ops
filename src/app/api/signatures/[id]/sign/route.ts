@@ -35,6 +35,7 @@ export async function POST(
 
   if (demandeErr || !demande) return NextResponse.json({ error: 'Demande introuvable' }, { status: 404 })
   if (demande.statut === 'complete') return NextResponse.json({ error: 'Cette demande est déjà complète' }, { status: 400 })
+  if (demande.statut === 'refusee') return NextResponse.json({ error: 'Cette demande est en attente de correction et ne peut pas être signée' }, { status: 400 })
 
   const { data: signataire, error: sigErr } = await admin
     .from('signataires')

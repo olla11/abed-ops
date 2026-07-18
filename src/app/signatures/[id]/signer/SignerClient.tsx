@@ -387,15 +387,15 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
   }
 
   async function refuserSansSigner() {
-    if (!contratId) return
     if (motif.trim().length < 10) { setErr('Le motif est obligatoire (minimum 10 caractères).'); return }
     setRefusing(true); setErr(null)
-    const res = await fetch(`/api/contrats/${contratId}/refuser-signataire`, {
+    const url = contratId ? `/api/contrats/${contratId}/refuser-signataire` : `/api/signatures/${demandeId}/refuse`
+    const res = await fetch(url, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ motif }),
     })
     setRefusing(false)
     if (res.ok) setRefused(true)
-    else { const d = await res.json().catch(() => ({})); setErr(d.error ?? 'Erreur lors du renvoi') }
+    else { const d = await res.json().catch(() => ({})); setErr(d.error ?? 'Erreur lors du refus') }
   }
 
   const sigBlock = <SignatureBlock name={userName} date={today} hash={sigHash} />
@@ -405,8 +405,12 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: 16 }}>
         <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 12, padding: '32px 40px', textAlign: 'center', maxWidth: 480 }}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>↩️</div>
-          <h2 style={{ color: '#991b1b', marginBottom: 8, fontSize: 20 }}>Document renvoyé au RH</h2>
-          <p style={{ color: '#374151', fontSize: 14 }}>Le RH a été notifié de votre motif et pourra apporter les corrections nécessaires.</p>
+          <h2 style={{ color: '#991b1b', marginBottom: 8, fontSize: 20 }}>{contratId ? 'Document renvoyé au RH' : 'Signature refusée'}</h2>
+          <p style={{ color: '#374151', fontSize: 14 }}>
+            {contratId
+              ? 'Le RH a été notifié de votre motif et pourra apporter les corrections nécessaires.'
+              : "L'initiateur de la demande a été notifié de votre motif et pourra corriger le document avant de le renvoyer."}
+          </p>
           <button onClick={() => router.push('/signatures')}
             style={{ marginTop: 20, padding: '10px 24px', borderRadius: 8, background: '#b91c1c', color: 'white', border: 'none', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'block', width: '100%' }}>
             ← Retour aux signatures
@@ -571,10 +575,10 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
           <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#c0392b' }}>{err}</div>
         )}
 
-        {contratId && showRefuseForm && (
+        {showRefuseForm && (
           <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: 12 }}>
             <label style={{ fontSize: 12, fontWeight: 700, color: '#991b1b', display: 'block', marginBottom: 6 }}>
-              Motif du renvoi * (min. 10 caractères)
+              Motif du refus * (min. 10 caractères)
             </label>
             <textarea
               value={motif} onChange={e => setMotif(e.target.value)} rows={3}
@@ -591,16 +595,16 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
               {loading ? 'Signature en cours...' : '✅ Confirmer la signature'}
             </button>
           )}
-          {contratId && !showRefuseForm && (
+          {!showRefuseForm && (
             <button onClick={() => { setShowRefuseForm(true); setErr(null) }}
               style={{ padding: '12px 20px', borderRadius: 8, fontSize: 14, fontWeight: 700, background: 'white', border: '1px solid #fecaca', color: '#b91c1c', cursor: 'pointer' }}>
-              ↩️ Renvoyer au RH sans signer
+              {contratId ? '↩️ Renvoyer au RH sans signer' : '✕ Refuser de signer'}
             </button>
           )}
-          {contratId && showRefuseForm && (
+          {showRefuseForm && (
             <button onClick={refuserSansSigner} disabled={refusing}
               style={{ padding: '12px 20px', borderRadius: 8, fontSize: 14, fontWeight: 700, background: '#b91c1c', color: 'white', border: 'none', cursor: refusing ? 'not-allowed' : 'pointer', opacity: refusing ? 0.7 : 1 }}>
-              {refusing ? 'Envoi...' : 'Confirmer le renvoi au RH'}
+              {refusing ? 'Envoi...' : (contratId ? 'Confirmer le renvoi au RH' : 'Confirmer le refus')}
             </button>
           )}
           {showRefuseForm && (

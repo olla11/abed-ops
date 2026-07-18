@@ -57,6 +57,7 @@ export default async function SignatureExterneePage({
       description={demande.description}
       fichierUrl={demande.fichier_url ?? null}
       demandeComplete={demande.statut === 'complete'}
+      demandeRefusee={demande.statut === 'refusee'}
       dejaSigne={signataire.signe}
       signeLe={signataire.signe_le}
       nomExterne={signataire.nom_externe}

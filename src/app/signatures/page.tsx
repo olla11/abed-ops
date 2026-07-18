@@ -12,6 +12,9 @@ export type SignataireRow = {
   nom_externe: string | null
   signe: boolean
   signe_le: string | null
+  refuse: boolean
+  refuse_le: string | null
+  refuse_motif: string | null
   profile: { nom: string; prenoms: string } | null
 }
 
@@ -58,7 +61,7 @@ export default async function SignaturesPage() {
       .select(`
         id, titre, description, fichier_url, statut, created_at, createur_id,
         createur:profiles!demandes_signature_createur_id_fkey(nom, prenoms),
-        signataires(profile_id, email, nom_externe, signe, signe_le, profile:profiles!signataires_profile_id_fkey(nom, prenoms))
+        signataires(profile_id, email, nom_externe, signe, signe_le, refuse, refuse_le, refuse_motif, profile:profiles!signataires_profile_id_fkey(nom, prenoms))
       `)
       .order('created_at', { ascending: false }),
     supabase

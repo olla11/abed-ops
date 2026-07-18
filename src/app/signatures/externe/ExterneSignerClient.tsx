@@ -8,6 +8,7 @@ type Props = {
   description: string | null
   fichierUrl: string | null
   demandeComplete: boolean
+  demandeRefusee: boolean
   dejaSigne: boolean
   signeLe: string | null
   nomExterne: string | null
@@ -180,7 +181,7 @@ function PdfCanvasViewer({
 }
 
 export default function ExterneSignerClient({
-  token, titre, description, fichierUrl, demandeComplete, dejaSigne, signeLe, nomExterne: initialNomExterne, email,
+  token, titre, description, fichierUrl, demandeComplete, demandeRefusee, dejaSigne, signeLe, nomExterne: initialNomExterne, email,
 }: Props) {
   const [nomExterne, setNomExterne] = useState(initialNomExterne)
   const [prenoms, setPrenoms] = useState('')
@@ -197,6 +198,10 @@ export default function ExterneSignerClient({
   const [signed, setSigned] = useState(dejaSigne)
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  const [showRefuseForm, setShowRefuseForm] = useState(false)
+  const [motif, setMotif] = useState('')
+  const [refusing, setRefusing] = useState(false)
+  const [refused, setRefused] = useState(false)
 
   const today = signeLe
     ? new Date(signeLe).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -319,6 +324,17 @@ export default function ExterneSignerClient({
     else { const d = await res.json().catch(() => ({})); setErr(d.error ?? 'Erreur lors de la signature') }
   }
 
+  async function refuserSansSigner() {
+    if (motif.trim().length < 10) { setErr('Le motif est obligatoire (minimum 10 caractères).'); return }
+    setRefusing(true); setErr(null)
+    const res = await fetch('/api/signatures/externe/refuse', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, motif }),
+    })
+    setRefusing(false)
+    if (res.ok) setRefused(true)
+    else { const d = await res.json().catch(() => ({})); setErr(d.error ?? 'Erreur lors du refus') }
+  }
+
   const sigBlock = <SignatureBlock name={nomExterne ?? ''} date={today} hash={sigHash} />
 
   const shellStyle: React.CSSProperties = { minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 16, background: '#f4f6f9' }
@@ -331,6 +347,30 @@ export default function ExterneSignerClient({
           <div style={{ fontSize: 48, marginBottom: 16 }}>ℹ️</div>
           <h2 style={{ color: '#111827', fontSize: 20, fontWeight: 800, margin: '0 0 12px' }}>Demande déjà finalisée</h2>
           <p style={{ fontSize: 14, color: '#6b7280', margin: 0 }}>Ce document a déjà été entièrement signé par toutes les parties.</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (refused) {
+    return (
+      <div style={shellStyle}>
+        <div style={cardStyle}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>↩️</div>
+          <h2 style={{ color: '#991b1b', fontSize: 20, fontWeight: 800, margin: '0 0 12px' }}>Signature refusée</h2>
+          <p style={{ fontSize: 14, color: '#6b7280', margin: 0 }}>L&apos;initiateur de la demande a été notifié de votre motif et pourra corriger le document avant de le renvoyer.</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (demandeRefusee && !signed) {
+    return (
+      <div style={shellStyle}>
+        <div style={cardStyle}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>⏳</div>
+          <h2 style={{ color: '#111827', fontSize: 20, fontWeight: 800, margin: '0 0 12px' }}>Document en attente de correction</h2>
+          <p style={{ fontSize: 14, color: '#6b7280', margin: 0 }}>Un signataire a demandé des corrections sur ce document. Vous recevrez un nouveau lien une fois la version corrigée renvoyée.</p>
         </div>
       </div>
     )
@@ -491,11 +531,42 @@ export default function ExterneSignerClient({
 
         {err && <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#c0392b' }}>{err}</div>}
 
+        {showRefuseForm && (
+          <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: 12, textAlign: 'left' }}>
+            <label style={{ fontSize: 12, fontWeight: 700, color: '#991b1b', display: 'block', marginBottom: 6 }}>
+              Motif du refus * (min. 10 caractères)
+            </label>
+            <textarea
+              value={motif} onChange={e => setMotif(e.target.value)} rows={3}
+              placeholder="Expliquez les corrections à apporter avant de signer..."
+              style={{ width: '100%', padding: '8px 12px', borderRadius: 6, border: '1px solid #e5e7eb', fontSize: 13, resize: 'vertical', boxSizing: 'border-box' }}
+            />
+          </div>
+        )}
+
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 'auto' }}>
-          {(sigPos || (!docUrl && !loadingDoc)) && (
+          {(sigPos || (!docUrl && !loadingDoc)) && !showRefuseForm && (
             <button onClick={confirmSign} disabled={loading}
               style={{ padding: '12px 20px', borderRadius: 8, fontSize: 14, fontWeight: 700, background: '#16a34a', color: 'white', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1 }}>
               {loading ? 'Signature en cours...' : '✅ Confirmer la signature'}
+            </button>
+          )}
+          {!showRefuseForm && (
+            <button onClick={() => { setShowRefuseForm(true); setErr(null) }}
+              style={{ padding: '12px 20px', borderRadius: 8, fontSize: 14, fontWeight: 700, background: 'white', border: '1px solid #fecaca', color: '#b91c1c', cursor: 'pointer' }}>
+              ✕ Refuser de signer
+            </button>
+          )}
+          {showRefuseForm && (
+            <button onClick={refuserSansSigner} disabled={refusing}
+              style={{ padding: '12px 20px', borderRadius: 8, fontSize: 14, fontWeight: 700, background: '#b91c1c', color: 'white', border: 'none', cursor: refusing ? 'not-allowed' : 'pointer', opacity: refusing ? 0.7 : 1 }}>
+              {refusing ? 'Envoi...' : 'Confirmer le refus'}
+            </button>
+          )}
+          {showRefuseForm && (
+            <button onClick={() => { setShowRefuseForm(false); setMotif(''); setErr(null) }}
+              style={{ padding: '10px 20px', borderRadius: 8, fontSize: 13, background: 'white', border: '1px solid #e5e7eb', color: '#374151', cursor: 'pointer' }}>
+              Annuler
             </button>
           )}
         </div>

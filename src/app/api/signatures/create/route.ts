@@ -49,6 +49,26 @@ export async function POST(req: NextRequest) {
 
   const admin = createAdminClient()
 
+  // Un email externe qui correspond déjà à un compte existant doit être
+  // sélectionné directement dans la liste des signataires internes, pas
+  // invité comme externe (sinon on duplique l'identité de la personne).
+  if (signatairesExternes.length > 0) {
+    const emailsRecherches = new Set(signatairesExternes.map(s => s.email))
+    const { data: tousLesProfils } = await admin.from('profiles').select('nom, prenoms, email')
+    const comptesExistants = (tousLesProfils ?? []).filter(
+      p => p.email && emailsRecherches.has(p.email.toLowerCase())
+    )
+
+    if (comptesExistants.length > 0) {
+      const details = comptesExistants
+        .map(p => `${p.email} (${p.prenoms} ${p.nom})`)
+        .join(', ')
+      return NextResponse.json({
+        error: `Ces emails correspondent déjà à un compte existant dans le système : ${details}. Sélectionnez directement leur nom dans la liste des signataires internes au lieu de les inviter par email.`,
+      }, { status: 400 })
+    }
+  }
+
   // Upload file if provided
   let fichier_url: string | null = null
   if (fichier && fichier.size > 0) {
