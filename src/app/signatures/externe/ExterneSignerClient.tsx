@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
+import { attendrePoliceSignature } from '@/lib/signature-font'
 
 type Props = {
   token: string
@@ -202,6 +203,11 @@ export default function ExterneSignerClient({
     : new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
   const sigHash = shortHash((nomExterne ?? email) + token + today)
 
+  // Lance le chargement de la police de signature dès l'ouverture de la page,
+  // pour lui laisser le temps d'arriver même sur une connexion lente — avant
+  // que le signataire externe ne clique sur "Signer".
+  useEffect(() => { attendrePoliceSignature(24 * 3) }, [])
+
   useEffect(() => {
     if (!fichierUrl || !nomExterne) return
     fetch(`/api/signatures/externe/document?t=${encodeURIComponent(token)}`)
@@ -236,7 +242,8 @@ export default function ExterneSignerClient({
     canvas.width = BW; canvas.height = BH
     const ctx = canvas.getContext('2d')!
 
-    try { await document.fonts.load(`${fontSize}px BrittanySignature`) } catch { /* ignore */ }
+    const policeOk = await attendrePoliceSignature(fontSize)
+    if (!policeOk) throw new Error('police-signature-indisponible')
 
     ctx.fillStyle = 'white'
     ctx.fillRect(0, 0, BW, BH)
@@ -294,7 +301,14 @@ export default function ExterneSignerClient({
 
   async function confirmSign() {
     setLoading(true); setErr(null)
-    const sig_image = await captureSignatureImage().catch(() => null)
+    let sig_image: string
+    try {
+      sig_image = await captureSignatureImage()
+    } catch {
+      setLoading(false)
+      setErr('La police de signature n\'a pas pu se charger correctement. Vérifiez votre connexion et réessayez.')
+      return
+    }
     const res = await fetch('/api/signatures/externe/sign', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
