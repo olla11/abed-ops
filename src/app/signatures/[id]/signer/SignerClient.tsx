@@ -366,6 +366,12 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
     return canvas.toDataURL('image/png')
   }
 
+  async function telechargerDocument() {
+    const res = await fetch(`/api/signatures/${demandeId}/document`)
+    const data = await res.json().catch(() => ({}))
+    if (data.url) window.open(data.url, '_blank')
+  }
+
   async function confirmSign() {
     setLoading(true); setErr(null)
     // Capture the signature as a PNG image from the browser's own rendering
@@ -431,8 +437,14 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
           <div style={{ margin: '20px auto', display: 'inline-block' }}>
             <SignatureBlock name={userName} date={today} hash={sigHash} />
           </div>
+          {fichierUrl && (
+            <button onClick={telechargerDocument}
+              style={{ marginTop: 4, padding: '10px 24px', borderRadius: 8, background: 'white', color: '#166534', border: '1px solid #86efac', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'block', width: '100%' }}>
+              📥 Télécharger le document signé
+            </button>
+          )}
           <button onClick={() => router.push('/signatures')}
-            style={{ marginTop: 20, padding: '10px 24px', borderRadius: 8, background: '#16a34a', color: 'white', border: 'none', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'block', width: '100%' }}>
+            style={{ marginTop: 10, padding: '10px 24px', borderRadius: 8, background: '#16a34a', color: 'white', border: 'none', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'block', width: '100%' }}>
             ← Retour aux signatures
           </button>
         </div>
@@ -447,6 +459,12 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
         {/* Toolbar */}
         <div style={{ padding: '10px 16px', background: '#3d4043', borderBottom: '1px solid #2a2d30', fontSize: 13, fontWeight: 600, color: '#e5e7eb', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
           <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📄 {titre}</span>
+          {fichierUrl && !placingMode && (
+            <button onClick={telechargerDocument}
+              style={{ padding: '5px 14px', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer', background: 'transparent', color: '#e5e7eb', border: '1px solid #6b7280', whiteSpace: 'nowrap', flexShrink: 0 }}>
+              📥 Télécharger
+            </button>
+          )}
           {docUrl && !placingMode && !sigPos && (
             <button onClick={() => setPlacingMode(true)}
               style={{ padding: '5px 14px', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer', background: '#16a34a', color: 'white', border: 'none', whiteSpace: 'nowrap', flexShrink: 0 }}>

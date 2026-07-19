@@ -72,6 +72,12 @@ export default function ViewClient({ titre, docUrl, signataires }: { titre: stri
         <div style={{ flex: '0 0 70%', background: '#525659', borderRight: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: '10px 16px', background: '#3d4043', fontSize: 13, fontWeight: 600, color: '#e5e7eb', display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ flex: 1 }}>📄 {titre}</span>
+            {docUrl && (
+              <a href={docUrl} target="_blank" rel="noopener noreferrer"
+                style={{ padding: '4px 12px', borderRadius: 6, fontSize: 12, cursor: 'pointer', background: 'transparent', color: '#e5e7eb', border: '1px solid #6b7280', textDecoration: 'none' }}>
+                📥 Télécharger
+              </a>
+            )}
             <button onClick={() => router.back()}
               style={{ padding: '4px 12px', borderRadius: 6, fontSize: 12, cursor: 'pointer', background: '#4b5563', color: '#e5e7eb', border: 'none' }}>
               ← Retour

@@ -290,6 +290,12 @@ export default function ExterneSignerClient({
     return canvas.toDataURL('image/png')
   }
 
+  async function telechargerDocument() {
+    const res = await fetch(`/api/signatures/externe/document?t=${encodeURIComponent(token)}`)
+    const data = await res.json().catch(() => ({}))
+    if (data.url) window.open(data.url, '_blank')
+  }
+
   async function submitNom() {
     if (!prenoms.trim() || !nom.trim()) { setNomErr('Prénom et nom sont requis.'); return }
     setSavingNom(true); setNomErr(null)
@@ -389,6 +395,12 @@ export default function ExterneSignerClient({
               <SignatureBlock name={nomExterne} date={today} hash={sigHash} />
             </div>
           )}
+          {fichierUrl && (
+            <button onClick={telechargerDocument}
+              style={{ marginTop: 4, padding: '10px 24px', borderRadius: 8, background: 'white', color: '#166534', border: '1px solid #86efac', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'block', width: '100%' }}>
+              📥 Télécharger le document signé
+            </button>
+          )}
         </div>
       </div>
     )
@@ -428,6 +440,12 @@ export default function ExterneSignerClient({
       <div style={{ flex: '0 0 62%', background: '#525659', borderRight: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '10px 16px', background: '#3d4043', borderBottom: '1px solid #2a2d30', fontSize: 13, fontWeight: 600, color: '#e5e7eb', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
           <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📄 {titre}</span>
+          {fichierUrl && !placingMode && (
+            <button onClick={telechargerDocument}
+              style={{ padding: '5px 14px', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer', background: 'transparent', color: '#e5e7eb', border: '1px solid #6b7280', whiteSpace: 'nowrap', flexShrink: 0 }}>
+              📥 Télécharger
+            </button>
+          )}
           {docUrl && !placingMode && !sigPos && (
             <button onClick={() => setPlacingMode(true)}
               style={{ padding: '5px 14px', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer', background: '#16a34a', color: 'white', border: 'none', whiteSpace: 'nowrap', flexShrink: 0 }}>
