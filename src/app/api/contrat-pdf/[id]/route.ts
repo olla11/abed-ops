@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { formatSignatureDisplayName as formatSignatureName } from '@/lib/signature-name'
+import { BRITTANY_SIGNATURE_FONT_DATA_URI } from '@/lib/signature-font-data'
 
 // Désignation de la partie employé dans le préambule, selon le type de contrat
 function partieLabel(typeContrat: string | null | undefined): string {
@@ -277,7 +278,7 @@ export async function GET(
     .article { margin-bottom: 16px; }
     .article-title { font-size: 11pt; font-weight: bold; margin-bottom: 4px; }
     .article-body { font-size: 10.5pt; line-height: 1.8; text-align: justify; }
-    @font-face { font-family: 'BrittanySignature'; src: url('/fonts/BrittanySignature.ttf') format('truetype'); font-weight: normal; font-style: normal; }
+    @font-face { font-family: 'BrittanySignature'; src: url('${BRITTANY_SIGNATURE_FONT_DATA_URI}') format('truetype'); font-weight: normal; font-style: normal; }
     .sig-block { display: flex; justify-content: space-between; margin-top: 64px; }
     .sig { text-align: center; width: 45%; }
     .sig-role { font-size: 10pt; font-weight: bold; margin-bottom: 4px; }

@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { attendrePoliceSignature } from '@/lib/signature-font'
+import { BRITTANY_SIGNATURE_FONT_DATA_URI } from '@/lib/signature-font-data'
 
 type Props = {
   demandeId: string
@@ -38,7 +39,7 @@ function SignatureBlock({ name, date, hash, small }: { name: string; date: strin
   const dateBottom = Math.round(bh * 0.97)
   return (
     <div style={{ position: 'relative', width: bw, height: bh, userSelect: 'none', background: 'white', overflow: 'visible' }}>
-      <style>{`@font-face { font-family: 'BrittanySignature'; src: url('/fonts/BrittanySignature.ttf') format('truetype'); font-weight: normal; font-style: normal; }`}</style>
+      <style>{`@font-face { font-family: 'BrittanySignature'; src: url('${BRITTANY_SIGNATURE_FONT_DATA_URI}') format('truetype'); font-weight: normal; font-style: normal; }`}</style>
       {/* Bracket — full block height */}
       <svg width={hookLen + 4} height={bh} style={{ position: 'absolute', left: 0, top: 0, overflow: 'visible' }}>
         <line x1={2} y1={2} x2={2 + hookLen} y2={2} stroke={BRACKET_COLOR} strokeWidth={barW} strokeLinecap="round" />

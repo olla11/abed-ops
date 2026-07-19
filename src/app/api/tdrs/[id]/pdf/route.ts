@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase-server'
 import { formatSignatureDisplayName } from '@/lib/signature-name'
 import { CHAPITRE_CLES, SIGNATAIRE_ROLE_LABELS, type Chapitre, type SignataireRole } from '@/lib/tdr'
 import { sanitizeChapitreTexte } from '@/lib/tdr-sanitize'
+import { BRITTANY_SIGNATURE_FONT_DATA_URI } from '@/lib/signature-font-data'
 
 function esc(s: string | null | undefined): string {
   return (s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -84,7 +85,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 <meta charset="utf-8">
 <title>TDR ${esc(tdr.numero ?? '')} — ${esc(tdr.titre_activite)}</title>
 <style>
-  @font-face { font-family: 'BrittanySignature'; src: url('/fonts/BrittanySignature.ttf') format('truetype'); font-weight: normal; font-style: normal; }
+  @font-face { font-family: 'BrittanySignature'; src: url('${BRITTANY_SIGNATURE_FONT_DATA_URI}') format('truetype'); font-weight: normal; font-style: normal; }
   * { box-sizing: border-box; }
   body { font-family: 'Georgia', 'Times New Roman', serif; font-size: 11pt; color: #111827; padding: 32px 40px; max-width: 820px; margin: 0 auto; line-height: 1.55; }
   .no-print { text-align: center; margin-bottom: 20px; }
