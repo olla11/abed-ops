@@ -26,12 +26,21 @@ function sigRotation(name: string): number {
   return ((Math.abs(h) % 40) - 20) / 10
 }
 
+// Crochet aux coins arrondis, resserré vers le centre (autour du nom) plutôt
+// que de courir sur toute la hauteur du bloc.
+function bracketPath(hookLen: number, topY: number, bottomY: number, radius: number): string {
+  const x = 2
+  return `M ${x + hookLen},${topY} L ${x + radius},${topY} A ${radius},${radius} 0 0 0 ${x},${topY + radius} L ${x},${bottomY - radius} A ${radius},${radius} 0 0 0 ${x + radius},${bottomY} L ${x + hookLen},${bottomY}`
+}
+
 function SignatureBlock({ name, date, hash, small }: { name: string; date: string; hash: string; small?: boolean }) {
   const bw = small ? 190 : 240
-  const bh = small ? 76 : 95
+  const bh = small ? 68 : 85
   const barW = 2
   const hookLen = small ? 9 : 13
   const fontSize = small ? 18 : 24
+  const cornerRadius = Math.round(bh * 0.047)
+  const bracketInset = Math.round(bh * 0.165)
   const headerTop = Math.round(bh * 0.04)
   const nameLine   = Math.round(bh * 0.604)
   const sepLine    = Math.round(bh * 0.778)
@@ -40,9 +49,7 @@ function SignatureBlock({ name, date, hash, small }: { name: string; date: strin
     <div style={{ position: 'relative', width: bw, height: bh, background: 'white', pointerEvents: 'none', overflow: 'visible' }}>
       <style>{`@font-face { font-family: 'BrittanySignature'; src: url('${BRITTANY_SIGNATURE_FONT_DATA_URI}') format('truetype'); font-weight: normal; font-style: normal; }`}</style>
       <svg width={hookLen + 4} height={bh} style={{ position: 'absolute', left: 0, top: 0, overflow: 'visible' }}>
-        <line x1={2} y1={2} x2={2 + hookLen} y2={2} stroke={BRACKET_COLOR} strokeWidth={barW} strokeLinecap="round" />
-        <line x1={2} y1={2} x2={2} y2={bh - 2} stroke={BRACKET_COLOR} strokeWidth={barW} strokeLinecap="round" />
-        <line x1={2} y1={bh - 2} x2={2 + hookLen} y2={bh - 2} stroke={BRACKET_COLOR} strokeWidth={barW} strokeLinecap="round" />
+        <path d={bracketPath(hookLen, bracketInset, bh - bracketInset, cornerRadius)} stroke={BRACKET_COLOR} strokeWidth={barW} fill="none" strokeLinecap="round" />
       </svg>
       <div style={{ position: 'absolute', top: headerTop, left: hookLen + 8, right: 4, fontSize: small ? 7.5 : 9, fontWeight: 700, color: '#374151', letterSpacing: 0.5, fontFamily: 'Arial, sans-serif', textTransform: 'uppercase', lineHeight: 1 }}>
         MyABED signed by:

@@ -24,12 +24,21 @@ function shortHash(s: string): string {
 
 const BRACKET_COLOR = '#2563eb'
 
+// Crochet aux coins arrondis, resserré vers le centre (autour du nom) plutôt
+// que de courir sur toute la hauteur du bloc.
+function bracketPath(hookLen: number, topY: number, bottomY: number, radius: number): string {
+  const x = 2
+  return `M ${x + hookLen},${topY} L ${x + radius},${topY} A ${radius},${radius} 0 0 0 ${x},${topY + radius} L ${x},${bottomY - radius} A ${radius},${radius} 0 0 0 ${x + radius},${bottomY} L ${x + hookLen},${bottomY}`
+}
+
 function SignatureBlock({ name, date, hash, small }: { name: string; date: string; hash: string; small?: boolean }) {
   const bw = small ? 190 : 240
-  const bh = small ? 76 : 95
+  const bh = small ? 68 : 85
   const barW = 2
   const hookLen = small ? 9 : 13
   const fontSize = small ? 18 : 24
+  const cornerRadius = Math.round(bh * 0.047)
+  const bracketInset = Math.round(bh * 0.165)
   const headerTop = Math.round(bh * 0.04)
   const nameLine = Math.round(bh * 0.604)
   const sepLine = Math.round(bh * 0.778)
@@ -38,9 +47,7 @@ function SignatureBlock({ name, date, hash, small }: { name: string; date: strin
     <div style={{ position: 'relative', width: bw, height: bh, userSelect: 'none', background: 'white', overflow: 'visible' }}>
       <style>{`@font-face { font-family: 'BrittanySignature'; src: url('${BRITTANY_SIGNATURE_FONT_DATA_URI}') format('truetype'); font-weight: normal; font-style: normal; }`}</style>
       <svg width={hookLen + 4} height={bh} style={{ position: 'absolute', left: 0, top: 0, overflow: 'visible' }}>
-        <line x1={2} y1={2} x2={2 + hookLen} y2={2} stroke={BRACKET_COLOR} strokeWidth={barW} strokeLinecap="round" />
-        <line x1={2} y1={2} x2={2} y2={bh - 2} stroke={BRACKET_COLOR} strokeWidth={barW} strokeLinecap="round" />
-        <line x1={2} y1={bh - 2} x2={2 + hookLen} y2={bh - 2} stroke={BRACKET_COLOR} strokeWidth={barW} strokeLinecap="round" />
+        <path d={bracketPath(hookLen, bracketInset, bh - bracketInset, cornerRadius)} stroke={BRACKET_COLOR} strokeWidth={barW} fill="none" strokeLinecap="round" />
       </svg>
       <div style={{ position: 'absolute', top: headerTop, left: hookLen + 8, right: 4, fontSize: small ? 7.5 : 9, fontWeight: 700, color: '#374151', letterSpacing: 0.5, fontFamily: 'Arial, sans-serif', textTransform: 'uppercase', lineHeight: 1 }}>
         MyABED signed by:
@@ -241,8 +248,10 @@ export default function ExterneSignerClient({
 
   async function captureSignatureImage(): Promise<string> {
     const SCALE = 3
-    const BW = 240 * SCALE, BH = 90 * SCALE
+    const BW = 240 * SCALE, BH = 80 * SCALE
     const hookLen = 13 * SCALE, fontSize = 24 * SCALE
+    const cornerRadius = Math.round(BH * 0.047)
+    const bracketInset = Math.round(BH * 0.165)
 
     const canvas = document.createElement('canvas')
     canvas.width = BW; canvas.height = BH
@@ -254,17 +263,21 @@ export default function ExterneSignerClient({
     ctx.fillStyle = 'white'
     ctx.fillRect(0, 0, BW, BH)
 
+    // Bracket (blue C-shape) — coins arrondis, resserré vers le centre
+    const bx = 2 * SCALE
     ctx.strokeStyle = BRACKET_COLOR
     ctx.lineWidth = 2 * SCALE
     ctx.lineCap = 'round'
     ctx.beginPath()
-    ctx.moveTo(2 * SCALE + hookLen, 2 * SCALE)
-    ctx.lineTo(2 * SCALE, 2 * SCALE)
-    ctx.lineTo(2 * SCALE, BH - 2 * SCALE)
-    ctx.lineTo(2 * SCALE + hookLen, BH - 2 * SCALE)
+    ctx.moveTo(bx + hookLen, bracketInset)
+    ctx.lineTo(bx + cornerRadius, bracketInset)
+    ctx.arcTo(bx, bracketInset, bx, bracketInset + cornerRadius, cornerRadius)
+    ctx.lineTo(bx, BH - bracketInset - cornerRadius)
+    ctx.arcTo(bx, BH - bracketInset, bx + cornerRadius, BH - bracketInset, cornerRadius)
+    ctx.lineTo(bx + hookLen, BH - bracketInset)
     ctx.stroke()
 
-    const textX = 2 * SCALE + hookLen + 8 * SCALE
+    const textX = bx + hookLen + 8 * SCALE
 
     ctx.fillStyle = '#374151'
     ctx.font = `bold ${9 * SCALE}px Arial, sans-serif`
