@@ -1,17 +1,34 @@
-// Laisse une chance à la police cursive BrittanySignature de finir de se
-// préparer avant de rasteriser la signature dans un <canvas>. La police est
-// embarquée dans le bundle (data URI, voir signature-font-data.ts) — elle ne
-// dépend donc plus d'une requête réseau séparée qui pouvait échouer. C'est
-// un best-effort : on n'empêche jamais de signer sur cette base, car
-// `document.fonts.check()` peut répondre "pas prête" par excès de prudence
-// (ex: FontFace pas encore utilisée dans un rendu déjà à l'écran) alors que
-// la police est en réalité disponible et s'affiche déjà correctement.
-export async function attendrePoliceSignature(fontSize: number): Promise<void> {
-  const spec = `${fontSize}px BrittanySignature`
+import { BRITTANY_SIGNATURE_FONT_DATA_URI } from './signature-font-data'
+
+// Charge la police cursive BrittanySignature via l'API Font Loading (FontFace)
+// et l'ajoute explicitement à document.fonts. Contrairement à un @font-face
+// déclaré en CSS (dont le moment exact de disponibilité est ambigu — le DOM
+// peut « repeindre » une fois la police prête, mais un <canvas> rasterisé une
+// seule fois n'a pas cette chance), FontFace.load() renvoie une promesse qui
+// ne se résout QUE lorsque la police est réellement parsée et utilisable :
+// pas de délai arbitraire à faire courser contre le vrai chargement, donc pas
+// de risque de dessiner avec la police de secours par excès de rapidité.
+let chargementPolice: Promise<FontFace> | null = null
+
+function chargerPoliceSignature(): Promise<FontFace> {
+  if (!chargementPolice) {
+    const fontFace = new FontFace('BrittanySignature', `url(${BRITTANY_SIGNATURE_FONT_DATA_URI})`)
+    chargementPolice = fontFace.load().then(loaded => {
+      document.fonts.add(loaded)
+      return loaded
+    })
+  }
+  return chargementPolice
+}
+
+// Attend que la police soit réellement prête avant de rasteriser la
+// signature dans un <canvas>. La police étant embarquée en data URI (aucune
+// requête réseau), ce chargement est déterministe et rapide — mais on
+// l'attend jusqu'au bout, sans jamais couper court.
+export async function attendrePoliceSignature(): Promise<void> {
   try {
-    await Promise.race([
-      Promise.all([document.fonts.load(spec), document.fonts.ready]),
-      new Promise(resolve => setTimeout(resolve, 1000)),
-    ])
-  } catch { /* la police est embarquée dans le bundle, donc quasi toujours déjà prête */ }
+    await chargerPoliceSignature()
+  } catch (err) {
+    console.error('[Signature] Échec du chargement de la police BrittanySignature:', err)
+  }
 }

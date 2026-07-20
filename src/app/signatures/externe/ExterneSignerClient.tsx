@@ -219,7 +219,7 @@ export default function ExterneSignerClient({
   // Lance le chargement de la police de signature dès l'ouverture de la page,
   // pour lui laisser le temps d'arriver même sur une connexion lente — avant
   // que le signataire externe ne clique sur "Signer".
-  useEffect(() => { attendrePoliceSignature(24 * 3) }, [])
+  useEffect(() => { attendrePoliceSignature() }, [])
 
   useEffect(() => {
     if (!fichierUrl || !nomExterne) return
@@ -259,7 +259,7 @@ export default function ExterneSignerClient({
 
     // Laisse le temps à la police (embarquée dans le bundle) de finir de
     // se préparer, sans jamais bloquer la signature sur cette base.
-    await attendrePoliceSignature(fontSize)
+    await attendrePoliceSignature()
 
     ctx.fillStyle = 'white'
     ctx.fillRect(0, 0, BW, BH)
