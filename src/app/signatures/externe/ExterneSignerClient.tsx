@@ -1,7 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { attendrePoliceSignature } from '@/lib/signature-font'
-import { BRITTANY_SIGNATURE_FONT_DATA_URI } from '@/lib/signature-font-data'
 
 type Props = {
   token: string
@@ -45,7 +44,6 @@ function SignatureBlock({ name, date, hash, small }: { name: string; date: strin
   const dateBottom = Math.round(bh * 0.97)
   return (
     <div style={{ position: 'relative', width: bw, height: bh, userSelect: 'none', background: 'white', overflow: 'visible' }}>
-      <style>{`@font-face { font-family: 'BrittanySignature'; src: url('${BRITTANY_SIGNATURE_FONT_DATA_URI}') format('truetype'); font-weight: normal; font-style: normal; }`}</style>
       <svg width={hookLen + 4} height={bh} style={{ position: 'absolute', left: 0, top: 0, overflow: 'visible' }}>
         <path d={bracketPath(hookLen, bracketInset, bh - bracketInset, cornerRadius)} stroke={BRACKET_COLOR} strokeWidth={barW} fill="none" strokeLinecap="round" />
       </svg>
@@ -210,16 +208,17 @@ export default function ExterneSignerClient({
   const [motif, setMotif] = useState('')
   const [refusing, setRefusing] = useState(false)
   const [refused, setRefused] = useState(false)
+  const [policeChargee, setPoliceChargee] = useState(false)
 
   const today = signeLe
     ? new Date(signeLe).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
     : new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
   const sigHash = shortHash((nomExterne ?? email) + token + today)
 
-  // Lance le chargement de la police de signature dès l'ouverture de la page,
-  // pour lui laisser le temps d'arriver même sur une connexion lente — avant
-  // que le signataire externe ne clique sur "Signer".
-  useEffect(() => { attendrePoliceSignature() }, [])
+  // Lance le chargement de la police de signature dès l'ouverture de la page.
+  // Tant qu'elle n'est pas confirmée prête, aucun <SignatureBlock> n'est
+  // affiché — ça évite tout premier rendu avec la mauvaise police.
+  useEffect(() => { attendrePoliceSignature().then(() => setPoliceChargee(true)) }, [])
 
   useEffect(() => {
     if (!fichierUrl || !nomExterne) return
@@ -356,7 +355,7 @@ export default function ExterneSignerClient({
     else { const d = await res.json().catch(() => ({})); setErr(d.error ?? 'Erreur lors du refus') }
   }
 
-  const sigBlock = <SignatureBlock name={nomExterne ?? ''} date={today} hash={sigHash} />
+  const sigBlock = policeChargee ? <SignatureBlock name={nomExterne ?? ''} date={today} hash={sigHash} /> : null
 
   const shellStyle: React.CSSProperties = { minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 16, background: '#f4f6f9' }
   const cardStyle: React.CSSProperties = { background: 'white', borderRadius: 16, boxShadow: '0 4px 32px rgba(0,0,0,.10)', padding: '40px 36px', maxWidth: 480, width: '100%', textAlign: 'center' }
@@ -404,7 +403,7 @@ export default function ExterneSignerClient({
           <div style={{ fontSize: 48, marginBottom: 12 }}>✅</div>
           <h2 style={{ color: '#166534', marginBottom: 8, fontSize: 20 }}>Document signé avec succès !</h2>
           <p style={{ color: '#374151', fontSize: 14 }}>Vous avez signé <strong>{titre}</strong> le {today}.</p>
-          {nomExterne && (
+          {nomExterne && policeChargee && (
             <div style={{ margin: '20px auto', display: 'inline-block' }}>
               <SignatureBlock name={nomExterne} date={today} hash={sigHash} />
             </div>
@@ -526,7 +525,9 @@ export default function ExterneSignerClient({
 
         <div>
           <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 8, color: '#6b7280' }}>Aperçu de la signature</label>
-          <SignatureBlock name={nomExterne} date={today} hash={sigHash} small />
+          {policeChargee
+            ? <SignatureBlock name={nomExterne} date={today} hash={sigHash} small />
+            : <div style={{ fontSize: 12, color: '#6b7280' }}>Chargement...</div>}
         </div>
 
         {docUrl && numPages && (

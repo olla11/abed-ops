@@ -1,6 +1,7 @@
 'use client'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { BRITTANY_SIGNATURE_FONT_DATA_URI } from '@/lib/signature-font-data'
+import { attendrePoliceSignature } from '@/lib/signature-font'
 
 type Signataire = {
   profile_id: string
@@ -47,7 +48,6 @@ function SignatureBlock({ name, date, hash, small }: { name: string; date: strin
   const dateBottom = Math.round(bh * 0.97)
   return (
     <div style={{ position: 'relative', width: bw, height: bh, background: 'white', pointerEvents: 'none', overflow: 'visible' }}>
-      <style>{`@font-face { font-family: 'BrittanySignature'; src: url('${BRITTANY_SIGNATURE_FONT_DATA_URI}') format('truetype'); font-weight: normal; font-style: normal; }`}</style>
       <svg width={hookLen + 4} height={bh} style={{ position: 'absolute', left: 0, top: 0, overflow: 'visible' }}>
         <path d={bracketPath(hookLen, bracketInset, bh - bracketInset, cornerRadius)} stroke={BRACKET_COLOR} strokeWidth={barW} fill="none" strokeLinecap="round" />
       </svg>
@@ -71,6 +71,11 @@ function SignatureBlock({ name, date, hash, small }: { name: string; date: strin
 export default function ViewClient({ titre, docUrl, signataires }: { titre: string; docUrl: string | null; signataires: Signataire[] }) {
   const router = useRouter()
   const signedSigs = signataires.filter(s => s.signe && s.sig_x != null && s.sig_y != null)
+  const [policeChargee, setPoliceChargee] = useState(false)
+
+  // Tant que la police n'est pas confirmée prête, aucun <SignatureBlock>
+  // n'est affiché — ça évite tout premier rendu avec la mauvaise police.
+  useEffect(() => { attendrePoliceSignature().then(() => setPoliceChargee(true)) }, [])
 
   return (
     <>
@@ -116,7 +121,7 @@ export default function ViewClient({ titre, docUrl, signataires }: { titre: stri
                     <div style={{ fontSize: 12, color: '#166534' }}>
                       ✅ Signé le {s.signe_le ? new Date(s.signe_le).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}
                     </div>
-                    {s.sig_x != null && (
+                    {s.sig_x != null && policeChargee && (
                       <div style={{ marginTop: 8 }}>
                         <SignatureBlock
                           name={name}

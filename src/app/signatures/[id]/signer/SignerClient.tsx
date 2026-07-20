@@ -2,7 +2,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { attendrePoliceSignature } from '@/lib/signature-font'
-import { BRITTANY_SIGNATURE_FONT_DATA_URI } from '@/lib/signature-font-data'
 
 type Props = {
   demandeId: string
@@ -48,7 +47,6 @@ function SignatureBlock({ name, date, hash, small }: { name: string; date: strin
   const dateBottom = Math.round(bh * 0.97)
   return (
     <div style={{ position: 'relative', width: bw, height: bh, userSelect: 'none', background: 'white', overflow: 'visible' }}>
-      <style>{`@font-face { font-family: 'BrittanySignature'; src: url('${BRITTANY_SIGNATURE_FONT_DATA_URI}') format('truetype'); font-weight: normal; font-style: normal; }`}</style>
       {/* Bracket — resserré vers le centre, coins arrondis */}
       <svg width={hookLen + 4} height={bh} style={{ position: 'absolute', left: 0, top: 0, overflow: 'visible' }}>
         <path d={bracketPath(hookLen, bracketInset, bh - bracketInset, cornerRadius)} stroke={BRACKET_COLOR} strokeWidth={barW} fill="none" strokeLinecap="round" />
@@ -259,14 +257,17 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
   const [motif, setMotif] = useState('')
   const [refusing, setRefusing] = useState(false)
   const [refused, setRefused] = useState(false)
+  const [policeChargee, setPoliceChargee] = useState(false)
 
   const today = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
   const sigHash = shortHash(userName + demandeId + today)
 
   // Lance le chargement de la police de signature dès l'ouverture de la page,
-  // pour lui laisser le temps d'arriver même sur une connexion lente — avant
-  // que l'utilisateur ne clique sur "Signer".
-  useEffect(() => { attendrePoliceSignature() }, [])
+  // pour lui laisser le temps d'arriver même sur une connexion lente. Tant
+  // qu'elle n'est pas confirmée prête, aucun <SignatureBlock> n'est affiché
+  // — ça évite tout premier rendu avec la mauvaise police (aucune police par
+  // défaut ne serait alors correctement remplacée après coup dans un canvas).
+  useEffect(() => { attendrePoliceSignature().then(() => setPoliceChargee(true)) }, [])
 
   useEffect(() => {
     if (!fichierUrl) return
@@ -415,7 +416,7 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
     else { const d = await res.json().catch(() => ({})); setErr(d.error ?? 'Erreur lors du refus') }
   }
 
-  const sigBlock = <SignatureBlock name={userName} date={today} hash={sigHash} />
+  const sigBlock = policeChargee ? <SignatureBlock name={userName} date={today} hash={sigHash} /> : null
 
   if (refused) {
     return (
@@ -445,7 +446,7 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
           <h2 style={{ color: '#166534', marginBottom: 8, fontSize: 20 }}>Document signé avec succès !</h2>
           <p style={{ color: '#374151', fontSize: 14 }}>Vous avez signé <strong>{titre}</strong> le {today}.</p>
           <div style={{ margin: '20px auto', display: 'inline-block' }}>
-            <SignatureBlock name={userName} date={today} hash={sigHash} />
+            {policeChargee && <SignatureBlock name={userName} date={today} hash={sigHash} />}
           </div>
           {fichierUrl && (
             <button onClick={telechargerDocument}
@@ -557,7 +558,9 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
 
         <div>
           <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 8, color: '#6b7280' }}>Aperçu de la signature</label>
-          <SignatureBlock name={userName} date={today} hash={sigHash} small />
+          {policeChargee
+            ? <SignatureBlock name={userName} date={today} hash={sigHash} small />
+            : <div style={{ fontSize: 12, color: 'var(--abed-muted)' }}>Chargement...</div>}
         </div>
 
         {/* Page indicator */}
