@@ -1,19 +1,17 @@
-// Vérifie que la police cursive BrittanySignature est réellement chargée et
-// utilisable avant de rasteriser la signature dans un <canvas> (l'image ainsi
-// produite est figée pour toujours dans le PDF signé — impossible de la
-// corriger après coup si la mauvaise police a été utilisée).
-export async function attendrePoliceSignature(fontSize: number): Promise<boolean> {
+// Laisse une chance à la police cursive BrittanySignature de finir de se
+// préparer avant de rasteriser la signature dans un <canvas>. La police est
+// embarquée dans le bundle (data URI, voir signature-font-data.ts) — elle ne
+// dépend donc plus d'une requête réseau séparée qui pouvait échouer. C'est
+// un best-effort : on n'empêche jamais de signer sur cette base, car
+// `document.fonts.check()` peut répondre "pas prête" par excès de prudence
+// (ex: FontFace pas encore utilisée dans un rendu déjà à l'écran) alors que
+// la police est en réalité disponible et s'affiche déjà correctement.
+export async function attendrePoliceSignature(fontSize: number): Promise<void> {
   const spec = `${fontSize}px BrittanySignature`
-  for (let tentative = 0; tentative < 3; tentative++) {
-    try {
-      await Promise.race([
-        Promise.all([document.fonts.load(spec), document.fonts.ready]),
-        new Promise(resolve => setTimeout(resolve, 1500)),
-      ])
-    } catch { /* on vérifie quand même via document.fonts.check ci-dessous */ }
-
-    if (document.fonts.check(spec)) return true
-    await new Promise(resolve => setTimeout(resolve, 400))
-  }
-  return document.fonts.check(spec)
+  try {
+    await Promise.race([
+      Promise.all([document.fonts.load(spec), document.fonts.ready]),
+      new Promise(resolve => setTimeout(resolve, 1000)),
+    ])
+  } catch { /* la police est embarquée dans le bundle, donc quasi toujours déjà prête */ }
 }

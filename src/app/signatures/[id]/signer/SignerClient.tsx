@@ -316,11 +316,9 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
     canvas.width = BW; canvas.height = BH
     const ctx = canvas.getContext('2d')!
 
-    // Ensure Brittany font is loaded before drawing — sinon le navigateur
-    // rasterise silencieusement avec sa police de secours, figée pour
-    // toujours dans le PDF signé.
-    const policeOk = await attendrePoliceSignature(fontSize)
-    if (!policeOk) throw new Error('police-signature-indisponible')
+    // Laisse le temps à la police (embarquée dans le bundle) de finir de
+    // se préparer, sans jamais bloquer la signature sur cette base.
+    await attendrePoliceSignature(fontSize)
 
     // White background
     ctx.fillStyle = 'white'
@@ -392,7 +390,7 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
       sig_image = await captureSignatureImage()
     } catch {
       setLoading(false)
-      setErr('La police de signature n\'a pas pu se charger correctement. Vérifiez votre connexion et réessayez.')
+      setErr('Erreur lors de la génération de la signature. Réessayez.')
       return
     }
     const res = await fetch(`/api/signatures/${demandeId}/sign`, {

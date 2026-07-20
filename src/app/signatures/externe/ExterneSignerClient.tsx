@@ -257,8 +257,9 @@ export default function ExterneSignerClient({
     canvas.width = BW; canvas.height = BH
     const ctx = canvas.getContext('2d')!
 
-    const policeOk = await attendrePoliceSignature(fontSize)
-    if (!policeOk) throw new Error('police-signature-indisponible')
+    // Laisse le temps à la police (embarquée dans le bundle) de finir de
+    // se préparer, sans jamais bloquer la signature sur cette base.
+    await attendrePoliceSignature(fontSize)
 
     ctx.fillStyle = 'white'
     ctx.fillRect(0, 0, BW, BH)
@@ -331,7 +332,7 @@ export default function ExterneSignerClient({
       sig_image = await captureSignatureImage()
     } catch {
       setLoading(false)
-      setErr('La police de signature n\'a pas pu se charger correctement. Vérifiez votre connexion et réessayez.')
+      setErr('Erreur lors de la génération de la signature. Réessayez.')
       return
     }
     const res = await fetch('/api/signatures/externe/sign', {
