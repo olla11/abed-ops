@@ -38,8 +38,8 @@ const securityHeaders = [
       "style-src 'self' 'unsafe-inline'",
       // Images : self + Supabase storage + data URIs
       "img-src 'self' data: blob: https://*.supabase.co https://*.supabase.in",
-      // Fonts
-      "font-src 'self'",
+      // Fonts — data: nécessaire pour la police de signature embarquée en base64
+      "font-src 'self' data:",
       // API calls autorisés
       "connect-src 'self' https://*.supabase.co https://*.supabase.in https://api.groq.com https://generativelanguage.googleapis.com https://abedong.org https://*.abedong.org",
       // Frames : self + Supabase storage (PDF viewer)
