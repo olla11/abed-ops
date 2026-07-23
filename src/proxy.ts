@@ -26,7 +26,13 @@ export async function proxy(req: NextRequest) {
     }
   )
 
-  const { data: { user } } = await supabase.auth.getUser()
+  // getSession() lit le jeton localement (aucun aller-retour réseau vers
+  // Supabase à chaque requête, contrairement à getUser()) — plus rapide,
+  // au prix de détecter un compte désactivé/bloqué avec un léger délai
+  // (jusqu'à expiration du jeton) plutôt qu'instantanément. Choix assumé
+  // pour la réactivité de l'application.
+  const { data: { session } } = await supabase.auth.getSession()
+  const user = session?.user ?? null
   const path = req.nextUrl.pathname
   const isPublic =
     path.startsWith('/login') ||
