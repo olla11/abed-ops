@@ -3,12 +3,13 @@ import { createClient } from '@/lib/supabase-server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { revalidateTag } from 'next/cache'
 import { sendEmail } from '@/lib/resend'
+import { accordGenre } from '@/lib/genre'
 
 type RouteContext = { params: Promise<{ id: string }> }
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://myabed.vercel.app'
 
-function emailCongeStatut(nom: string, statut: 'approuve_n1' | 'approuve' | 'rejete', conge: any, commentaire?: string) {
+function emailCongeStatut(nom: string, statut: 'approuve_n1' | 'approuve' | 'rejete', conge: any, deCivilite: string | null | undefined, commentaire?: string) {
   const couleur = statut === 'rejete' ? '#dc2626' : '#16a34a'
   const icone = statut === 'rejete' ? '❌' : statut === 'approuve' ? '✅' : '⏳'
   const titre = statut === 'rejete' ? 'Demande de congé rejetée'
@@ -18,7 +19,7 @@ function emailCongeStatut(nom: string, statut: 'approuve_n1' | 'approuve' | 'rej
     ? `Votre demande de congé a été <strong style="color:#dc2626">rejetée</strong>.${commentaire ? `<br>Motif : ${commentaire}` : ''}`
     : statut === 'approuve'
     ? `Votre demande de congé a été <strong style="color:#16a34a">approuvée définitivement</strong>. Bonne période de congé !`
-    : `Votre demande a été validée par les RH et est transmise au Directeur Exécutif pour autorisation finale.`
+    : `Votre demande a été validée par les RH et est transmise ${accordGenre(deCivilite, 'au Directeur Exécutif', 'à la Directrice Exécutive')} pour autorisation finale.`
 
   return `
     <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#f9fafb;border-radius:12px">
@@ -59,6 +60,9 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
+
+  const { data: deProfile } = await service.from('profiles').select('civilite').eq('role', 'de').maybeSingle()
+  const deCivilite = deProfile?.civilite ?? 'M.'
 
   const { data: conge } = await service
     .from('conges')
@@ -118,7 +122,7 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
     }
     notifUserId = conge.profile_id
     notifTitre = 'Congé validé (RH)'
-    notifMessage = `Votre demande de congé a été validée par les RH. En attente d'autorisation du Directeur Exécutif.`
+    notifMessage = `Votre demande de congé a été validée par les RH. En attente d'autorisation ${accordGenre(deCivilite, 'du Directeur Exécutif', 'de la Directrice Exécutive')}.`
   } else if (conge.statut === 'approuve_n1' && ['de', 'dp', 'administrateur', 'admin'].includes(myRole)) {
     newStatut = 'approuve'
     notifUserId = conge.profile_id
@@ -150,13 +154,13 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
     await sendEmail({
       to: employe.email,
       subject: newStatut === 'rejete' ? 'Demande de congé rejetée' : 'Congé approuvé — My ABED',
-      html: emailCongeStatut(nomEmploye, newStatut as any, conge, commentaire),
+      html: emailCongeStatut(nomEmploye, newStatut as any, conge, deCivilite, commentaire),
     }).catch(() => {})
   } else if (employe?.email && newStatut === 'approuve_n1') {
     await sendEmail({
       to: employe.email,
       subject: 'Congé approuvé N1 — en attente validation RH',
-      html: emailCongeStatut(nomEmploye, 'approuve_n1', conge),
+      html: emailCongeStatut(nomEmploye, 'approuve_n1', conge, deCivilite),
     }).catch(() => {})
   }
 

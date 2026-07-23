@@ -5,6 +5,7 @@ import { PDFDocument, StandardFonts, rgb, degrees } from 'pdf-lib'
 import QRCode from 'qrcode'
 import fs from 'fs'
 import path from 'path'
+import { accordGenre, estFeminin } from '@/lib/genre'
 
 const fmt = (d: string | null | undefined) =>
   d ? new Date(d).toLocaleDateString('fr-FR') : '—'
@@ -143,7 +144,7 @@ export async function GET(req: NextRequest) {
   }
 
   if (m.status === 'brouillon' || m.status === 'soumis') {
-    return NextResponse.json({ error: 'OM non encore signe' }, { status: 403 })
+    return NextResponse.json({ error: 'OM non encore signé' }, { status: 403 })
   }
 
   // Récupère la civilité du DE pour accorder le titre P.O. quand le CAF signe
@@ -188,9 +189,9 @@ export async function GET(req: NextRequest) {
     const centerX = (ox + MR) / 2
 
     const lines: { text: string; size: number; isBold: boolean; color: any }[] = [
-      { text: 'AGRICULTURE POUR LE BIEN-ETRE ET LE DEVELOPPEMENT DURABLE', size: 9, isBold: true, color: black },
+      { text: 'AGRICULTURE POUR LE BIEN-ÊTRE ET LE DÉVELOPPEMENT DURABLE', size: 9, isBold: true, color: black },
       { text: '(ABED-ONG)', size: 10.5, isBold: true, color: black },
-      { text: 'Enregistre sous le N° 2019-4/0008 /PDB/SG/SAG du 16 Janvier 2019', size: 7.5, isBold: false, color: gray },
+      { text: 'Enregistré sous le N° 2019-4/0008 /PDB/SG/SAG du 16 Janvier 2019', size: 7.5, isBold: false, color: gray },
       { text: 'Parakou – BENIN', size: 8, isBold: false, color: gray },
       { text: 'Tel. : +229 0167779141', size: 8, isBold: false, color: gray },
       { text: 'Email : contact@abedong.org  |  abedcontactpk@gmail.com', size: 7.5, isBold: false, color: gray },
@@ -218,19 +219,15 @@ export async function GET(req: NextRequest) {
   // Phrase d'ordre selon rôle du signataire
   let ordrePhrase: string
   if (sg?.role === 'administrateur') {
-    const isFemme = sg?.civilite === 'Mme'
+    const isFemme = estFeminin(sg?.civilite)
     const article = isFemme ? 'La' : 'Le'
     const fonctionSg = sg?.fonction ?? (isFemme ? "Administratrice" : "Administrateur")
     ordrePhrase = `${article} ${fonctionSg} de ABED-ONG donne ordre à :`
   } else if (sg?.role === 'caf') {
     // Quand le CAF signe P.O., la phrase reflète le genre du DE
-    ordrePhrase = deCivilite === 'Mme'
-      ? 'La Directrice Executive de ABED-ONG donne ordre à :'
-      : 'Le Directeur Executif de ABED-ONG donne ordre à :'
+    ordrePhrase = `${accordGenre(deCivilite, 'Le Directeur Exécutif', 'La Directrice Exécutive')} de ABED-ONG donne ordre à :`
   } else {
-    ordrePhrase = sg?.civilite === 'Mme'
-      ? 'La Directrice Executive de ABED-ONG donne ordre à :'
-      : 'Le Directeur Executif de ABED-ONG donne ordre à :'
+    ordrePhrase = `${accordGenre(sg?.civilite, 'Le Directeur Exécutif', 'La Directrice Exécutive')} de ABED-ONG donne ordre à :`
   }
   page.drawText(ordrePhrase, { x: ML, y, size: 10, font, color: black }); y -= 16
 
@@ -241,14 +238,14 @@ export async function GET(req: NextRequest) {
   const rowStep = 14
 
   const rows1: [string, string][] = [
-    ['Nom & Prenoms',            `${mn?.prenoms ?? ''} ${mn?.nom ?? ''}`],
+    ['Nom & Prénoms',            `${mn?.prenoms ?? ''} ${mn?.nom ?? ''}`],
     ['Date de naissance',        `${fmt(mn?.date_naissance)} à ${mn?.lieu_naissance ?? '—'}`],
-    ['Nationalite',              mn?.nationalite ?? '—'],
-    ['Numero IFU',               mn?.ifu ?? '—'],
-    ['Qualite / Grade / Indice', mn?.grade_indice ?? '—'],
+    ['Nationalité',              mn?.nationalite ?? '—'],
+    ['Numéro IFU',               mn?.ifu ?? '—'],
+    ['Qualité / Grade / Indice', mn?.grade_indice ?? '—'],
     ['Fonction',                 mn?.fonction ?? '—'],
     ['Adresse',                  mn?.adresse ?? '—'],
-    ['Telephone',                mn?.telephone ?? '—'],
+    ['Téléphone',                mn?.telephone ?? '—'],
   ]
   for (const [k, v] of rows1) {
     page.drawText(k, { x: labelX, y, size: rowSize, font: bold, color: black })
@@ -269,8 +266,8 @@ export async function GET(req: NextRequest) {
   const rows2: [string, string][] = [
     ['Lieu',                  m.lieu],
     ['Moyen de transport',    m.moyen_transport ?? '—'],
-    ['Conducteur a bord',     m.conducteur_a_bord || '—'],
-    ['Imputation budgetaire', m.imputation || (!m.a_charge_partenaire ? 'ABED' : '—')],
+    ['Conducteur à bord',     m.conducteur_a_bord || '—'],
+    ['Imputation budgétaire', m.imputation || (!m.a_charge_partenaire ? 'ABED' : '—')],
   ]
   for (const [k, v] of rows2) {
     page.drawText(k, { x: labelX, y, size: rowSize, font: bold, color: black })
@@ -283,10 +280,10 @@ export async function GET(req: NextRequest) {
 
   // ---- DATES ----
   const rows3: [string, string][] = [
-    ["Depart de l'origine",     fmt(m.date_depart)],
-    ['Arrivee a destination',    fmt(m.date_arrivee_destination)],
-    ['Depart de la destination', fmt(m.date_depart_destination)],
-    ["Retour a l'origine",       fmt(m.date_retour)],
+    ["Départ de l'origine",       fmt(m.date_depart)],
+    ['Arrivée à destination',    fmt(m.date_arrivee_destination)],
+    ['Départ de la destination', fmt(m.date_depart_destination)],
+    ["Retour à l'origine",       fmt(m.date_retour)],
   ]
   for (const [k, v] of rows3) {
     page.drawText(k, { x: labelX, y, size: rowSize, font: bold, color: black })
@@ -299,7 +296,7 @@ export async function GET(req: NextRequest) {
 
   // ---- MENTION LÉGALE — nom en gras ----
   const nomMissionnaire = `${mn?.prenoms ?? ''} ${mn?.nom ?? ''}`
-  const before = 'Les autorites administratives et politiques sont priees de faciliter à '
+  const before = 'Les autorités administratives et politiques sont priées de faciliter à '
   const after = " l'accomplissement de sa mission."
   const beforeW = font.widthOfTextAtSize(before, rowSize)
   const nameW2 = bold.widthOfTextAtSize(nomMissionnaire, rowSize)
@@ -342,15 +339,15 @@ export async function GET(req: NextRequest) {
   // Titre signataire
   let titreLabel: string
   if (sg?.role === 'administrateur') {
-    const isFemme = sg?.civilite === 'Mme'
+    const isFemme = estFeminin(sg?.civilite)
     const article = isFemme ? 'La' : 'Le'
     const fonctionSg = sg?.fonction ?? (isFemme ? 'Administratrice' : 'Administrateur')
     titreLabel = `${article} ${fonctionSg}`
   } else if (sg?.role === 'caf') {
     // P.O. = Par Ordre du DE → accord selon la civilité du DE, pas du CAF
-    titreLabel = deCivilite === 'Mme' ? 'La Directrice Executive et P.O' : 'Le Directeur Executif et P.O'
+    titreLabel = `${accordGenre(deCivilite, 'Le Directeur Exécutif', 'La Directrice Exécutive')} et P.O`
   } else {
-    titreLabel = sg?.civilite === 'Mme' ? 'La Directrice Executive' : 'Le Directeur Executif'
+    titreLabel = accordGenre(sg?.civilite, 'Le Directeur Exécutif', 'La Directrice Exécutive')
   }
   page.drawText(titreLabel, { x: sigX, y: blockTop, size: 9, font: bold, color: black })
 
@@ -395,9 +392,11 @@ export async function GET(req: NextRequest) {
     }
   } else {
     drawCachet(page, cachetCX, cachetCY, 78, 55,
-      'AGRICULTURE POUR LE BIEN ETRE ET LE DEVELOPPEMENT DURABLE',
-      sg?.role === 'administrateur' ? "L'Administrateur" : 'Le Directeur',
-      sg?.civilite === 'Mme' ? (sg?.role === 'administrateur' ? 'trice' : 'Executive') : (sg?.role === 'administrateur' ? '' : 'Executif'),
+      'AGRICULTURE POUR LE BIEN ÊTRE ET LE DÉVELOPPEMENT DURABLE',
+      sg?.role === 'administrateur'
+        ? accordGenre(sg?.civilite, "L'Administrateur", "L'Administratrice")
+        : accordGenre(sg?.civilite, 'Le Directeur', 'La Directrice'),
+      sg?.role === 'administrateur' ? '' : accordGenre(sg?.civilite, 'Exécutif', 'Exécutive'),
       '* (ABED ONG) *',
       font, bold,
     )
@@ -413,7 +412,7 @@ export async function GET(req: NextRequest) {
     const qrImg = await pdf.embedPng(qrBytes)
     const qrSize = 64
     page.drawImage(qrImg, { x: MR - qrSize, y: MB - 4, width: qrSize, height: qrSize })
-    const qrLabel = 'Verifier en ligne'
+    const qrLabel = 'Vérifier en ligne'
     const qrLabelW = font.widthOfTextAtSize(qrLabel, 6)
     page.drawText(qrLabel, { x: MR - qrSize + (qrSize - qrLabelW) / 2, y: MB - 12, size: 6, font, color: gray })
   } catch (e) {

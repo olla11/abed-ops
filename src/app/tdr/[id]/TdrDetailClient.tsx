@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import * as Y from 'yjs'
 import { Download, UserPlus, X, Check, Trash2, Send, PenLine, XCircle, Lock, MessageSquare } from 'lucide-react'
-import { CHAPITRE_CLES, TDR_STATUT_LABELS, SIGNATAIRE_ROLE_LABELS, STATUT_TOUR, isColonneNumerique, type Chapitre, type TdrStatut, type SignataireRole } from '@/lib/tdr'
+import { CHAPITRE_CLES, TDR_STATUT_LABELS, labelSignataireRole, STATUT_TOUR, isColonneNumerique, type Chapitre, type TdrStatut, type SignataireRole } from '@/lib/tdr'
 import RichTextEditor from '@/components/RichTextEditor'
 import { createClient as createBrowserClient } from '@/lib/supabase-client'
 import { SupabaseYjsProvider, couleurPourUser } from '@/lib/yjs-supabase-provider'
@@ -14,7 +14,7 @@ type Commentaire = {
   created_at: string; auteur: Profile | null
 }
 
-type Profile = { id: string; nom: string; prenoms: string }
+type Profile = { id: string; nom: string; prenoms: string; civilite?: string | null }
 type Signataire = { id: string; role: SignataireRole; profile_id: string | null; ordre: number; statut: string; signe_le: string | null; commentaire: string | null; profile: Profile | null }
 type Collaborateur = { id: string; profile_id: string; permission: 'lecture' | 'revision'; profile: Profile | null }
 type Tdr = {
@@ -513,7 +513,7 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
               const c = s?.statut === 'signe' ? { bg: '#f0fdf4', color: '#16a34a' } : s?.statut === 'refuse' ? { bg: '#fef2f2', color: '#dc2626' } : { bg: '#f3f4f6', color: '#9ca3af' }
               return (
                 <div key={role} style={{ marginBottom: 10, paddingBottom: 10, borderBottom: '1px solid #f3f4f6' }}>
-                  <div style={{ fontSize: 11, color: 'var(--abed-muted)', marginBottom: 2 }}>{SIGNATAIRE_ROLE_LABELS[role]}</div>
+                  <div style={{ fontSize: 11, color: 'var(--abed-muted)', marginBottom: 2 }}>{labelSignataireRole(role, s?.profile?.civilite)}</div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
                     <span style={{ fontSize: 13, fontWeight: 600 }}>{s?.profile ? `${s.profile.prenoms} ${s.profile.nom}` : '—'}</span>
                     <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: c.bg, color: c.color, whiteSpace: 'nowrap' }}>

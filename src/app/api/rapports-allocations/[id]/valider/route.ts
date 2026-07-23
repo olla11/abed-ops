@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { sendEmail } from '@/lib/resend'
+import { accordGenre } from '@/lib/genre'
 
 export async function POST(
   req: NextRequest,
@@ -12,7 +13,7 @@ export async function POST(
   if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
 
   const { data: profile } = await supabase
-    .from('profiles').select('role, nom, prenoms').eq('id', user.id).single()
+    .from('profiles').select('role, nom, prenoms, civilite').eq('id', user.id).single()
   const role = profile?.role ?? ''
 
   const body = await req.json()
@@ -105,7 +106,7 @@ export async function POST(
           subject: estSalarie
             ? `[ABED-ONG] ✓ Votre fiche de paie de ${mois} est disponible`
             : `[ABED-ONG] ✓ Votre allocation de ${mois} est autorisée`,
-          html: buildEmailAutorise({ rapport, mois, prest, id, estSalarie }),
+          html: buildEmailAutorise({ rapport, mois, prest, id, estSalarie, civilite: profile?.civilite }),
         })
       } catch (e) { console.error('[Email autorise]:', e) }
     }
@@ -150,7 +151,7 @@ export async function POST(
   return NextResponse.json({ ok: true })
 }
 
-function buildEmailAutorise({ rapport, mois, prest, id, estSalarie }: any) {
+function buildEmailAutorise({ rapport, mois, prest, id, estSalarie, civilite }: any) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://abed-ops-aqsc-gmzbdoc7d-olla11s-projects.vercel.app'
   const montantLabel = estSalarie ? 'SALAIRE NET' : "MONTANT DE L'ALLOCATION"
   const docLabel = estSalarie ? '📄 Télécharger la fiche de paie' : '📄 Télécharger l\'état de paiement'
@@ -161,7 +162,7 @@ function buildEmailAutorise({ rapport, mois, prest, id, estSalarie }: any) {
     </div>
     <div style="padding:24px 28px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
       <p>Bonjour <strong>${prest.prenoms} ${prest.nom}</strong>,</p>
-      <p>${estSalarie ? 'Votre bulletin de paie mensuel a été établi et autorisé par le Directeur Exécutif.' : 'Votre rapport mensuel a été validé et votre allocation autorisée.'}</p>
+      <p>${estSalarie ? `Votre bulletin de paie mensuel a été établi et autorisé ${accordGenre(civilite, 'par le Directeur Exécutif', 'par la Directrice Exécutive')}.` : 'Votre rapport mensuel a été validé et votre allocation autorisée.'}</p>
       <div style="background:#f0fdf4;border:1.5px solid #63a521;border-radius:8px;padding:16px 20px;margin:16px 0;">
         <div style="font-size:12px;color:#166534;font-weight:600;margin-bottom:4px;">${montantLabel}</div>
         <div style="font-size:28px;font-weight:700;color:#166534;">${Number(rapport.montant_allocation).toLocaleString('fr-FR')} FCFA</div>

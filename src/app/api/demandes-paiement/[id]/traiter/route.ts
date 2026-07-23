@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { sendEmail } from '@/lib/resend'
+import { accordGenre } from '@/lib/genre'
 
 // action: valider | rejeter | refuser
 // etape déduite du rôle: aaf → valide_aaf, caf → valide_caf, de → autorise
@@ -52,7 +53,8 @@ export async function POST(
       update = { status: 'valide_caf', caf_id: user.id, caf_le: now, commentaire_caf: null }
       nextRoles = ['de', 'dp']
       emailSubject = '[ABED-ONG] Demande de paiement — Autorisation DE/DP requise'
-      emailMsg = 'validée par la CAF, en attente d\'autorisation du Directeur Exécutif'
+      const { data: deProfile } = await supabase.from('profiles').select('civilite').eq('role', 'de').maybeSingle()
+      emailMsg = `validée par la CAF, en attente d'autorisation ${accordGenre(deProfile?.civilite, 'du Directeur Exécutif', 'de la Directrice Exécutive')}`
     } else {
       if (!commentaire?.trim()) return NextResponse.json({ error: 'Commentaire obligatoire' }, { status: 400 })
       update = { status: action === 'refuser' ? 'refuse_caf' : 'rejete_caf', caf_id: user.id, caf_le: now, commentaire_caf: commentaire }

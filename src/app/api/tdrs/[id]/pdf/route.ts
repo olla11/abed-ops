@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { formatSignatureDisplayName } from '@/lib/signature-name'
-import { CHAPITRE_CLES, SIGNATAIRE_ROLE_LABELS, type Chapitre, type SignataireRole } from '@/lib/tdr'
+import { CHAPITRE_CLES, labelSignataireRole, type Chapitre, type SignataireRole } from '@/lib/tdr'
 import { sanitizeChapitreTexte } from '@/lib/tdr-sanitize'
 import { BRITTANY_SIGNATURE_FONT_DATA_URI } from '@/lib/signature-font-data'
 
@@ -47,7 +47,7 @@ function sigBlock(role: SignataireRole, signataire: any): string {
 
   return `
     <div class="sig">
-      <div class="sig-role">${SIGNATAIRE_ROLE_LABELS[role]}</div>
+      <div class="sig-role">${labelSignataireRole(role, signataire?.profile?.civilite)}</div>
       <div class="sig-area">${nomCursif ? `<div class="sig-cursive">${esc(nomCursif)}</div>` : ''}</div>
       <div class="sig-rule"></div>
       ${statutHtml}
@@ -65,7 +65,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     .from('tdrs')
     .select(`*,
       initiateur:profiles!tdrs_initiateur_id_fkey(id, nom, prenoms, fonction),
-      signataires:tdr_signataires(role, statut, signe_le, commentaire, profile:profiles!tdr_signataires_profile_id_fkey(id, nom, prenoms))
+      signataires:tdr_signataires(role, statut, signe_le, commentaire, profile:profiles!tdr_signataires_profile_id_fkey(id, nom, prenoms, civilite))
     `)
     .eq('id', id)
     .single()

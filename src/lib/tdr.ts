@@ -1,6 +1,8 @@
 // Système de rédaction et signature des TDR (Termes de Référence).
 // Un TDR a toujours exactement ces 8 chapitres (contenu éditable, structure fixe).
 
+import { accordGenre } from './genre'
+
 export type ChapitreType = 'texte' | 'tableau'
 
 export type Chapitre = {
@@ -57,6 +59,16 @@ export const SIGNATAIRE_ROLE_LABELS: Record<SignataireRole, string> = {
   responsable_technique: 'Responsable technique (approuvé par)',
   caf: "Visé par la CAF",
   de: 'Autorisé par le Directeur Exécutif',
+}
+
+// Le libellé du rôle "de" nomme directement la personne (Directeur/Directrice
+// Exécutif/Exécutive) — contrairement aux autres rôles, il doit s'accorder
+// avec la civilité de la personne qui occupe ce poste.
+export function labelSignataireRole(role: SignataireRole, civilite?: string | null): string {
+  if (role === 'de') {
+    return accordGenre(civilite, 'Autorisé par le Directeur Exécutif', 'Autorisé par la Directrice Exécutive')
+  }
+  return SIGNATAIRE_ROLE_LABELS[role]
 }
 
 // statut du TDR -> rôle du signataire dont c'est le tour

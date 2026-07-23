@@ -16,7 +16,7 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
       responsable_technique:profiles!tdrs_responsable_technique_id_fkey(id, nom, prenoms),
       cloture_par_profile:profiles!tdrs_cloture_par_fkey(id, nom, prenoms),
       collaborateurs:tdr_collaborateurs(id, profile_id, permission, profile:profiles!tdr_collaborateurs_profile_id_fkey(id, nom, prenoms)),
-      signataires:tdr_signataires(id, role, profile_id, ordre, statut, signe_le, commentaire, profile:profiles!tdr_signataires_profile_id_fkey(id, nom, prenoms))
+      signataires:tdr_signataires(id, role, profile_id, ordre, statut, signe_le, commentaire, profile:profiles!tdr_signataires_profile_id_fkey(id, nom, prenoms, civilite))
     `)
     .eq('id', id)
     .single()
