@@ -1,6 +1,7 @@
 'use client'
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { FileText, Plus, Search, CheckCircle2 } from 'lucide-react'
 import { TDR_STATUT_LABELS, STATUT_TOUR, type TdrStatut } from '@/lib/tdr'
 import Pagination, { paginate } from '@/components/Pagination'
@@ -33,6 +34,7 @@ function estMonTour(tdr: TdrLite, myId: string): boolean {
 }
 
 export default function TdrListClient({ tdrs, myId }: { tdrs: TdrLite[]; myId: string }) {
+  const router = useRouter()
   const [tab, setTab] = useState<'mes' | 'signer' | 'actifs'>('mes')
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
@@ -131,7 +133,7 @@ export default function TdrListClient({ tdrs, myId }: { tdrs: TdrLite[]; myId: s
               </thead>
               <tbody>
                 {paginate(items, safePage, PAGE_SIZE).map(t => (
-                  <tr key={t.id} style={{ cursor: 'pointer' }} onClick={() => window.location.assign(`/tdr/${t.id}`)}>
+                  <tr key={t.id} style={{ cursor: 'pointer' }} onClick={() => router.push(`/tdr/${t.id}`)}>
                     <td style={{ fontSize: 12, color: 'var(--abed-muted)' }}>{t.numero ?? '—'}</td>
                     <td style={{ fontWeight: 600, maxWidth: 320 }}>{t.titre_activite}</td>
                     <td style={{ fontSize: 13 }}>{t.projet ?? '—'}</td>

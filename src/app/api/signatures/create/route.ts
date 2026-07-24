@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { sendEmail } from '@/lib/resend'
 import { signExternalSignerToken } from '@/lib/external-signer-token'
@@ -125,36 +125,35 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Erreur lors de l\'assignation des signataires' }, { status: 500 })
   }
 
-  // Fetch creator profile for email body
-  const { data: createur } = await admin
-    .from('profiles')
-    .select('nom, prenoms')
-    .eq('id', user.id)
-    .single()
+  // Requêtes indépendantes — en parallèle plutôt qu'à la suite
+  const [{ data: createur }, { data: signatairesProfiles }, { data: sigRows2 }] = await Promise.all([
+    admin.from('profiles').select('nom, prenoms').eq('id', user.id).single(),
+    admin.from('profiles').select('id, nom, prenoms, email').in('id', signatairesIds),
+    admin.from('signataires').select('profile_id, email, nom_externe, signe, signe_le, profile:profiles!signataires_profile_id_fkey(nom, prenoms)').eq('demande_id', demande.id),
+  ])
 
   const createurNom = createur ? `${createur.prenoms} ${createur.nom}` : 'Un utilisateur'
+  const externalRows = (insertedSigs ?? []).filter(s => !s.profile_id && s.email)
 
-  // Fetch signatory profiles (with email) and send notifications
-  const { data: signatairesProfiles } = await admin
-    .from('profiles')
-    .select('id, nom, prenoms, email')
-    .in('id', signatairesIds)
+  // Notifications + emails aux signataires — après la réponse, tous en parallèle
+  after(async () => {
+    const tasks: PromiseLike<unknown>[] = []
 
-  if (signatairesProfiles) {
-    // In-app notifications for each signataire
-    await admin.from('notifications').insert(
-      signatairesProfiles.map(p => ({
-        user_id: p.id,
-        titre: 'Document à signer',
-        message: `${createurNom} vous a assigné comme signataire pour « ${titre} »`,
-        lien: `/signatures/${demande.id}/signer`,
-      }))
-    ).then(({ error: e }) => { if (e) console.error('[Signatures] Notif insert error:', e) })
+    if (signatairesProfiles && signatairesProfiles.length > 0) {
+      tasks.push(
+        admin.from('notifications').insert(
+          signatairesProfiles.map(p => ({
+            user_id: p.id,
+            titre: 'Document à signer',
+            message: `${createurNom} vous a assigné comme signataire pour « ${titre} »`,
+            lien: `/signatures/${demande.id}/signer`,
+          }))
+        ).then(({ error: e }) => { if (e) console.error('[Signatures] Notif insert error:', e) })
+      )
 
-    await Promise.allSettled(
-      signatairesProfiles.map(async (p) => {
-        if (!p.email) return
-        await sendEmail({
+      for (const p of signatairesProfiles) {
+        if (!p.email) continue
+        tasks.push(sendEmail({
           to: p.email,
           subject: `My ABED — Document à signer : ${titre}`,
           html: `
@@ -173,49 +172,40 @@ export async function POST(req: NextRequest) {
               <p style="margin-top:24px;color:#9ca3af;font-size:12px;">My ABED · Plateforme de gestion ABED</p>
             </div>
           `,
-        }).catch(err => console.error(`[Signatures] Email error for ${p.email}:`, err))
-      })
-    )
-  }
+        }).catch(err => console.error(`[Signatures] Email error for ${p.email}:`, err)))
+      }
+    }
 
-  // Invite les signataires externes (sans compte) par email, avec un lien magique tokenisé
-  const externalRows = (insertedSigs ?? []).filter(s => !s.profile_id && s.email)
-  if (externalRows.length > 0) {
-    await Promise.allSettled(
-      externalRows.map(async (s) => {
-        const email = s.email as string
-        const token = signExternalSignerToken(s.id, email)
-        const lienSignature = `${APP_URL}/signatures/externe?t=${token}`
-        await sendEmail({
-          to: email,
-          subject: `My ABED — Document à signer : ${titre}`,
-          html: `
-            <div style="font-family:sans-serif;max-width:560px;margin:0 auto;">
-              <h2 style="color:#16a34a;">My ABED — Signature requise</h2>
-              <p>Bonjour,</p>
-              <p><strong>${createurNom}</strong> (ABED ONG) vous invite à signer le document suivant :</p>
-              <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin:16px 0;">
-                <p style="margin:0;font-size:16px;font-weight:700;">${titre}</p>
-                ${description ? `<p style="margin:8px 0 0;color:#6b7280;">${description}</p>` : ''}
-              </div>
-              <p>Aucun compte n'est nécessaire. Cliquez sur le bouton ci-dessous, indiquez votre nom et prénom, puis signez le document :</p>
-              <a href="${lienSignature}" style="display:inline-block;padding:10px 22px;background:#16a34a;color:white;border-radius:8px;text-decoration:none;font-weight:700;">
-                Signer le document
-              </a>
-              <p style="margin-top:16px;color:#9ca3af;font-size:12px;">Ce lien est personnel et valable 30 jours. Ne le partagez pas.</p>
-              <p style="margin-top:24px;color:#9ca3af;font-size:12px;">My ABED · Plateforme de gestion ABED</p>
+    // Invite les signataires externes (sans compte) par email, avec un lien magique tokenisé
+    for (const s of externalRows) {
+      const email = s.email as string
+      const token = signExternalSignerToken(s.id, email)
+      const lienSignature = `${APP_URL}/signatures/externe?t=${token}`
+      tasks.push(sendEmail({
+        to: email,
+        subject: `My ABED — Document à signer : ${titre}`,
+        html: `
+          <div style="font-family:sans-serif;max-width:560px;margin:0 auto;">
+            <h2 style="color:#16a34a;">My ABED — Signature requise</h2>
+            <p>Bonjour,</p>
+            <p><strong>${createurNom}</strong> (ABED ONG) vous invite à signer le document suivant :</p>
+            <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin:16px 0;">
+              <p style="margin:0;font-size:16px;font-weight:700;">${titre}</p>
+              ${description ? `<p style="margin:8px 0 0;color:#6b7280;">${description}</p>` : ''}
             </div>
-          `,
-        }).catch(err => console.error(`[Signatures] Email externe error for ${email}:`, err))
-      })
-    )
-  }
+            <p>Aucun compte n'est nécessaire. Cliquez sur le bouton ci-dessous, indiquez votre nom et prénom, puis signez le document :</p>
+            <a href="${lienSignature}" style="display:inline-block;padding:10px 22px;background:#16a34a;color:white;border-radius:8px;text-decoration:none;font-weight:700;">
+              Signer le document
+            </a>
+            <p style="margin-top:16px;color:#9ca3af;font-size:12px;">Ce lien est personnel et valable 30 jours. Ne le partagez pas.</p>
+            <p style="margin-top:24px;color:#9ca3af;font-size:12px;">My ABED · Plateforme de gestion ABED</p>
+          </div>
+        `,
+      }).catch(err => console.error(`[Signatures] Email externe error for ${email}:`, err)))
+    }
 
-  // Fetch signataires rows to return with the demande
-  const { data: sigRows2 } = await admin
-    .from('signataires')
-    .select('profile_id, email, nom_externe, signe, signe_le, profile:profiles!signataires_profile_id_fkey(nom, prenoms)')
-    .eq('demande_id', demande.id)
+    await Promise.allSettled(tasks)
+  })
 
   return NextResponse.json({
     demande: {

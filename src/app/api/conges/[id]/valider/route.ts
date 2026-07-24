@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { revalidateTag } from 'next/cache'
@@ -61,14 +61,12 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  const { data: deProfile } = await service.from('profiles').select('civilite').eq('role', 'de').maybeSingle()
+  // Requêtes indépendantes — en parallèle plutôt qu'à la suite
+  const [{ data: deProfile }, { data: conge }] = await Promise.all([
+    service.from('profiles').select('civilite').eq('role', 'de').maybeSingle(),
+    service.from('conges').select('*, profile:profiles!profile_id(id, nom, prenoms, email)').eq('id', id).single(),
+  ])
   const deCivilite = deProfile?.civilite ?? 'M.'
-
-  const { data: conge } = await service
-    .from('conges')
-    .select('*, profile:profiles!profile_id(id, nom, prenoms, email)')
-    .eq('id', id)
-    .single()
 
   if (!conge) return NextResponse.json({ error: 'Congé introuvable' }, { status: 404 })
 
@@ -93,33 +91,36 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
     notifMessage = `Votre demande de congé (${conge.date_debut} → ${conge.date_fin}) a été rejetée.${commentaire ? ` Motif : ${commentaire}` : ''}`
   } else if (conge.statut === 'en_attente' && (conge.valideur_n1_id === user.id || ['rh', 'admin'].includes(myRole))) {
     newStatut = 'approuve_n1'
-    const { data: deUsers } = await service.from('profiles').select('id, email, prenoms, nom').in('role', ['de', 'dp', 'administrateur'])
-    for (const de of deUsers ?? []) {
-      await service.from('notifications').insert({
-        user_id: de.id,
-        titre: 'Congé — autorisation finale requise',
-        message: `La demande de congé de ${nomEmploye} (${conge.nb_jours}j) a été validée par les RH. Autorisation finale requise.`,
-        lien: '/rh/conges',
-      })
-      if (de.email) {
-        await sendEmail({
-          to: de.email,
-          subject: `Congé ${nomEmploye} — autorisation finale requise`,
-          html: `
-            <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#f9fafb;border-radius:12px">
-              <h2 style="color:#1e40af;margin:0 0 20px">⏳ Autorisation finale requise</h2>
-              <div style="background:white;border-radius:10px;padding:24px;border:1px solid #e5e7eb">
-                <p style="margin:0 0 16px;font-size:14px;color:#374151">Bonjour <strong>${de.prenoms} ${de.nom}</strong>,</p>
-                <p style="margin:0 0 20px;font-size:14px;color:#374151">La demande de congé de <strong>${nomEmploye}</strong> a été validée par les RH. Votre autorisation finale est requise.</p>
-                <a href="${appUrl}/rh/conges" style="display:block;text-align:center;background:#1e40af;color:white;padding:12px 0;border-radius:8px;font-size:14px;font-weight:700;text-decoration:none">
-                  Autoriser →
-                </a>
+    // Notifs/emails aux DE — après la réponse, tous en parallèle (pas un par un)
+    after(async () => {
+      const { data: deUsers } = await service.from('profiles').select('id, email, prenoms, nom').in('role', ['de', 'dp', 'administrateur'])
+      await Promise.allSettled((deUsers ?? []).map(async de => {
+        await service.from('notifications').insert({
+          user_id: de.id,
+          titre: 'Congé — autorisation finale requise',
+          message: `La demande de congé de ${nomEmploye} (${conge.nb_jours}j) a été validée par les RH. Autorisation finale requise.`,
+          lien: '/rh/conges',
+        })
+        if (de.email) {
+          await sendEmail({
+            to: de.email,
+            subject: `Congé ${nomEmploye} — autorisation finale requise`,
+            html: `
+              <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#f9fafb;border-radius:12px">
+                <h2 style="color:#1e40af;margin:0 0 20px">⏳ Autorisation finale requise</h2>
+                <div style="background:white;border-radius:10px;padding:24px;border:1px solid #e5e7eb">
+                  <p style="margin:0 0 16px;font-size:14px;color:#374151">Bonjour <strong>${de.prenoms} ${de.nom}</strong>,</p>
+                  <p style="margin:0 0 20px;font-size:14px;color:#374151">La demande de congé de <strong>${nomEmploye}</strong> a été validée par les RH. Votre autorisation finale est requise.</p>
+                  <a href="${appUrl}/rh/conges" style="display:block;text-align:center;background:#1e40af;color:white;padding:12px 0;border-radius:8px;font-size:14px;font-weight:700;text-decoration:none">
+                    Autoriser →
+                  </a>
+                </div>
               </div>
-            </div>
-          `,
-        }).catch(() => {})
-      }
-    }
+            `,
+          }).catch(() => {})
+        }
+      }))
+    })
     notifUserId = conge.profile_id
     notifTitre = 'Congé validé (RH)'
     notifMessage = `Votre demande de congé a été validée par les RH. En attente d'autorisation ${accordGenre(deCivilite, 'du Directeur Exécutif', 'de la Directrice Exécutive')}.`
@@ -143,26 +144,23 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   revalidateTag('conges')
 
-  if (notifUserId && notifTitre) {
-    await service.from('notifications').insert({
-      user_id: notifUserId, titre: notifTitre, message: notifMessage, lien: '/conges',
-    })
-  }
-
-  // Email à l'employé pour statut final (approuvé N1, approuvé, rejeté)
-  if (employe?.email && newStatut !== 'approuve_n1') {
-    await sendEmail({
-      to: employe.email,
-      subject: newStatut === 'rejete' ? 'Demande de congé rejetée' : 'Congé approuvé — My ABED',
-      html: emailCongeStatut(nomEmploye, newStatut as any, conge, deCivilite, commentaire),
-    }).catch(() => {})
-  } else if (employe?.email && newStatut === 'approuve_n1') {
-    await sendEmail({
-      to: employe.email,
-      subject: 'Congé approuvé N1 — en attente validation RH',
-      html: emailCongeStatut(nomEmploye, 'approuve_n1', conge, deCivilite),
-    }).catch(() => {})
-  }
+  // Notification + email à l'employé — après la réponse, en parallèle
+  after(async () => {
+    await Promise.allSettled([
+      notifUserId && notifTitre
+        ? service.from('notifications').insert({ user_id: notifUserId, titre: notifTitre, message: notifMessage, lien: '/conges' })
+        : Promise.resolve(),
+      employe?.email
+        ? sendEmail({
+            to: employe.email,
+            subject: newStatut === 'approuve_n1' ? 'Congé approuvé N1 — en attente validation RH' : newStatut === 'rejete' ? 'Demande de congé rejetée' : 'Congé approuvé — My ABED',
+            html: newStatut === 'approuve_n1'
+              ? emailCongeStatut(nomEmploye, 'approuve_n1', conge, deCivilite)
+              : emailCongeStatut(nomEmploye, newStatut as any, conge, deCivilite, commentaire),
+          }).catch(() => {})
+        : Promise.resolve(),
+    ])
+  })
 
   if (newStatut === 'approuve' && conge.type_conge_id) {
     const year = new Date().getFullYear()

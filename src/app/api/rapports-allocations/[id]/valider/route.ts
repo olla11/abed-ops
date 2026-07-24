@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { sendEmail } from '@/lib/resend'
 import { accordGenre } from '@/lib/genre'
@@ -90,63 +90,56 @@ export async function POST(
   const mois = new Date(rapport.periode_annee, rapport.periode_mois - 1)
     .toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
 
-  // Email final au bénéficiaire si autorisé
-  if (update.status === 'autorise') {
-    const notifTitre = estSalarie ? '✓ Fiche de paie disponible' : '✓ Allocation autorisée'
-    const notifMsg = estSalarie
-      ? `Votre fiche de paie de ${mois} est disponible. Salaire net : ${Number(rapport.montant_allocation).toLocaleString('fr-FR')} FCFA.`
-      : `Votre rapport de ${mois} a été autorisé. Montant : ${Number(rapport.montant_allocation).toLocaleString('fr-FR')} FCFA.`
-    await supabase.from('notifications').insert({
-      user_id: prest.id, titre: notifTitre, message: notifMsg, lien: '/timesheets',
-    })
-    if (prest.email) {
-      try {
-        await sendEmail({
+  // Notifications + emails — après la réponse, en parallèle plutôt qu'à la suite
+  after(async () => {
+    const tasks: PromiseLike<unknown>[] = []
+
+    if (update.status === 'autorise') {
+      const notifTitre = estSalarie ? '✓ Fiche de paie disponible' : '✓ Allocation autorisée'
+      const notifMsg = estSalarie
+        ? `Votre fiche de paie de ${mois} est disponible. Salaire net : ${Number(rapport.montant_allocation).toLocaleString('fr-FR')} FCFA.`
+        : `Votre rapport de ${mois} a été autorisé. Montant : ${Number(rapport.montant_allocation).toLocaleString('fr-FR')} FCFA.`
+      tasks.push(supabase.from('notifications').insert({ user_id: prest.id, titre: notifTitre, message: notifMsg, lien: '/timesheets' }))
+      if (prest.email) {
+        tasks.push(sendEmail({
           to: prest.email,
           subject: estSalarie
             ? `[ABED-ONG] ✓ Votre fiche de paie de ${mois} est disponible`
             : `[ABED-ONG] ✓ Votre allocation de ${mois} est autorisée`,
           html: buildEmailAutorise({ rapport, mois, prest, id, estSalarie, civilite: profile?.civilite }),
-        })
-      } catch (e) { console.error('[Email autorise]:', e) }
+        }).catch(e => console.error('[Email autorise]:', e)))
+      }
     }
-  }
 
-  // Email si rejeté
-  if (['rejete_manager','rejete_aaf','rejete_caf','refuse_de'].includes(update.status ?? '')) {
-    if (prest.email) {
-      try {
-        await sendEmail({
-          to: prest.email,
-          subject: `[ABED-ONG] Votre rapport de ${mois} a été rejeté`,
-          html: buildEmailRejete({ mois, prest, commentaire }),
-        })
-      } catch (e) { console.error('[Email rejete]:', e) }
+    if (['rejete_manager','rejete_aaf','rejete_caf','refuse_de'].includes(update.status ?? '') && prest.email) {
+      tasks.push(sendEmail({
+        to: prest.email,
+        subject: `[ABED-ONG] Votre rapport de ${mois} a été rejeté`,
+        html: buildEmailRejete({ mois, prest, commentaire }),
+      }).catch(e => console.error('[Email rejete]:', e)))
     }
-  }
 
-  // Email + notification à la prochaine étape
-  if (nextRoles) {
-    const { data: nextUsers } = await supabase
-      .from('profiles').select('id, email, prenoms, nom').in('role', nextRoles)
-    for (const u of nextUsers ?? []) {
-      await supabase.from('notifications').insert({
-        user_id: u.id,
-        titre: `Rapport mensuel à traiter`,
-        message: `${prest.prenoms} ${prest.nom} — ${mois}${rapport.montant_allocation ? ` — ${Number(rapport.montant_allocation).toLocaleString('fr-FR')} FCFA` : ''}`,
-        lien: '/timesheets',
-      })
-      if (u.email) {
-        try {
-          await sendEmail({
+    if (nextRoles) {
+      const { data: nextUsers } = await supabase.from('profiles').select('id, email, prenoms, nom').in('role', nextRoles)
+      for (const u of nextUsers ?? []) {
+        tasks.push(supabase.from('notifications').insert({
+          user_id: u.id,
+          titre: `Rapport mensuel à traiter`,
+          message: `${prest.prenoms} ${prest.nom} — ${mois}${rapport.montant_allocation ? ` — ${Number(rapport.montant_allocation).toLocaleString('fr-FR')} FCFA` : ''}`,
+          lien: '/timesheets',
+        }))
+        if (u.email) {
+          tasks.push(sendEmail({
             to: u.email,
             subject: nextEmailSubject,
             html: buildEmailEtape({ prest, mois, rapport, msg: nextEmailMsg, nom: `${u.prenoms} ${u.nom}`, estSalarie }),
-          })
-        } catch (e) { console.error('[Email etape]:', e) }
+          }).catch(e => console.error('[Email etape]:', e)))
+        }
       }
     }
-  }
+
+    await Promise.allSettled(tasks)
+  })
 
   return NextResponse.json({ ok: true })
 }

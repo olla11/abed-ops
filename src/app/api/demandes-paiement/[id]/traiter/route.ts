@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { sendEmail } from '@/lib/resend'
 import { accordGenre } from '@/lib/genre'
@@ -75,63 +75,61 @@ export async function POST(
 
   const demandeur = demande.demandeur as any
 
-  // Email au demandeur si autorisation finale ou rejet
-  if (update.status === 'autorise') {
-    await supabase.from('notifications').insert({
-      user_id: demandeur.id,
-      titre: '✓ Demande de paiement autorisée',
-      message: `Votre demande "${demande.objet}" a été autorisée. L'AAF procédera au paiement.`,
-      lien: '/demandes',
-    })
-    if (demandeur.email) {
-      try {
-        await sendEmail({
+  // Notifications + emails — après la réponse, en parallèle plutôt qu'à la suite
+  after(async () => {
+    const tasks: PromiseLike<unknown>[] = []
+
+    if (update.status === 'autorise') {
+      tasks.push(supabase.from('notifications').insert({
+        user_id: demandeur.id,
+        titre: '✓ Demande de paiement autorisée',
+        message: `Votre demande "${demande.objet}" a été autorisée. L'AAF procédera au paiement.`,
+        lien: '/demandes',
+      }))
+      if (demandeur.email) {
+        tasks.push(sendEmail({
           to: demandeur.email,
           subject: '[ABED-ONG] ✓ Votre demande de paiement est autorisée',
           html: buildEmailDemandeur({ demande, status: 'autorisée', profile }),
-        })
-      } catch (e) { console.error('[Email]:', e) }
-    }
-  } else if (['rejete_aaf','rejete_caf','refuse_caf','refuse_de'].includes(update.status)) {
-    await supabase.from('notifications').insert({
-      user_id: demandeur.id,
-      titre: 'Demande de paiement rejetée',
-      message: `Votre demande "${demande.objet}" a été rejetée. Motif : ${commentaire}`,
-      lien: '/demandes',
-    })
-    if (demandeur.email) {
-      try {
-        await sendEmail({
+        }).catch(e => console.error('[Email]:', e)))
+      }
+    } else if (['rejete_aaf','rejete_caf','refuse_caf','refuse_de'].includes(update.status)) {
+      tasks.push(supabase.from('notifications').insert({
+        user_id: demandeur.id,
+        titre: 'Demande de paiement rejetée',
+        message: `Votre demande "${demande.objet}" a été rejetée. Motif : ${commentaire}`,
+        lien: '/demandes',
+      }))
+      if (demandeur.email) {
+        tasks.push(sendEmail({
           to: demandeur.email,
           subject: '[ABED-ONG] Votre demande de paiement a été rejetée',
           html: buildEmailDemandeur({ demande, status: 'rejetée', commentaire, profile }),
-        })
-      } catch (e) { console.error('[Email]:', e) }
+        }).catch(e => console.error('[Email]:', e)))
+      }
     }
-  }
 
-  // Email à la prochaine étape
-  if (nextRoles) {
-    const { data: nextUsers } = await supabase
-      .from('profiles').select('id, email, prenoms, nom').in('role', nextRoles)
-    for (const u of nextUsers ?? []) {
-      await supabase.from('notifications').insert({
-        user_id: u.id,
-        titre: `Demande de paiement à traiter`,
-        message: `${demande.nom_complet} — ${demande.objet} — ${Number(demande.montant).toLocaleString('fr-FR')} FCFA`,
-        lien: '/demandes',
-      })
-      if (u.email) {
-        try {
-          await sendEmail({
+    if (nextRoles) {
+      const { data: nextUsers } = await supabase.from('profiles').select('id, email, prenoms, nom').in('role', nextRoles)
+      for (const u of nextUsers ?? []) {
+        tasks.push(supabase.from('notifications').insert({
+          user_id: u.id,
+          titre: `Demande de paiement à traiter`,
+          message: `${demande.nom_complet} — ${demande.objet} — ${Number(demande.montant).toLocaleString('fr-FR')} FCFA`,
+          lien: '/demandes',
+        }))
+        if (u.email) {
+          tasks.push(sendEmail({
             to: u.email,
             subject: emailSubject,
             html: buildEmailTraiteur({ demande, msg: emailMsg, nom: `${u.prenoms} ${u.nom}` }),
-          })
-        } catch (e) { console.error('[Email]:', e) }
+          }).catch(e => console.error('[Email]:', e)))
+        }
       }
     }
-  }
+
+    await Promise.allSettled(tasks)
+  })
 
   return NextResponse.json({ ok: true })
 }
