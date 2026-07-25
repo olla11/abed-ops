@@ -7,8 +7,8 @@ import { baseTdrExtensions } from '@/lib/tdr-editor-extensions'
 import type * as Y from 'yjs'
 import type { SupabaseYjsProvider } from '@/lib/yjs-supabase-provider'
 import {
-  Bold, Italic, Underline as UnderlineIcon, Link2, List, ListOrdered,
-  Table as TableIcon, Rows3, Columns3, Trash2, MessageSquarePlus,
+  Bold, Italic, Underline as UnderlineIcon, Link2, List, ListOrdered, AlignJustify,
+  Table as TableIcon, Rows3, Columns3, TableRowsSplit, TableColumnsSplit, Trash2, MessageSquarePlus,
 } from 'lucide-react'
 
 export type CollabConfig = {
@@ -82,6 +82,20 @@ export default function RichTextEditor({
     editor!.chain().focus().extendMarkRange('link').setLink({ href: url }).run()
   }
 
+  function toggleJustifier() {
+    if (editor!.isActive({ textAlign: 'justify' })) {
+      editor!.chain().focus().unsetTextAlign().run()
+    } else {
+      editor!.chain().focus().setTextAlign('justify').run()
+    }
+  }
+
+  function supprimerTableau() {
+    if (window.confirm('Supprimer tout le tableau ? Cette action est irréversible.')) {
+      editor!.chain().focus().deleteTable().run()
+    }
+  }
+
   function ajouterCommentaire() {
     const { from, to, empty } = editor!.state.selection
     if (empty) { window.alert('Sélectionnez d\'abord le texte à commenter.'); return }
@@ -105,12 +119,17 @@ export default function RichTextEditor({
           <ToolbarButton title="Liste à puces" active={editor.isActive('bulletList')} onClick={() => editor.chain().focus().toggleBulletList().run()}><List size={14} /></ToolbarButton>
           <ToolbarButton title="Liste numérotée" active={editor.isActive('orderedList')} onClick={() => editor.chain().focus().toggleOrderedList().run()}><ListOrdered size={14} /></ToolbarButton>
           <span style={{ width: 1, height: 18, background: '#e5e7eb', margin: '0 4px' }} />
-          <ToolbarButton title="Insérer un tableau" onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}><TableIcon size={14} /></ToolbarButton>
+          <ToolbarButton title="Justifier le texte" active={editor.isActive({ textAlign: 'justify' })} onClick={toggleJustifier}><AlignJustify size={14} /></ToolbarButton>
+          <span style={{ width: 1, height: 18, background: '#e5e7eb', margin: '0 4px' }} />
+          <ToolbarButton title="Insérer un tableau" onClick={() => editor.chain().focus().insertTable({ rows: 1, cols: 1, withHeaderRow: false }).run()}><TableIcon size={14} /></ToolbarButton>
           {editor.isActive('table') && (
             <>
               <ToolbarButton title="Ajouter une ligne" onClick={() => editor.chain().focus().addRowAfter().run()}><Rows3 size={14} /></ToolbarButton>
               <ToolbarButton title="Ajouter une colonne" onClick={() => editor.chain().focus().addColumnAfter().run()}><Columns3 size={14} /></ToolbarButton>
-              <ToolbarButton title="Supprimer le tableau" onClick={() => editor.chain().focus().deleteTable().run()}><Trash2 size={14} /></ToolbarButton>
+              <ToolbarButton title="Supprimer la ligne" onClick={() => editor.chain().focus().deleteRow().run()}><TableRowsSplit size={14} /></ToolbarButton>
+              <ToolbarButton title="Supprimer la colonne" onClick={() => editor.chain().focus().deleteColumn().run()}><TableColumnsSplit size={14} /></ToolbarButton>
+              <span style={{ width: 1, height: 18, background: '#e5e7eb', margin: '0 4px' }} />
+              <ToolbarButton title="Supprimer tout le tableau" onClick={supprimerTableau}><Trash2 size={14} /></ToolbarButton>
             </>
           )}
           {onComment && (
