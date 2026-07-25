@@ -370,6 +370,8 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
 
   return (
     <div className="page-container">
+      <div className="tdr-layout">
+      <div style={{ minWidth: 0, flex: 1 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
         <a href="/tdr" style={{ fontSize: 13, color: 'var(--abed-muted)', textDecoration: 'none' }}>← Tous les TDR</a>
       </div>
@@ -454,8 +456,7 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
 
       {err && <div style={{ color: '#c0392b', fontSize: 13, marginBottom: 14, padding: '8px 12px', background: '#fee2e2', borderRadius: 8 }}>{err}</div>}
 
-      <div style={{ maxWidth: 880 }}>
-        <div>
+      <div>
           <div className="card" style={{ marginBottom: 16 }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
               <div className="field">
@@ -513,7 +514,8 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
       </div>
 
       {panelOpen && <div className="tdr-panel-backdrop" onClick={() => setPanelOpen(false)} />}
-      <div className={`tdr-panel${panelOpen ? ' tdr-panel-open' : ''}`}>
+      {panelOpen && (
+      <div className="tdr-panel">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid var(--abed-border)' }}>
           <h3 style={{ margin: 0, fontSize: 14 }}>Signature &amp; commentaires</h3>
           <button onClick={() => setPanelOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', display: 'flex' }}>
@@ -616,6 +618,8 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
           </div>
         </div>
       </div>
+      )}
+      </div>
 
       {/* Modal : transmettre pour signature */}
       {showSoumettre && (
@@ -711,17 +715,31 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
       )}
 
       <style jsx global>{`
+        .tdr-layout { display: flex; gap: 20px; align-items: flex-start; }
+        /* Desktop : le panneau prend sa place dans la mise en page (le contenu
+           principal s'ajuste automatiquement, rien n'est jamais caché derrière),
+           avec son propre défilement indépendant de celui de la page. */
         .tdr-panel {
-          position: fixed; top: 0; right: 0; height: 100dvh; width: min(380px, 92vw);
-          background: var(--abed-card, white); box-shadow: -6px 0 28px rgba(0,0,0,.14);
-          transform: translateX(100%); transition: transform .25s ease;
-          z-index: 600; display: flex; flex-direction: column;
+          flex: 0 0 380px; width: 380px; max-width: 92vw;
+          position: sticky; top: 20px; align-self: flex-start;
+          max-height: calc(100dvh - 40px); overflow: hidden;
+          background: var(--abed-card, white); box-shadow: 0 6px 28px rgba(0,0,0,.14);
+          border-radius: 12px; border: 1px solid var(--abed-border);
+          display: flex; flex-direction: column;
         }
-        .tdr-panel-open { transform: translateX(0); }
-        .tdr-panel-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 590; }
-        @media (min-width: 901px) { .tdr-panel-backdrop { display: none; } }
-        @media (max-width: 640px) {
-          .tdr-panel { width: 100vw; }
+        .tdr-panel-backdrop { display: none; }
+        /* Mobile : plus de place pour partager la mise en page — le panneau
+           devient un tiroir plein écran par-dessus le contenu, avec son propre
+           scroll, sans jamais recouvrir les boutons d'action (posés au-dessus,
+           en dehors de ce conteneur, mais le tiroir couvre volontairement tout
+           en dessous puisqu'il n'y a pas la place de pousser le contenu). */
+        @media (max-width: 900px) {
+          .tdr-layout { display: block; }
+          .tdr-panel {
+            position: fixed; inset: 0; top: 0; right: 0; width: 100vw; max-width: 100vw;
+            height: 100dvh; max-height: 100dvh; border-radius: 0; border: none; z-index: 600;
+          }
+          .tdr-panel-backdrop { display: block; position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 590; }
         }
       `}</style>
     </div>
