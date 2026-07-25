@@ -1,6 +1,8 @@
 import { createAdminClient } from '@/lib/supabase-server'
 import { sendEmail } from '@/lib/resend'
 
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_URL ?? 'https://myabed.app'
+
 type Admin = ReturnType<typeof createAdminClient>
 
 async function getTdrParticipants(admin: Admin, tdrId: string) {
@@ -53,11 +55,17 @@ export async function notifyTdr(tdrId: string, opts: {
         to: p.email,
         subject: `[My ABED] ${opts.titre}`,
         html: `
-          <div style="font-family:sans-serif;max-width:560px;margin:0 auto">
-            <h2 style="color:#16a34a">${opts.titre}</h2>
-            <p>Bonjour <strong>${p.prenoms}</strong>,</p>
-            <p>${message}</p>
-            <p style="color:#6b7280;font-size:13px">Connectez-vous à My ABED pour voir le détail du TDR.</p>
+          <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;">
+            <div style="background:#16a34a;color:white;padding:20px 28px;border-radius:8px 8px 0 0;">
+              <h1 style="margin:0;font-size:18px;">${opts.titre}</h1>
+            </div>
+            <div style="padding:24px 28px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
+              <p style="margin:0 0 12px;">Bonjour <strong>${p.prenoms}</strong>,</p>
+              <p style="margin:0 0 20px;color:#374151;">${message}</p>
+              <a href="${APP_URL}/tdr/${tdrId}" style="display:inline-block;background:#16a34a;color:white;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:700;font-size:14px;">
+                Voir le TDR →
+              </a>
+            </div>
           </div>
         `,
       }).catch(console.error)
