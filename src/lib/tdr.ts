@@ -18,13 +18,13 @@ export const CHAPITRES_DEFAUT: Chapitre[] = [
   { cle: 'objectifs', titre: 'Objectif général', type: 'texte', texte: '' },
   { cle: 'resultats', titre: 'Résultats attendus et livrables', type: 'texte', texte: '' },
   { cle: 'methodologie', titre: 'Méthodologie/activités', type: 'texte', texte: '' },
-  { cle: 'chronogramme', titre: 'Planification des activités (chronogramme)', type: 'tableau',
+  { cle: 'chronogramme', titre: 'Planification des activités (chronogramme)', type: 'tableau', texte: '',
     tableau: { colonnes: ['Activité', 'Acteurs clés', 'Période indicative'], lignes: [] } },
-  { cle: 'acteurs', titre: 'Rôles des acteurs et partenaires clés', type: 'tableau',
+  { cle: 'acteurs', titre: 'Rôles des acteurs et partenaires clés', type: 'tableau', texte: '',
     tableau: { colonnes: ['Acteur', 'Rôle'], lignes: [] } },
-  { cle: 'communication', titre: 'Stratégie de communication', type: 'tableau',
+  { cle: 'communication', titre: 'Stratégie de communication', type: 'tableau', texte: '',
     tableau: { colonnes: ['Rubrique', 'Détails'], lignes: [] } },
-  { cle: 'budget', titre: 'Budget prévisionnel détaillé', type: 'tableau',
+  { cle: 'budget', titre: 'Budget prévisionnel détaillé', type: 'tableau', texte: '',
     tableau: { colonnes: ['Désignation', 'Unité', 'Qté', 'Coût unitaire (FCFA)', 'Coût total (FCFA)'], lignes: [] } },
 ]
 
