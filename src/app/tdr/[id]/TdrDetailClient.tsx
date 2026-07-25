@@ -160,10 +160,11 @@ function ChapitreEditor({ chapitre, onChange, readOnly, collab, onComment }: {
 }
 
 function CommentRow({ c }: { c: Commentaire }) {
+  const couleur = couleurPourUser(c.auteur?.id ?? c.mark_id)
   return (
-    <div style={{ display: 'flex', gap: 8 }}>
+    <div style={{ display: 'flex', gap: 8, borderLeft: `3px solid ${couleur}`, paddingLeft: 8 }}>
       <div style={{
-        width: 26, height: 26, borderRadius: '50%', background: 'var(--abed-green)', color: 'white',
+        width: 26, height: 26, borderRadius: '50%', background: couleur, color: 'white',
         display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0,
       }}>
         {(c.auteur ? `${c.auteur.prenoms[0] ?? ''}${c.auteur.nom[0] ?? ''}` : '?').toUpperCase()}
@@ -421,6 +422,14 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
   )
 
   const active = chapitres[activeIdx]
+
+  // Couleur du surlignage d'un passage commenté = couleur de l'auteur du
+  // commentaire racine (même couleur que sa bulle dans le panneau), pour
+  // relier visuellement le texte surligné au commentaire correspondant.
+  const couleurParMark: Record<string, string> = {}
+  for (const c of commentaires) {
+    if (!c.parent_id) couleurParMark[c.mark_id] = couleurPourUser(c.auteur?.id ?? c.mark_id)
+  }
 
   return (
     <div className="page-container">
@@ -781,15 +790,23 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
         </div>
       )}
 
+      <style>{Object.entries(couleurParMark).map(([markId, couleur]) => `
+        .rte-content .tdr-comment-highlight[data-comment-id="${markId}"] {
+          background: ${couleur}33 !important;
+          border-bottom-color: ${couleur} !important;
+        }
+      `).join('\n')}</style>
+
       <style jsx global>{`
-        .tdr-layout { display: flex; gap: 20px; align-items: flex-start; }
+        .tdr-layout { display: flex; gap: 20px; align-items: stretch; }
         /* Desktop : le panneau prend sa place dans la mise en page (le contenu
-           principal s'ajuste automatiquement, rien n'est jamais caché derrière),
-           avec son propre défilement indépendant de celui de la page. */
+           principal s'ajuste automatiquement, rien n'est jamais caché derrière).
+           Sa hauteur s'aligne sur celle du contenu du TDR (colonne flex en
+           align-items: stretch par défaut) ; s'il a lui-même plus de contenu
+           que cette hauteur, il défile indépendamment de la page. */
         .tdr-panel {
           flex: 0 0 380px; width: 380px; max-width: 92vw;
-          position: sticky; top: 20px; align-self: flex-start;
-          max-height: calc(100dvh - 40px); overflow: hidden;
+          overflow: hidden;
           background: var(--abed-card, white); box-shadow: 0 6px 28px rgba(0,0,0,.14);
           border-radius: 12px; border: 1px solid var(--abed-border);
           display: flex; flex-direction: column;
