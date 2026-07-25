@@ -1,3 +1,20 @@
+// Pied de page légal, ajouté automatiquement à tous les emails envoyés par
+// l'application (voir sendEmail ci-dessous) — un seul endroit à maintenir.
+// L'année s'actualise toute seule chaque année (pas de valeur en dur).
+function disclaimerEmail(): string {
+  const annee = new Date().getFullYear()
+  return `
+    <div style="margin-top:32px;padding-top:16px;border-top:1px solid #e5e7eb;text-align:center;">
+      <p style="font-size:8px;line-height:1.5;color:#9ca3af;margin:0;">
+        Ce message a été envoyé automatiquement par My ABED, la plateforme de gestion d'ABED-ONG.
+        Merci de ne pas y répondre directement. Pour toute question, contactez
+        <a href="mailto:contact@abedong.org" style="color:#9ca3af;">contact@abedong.org</a>.<br>
+        © ${annee} ABED-ONG — Agriculture pour le Bien-être et le Développement Durable. Tous droits réservés.
+      </p>
+    </div>
+  `
+}
+
 export async function sendEmail({
   to,
   subject,
@@ -27,7 +44,7 @@ export async function sendEmail({
       from: fromEmail,
       to: Array.isArray(to) ? to : [to],
       subject,
-      html,
+      html: `${html}${disclaimerEmail()}`,
       // Disable link tracking so Resend does not pre-fetch OTP links before the user clicks
       tags: [{ name: 'track_clicks', value: 'false' }],
     }),
