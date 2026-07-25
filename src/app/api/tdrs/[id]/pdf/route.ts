@@ -148,7 +148,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
   ${chapitresOrdonnes.map((c, i) => `
     <h2 class="chapitre-titre">${i + 1}. ${esc(c.titre)}</h2>
-    ${c.type === 'tableau' ? renderTableau(c.tableau) : renderTexte(c.texte)}
+    ${c.type === 'tableau' ? `${c.texte && c.texte !== '<p></p>' ? renderTexte(c.texte) : ''}${renderTableau(c.tableau)}` : renderTexte(c.texte)}
   `).join('')}
 
   <h2 class="chapitre-titre">Approbation et autorisation</h2>
