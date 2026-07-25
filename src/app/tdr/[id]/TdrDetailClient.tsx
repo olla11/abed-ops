@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import * as Y from 'yjs'
-import { Download, UserPlus, X, Check, Trash2, Send, PenLine, XCircle, Lock, MessageSquare } from 'lucide-react'
+import { Download, UserPlus, X, Check, Trash2, Send, PenLine, XCircle, Lock, MessageSquare, PanelRightOpen, PanelRightClose } from 'lucide-react'
 import { CHAPITRE_CLES, TDR_STATUT_LABELS, labelSignataireRole, STATUT_TOUR, isColonneNumerique, type Chapitre, type TdrStatut, type SignataireRole } from '@/lib/tdr'
 import RichTextEditor from '@/components/RichTextEditor'
 import { createClient as createBrowserClient } from '@/lib/supabase-client'
@@ -94,7 +94,14 @@ function ChapitreEditor({ chapitre, onChange, readOnly, collab, onComment }: {
 
   return (
     <div>
-      <div className="table-wrap">
+      <RichTextEditor
+        value={chapitre.texte ?? ''}
+        onChange={html => onChange({ ...chapitre, texte: html })}
+        readOnly={readOnly}
+        collab={collab}
+        onComment={onComment}
+      />
+      <div className="table-wrap" style={{ marginTop: 16 }}>
         <table style={{ minWidth: 500 }}>
           <thead>
             <tr>
@@ -173,6 +180,7 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
   const [inviteSearch, setInviteSearch] = useState('')
   const [invitePermission, setInvitePermission] = useState<'lecture' | 'revision'>('lecture')
   const [deleteArmed, setDeleteArmed] = useState(false)
+  const [panelOpen, setPanelOpen] = useState(false)
 
   const isInitiateur = tdr.initiateur_id === myId
   const monCollab = tdr.collaborateurs.find(c => c.profile_id === myId)
@@ -210,7 +218,7 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
     // le TDR en même temps pour la première fois risquent d'amorcer en double.
     const t = setTimeout(() => {
       for (const c of chapitres) {
-        if (c.type === 'texte') amorcerFragmentDepuisHtml(ydoc, c.cle, c.texte ?? '')
+        amorcerFragmentDepuisHtml(ydoc, c.cle, c.texte ?? '')
       }
       setCollabReady(true)
     }, 900)
@@ -382,6 +390,24 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button onClick={() => setPanelOpen(v => !v)}
+            style={{
+              padding: '9px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              background: panelOpen ? 'var(--abed-green)' : 'white', color: panelOpen ? 'white' : '#374151',
+              border: panelOpen ? 'none' : '1px solid var(--abed-border)', display: 'flex', alignItems: 'center', gap: 6, position: 'relative',
+            }}>
+            {panelOpen ? <PanelRightClose size={15} /> : <PanelRightOpen size={15} />}
+            Signature &amp; commentaires
+            {commentaires.length > 0 && (
+              <span style={{
+                fontSize: 10, fontWeight: 700, minWidth: 16, height: 16, padding: '0 4px', borderRadius: 20,
+                background: panelOpen ? 'white' : 'var(--abed-green)', color: panelOpen ? 'var(--abed-green)' : 'white',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                {commentaires.length}
+              </span>
+            )}
+          </button>
           {peutTelecharger && (
             <a href={`/api/tdrs/${tdr.id}/pdf`} target="_blank" rel="noreferrer"
               style={{ padding: '9px 18px', borderRadius: 8, fontSize: 13, fontWeight: 700, background: 'var(--abed-green)', color: 'white', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -428,7 +454,7 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
 
       {err && <div style={{ color: '#c0392b', fontSize: 13, marginBottom: 14, padding: '8px 12px', background: '#fee2e2', borderRadius: 8 }}>{err}</div>}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 260px', gap: 20, alignItems: 'start' }}>
+      <div style={{ maxWidth: 880 }}>
         <div>
           <div className="card" style={{ marginBottom: 16 }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
@@ -470,33 +496,13 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
               chapitre={active}
               readOnly={!canEdit}
               onChange={c => setChapitres(cs => cs.map((cc, i) => i === activeIdx ? c : cc))}
-              collab={active.type === 'texte' && collabReady && ydocRef.current && providerRef.current ? {
+              collab={collabReady && ydocRef.current && providerRef.current ? {
                 doc: ydocRef.current, fragment: active.cle, provider: providerRef.current,
                 user: { name: monNom, color: couleurPourUser(myId) },
               } : undefined}
-              onComment={active.type === 'texte' ? (markId, texte) => creerCommentaire(active.cle, markId, texte) : undefined}
+              onComment={(markId, texte) => creerCommentaire(active.cle, markId, texte)}
             />
           </div>
-
-          {active.type === 'texte' && (
-            <div className="card" style={{ marginTop: 16 }}>
-              <h3 style={{ fontSize: 13, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <MessageSquare size={14} /> Commentaires de ce chapitre
-              </h3>
-              {commentaires.filter(c => c.chapitre_cle === active.cle).length === 0 && (
-                <p style={{ fontSize: 12, color: 'var(--abed-muted)', margin: 0 }}>Aucun commentaire. Sélectionnez du texte puis cliquez sur l&apos;icône de commentaire dans la barre d&apos;outils.</p>
-              )}
-              {commentaires.filter(c => c.chapitre_cle === active.cle).map(c => (
-                <div key={c.id} style={{ marginBottom: 10, paddingBottom: 10, borderBottom: '1px solid #f3f4f6' }}>
-                  {c.texte_cite && <div style={{ fontSize: 12, color: '#92400e', background: '#fffbeb', borderRadius: 6, padding: '4px 8px', marginBottom: 4 }}>« {c.texte_cite} »</div>}
-                  <div style={{ fontSize: 13 }}>{c.contenu}</div>
-                  <div style={{ fontSize: 11, color: 'var(--abed-muted)', marginTop: 2 }}>
-                    {c.auteur ? `${c.auteur.prenoms} ${c.auteur.nom}` : '—'} · {new Date(c.created_at).toLocaleDateString('fr-FR')}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
 
           {(tdr.statut === 'brouillon' || estMonTour) && canEdit && (
             <div style={{ marginTop: 16 }}>
@@ -504,8 +510,44 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
             </div>
           )}
         </div>
+      </div>
 
-        <div>
+      {panelOpen && <div className="tdr-panel-backdrop" onClick={() => setPanelOpen(false)} />}
+      <div className={`tdr-panel${panelOpen ? ' tdr-panel-open' : ''}`}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid var(--abed-border)' }}>
+          <h3 style={{ margin: 0, fontSize: 14 }}>Signature &amp; commentaires</h3>
+          <button onClick={() => setPanelOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', display: 'flex' }}>
+            <X size={18} />
+          </button>
+        </div>
+        <div style={{ padding: 16, overflowY: 'auto', flex: 1 }}>
+          <div className="card" style={{ marginBottom: 16 }}>
+            <h3 style={{ fontSize: 13, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <MessageSquare size={14} /> Commentaires — {active.titre}
+            </h3>
+            {commentaires.filter(c => c.chapitre_cle === active.cle).length === 0 && (
+              <p style={{ fontSize: 12, color: 'var(--abed-muted)', margin: 0 }}>Aucun commentaire. Sélectionnez du texte puis cliquez sur l&apos;icône de commentaire dans la barre d&apos;outils.</p>
+            )}
+            {commentaires.filter(c => c.chapitre_cle === active.cle).map(c => (
+              <div key={c.id} style={{ display: 'flex', gap: 8, marginBottom: 10, paddingBottom: 10, borderBottom: '1px solid #f3f4f6' }}>
+                <div style={{
+                  width: 26, height: 26, borderRadius: '50%', background: 'var(--abed-green)', color: 'white',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0,
+                }}>
+                  {(c.auteur ? `${c.auteur.prenoms[0] ?? ''}${c.auteur.nom[0] ?? ''}` : '?').toUpperCase()}
+                </div>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700 }}>{c.auteur ? `${c.auteur.prenoms} ${c.auteur.nom}` : 'Utilisateur supprimé'}</div>
+                  {c.texte_cite && <div style={{ fontSize: 12, color: '#92400e', background: '#fffbeb', borderRadius: 6, padding: '4px 8px', margin: '4px 0' }}>« {c.texte_cite} »</div>}
+                  <div style={{ fontSize: 13 }}>{c.contenu}</div>
+                  <div style={{ fontSize: 11, color: 'var(--abed-muted)', marginTop: 2 }}>
+                    {new Date(c.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
           <div className="card" style={{ marginBottom: 16 }}>
             <h3 style={{ fontSize: 13, marginBottom: 12 }}>Circuit de signature</h3>
             {(['initiateur', 'responsable_technique', 'caf', 'de'] as SignataireRole[]).map(role => {
@@ -667,6 +709,21 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
           </div>
         </div>
       )}
+
+      <style jsx global>{`
+        .tdr-panel {
+          position: fixed; top: 0; right: 0; height: 100dvh; width: min(380px, 92vw);
+          background: var(--abed-card, white); box-shadow: -6px 0 28px rgba(0,0,0,.14);
+          transform: translateX(100%); transition: transform .25s ease;
+          z-index: 600; display: flex; flex-direction: column;
+        }
+        .tdr-panel-open { transform: translateX(0); }
+        .tdr-panel-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 590; }
+        @media (min-width: 901px) { .tdr-panel-backdrop { display: none; } }
+        @media (max-width: 640px) {
+          .tdr-panel { width: 100vw; }
+        }
+      `}</style>
     </div>
   )
 }
