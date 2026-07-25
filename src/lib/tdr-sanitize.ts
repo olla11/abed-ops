@@ -6,8 +6,11 @@ import type { Chapitre } from './tdr'
 // PDF, pour empêcher toute injection de script par un collaborateur en révision.
 const OPTIONS: sanitizeHtml.IOptions = {
   allowedTags: ['p', 'br', 'strong', 'b', 'em', 'i', 'u', 'a', 'ul', 'ol', 'li', 'table', 'thead', 'tbody', 'tr', 'th', 'td'],
-  allowedAttributes: { a: ['href', 'target', 'rel'] },
+  allowedAttributes: { a: ['href', 'target', 'rel'], p: ['style'] },
   allowedSchemes: ['http', 'https', 'mailto'],
+  allowedStyles: {
+    p: { 'text-align': [/^left$/, /^right$/, /^center$/, /^justify$/] },
+  },
 }
 
 export function sanitizeChapitreTexte(texte: string | undefined): string {
