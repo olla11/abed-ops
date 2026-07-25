@@ -19,5 +19,5 @@ export function sanitizeChapitreTexte(texte: string | undefined): string {
 }
 
 export function sanitizeChapitres(chapitres: Chapitre[]): Chapitre[] {
-  return chapitres.map(c => c.type === 'texte' ? { ...c, texte: sanitizeChapitreTexte(c.texte) } : c)
+  return chapitres.map(c => c.texte !== undefined ? { ...c, texte: sanitizeChapitreTexte(c.texte) } : c)
 }
