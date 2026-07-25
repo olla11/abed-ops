@@ -11,7 +11,7 @@ import { amorcerFragmentDepuisHtml } from '@/lib/tdr-collab-seed'
 
 type Commentaire = {
   id: string; chapitre_cle: string; mark_id: string; texte_cite: string | null; contenu: string
-  created_at: string; auteur: Profile | null
+  created_at: string; parent_id: string | null; auteur: Profile | null
 }
 
 type Profile = { id: string; nom: string; prenoms: string; civilite?: string | null }
@@ -159,6 +159,27 @@ function ChapitreEditor({ chapitre, onChange, readOnly, collab, onComment }: {
   )
 }
 
+function CommentRow({ c }: { c: Commentaire }) {
+  return (
+    <div style={{ display: 'flex', gap: 8 }}>
+      <div style={{
+        width: 26, height: 26, borderRadius: '50%', background: 'var(--abed-green)', color: 'white',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0,
+      }}>
+        {(c.auteur ? `${c.auteur.prenoms[0] ?? ''}${c.auteur.nom[0] ?? ''}` : '?').toUpperCase()}
+      </div>
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div style={{ fontSize: 12, fontWeight: 700 }}>{c.auteur ? `${c.auteur.prenoms} ${c.auteur.nom}` : 'Utilisateur supprimé'}</div>
+        {c.texte_cite && <div style={{ fontSize: 12, color: '#92400e', background: '#fffbeb', borderRadius: 6, padding: '4px 8px', margin: '4px 0' }}>« {c.texte_cite} »</div>}
+        <div style={{ fontSize: 13 }}>{c.contenu}</div>
+        <div style={{ fontSize: 11, color: 'var(--abed-muted)', marginTop: 2 }}>
+          {new Date(c.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfiles }: { tdr: Tdr; myId: string; myRole: string; allProfiles: Profile[] }) {
   const router = useRouter()
   const [tdr, setTdr] = useState(initial)
@@ -248,8 +269,27 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
     })
   }, [tdr.id])
 
+  // Temps réel : tout le monde invité voit les nouveaux commentaires/réponses
+  // et le contenu/statut/circuit de signature à jour, sans recharger — y
+  // compris après signature (le TDR reste visible et à jour pour tous).
+  useEffect(() => {
+    const supabase = createBrowserClient()
+    const channel = supabase
+      .channel(`tdr-live-${tdr.id}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tdr_commentaires', filter: `tdr_id=eq.${tdr.id}` }, () => {
+        fetch(`/api/tdrs/${tdr.id}/commentaires`).then(r => r.ok ? r.json() : null).then(j => { if (j?.data) setCommentaires(j.data) })
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tdrs', filter: `id=eq.${tdr.id}` }, () => { refresh() })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tdr_signataires', filter: `tdr_id=eq.${tdr.id}` }, () => { refresh() })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tdr.id])
+
   const [pendingComment, setPendingComment] = useState<{ chapitreCle: string; markId: string; texteSelectionne: string } | null>(null)
   const [commentaireTexte, setCommentaireTexte] = useState('')
+  const [replyingTo, setReplyingTo] = useState<string | null>(null)
+  const [replyTexte, setReplyTexte] = useState('')
 
   function creerCommentaire(chapitreCle: string, markId: string, texteSelectionne: string) {
     setPendingComment({ chapitreCle, markId, texteSelectionne })
@@ -268,6 +308,20 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
       setCommentaires(cs => [...cs, j.data])
       setPendingComment(null)
       setCommentaireTexte('')
+    }
+  }
+
+  async function envoyerReponse(parentId: string) {
+    if (!replyTexte.trim()) return
+    const res = await fetch(`/api/tdrs/${tdr.id}/commentaires`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ parent_id: parentId, contenu: replyTexte.trim() }),
+    })
+    if (res.ok) {
+      const j = await res.json()
+      setCommentaires(cs => [...cs, j.data])
+      setReplyingTo(null)
+      setReplyTexte('')
     }
   }
 
@@ -524,33 +578,6 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
         </div>
         <div style={{ padding: 16, overflowY: 'auto', flex: 1 }}>
           <div className="card" style={{ marginBottom: 16 }}>
-            <h3 style={{ fontSize: 13, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <MessageSquare size={14} /> Commentaires — {active.titre}
-            </h3>
-            {commentaires.filter(c => c.chapitre_cle === active.cle).length === 0 && (
-              <p style={{ fontSize: 12, color: 'var(--abed-muted)', margin: 0 }}>Aucun commentaire. Sélectionnez du texte puis cliquez sur l&apos;icône de commentaire dans la barre d&apos;outils.</p>
-            )}
-            {commentaires.filter(c => c.chapitre_cle === active.cle).map(c => (
-              <div key={c.id} style={{ display: 'flex', gap: 8, marginBottom: 10, paddingBottom: 10, borderBottom: '1px solid #f3f4f6' }}>
-                <div style={{
-                  width: 26, height: 26, borderRadius: '50%', background: 'var(--abed-green)', color: 'white',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0,
-                }}>
-                  {(c.auteur ? `${c.auteur.prenoms[0] ?? ''}${c.auteur.nom[0] ?? ''}` : '?').toUpperCase()}
-                </div>
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700 }}>{c.auteur ? `${c.auteur.prenoms} ${c.auteur.nom}` : 'Utilisateur supprimé'}</div>
-                  {c.texte_cite && <div style={{ fontSize: 12, color: '#92400e', background: '#fffbeb', borderRadius: 6, padding: '4px 8px', margin: '4px 0' }}>« {c.texte_cite} »</div>}
-                  <div style={{ fontSize: 13 }}>{c.contenu}</div>
-                  <div style={{ fontSize: 11, color: 'var(--abed-muted)', marginTop: 2 }}>
-                    {new Date(c.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="card" style={{ marginBottom: 16 }}>
             <h3 style={{ fontSize: 13, marginBottom: 12 }}>Circuit de signature</h3>
             {(['initiateur', 'responsable_technique', 'caf', 'de'] as SignataireRole[]).map(role => {
               const s = tdr.signataires.find(sig => sig.role === role)
@@ -615,6 +642,46 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
                 )}
               </div>
             )}
+          </div>
+
+          <div className="card" style={{ marginTop: 16 }}>
+            <h3 style={{ fontSize: 13, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <MessageSquare size={14} /> Commentaires — {active.titre}
+            </h3>
+            {commentaires.filter(c => c.chapitre_cle === active.cle && !c.parent_id).length === 0 && (
+              <p style={{ fontSize: 12, color: 'var(--abed-muted)', margin: 0 }}>Aucun commentaire. Sélectionnez du texte puis cliquez sur l&apos;icône de commentaire dans la barre d&apos;outils.</p>
+            )}
+            {commentaires.filter(c => c.chapitre_cle === active.cle && !c.parent_id).map(c => (
+              <div key={c.id} style={{ marginBottom: 10, paddingBottom: 10, borderBottom: '1px solid #f3f4f6' }}>
+                <CommentRow c={c} />
+                {commentaires.filter(r => r.parent_id === c.id).map(r => (
+                  <div key={r.id} style={{ marginLeft: 34, marginTop: 8 }}>
+                    <CommentRow c={r} />
+                  </div>
+                ))}
+                {replyingTo === c.id ? (
+                  <div style={{ marginLeft: 34, marginTop: 8 }}>
+                    <textarea autoFocus rows={2} value={replyTexte} onChange={e => setReplyTexte(e.target.value)}
+                      placeholder="Répondre..." style={{ ...inputStyle, fontSize: 12, resize: 'vertical' }} />
+                    <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                      <button onClick={() => envoyerReponse(c.id)} disabled={!replyTexte.trim()}
+                        style={{ fontSize: 11, fontWeight: 700, padding: '5px 10px', borderRadius: 6, border: 'none', background: 'var(--abed-green)', color: 'white', cursor: replyTexte.trim() ? 'pointer' : 'not-allowed', opacity: replyTexte.trim() ? 1 : 0.6 }}>
+                        Envoyer
+                      </button>
+                      <button onClick={() => { setReplyingTo(null); setReplyTexte('') }}
+                        style={{ fontSize: 11, padding: '5px 10px', borderRadius: 6, border: '1px solid var(--abed-border)', background: 'white', cursor: 'pointer' }}>
+                        Annuler
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button onClick={() => { setReplyingTo(c.id); setReplyTexte('') }}
+                    style={{ marginLeft: 34, marginTop: 6, fontSize: 11, fontWeight: 700, color: 'var(--abed-green)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                    Répondre
+                  </button>
+                )}
+              </div>
+            ))}
           </div>
         </div>
       </div>
