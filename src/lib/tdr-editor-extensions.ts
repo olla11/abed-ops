@@ -1,6 +1,7 @@
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
 import Link from '@tiptap/extension-link'
+import TextAlign from '@tiptap/extension-text-align'
 import Table from '@tiptap/extension-table'
 import TableRow from '@tiptap/extension-table-row'
 import TableCell from '@tiptap/extension-table-cell'
@@ -16,6 +17,7 @@ export function baseTdrExtensions(disableHistory: boolean) {
     StarterKit.configure(disableHistory ? { history: false } : {}),
     Underline,
     Link.configure({ openOnClick: false, autolink: true }),
+    TextAlign.configure({ types: ['paragraph'] }),
     Table.configure({ resizable: false }),
     TableRow,
     TableHeader,
