@@ -806,6 +806,7 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
            que cette hauteur, il défile indépendamment de la page. */
         .tdr-panel {
           flex: 0 0 380px; width: 380px; max-width: 92vw;
+          position: sticky; top: 20px;
           max-height: calc(100dvh - 40px); overflow: hidden;
           background: var(--abed-card, white); box-shadow: 0 6px 28px rgba(0,0,0,.14);
           border-radius: 12px; border: 1px solid var(--abed-border);
