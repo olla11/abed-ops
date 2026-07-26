@@ -1,7 +1,8 @@
 import { createServerClient } from '@supabase/ssr'
-import { NextResponse, type NextRequest } from 'next/server'
+import { NextResponse, type NextRequest, type NextFetchEvent } from 'next/server'
+import { logRequest } from '@/lib/audit-log'
 
-export async function proxy(req: NextRequest) {
+export async function proxy(req: NextRequest, event: NextFetchEvent) {
   let res = NextResponse.next({ request: req })
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://placeholder.supabase.co',
@@ -47,6 +48,21 @@ export async function proxy(req: NextRequest) {
   if (!user && !isPublic) {
     return NextResponse.redirect(new URL('/login', req.url))
   }
+
+  // Journal d'audit : trace toute requête d'un utilisateur connecté (navigation
+  // comprise). Écrit après coup via waitUntil — ne retarde jamais la réponse.
+  // Les requêtes de simple préchargement de lien (survol) sont ignorées pour
+  // ne pas polluer le journal d'entrées qui ne correspondent à aucune action réelle.
+  if (user && req.headers.get('next-router-prefetch') !== '1') {
+    event.waitUntil(logRequest({
+      userId: user.id,
+      method: req.method,
+      path: path + req.nextUrl.search,
+      ip: req.headers.get('x-forwarded-for') ?? req.headers.get('x-real-ip'),
+      userAgent: req.headers.get('user-agent'),
+    }))
+  }
+
   return res
 }
 
