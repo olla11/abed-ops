@@ -1,4 +1,4 @@
-import { createServerClient } from '@supabase/ssr'
+﻿import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest, type NextFetchEvent } from 'next/server'
 import { logRequest } from '@/lib/audit-log'
 
