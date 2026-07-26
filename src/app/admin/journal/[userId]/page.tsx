@@ -4,6 +4,13 @@ import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase-server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { describeLogEntry } from '@/lib/audit-log-labels'
+
+const TONE_COLORS: Record<string, { fg: string; bg: string }> = {
+  read: { fg: '#374151', bg: '#f3f4f6' },
+  write: { fg: '#166534', bg: '#f0fdf4' },
+  danger: { fg: '#991b1b', bg: '#fef2f2' },
+}
 
 function adminClient() {
   return createServiceClient(
@@ -93,13 +100,27 @@ export default async function JournalUserPage({ params }: { params: Promise<{ us
             <h3 style={{ fontSize: 14, marginBottom: 12 }}>Activité récente ({activite?.length ?? 0})</h3>
             <div style={{ maxHeight: 560, overflowY: 'auto' }}>
               {(activite ?? []).length === 0 && <p style={{ fontSize: 12, color: 'var(--abed-muted)' }}>Aucune activité enregistrée.</p>}
-              {(activite ?? []).map((a, i) => (
-                <div key={i} style={{ display: 'flex', gap: 10, fontSize: 12, padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}>
-                  <span style={{ color: 'var(--abed-muted)', whiteSpace: 'nowrap' }}>{fmtDateTime(a.created_at)}</span>
-                  <span style={{ fontWeight: 700, color: '#6b7280', width: 44, flexShrink: 0 }}>{a.method}</span>
-                  <span style={{ fontFamily: 'monospace', color: '#374151', wordBreak: 'break-all' }}>{a.path}</span>
-                </div>
-              ))}
+              {(activite ?? []).map((a, i) => {
+                const desc = describeLogEntry(a.method, a.path)
+                const tone = TONE_COLORS[desc.tone]
+                return (
+                  <div key={i} style={{ padding: '7px 0', borderBottom: '1px solid #f3f4f6' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5 }}>
+                      <span style={{ color: 'var(--abed-muted)', whiteSpace: 'nowrap', fontSize: 11.5 }}>{fmtDateTime(a.created_at)}</span>
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        width: 20, height: 20, borderRadius: 6, background: tone.bg, flexShrink: 0,
+                      }}>
+                        <desc.Icon size={11} color={tone.fg} />
+                      </span>
+                      <span style={{ color: tone.fg }}>{desc.label}</span>
+                    </div>
+                    <div style={{ fontSize: 10, fontFamily: 'monospace', color: '#9ca3af', marginTop: 2, marginLeft: 62 }}>
+                      {a.method} {a.path}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           </div>
         </div>
