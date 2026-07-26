@@ -41,7 +41,7 @@ export default function ManagerAssignSelect({ userId, currentManagerId, managers
           fontSize: 12, padding: '4px 8px',
           border: `1px solid ${borderColor}`,
           borderRadius: 6, background: '#fff',
-          maxWidth: 180, cursor: 'pointer',
+          width: '100%', maxWidth: 180, cursor: 'pointer',
           opacity: status === 'saving' ? .6 : 1,
         }}
       >

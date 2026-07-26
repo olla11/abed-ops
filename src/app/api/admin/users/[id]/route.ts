@@ -16,7 +16,7 @@ async function checkAdmin(supabase: Awaited<ReturnType<typeof createClient>>) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: NextResponse.json({ error: 'non authentifie' }, { status: 401 }) }
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  if (profile?.role !== 'admin') return { error: NextResponse.json({ error: 'acces refuse — admin uniquement' }, { status: 403 }) }
+  if (!['admin', 'superadmin'].includes(profile?.role ?? '')) return { error: NextResponse.json({ error: 'acces refuse — admin uniquement' }, { status: 403 }) }
   return { userId: user.id }
 }
 

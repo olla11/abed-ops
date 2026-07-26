@@ -32,8 +32,8 @@ export default async function ComptesPage() {
   ])
 
   const managers = (users ?? []).filter((u: any) => !u.archived && ['manager', 'caf', 'de', 'dp', 'aaf', 'rh', 'admin', 'administrateur'].includes(u.role ?? ''))
-  const canManage = ['admin', 'de', 'dp'].includes(profile?.role ?? '')
-  const isAdmin = profile?.role === 'admin'
+  const canManage = ['admin', 'de', 'dp', 'superadmin'].includes(profile?.role ?? '')
+  const isAdmin = ['admin', 'superadmin'].includes(profile?.role ?? '')
   const isSuperadmin = profile?.role === 'superadmin'
 
   return (

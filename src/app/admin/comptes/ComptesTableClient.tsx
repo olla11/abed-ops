@@ -45,7 +45,7 @@ export default function ComptesTableClient({
   function renderTable(rows: User[]) {
     return (
       <div className="table-wrap">
-        <table style={{ minWidth: isSuperadmin && !showArchived ? 1080 : 900 }}>
+        <table style={{ minWidth: isSuperadmin && !showArchived ? 1350 : 900 }}>
           <thead>
             <tr>
               <th>{ta('civilTitle')}</th>
@@ -54,10 +54,10 @@ export default function ComptesTableClient({
               <th>{tc('role')}</th>
               <th>{ta('employmentType')}</th>
               <th>{ta('function')}</th>
-              {canManage && !showArchived && <th>{ta('directManager')}</th>}
+              {canManage && !showArchived && <th style={{ width: 190 }}>{ta('directManager')}</th>}
               {showArchived && <th>{ta('archiveDate')}</th>}
               {isSuperadmin && !showArchived && <th style={{ width: 200 }}>Changer le rôle</th>}
-              {isAdmin && <th></th>}
+              {isAdmin && <th style={{ width: 90 }}></th>}
             </tr>
           </thead>
           <tbody>
@@ -70,7 +70,7 @@ export default function ComptesTableClient({
                 <td style={{ fontSize: 11, color: 'var(--abed-muted)' }}>{u.type_emploi ?? '—'}</td>
                 <td style={{ fontSize: 12 }}>{u.fonction ?? '—'}</td>
                 {canManage && !showArchived && (
-                  <td>
+                  <td style={{ overflow: 'visible' }}>
                     <ManagerAssignSelect
                       userId={u.id}
                       currentManagerId={u.manager_id ?? null}
