@@ -322,7 +322,8 @@
     "nameAndFirstname": "Nom & Prénoms",
     "employmentType": "Type emploi",
     "function": "Fonction",
-    "inscriptions": "Inscriptions"
+    "inscriptions": "Inscriptions",
+    "analytics": "Analytics"
   },
   "auth": {
     "changePassword": "Changer mon mot de passe",

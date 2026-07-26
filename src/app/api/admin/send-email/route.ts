@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { sendEmail } from '@/lib/resend'
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -9,26 +14,28 @@ export async function POST(req: NextRequest) {
 
   const { data: profile } = await supabase
     .from('profiles').select('role').eq('id', user.id).single()
-  if (!['admin', 'rh', 'caf'].includes(profile?.role ?? '')) {
+  if (!['admin', 'rh', 'caf', 'superadmin'].includes(profile?.role ?? '')) {
     return NextResponse.json({ error: 'acces refuse' }, { status: 403 })
   }
 
-  const { userIds, sujet, corps } = await req.json() as {
+  const { userIds, sujet, corps, canaux } = await req.json() as {
     userIds: string[]
     sujet: string
     corps: string
+    canaux?: string[]
   }
 
   if (!userIds?.length || !sujet?.trim() || !corps?.trim()) {
     return NextResponse.json({ error: 'Données manquantes (destinataires, sujet, corps)' }, { status: 400 })
   }
 
+  const sendCanaux = new Set((canaux?.length ? canaux : ['email']).filter(c => c === 'email' || c === 'notification'))
+
   const admin = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  // Récupérer les emails des utilisateurs sélectionnés
   const { data: targets, error } = await admin
     .from('profiles')
     .select('id, prenoms, nom, email')
@@ -36,50 +43,52 @@ export async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
-  const emails = (targets ?? []).filter(t => !!t.email)
-
-  // Envoyer via Supabase Auth admin (invite email) — ou SMTP si configuré
-  // On utilise l'API Supabase pour envoyer un email personnalisé à chaque destinataire
+  const recipients = (targets ?? []).filter(t => !!t.email)
   const results: { email: string; ok: boolean; error?: string }[] = []
 
-  for (const target of emails) {
-    // Personnaliser le corps avec le prénom
-    const corpsPersonnalise = corps
-      .replace(/\{prenom\}/gi, target.prenoms ?? '')
-      .replace(/\{nom\}/gi, target.nom ?? '')
-      .replace(/\{email\}/gi, target.email ?? '')
+  if (sendCanaux.has('email')) {
+    for (const target of recipients) {
+      const corpsPersonnalise = corps
+        .replace(/\{prenom\}/gi, target.prenoms ?? '')
+        .replace(/\{nom\}/gi, target.nom ?? '')
+        .replace(/\{email\}/gi, target.email ?? '')
 
-    try {
-      // Utiliser l'API Resend si configurée, sinon utiliser Supabase SMTP
-      const resendKey = process.env.RESEND_API_KEY
-      if (resendKey) {
-        const res = await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${resendKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            from: process.env.EMAIL_FROM ?? 'ABED <noreply@abedong.org>',
-            to: [target.email],
-            subject: sujet,
-            text: corpsPersonnalise,
-          }),
+      try {
+        await sendEmail({
+          to: target.email!,
+          subject: sujet,
+          html: `<div style="white-space:pre-wrap;font-size:14px;line-height:1.6;color:#1f2a17;">${escapeHtml(corpsPersonnalise)}</div>`,
         })
-        const json = await res.json()
-        results.push({ email: target.email!, ok: res.ok, error: res.ok ? undefined : JSON.stringify(json) })
-      } else {
-        // Fallback : log uniquement (pas de service email configuré)
-        console.log(`[send-email] TO: ${target.email} | SUBJECT: ${sujet}`)
         results.push({ email: target.email!, ok: true })
+      } catch (e: any) {
+        results.push({ email: target.email!, ok: false, error: e.message })
       }
-    } catch (e: any) {
-      results.push({ email: target.email!, ok: false, error: e.message })
     }
   }
 
-  const sent = results.filter(r => r.ok).length
+  if (sendCanaux.has('notification') && recipients.length > 0) {
+    await admin.from('notifications').insert(
+      recipients.map(target => ({
+        user_id: target.id,
+        titre: sujet,
+        message: corps
+          .replace(/\{prenom\}/gi, target.prenoms ?? '')
+          .replace(/\{nom\}/gi, target.nom ?? '')
+          .replace(/\{email\}/gi, target.email ?? ''),
+      }))
+    )
+  }
+
+  await admin.from('announcements').insert({
+    sender_id: user.id,
+    sujet,
+    corps,
+    canaux: [...sendCanaux],
+    destinataires_count: recipients.length,
+  })
+
+  const sent = sendCanaux.has('email') ? results.filter(r => r.ok).length : recipients.length
   const failed = results.filter(r => !r.ok)
 
-  return NextResponse.json({ sent, failed, total: emails.length })
+  return NextResponse.json({ sent, failed, total: recipients.length })
 }

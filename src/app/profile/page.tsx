@@ -6,6 +6,7 @@ import RolePreviewBanner from '@/components/RolePreviewBanner'
 import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
 import ProfileEditForm from '@/components/ProfileEditForm'
 import ProfileAssetForm from '@/components/ProfileAssetForm'
+import NotificationTopicsForm from '@/components/NotificationTopicsForm'
 
 export default async function ProfilePage() {
   const supabase = await createClient()
@@ -14,7 +15,7 @@ export default async function ProfilePage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, nom, prenoms, email, civilite, telephone, ifu, fonction, signature_url, cachet_url, adresse, date_naissance, lieu_naissance, nationalite, type_emploi, avatar_url')
+    .select('role, nom, prenoms, email, civilite, telephone, ifu, fonction, signature_url, cachet_url, adresse, date_naissance, lieu_naissance, nationalite, type_emploi, avatar_url, notification_topics')
     .eq('id', user.id)
     .single()
 
@@ -57,7 +58,7 @@ export default async function ProfilePage() {
         </div>
 
         {canUpload && (
-          <div className="card">
+          <div className="card" style={{ marginBottom: 24 }}>
             <h3 style={{ marginBottom: 20, fontSize: 15 }}>Signature &amp; Cachet (pour les PDF)</h3>
             <ProfileAssetForm
               hasSignature={!!profile?.signature_url}
@@ -65,6 +66,11 @@ export default async function ProfilePage() {
             />
           </div>
         )}
+
+        <div className="card">
+          <h3 style={{ marginBottom: 8, fontSize: 15 }}>Préférences de communication</h3>
+          <NotificationTopicsForm topics={profile?.notification_topics ?? []} />
+        </div>
       </div>
     </>
   )

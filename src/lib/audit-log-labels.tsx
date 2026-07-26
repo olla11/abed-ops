@@ -178,6 +178,32 @@ function humanizeSegment(seg: string): string {
   return seg.replace(/-/g, ' ')
 }
 
+// Résout le module/ressource visé par un chemin, indépendamment de la
+// méthode HTTP ou du verbe d'action — utilisé pour regrouper l'activité
+// par module (ex: dans le dashboard analytics) sans dupliquer la logique
+// de classification de describeLogEntry.
+export function resolveModule(rawPath: string): { key: string; label: string; Icon: LucideIcon } {
+  const path = rawPath.split('?')[0]
+  const segs = path.split('/').filter(Boolean)
+  const isApi = segs[0] === 'api'
+  const rest = isApi ? segs.slice(1) : segs
+
+  if (rest.length === 0) {
+    return { key: 'accueil', label: 'Accueil', Icon: Home }
+  }
+
+  let resourceKey = rest[0]
+  if ((rest[0] === 'rh' || rest[0] === 'admin') && rest[1] && !isUuid(rest[1])) {
+    const nsKey = `${rest[0]}/${rest[1]}`
+    if (NAMESPACED_META[nsKey]) resourceKey = nsKey
+  }
+
+  const meta = NAMESPACED_META[resourceKey] ?? RESOURCE_META[rest[0]]
+    ?? { label: humanizeSegment(rest[rest.length - 1] ?? rest[0]), Icon: HelpCircle }
+
+  return { key: resourceKey, label: meta.label, Icon: meta.Icon }
+}
+
 export function describeLogEntry(method: string, rawPath: string): LogDescription {
   const path = rawPath.split('?')[0]
   const segs = path.split('/').filter(Boolean)

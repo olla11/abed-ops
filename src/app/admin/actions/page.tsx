@@ -10,7 +10,7 @@ export default async function ActionsPage() {
 
   const { data: users } = await supabase
     .from('profiles')
-    .select('id, civilite, nom, prenoms, email, role, type_emploi, fonction, manager_id')
+    .select('id, civilite, nom, prenoms, email, role, type_emploi, fonction, manager_id, notification_topics')
     .order('nom')
 
   const managers = (users ?? []).filter(u => ['manager', 'caf', 'de', 'dp', 'admin'].includes(u.role ?? ''))

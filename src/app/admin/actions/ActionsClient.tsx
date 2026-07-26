@@ -1,6 +1,7 @@
 'use client'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { TYPE_EMPLOI_LABELS } from '@/lib/roles'
+import { NOTIFICATION_TOPICS } from '@/lib/notification-topics'
 import Pagination, { paginate } from '@/components/Pagination'
 
 const PAGE_SIZE = 10
@@ -8,6 +9,12 @@ const PAGE_SIZE = 10
 type User = {
   id: string; civilite?: string; nom: string; prenoms: string
   email: string; role?: string; type_emploi?: string; fonction?: string; manager_id?: string
+  notification_topics?: string[]
+}
+
+type Announcement = {
+  id: string; sujet: string; canaux: string[]; destinataires_count: number
+  created_at: string; profiles?: { nom: string; prenoms: string } | null
 }
 
 const ROLES = [
@@ -40,30 +47,41 @@ export default function ActionsClient({
   const [filterRole, setFilterRole] = useState('')
   const [filterType, setFilterType] = useState('')
   const [filterManager, setFilterManager] = useState('')
+  const [filterTopic, setFilterTopic] = useState('')
   const [filterSearch, setFilterSearch] = useState('')
   const [page, setPage] = useState(1)
 
   // ── Sélection ──
   const [selected, setSelected] = useState<Set<string>>(new Set())
 
-  // ── Email ──
+  // ── Email / communication ciblée ──
   const [showEmail, setShowEmail] = useState(false)
   const [sujet, setSujet] = useState('')
   const [corps, setCorps] = useState('')
+  const [canalEmail, setCanalEmail] = useState(true)
+  const [canalNotif, setCanalNotif] = useState(true)
   const [sending, setSending] = useState(false)
   const [emailResult, setEmailResult] = useState<{ sent: number; total: number; failed: { email: string }[] } | null>(null)
+
+  // ── Historique des communications ──
+  const [history, setHistory] = useState<Announcement[] | null>(null)
+
+  useEffect(() => {
+    fetch('/api/admin/announcements').then(r => r.ok ? r.json() : null).then(j => { if (j) setHistory(j.data) })
+  }, [])
 
   const filtered = useMemo(() => users.filter(u => {
     if (filterRole && u.role !== filterRole) return false
     if (filterType && u.type_emploi !== filterType) return false
     if (filterManager && u.manager_id !== filterManager) return false
+    if (filterTopic && !(u.notification_topics ?? []).includes(filterTopic)) return false
     if (filterSearch) {
       const q = filterSearch.toLowerCase()
       const full = `${u.prenoms} ${u.nom} ${u.email}`.toLowerCase()
       if (!full.includes(q)) return false
     }
     return true
-  }), [users, filterRole, filterType, filterManager, filterSearch])
+  }), [users, filterRole, filterType, filterManager, filterTopic, filterSearch])
 
   function toggleAll() {
     if (filtered.every(u => selected.has(u.id))) {
@@ -78,20 +96,25 @@ export default function ActionsClient({
   }
 
   function resetFilters() {
-    setFilterRole(''); setFilterType(''); setFilterManager(''); setFilterSearch(''); setPage(1)
+    setFilterRole(''); setFilterType(''); setFilterManager(''); setFilterTopic(''); setFilterSearch(''); setPage(1)
   }
 
   async function sendEmail() {
     if (!sujet.trim() || !corps.trim()) { alert('Sujet et corps requis.'); return }
+    if (!canalEmail && !canalNotif) { alert('Choisissez au moins un canal d’envoi.'); return }
     setSending(true); setEmailResult(null)
+    const canaux = [canalEmail && 'email', canalNotif && 'notification'].filter(Boolean) as string[]
     const res = await fetch('/api/admin/send-email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userIds: [...selected], sujet, corps }),
+      body: JSON.stringify({ userIds: [...selected], sujet, corps, canaux }),
     })
     const json = await res.json()
     setSending(false)
-    if (res.ok) { setEmailResult(json); }
+    if (res.ok) {
+      setEmailResult(json)
+      fetch('/api/admin/announcements').then(r => r.ok ? r.json() : null).then(j => { if (j) setHistory(j.data) })
+    }
     else alert('Erreur : ' + json.error)
   }
 
@@ -156,6 +179,15 @@ export default function ActionsClient({
               ))}
             </select>
           </div>
+          <div className="field">
+            <label className="label">Sujet d&apos;intérêt (opt-in)</label>
+            <select className="input" value={filterTopic} onChange={e => setFilterTopic(e.target.value)}>
+              <option value="">— Tous —</option>
+              {NOTIFICATION_TOPICS.map(t => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
+          </div>
         </div>
         <div style={{ display: 'flex', gap: 10, marginTop: 14, alignItems: 'center' }}>
           <button className="btn secondary" style={{ fontSize: 12 }} onClick={resetFilters}>
@@ -185,7 +217,7 @@ export default function ActionsClient({
             {selected.size} sélectionné{selected.size > 1 ? 's' : ''}
           </span>
           <button className="btn" style={{ fontSize: 13 }} onClick={() => { setShowEmail(true); setEmailResult(null) }}>
-            ✉️ Envoyer un email groupé
+            ✉️ Communication ciblée
           </button>
           <button className="btn secondary" style={{ fontSize: 13 }}
             onClick={() => setSelected(new Set())}>
@@ -202,8 +234,20 @@ export default function ActionsClient({
         }}>
           <div className="card" style={{ width: '100%', maxWidth: 560, margin: 24, maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-              <h3 style={{ margin: 0 }}>✉️ Email groupé — {selected.size} destinataire{selected.size > 1 ? 's' : ''}</h3>
+              <h3 style={{ margin: 0 }}>✉️ Communication ciblée — {selected.size} destinataire{selected.size > 1 ? 's' : ''}</h3>
               <button onClick={() => setShowEmail(false)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer' }}>×</button>
+            </div>
+
+            <div className="field" style={{ marginBottom: 14 }}>
+              <label className="label">Canaux d&apos;envoi</label>
+              <div style={{ display: 'flex', gap: 16 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
+                  <input type="checkbox" checked={canalEmail} onChange={e => setCanalEmail(e.target.checked)} /> Email
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
+                  <input type="checkbox" checked={canalNotif} onChange={e => setCanalNotif(e.target.checked)} /> Notification dans l&apos;appli
+                </label>
+              </div>
             </div>
 
             <p style={{ fontSize: 12, color: 'var(--abed-muted)', marginBottom: 16, lineHeight: 1.6 }}>
@@ -318,6 +362,30 @@ export default function ActionsClient({
         </div>
         <Pagination page={page} total={filtered.length} pageSize={PAGE_SIZE} onChange={p => { setPage(p); setSelected(new Set()) }} />
       </div>
+
+      {/* ── Historique des communications ── */}
+      {history && history.length > 0 && (
+        <div className="card">
+          <h3 style={{ margin: '0 0 12px', fontSize: 15 }}>Historique des communications ciblées</h3>
+          <div style={{ display: 'grid', gap: 8 }}>
+            {history.map(a => (
+              <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}>
+                <span style={{ fontWeight: 600, flex: 1 }}>{a.sujet}</span>
+                {a.profiles && (
+                  <span style={{ fontSize: 11, color: 'var(--abed-muted)' }}>par {a.profiles.prenoms} {a.profiles.nom}</span>
+                )}
+                <span style={{ fontSize: 11, color: 'var(--abed-muted)' }}>
+                  {a.canaux.includes('email') && 'Email'}{a.canaux.includes('email') && a.canaux.includes('notification') && ' + '}{a.canaux.includes('notification') && 'Notification'}
+                </span>
+                <span style={{ fontSize: 11, color: 'var(--abed-muted)' }}>{a.destinataires_count} destinataire{a.destinataires_count > 1 ? 's' : ''}</span>
+                <span style={{ fontSize: 11, color: 'var(--abed-muted)', whiteSpace: 'nowrap' }}>
+                  {new Date(a.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
