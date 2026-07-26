@@ -13,7 +13,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const { data: profile } = await supabase
     .from('profiles').select('role, nom, prenoms, avatar_url').eq('id', user.id).single()
 
-  if (!profile || !['admin', 'rh', 'caf'].includes(profile.role)) redirect('/dashboard')
+  if (!profile || !['admin', 'rh', 'caf', 'superadmin'].includes(profile.role)) redirect('/dashboard')
 
   const { count: pendingCount } = await supabase
     .from('profiles')
@@ -25,7 +25,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <AppHeader
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={profile?.role}
-        showAdmin={profile.role === 'admin'}
+        showAdmin={['admin', 'superadmin'].includes(profile.role)}
         showRH={profile.role === 'rh'}
         avatarUrl={profile?.avatar_url ?? null}
       />
