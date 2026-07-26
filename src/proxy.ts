@@ -1,4 +1,4 @@
-﻿import { createServerClient } from '@supabase/ssr'
+import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function proxy(req: NextRequest) {
@@ -40,7 +40,9 @@ export async function proxy(req: NextRequest) {
     path.startsWith('/api/auth/') ||
     path.startsWith('/api/fedapay') ||
     path.startsWith('/signatures/externe') ||
-    path.startsWith('/api/signatures/externe')
+    path.startsWith('/api/signatures/externe') ||
+    path.startsWith('/verify/om') ||
+    path.startsWith('/api/verify/om')
 
   if (!user && !isPublic) {
     return NextResponse.redirect(new URL('/login', req.url))
