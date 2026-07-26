@@ -62,6 +62,9 @@ a { color: var(--abed-blue); text-decoration: none; }
 .card {
   background: var(--abed-card); border: 1px solid var(--abed-border);
   border-radius: var(--radius); padding: 24px; box-shadow: var(--shadow);
+  /* Grid/flex items default to min-width:auto, which lets a wide table
+     push the whole page wider instead of scrolling inside .table-wrap. */
+  min-width: 0;
 }
 
 .input, .select, .textarea {
