@@ -26,7 +26,7 @@ export default async function StatutPage() {
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={role}
         typeEmploi={profile?.type_emploi}
-        showAdmin={realRole === 'admin' && !previewRole}
+        showAdmin={['admin', 'superadmin'].includes(realRole) && !previewRole}
         showRH={role === 'rh'}
         avatarUrl={profile?.avatar_url ?? null}
       />

@@ -33,7 +33,7 @@ export default async function ReconciliationPage({ params }: { params: Promise<{
       <AppHeader
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={profile?.role}
-        showAdmin={profile?.role === 'admin'}
+        showAdmin={['admin', 'superadmin'].includes(profile?.role ?? '')}
       />
     <div className="page-container">
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>

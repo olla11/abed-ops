@@ -57,7 +57,7 @@ export default async function TimesheetsPage() {
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={role}
         typeEmploi={typeEmploi}
-        showAdmin={realRole === 'admin' && !previewRole}
+        showAdmin={['admin', 'superadmin'].includes(realRole) && !previewRole}
         showRH={role === 'rh'}
         avatarUrl={profile?.avatar_url ?? null}
       />

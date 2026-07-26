@@ -42,7 +42,7 @@ export default async function MesEvaluationsPage() {
     .order('declenchee_le', { ascending: false })
 
   const showRH = profile?.role === 'rh'
-  const showAdmin = profile?.role === 'admin'
+  const showAdmin = ['admin', 'superadmin'].includes(profile?.role ?? '')
   const showOverview = ['aaf', 'caf', 'de', 'dp', 'admin', 'administrateur'].includes(profile?.role ?? '')
 
   return (

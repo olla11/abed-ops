@@ -21,7 +21,7 @@ export default async function RHLayout({ children }: { children: React.ReactNode
         userName={`${profile.prenoms ?? ''} ${profile.nom ?? ''}`}
         userRole={profile.role}
         showRH={true}
-        showAdmin={profile.role === 'admin'}
+        showAdmin={['admin', 'superadmin'].includes(profile.role)}
         avatarUrl={profile.avatar_url ?? null}
       />
       <div className="page-container">
