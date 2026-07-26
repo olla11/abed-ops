@@ -34,6 +34,7 @@ export default async function ComptesPage() {
   const managers = (users ?? []).filter((u: any) => !u.archived && ['manager', 'caf', 'de', 'dp', 'aaf', 'rh', 'admin', 'administrateur'].includes(u.role ?? ''))
   const canManage = ['admin', 'de', 'dp'].includes(profile?.role ?? '')
   const isAdmin = profile?.role === 'admin'
+  const isSuperadmin = profile?.role === 'superadmin'
 
   return (
     <div className="page-container" style={{ display: 'grid', gap: 24 }}>
@@ -44,11 +45,17 @@ export default async function ComptesPage() {
             La colonne « Responsable » permet d'assigner un manager à chaque prestataire pour qu'il puisse soumettre ses timesheets.
           </p>
         )}
+        {isSuperadmin && (
+          <p style={{ fontSize: 12, color: 'var(--abed-muted)', marginBottom: 12 }}>
+            La colonne « Changer le rôle » n'est visible que pour vous (superadmin). Un seul compte peut porter le rôle superadmin à la fois.
+          </p>
+        )}
         <ComptesTableClient
           users={users as any[]}
           managers={managers}
           canManage={canManage}
           isAdmin={isAdmin}
+          isSuperadmin={isSuperadmin}
         />
       </div>
     </div>

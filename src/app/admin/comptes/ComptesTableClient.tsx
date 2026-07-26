@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useTranslations } from 'next-intl'
 import Pagination, { paginate } from '@/components/Pagination'
 import ManagerAssignSelect from '@/components/ManagerAssignSelect'
+import RoleEditSelect from '@/components/RoleEditSelect'
 import UserArchiveButton from '../UserArchiveButton'
 
 const PAGE_SIZE = 10
@@ -15,12 +16,13 @@ type User = {
 }
 
 export default function ComptesTableClient({
-  users, managers, canManage, isAdmin,
+  users, managers, canManage, isAdmin, isSuperadmin,
 }: {
   users: User[]
   managers: User[]
   canManage: boolean
   isAdmin: boolean
+  isSuperadmin?: boolean
 }) {
   const ta = useTranslations('admin')
   const tc = useTranslations('common')
@@ -38,7 +40,7 @@ export default function ComptesTableClient({
 
   const paged = paginate(filtered, page, PAGE_SIZE)
 
-  const colSpan = [true, canManage, isAdmin].filter(Boolean).length + 6
+  const colSpan = [true, canManage, isAdmin, isSuperadmin].filter(Boolean).length + 6
 
   function renderTable(rows: User[]) {
     return (
@@ -54,6 +56,7 @@ export default function ComptesTableClient({
               <th>{ta('function')}</th>
               {canManage && !showArchived && <th>{ta('directManager')}</th>}
               {showArchived && <th>{ta('archiveDate')}</th>}
+              {isSuperadmin && !showArchived && <th>Changer le rôle</th>}
               {isAdmin && <th></th>}
             </tr>
           </thead>
@@ -83,6 +86,11 @@ export default function ComptesTableClient({
                         {new Date(u.archived_at).toLocaleDateString('fr-FR')}
                       </span>
                     )}
+                  </td>
+                )}
+                {isSuperadmin && !showArchived && (
+                  <td>
+                    <RoleEditSelect userId={u.id} currentRole={u.role ?? 'missionnaire'} />
                   </td>
                 )}
                 {isAdmin && (
