@@ -9,7 +9,7 @@ export default async function InscriptionsPage() {
   if (!user) redirect('/login')
 
   const { data: me } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  if (!me || !['admin', 'rh'].includes(me.role)) redirect('/accueil')
+  if (!me || !['admin', 'rh', 'superadmin'].includes(me.role)) redirect('/accueil')
 
   const { data: pending } = await supabase
     .from('profiles')

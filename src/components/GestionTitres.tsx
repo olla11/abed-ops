@@ -5,18 +5,6 @@ import { TITRES, TITRE_LABELS, TYPES_EMPLOI, TYPE_EMPLOI_LABELS, type Titre, typ
 
 type Profil = { id: string; prenoms: string; nom: string; email: string; titre: string | null; type_emploi: string | null; role: string }
 
-const ACCESS_ROLES = [
-  { value: 'missionnaire',   label: 'Missionnaire' },
-  { value: 'manager',        label: 'Manager' },
-  { value: 'rh',             label: 'Ressources Humaines' },
-  { value: 'caf',            label: 'Comptable / CAF' },
-  { value: 'de',             label: 'Directeur Exécutif' },
-  { value: 'dp',             label: 'Directeur des Programmes' },
-  { value: 'administrateur', label: 'Administrateur (CA)' },
-  { value: 'admin',          label: 'Admin système' },
-  { value: 'prestataire',    label: 'Prestataire' },
-]
-
 export default function GestionTitres() {
   const supabase = createClient()
   const [profils, setProfils] = useState<Profil[]>([])
@@ -42,33 +30,20 @@ export default function GestionTitres() {
     else { setMsg('Titre mis à jour.'); load() }
   }
 
-  async function changerRole(userId: string, role: string) {
-    setMsg('')
-    const res = await fetch('/api/admin/assign-role', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, role }),
-    })
-    const data = await res.json()
-    if (!res.ok) setMsg('Erreur : ' + data.error)
-    else { setMsg('Accès mis à jour.'); load() }
-  }
-
   return (
     <div className="card">
       <h3 style={{ marginBottom: 6 }}>Attribution des titres &amp; accès</h3>
       <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: 16 }}>
-        Choisissez le titre (poste) et l'accès système indépendamment. L'accès détermine ce que la personne peut faire dans l'application.
+        Choisissez le titre (poste) et le type d'emploi. Le changement de rôle/accès système se fait depuis Comptes (réservé au superadmin).
       </p>
       {msg && <p style={{ fontSize: 13, marginBottom: 12, color: msg.startsWith('Erreur') ? '#991b1b' : '#166534' }}>{msg}</p>}
       <div className="table-wrap">
-      <table style={{ minWidth: 700 }}>
+      <table style={{ minWidth: 560 }}>
         <thead>
           <tr>
             <th>Personnel</th>
             <th>Type d'emploi</th>
             <th>Titre / Poste</th>
-            <th>Accès système</th>
           </tr>
         </thead>
         <tbody>
@@ -90,14 +65,6 @@ export default function GestionTitres() {
                   onChange={e => attribuer(p.id, e.target.value as Titre, (p.type_emploi as TypeEmploi) ?? '')}>
                   <option value="">—</option>
                   {TITRES.map(t => <option key={t} value={t}>{TITRE_LABELS[t]}</option>)}
-                </select>
-              </td>
-              <td>
-                <select className="select" value={p.role}
-                  onChange={e => changerRole(p.id, e.target.value)}>
-                  {ACCESS_ROLES.map(r => (
-                    <option key={r.value} value={r.value}>{r.label}</option>
-                  ))}
                 </select>
               </td>
             </tr>

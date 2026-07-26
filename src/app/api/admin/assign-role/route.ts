@@ -7,7 +7,7 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
 
   const { data: me } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  if (!me || !['admin', 'rh', 'caf'].includes(me.role)) {
+  if (!me || me.role !== 'superadmin') {
     return NextResponse.json({ error: 'accès refusé' }, { status: 403 })
   }
 

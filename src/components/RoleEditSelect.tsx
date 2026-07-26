@@ -59,7 +59,7 @@ export default function RoleEditSelect({ userId, currentRole }: { userId: string
             fontSize: 12, padding: '4px 8px',
             border: `1px solid ${borderColor}`,
             borderRadius: 6, background: '#fff',
-            maxWidth: 180, cursor: 'pointer',
+            width: '100%', maxWidth: 190, cursor: 'pointer',
             opacity: status === 'saving' ? .6 : 1,
           }}
         >
@@ -72,7 +72,7 @@ export default function RoleEditSelect({ userId, currentRole }: { userId: string
         {status === 'err' && <span style={{ fontSize: 13, color: '#dc2626' }}>✗</span>}
       </div>
       {status === 'err' && err && (
-        <div style={{ fontSize: 11, color: '#dc2626', marginTop: 3, maxWidth: 180 }}>{err}</div>
+        <div style={{ fontSize: 11, color: '#dc2626', marginTop: 3, maxWidth: 190 }}>{err}</div>
       )}
     </div>
   )

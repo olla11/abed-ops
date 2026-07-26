@@ -20,7 +20,7 @@ const TABS: Tab[] = [
 export default function AdminNav({ role, pendingCount }: { role: string; pendingCount?: number }) {
   const path = usePathname()
   const ta = useTranslations('admin')
-  const tabs = TABS.filter(t => (!t.adminOnly || role === 'admin') && (!t.superadminOnly || role === 'superadmin'))
+  const tabs = TABS.filter(t => (!t.adminOnly || ['admin', 'superadmin'].includes(role)) && (!t.superadminOnly || role === 'superadmin'))
 
   return (
     <div style={{ marginBottom: 28 }}>

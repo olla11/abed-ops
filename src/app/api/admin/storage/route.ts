@@ -11,7 +11,7 @@ export async function GET() {
 
   const { data: profile } = await supabase
     .from('profiles').select('role').eq('id', user.id).single()
-  if (profile?.role !== 'admin') return NextResponse.json({ error: 'admin uniquement' }, { status: 403 })
+  if (!['admin', 'superadmin'].includes(profile?.role ?? '')) return NextResponse.json({ error: 'admin uniquement' }, { status: 403 })
 
   const admin = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

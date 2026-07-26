@@ -45,7 +45,7 @@ export default function ComptesTableClient({
   function renderTable(rows: User[]) {
     return (
       <div className="table-wrap">
-        <table style={{ minWidth: 900 }}>
+        <table style={{ minWidth: isSuperadmin && !showArchived ? 1080 : 900 }}>
           <thead>
             <tr>
               <th>{ta('civilTitle')}</th>
@@ -56,7 +56,7 @@ export default function ComptesTableClient({
               <th>{ta('function')}</th>
               {canManage && !showArchived && <th>{ta('directManager')}</th>}
               {showArchived && <th>{ta('archiveDate')}</th>}
-              {isSuperadmin && !showArchived && <th>Changer le rôle</th>}
+              {isSuperadmin && !showArchived && <th style={{ width: 200 }}>Changer le rôle</th>}
               {isAdmin && <th></th>}
             </tr>
           </thead>
@@ -89,7 +89,7 @@ export default function ComptesTableClient({
                   </td>
                 )}
                 {isSuperadmin && !showArchived && (
-                  <td>
+                  <td style={{ overflow: 'visible' }}>
                     <RoleEditSelect userId={u.id} currentRole={u.role ?? 'missionnaire'} />
                   </td>
                 )}

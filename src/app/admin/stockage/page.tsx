@@ -8,7 +8,7 @@ export default async function StockagePage() {
   const { data: { user } } = await supabase.auth.getUser()
   const { data: profile } = await supabase
     .from('profiles').select('role').eq('id', user!.id).single()
-  if (profile?.role !== 'admin') redirect('/admin/comptes')
+  if (!['admin', 'superadmin'].includes(profile?.role ?? '')) redirect('/admin/comptes')
 
   return (
     <div className="page-container">
