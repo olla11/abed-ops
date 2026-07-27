@@ -21,7 +21,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const { data: actor } = await supabase
     .from('profiles').select('role').eq('id', user.id).single()
-  if (!actor || !['admin', 'rh'].includes(actor.role)) {
+  if (!actor || !['admin', 'rh', 'superadmin'].includes(actor.role)) {
     return NextResponse.json({ error: 'acces refuse' }, { status: 403 })
   }
 
