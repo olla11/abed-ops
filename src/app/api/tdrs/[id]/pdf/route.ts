@@ -15,8 +15,18 @@ function renderTexte(texte: string | undefined): string {
   return `<div class="rte-content">${propre}</div>`
 }
 
+// Un tableau "prévu pour être rempli" (budget, chronogramme...) démarre avec
+// des colonnes mais aucune ligne. Si quelqu'un ajoute une ligne sans la
+// remplir (ou la vide après coup), on ne veut pas l'afficher non plus dans
+// le document final — seul un tableau avec au moins une cellule renseignée
+// compte comme "rempli".
+function tableauEstVide(tableau: Chapitre['tableau']): tableau is undefined {
+  if (!tableau || tableau.lignes.length === 0) return true
+  return tableau.lignes.every(ligne => ligne.every(cell => !cell?.trim()))
+}
+
 function renderTableau(tableau: Chapitre['tableau']): string {
-  if (!tableau || tableau.lignes.length === 0) {
+  if (tableauEstVide(tableau)) {
     return '<p class="muted">—</p>'
   }
   return `
@@ -55,8 +65,10 @@ function sigBlock(role: SignataireRole, signataire: any): string {
   `
 }
 
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
+  const exclureCles = new Set((req.nextUrl.searchParams.get('exclure') ?? '').split(',').filter(Boolean))
+  const apercu = req.nextUrl.searchParams.get('apercu') === '1'
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
@@ -75,6 +87,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const chapitresOrdonnes: Chapitre[] = CHAPITRE_CLES
     .map(cle => (tdr.chapitres as Chapitre[]).find(c => c.cle === cle))
     .filter((c): c is Chapitre => !!c)
+    .filter(c => !exclureCles.has(c.cle))
 
   const signataireParRole = (role: SignataireRole) =>
     (tdr.signataires as any[]).find(s => s.role === role)
@@ -125,7 +138,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 </style>
 </head>
 <body>
-  <div class="no-print"><button onclick="window.print()">🖨️ Imprimer / Télécharger en PDF</button></div>
+  <div class="no-print">
+    ${apercu ? '<p style="font-size:13px;color:#92400e;margin:0 0 12px;font-weight:600;">👁️ Aperçu — à quoi ressemblera le document final (les signatures manquantes apparaîtront une fois complétées)</p>' : ''}
+    <button onclick="window.print()">🖨️ Imprimer / Télécharger en PDF</button>
+  </div>
 
   <div class="header">
     <img src="/logoabed2.png" alt="Logo ABED">

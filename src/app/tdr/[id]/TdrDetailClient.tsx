@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import * as Y from 'yjs'
-import { Download, UserPlus, X, Check, Trash2, Send, PenLine, XCircle, Lock, MessageSquare, PanelRightOpen, PanelRightClose } from 'lucide-react'
+import { Download, Eye, UserPlus, X, Check, Trash2, Send, PenLine, XCircle, Lock, MessageSquare, PanelRightOpen, PanelRightClose } from 'lucide-react'
 import { CHAPITRE_CLES, TDR_STATUT_LABELS, labelSignataireRole, STATUT_TOUR, isColonneNumerique, type Chapitre, type TdrStatut, type SignataireRole } from '@/lib/tdr'
 import RichTextEditor from '@/components/RichTextEditor'
 import { createClient as createBrowserClient } from '@/lib/supabase-client'
@@ -203,6 +203,9 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
   const [invitePermission, setInvitePermission] = useState<'lecture' | 'revision'>('lecture')
   const [deleteArmed, setDeleteArmed] = useState(false)
   const [panelOpen, setPanelOpen] = useState(false)
+  const [previewing, setPreviewing] = useState(false)
+  const [showTelecharger, setShowTelecharger] = useState(false)
+  const [chapitresExclus, setChapitresExclus] = useState<Set<string>>(new Set())
 
   const isInitiateur = tdr.initiateur_id === myId
   const monCollab = tdr.collaborateurs.find(c => c.profile_id === myId)
@@ -351,6 +354,31 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
     }
   }
 
+  async function apercu() {
+    // Enregistre d'abord pour que l'aperçu reflète le contenu actuel de
+    // l'éditeur, pas la dernière version sauvegardée automatiquement.
+    setPreviewing(true)
+    await sauvegarder(true)
+    setPreviewing(false)
+    window.open(`/api/tdrs/${tdr.id}/pdf?apercu=1`, '_blank', 'noopener')
+  }
+
+  function toggleChapitreExclu(cle: string) {
+    setChapitresExclus(s => {
+      const n = new Set(s)
+      n.has(cle) ? n.delete(cle) : n.add(cle)
+      return n
+    })
+  }
+
+  function telecharger() {
+    const url = chapitresExclus.size > 0
+      ? `/api/tdrs/${tdr.id}/pdf?exclure=${[...chapitresExclus].join(',')}`
+      : `/api/tdrs/${tdr.id}/pdf`
+    window.open(url, '_blank', 'noopener')
+    setShowTelecharger(false)
+  }
+
   async function soumettre() {
     if (!responsableTechniqueId) { setErr('Choisissez un responsable technique.'); return }
     setSaving(true); setErr('')
@@ -473,11 +501,17 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
               </span>
             )}
           </button>
+          {!peutTelecharger && (
+            <button onClick={apercu} disabled={previewing}
+              style={{ padding: '9px 18px', borderRadius: 8, fontSize: 13, fontWeight: 700, background: 'white', color: '#374151', border: '1px solid var(--abed-border)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Eye size={15} /> {previewing ? 'Préparation…' : 'Aperçu du document'}
+            </button>
+          )}
           {peutTelecharger && (
-            <a href={`/api/tdrs/${tdr.id}/pdf`} target="_blank" rel="noreferrer"
-              style={{ padding: '9px 18px', borderRadius: 8, fontSize: 13, fontWeight: 700, background: 'var(--abed-green)', color: 'white', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <button onClick={() => { setChapitresExclus(new Set()); setShowTelecharger(true) }}
+              style={{ padding: '9px 18px', borderRadius: 8, fontSize: 13, fontWeight: 700, background: 'var(--abed-green)', color: 'white', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
               <Download size={15} /> Télécharger le PDF
-            </a>
+            </button>
           )}
           {tdr.statut === 'brouillon' && isInitiateur && (
             <button onClick={() => setShowSoumettre(true)} style={{ padding: '9px 18px', borderRadius: 8, fontSize: 13, fontWeight: 700, background: '#2563eb', color: 'white', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -784,6 +818,32 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
               <button onClick={() => setPendingComment(null)} style={{ padding: '9px 20px', borderRadius: 8, cursor: 'pointer', background: 'white', border: '1px solid var(--abed-border)', fontSize: 13 }}>Annuler</button>
               <button onClick={confirmerCommentaire} disabled={!commentaireTexte.trim()} style={{ padding: '9px 20px', borderRadius: 8, cursor: commentaireTexte.trim() ? 'pointer' : 'not-allowed', background: 'var(--abed-green)', color: 'white', border: 'none', fontSize: 13, fontWeight: 700, opacity: commentaireTexte.trim() ? 1 : 0.6 }}>
                 Ajouter
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal : télécharger (avec choix des chapitres à masquer) */}
+      {showTelecharger && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: 'white', borderRadius: 14, padding: 28, width: '100%', maxWidth: 440 }}>
+            <h3 style={{ marginBottom: 8, fontSize: 16 }}>Télécharger le PDF</h3>
+            <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: 14 }}>
+              Décochez les chapitres à exclure du document téléchargé. Un tableau prévu mais laissé vide (ex. budget) n&apos;apparaît de toute façon jamais dans le PDF.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 18, maxHeight: 280, overflowY: 'auto' }}>
+              {chapitres.map((c, i) => (
+                <label key={c.cle} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={!chapitresExclus.has(c.cle)} onChange={() => toggleChapitreExclu(c.cle)} />
+                  {i + 1}. {c.titre}
+                </label>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowTelecharger(false)} style={{ padding: '9px 20px', borderRadius: 8, cursor: 'pointer', background: 'white', border: '1px solid var(--abed-border)', fontSize: 13 }}>Annuler</button>
+              <button onClick={telecharger} style={{ padding: '9px 20px', borderRadius: 8, cursor: 'pointer', background: 'var(--abed-green)', color: 'white', border: 'none', fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Download size={14} /> Télécharger
               </button>
             </div>
           </div>

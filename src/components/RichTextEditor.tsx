@@ -9,6 +9,7 @@ import type { SupabaseYjsProvider } from '@/lib/yjs-supabase-provider'
 import {
   Bold, Italic, Underline as UnderlineIcon, Link2, List, ListOrdered, AlignJustify,
   Table as TableIcon, Rows3, Columns3, TableRowsSplit, TableColumnsSplit, Trash2, MessageSquarePlus,
+  Undo2, Redo2,
 } from 'lucide-react'
 
 export type CollabConfig = {
@@ -111,6 +112,9 @@ export default function RichTextEditor({
     <div style={{ border: '1px solid var(--abed-border)', borderRadius: 8, overflow: 'hidden' }}>
       {!readOnly && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 2, padding: '5px 6px', borderBottom: '1px solid var(--abed-border)', background: '#f9fafb', flexWrap: 'wrap' }}>
+          <ToolbarButton title="Annuler (Ctrl+Z)" disabled={!editor.can().undo()} onClick={() => editor.chain().focus().undo().run()}><Undo2 size={14} /></ToolbarButton>
+          <ToolbarButton title="Rétablir (Ctrl+Y)" disabled={!editor.can().redo()} onClick={() => editor.chain().focus().redo().run()}><Redo2 size={14} /></ToolbarButton>
+          <span style={{ width: 1, height: 18, background: '#e5e7eb', margin: '0 4px' }} />
           <ToolbarButton title="Gras" active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()}><Bold size={14} /></ToolbarButton>
           <ToolbarButton title="Italique" active={editor.isActive('italic')} onClick={() => editor.chain().focus().toggleItalic().run()}><Italic size={14} /></ToolbarButton>
           <ToolbarButton title="Souligné" active={editor.isActive('underline')} onClick={() => editor.chain().focus().toggleUnderline().run()}><UnderlineIcon size={14} /></ToolbarButton>
