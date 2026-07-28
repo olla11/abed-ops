@@ -24,15 +24,17 @@ export const CHAPITRES_DEFAUT: Chapitre[] = [
     tableau: { colonnes: ['Acteur', 'Rôle'], lignes: [] } },
   { cle: 'communication', titre: 'Stratégie de communication', type: 'tableau', texte: '',
     tableau: { colonnes: ['Rubrique', 'Détails'], lignes: [] } },
+  { cle: 'budget_interne', titre: 'Budget prévisionnel interne', type: 'tableau', texte: '',
+    tableau: { colonnes: ['Désignation', 'Unité', 'Qté', 'Coût unitaire (FCFA)', 'Coût total (FCFA)'], lignes: [] } },
   { cle: 'budget', titre: 'Budget prévisionnel détaillé', type: 'tableau', texte: '',
     tableau: { colonnes: ['Désignation', 'Unité', 'Qté', 'Coût unitaire (FCFA)', 'Coût total (FCFA)'], lignes: [] } },
 ]
 
 export const CHAPITRE_CLES = CHAPITRES_DEFAUT.map(c => c.cle)
 
-// Dans le chapitre budget, les colonnes de coût n'acceptent que des chiffres.
+// Dans les chapitres budget, les colonnes de coût n'acceptent que des chiffres.
 export function isColonneNumerique(chapitreCle: string, nomColonne: string): boolean {
-  return chapitreCle === 'budget' && /co[uû]t/i.test(nomColonne)
+  return (chapitreCle === 'budget' || chapitreCle === 'budget_interne') && /co[uû]t/i.test(nomColonne)
 }
 
 export function chapitresValides(chapitres: unknown): chapitres is Chapitre[] {
