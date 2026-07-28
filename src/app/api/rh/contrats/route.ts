@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
   const {
     profile_id, type_contrat, date_debut, poste, direction, date_fin,
     salaire_brut, observations, categorie_document, contrat_parent_id,
-    objet, articles, commentaires_rh,
+    objet, articles, commentaires_rh, source_financement,
   } = body
 
   if (!profile_id || !type_contrat || !date_debut) {
@@ -74,6 +74,7 @@ export async function POST(req: NextRequest) {
     date_fin: date_fin || null,
     salaire_brut: salaire_brut || null,
     observations: observations || null,
+    source_financement: source_financement || null,
     categorie_document: categorie,
     contrat_parent_id: parentId,
     objet: objet || null,

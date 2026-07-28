@@ -6,8 +6,10 @@ const ALL_TABS = [
   { href: '/rh', label: 'Tableau de bord', exact: true },
   { href: '/rh/personnel', label: 'Personnel' },
   { href: '/rh/contrats', label: 'Contrats' },
+  { href: '/rh/paie', label: 'Paie' },
   { href: '/rh/conges', label: 'Congés' },
   { href: '/rh/evaluations', label: 'Évaluations' },
+  { href: '/rh/parametres', label: 'Paramètres' },
 ]
 
 export default function RHNav({ role }: { role?: string } = {}) {

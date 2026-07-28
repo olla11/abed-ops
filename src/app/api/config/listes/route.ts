@@ -6,6 +6,14 @@ const TABLES: Record<string, string> = {
   codes_budgetaires: 'codes_budgetaires',
   projets: 'projets_programmes',
   natures: 'natures_depense',
+  directions: 'directions',
+}
+
+// La liste "directions" (organigramme RH) est gérée par RH ; les autres
+// listes (budgétaires) restent réservées à CAF/admin.
+function canWrite(type: string, role: string | undefined): boolean {
+  if (type === 'directions') return ['rh', 'admin'].includes(role ?? '')
+  return ['caf', 'admin'].includes(role ?? '')
 }
 
 export async function GET(req: NextRequest) {
@@ -28,14 +36,14 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
 
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  if (!['caf', 'admin'].includes(profile?.role ?? '')) {
-    return NextResponse.json({ error: 'accès refusé' }, { status: 403 })
-  }
 
   const body = await req.json()
   const { type, ...fields } = body
   const table = TABLES[type ?? '']
   if (!table) return NextResponse.json({ error: 'type invalide' }, { status: 400 })
+  if (!canWrite(type, profile?.role)) {
+    return NextResponse.json({ error: 'accès refusé' }, { status: 403 })
+  }
 
   const { error } = await supabase.from(table).insert(fields)
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
@@ -48,14 +56,14 @@ export async function DELETE(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
 
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  if (!['caf', 'admin'].includes(profile?.role ?? '')) {
-    return NextResponse.json({ error: 'accès refusé' }, { status: 403 })
-  }
 
   const type = req.nextUrl.searchParams.get('type')
   const id = req.nextUrl.searchParams.get('id')
   const table = TABLES[type ?? '']
   if (!table || !id) return NextResponse.json({ error: 'type et id requis' }, { status: 400 })
+  if (!canWrite(type ?? '', profile?.role)) {
+    return NextResponse.json({ error: 'accès refusé' }, { status: 403 })
+  }
 
   const { error } = await supabase.from(table).delete().eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })

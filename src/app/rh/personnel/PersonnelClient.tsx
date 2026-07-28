@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Pagination, { paginate } from '@/components/Pagination'
 
 type P = {
@@ -8,7 +8,10 @@ type P = {
   telephone: string | null; ifu: string | null; matricule: string | null
   date_naissance: string | null; nationalite: string | null; adresse: string | null
   manager_id: string | null; avatar_url: string | null
+  genre: string | null; ville: string | null; niveau_etude: string | null; nombre_enfants: number | null
 }
+
+type Direction = { id: string; nom: string }
 type Manager = { id: string; nom: string; prenoms: string }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -36,6 +39,11 @@ export default function PersonnelClient({ personnel, managers }: { personnel: P[
   const [form, setForm] = useState<Partial<P>>({})
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
+  const [directions, setDirections] = useState<Direction[]>([])
+
+  useEffect(() => {
+    fetch('/api/config/listes?type=directions').then(r => r.json()).then(j => setDirections(j.data ?? []))
+  }, [])
 
   const filtered = personnel.filter(p => {
     const q = search.toLowerCase()
@@ -106,7 +114,7 @@ export default function PersonnelClient({ personnel, managers }: { personnel: P[
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: '#f9fafb' }}>
-              {['Nom', 'Rôle / Type', 'Fonction', 'Direction', 'Email', 'Téléphone', ''].map(h => (
+              {['Nom', 'Genre', 'Rôle / Type', 'Fonction', 'Direction', 'Email', 'Téléphone', ''].map(h => (
                 <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: '#6b7280', borderBottom: '1px solid var(--abed-border)' }}>{h}</th>
               ))}
             </tr>
@@ -115,6 +123,7 @@ export default function PersonnelClient({ personnel, managers }: { personnel: P[
             {paginate(filtered, page).map((p, i) => (
               <tr key={p.id} style={{ background: i % 2 === 0 ? 'white' : '#fafafa' }}>
                 <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 600 }}>{p.prenoms} {p.nom}</td>
+                <td style={{ padding: '10px 14px', fontSize: 12, color: '#374151' }}>{p.genre ?? '—'}</td>
                 <td style={{ padding: '10px 14px', fontSize: 12 }}>
                   <span style={{ display: 'block', color: '#374151' }}>{ROLE_LABELS[p.role] ?? p.role}</span>
                   {p.type_emploi && <span style={{ color: '#6b7280' }}>{TYPE_LABELS[p.type_emploi] ?? p.type_emploi}</span>}
@@ -132,7 +141,7 @@ export default function PersonnelClient({ personnel, managers }: { personnel: P[
               </tr>
             ))}
             {filtered.length === 0 && (
-              <tr><td colSpan={7} style={{ padding: 24, textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>Aucun résultat</td></tr>
+              <tr><td colSpan={8} style={{ padding: 24, textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>Aucun résultat</td></tr>
             )}
           </tbody>
         </table>
@@ -146,7 +155,6 @@ export default function PersonnelClient({ personnel, managers }: { personnel: P[
             <h3 style={{ marginBottom: 20, fontSize: 16 }}>Modifier — {editTarget.prenoms} {editTarget.nom}</h3>
             {[
               ['fonction', 'Fonction'],
-              ['direction', 'Direction / Service'],
               ['telephone', 'Téléphone'],
               ['matricule', 'Matricule'],
               ['adresse', 'Adresse'],
@@ -161,11 +169,47 @@ export default function PersonnelClient({ personnel, managers }: { personnel: P[
               </div>
             ))}
             <div style={{ marginBottom: 14 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>Direction / Service</label>
+              <select value={form.direction ?? ''} onChange={e => setForm(f => ({ ...f, direction: e.target.value || null }))} style={inputStyle}>
+                <option value="">— Aucune —</option>
+                {directions.map(d => <option key={d.id} value={d.nom}>{d.nom}</option>)}
+                {form.direction && !directions.some(d => d.nom === form.direction) && (
+                  <option value={form.direction}>{form.direction} (ancienne valeur)</option>
+                )}
+              </select>
+            </div>
+            <div style={{ marginBottom: 14 }}>
               <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>Responsable technique</label>
               <select value={form.manager_id ?? ''} onChange={e => setForm(f => ({ ...f, manager_id: e.target.value || null }))} style={inputStyle}>
                 <option value="">— Aucun —</option>
                 {managers.map(m => <option key={m.id} value={m.id}>{m.prenoms} {m.nom}</option>)}
               </select>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>Genre</label>
+                <select value={form.genre ?? ''} onChange={e => setForm(f => ({ ...f, genre: e.target.value || null }))} style={inputStyle}>
+                  <option value="">— Non renseigné —</option>
+                  <option value="M">M</option>
+                  <option value="F">F</option>
+                </select>
+              </div>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>Nombre d&apos;enfants</label>
+                <input type="number" min={0} value={form.nombre_enfants ?? ''}
+                  onChange={e => setForm(f => ({ ...f, nombre_enfants: e.target.value === '' ? null : Number(e.target.value) }))}
+                  style={inputStyle} />
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>Ville</label>
+                <input value={form.ville ?? ''} onChange={e => setForm(f => ({ ...f, ville: e.target.value }))} style={inputStyle} />
+              </div>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>Niveau d&apos;étude</label>
+                <input value={form.niveau_etude ?? ''} onChange={e => setForm(f => ({ ...f, niveau_etude: e.target.value }))} style={inputStyle} />
+              </div>
             </div>
             {msg && <div style={{ fontSize: 13, color: msg === 'Enregistré !' ? 'var(--abed-green)' : '#c0392b', marginBottom: 12 }}>{msg}</div>}
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>

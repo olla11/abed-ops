@@ -54,8 +54,8 @@ function clearDraft(key: string) {
 
 const TYPES = ['CDD', 'CDI', 'Stage N1', 'Stage N2', 'Bénévolat', 'Prestataire direct', 'Prestataire à crédit', 'Consultant']
 const TYPES_STAGE = ['Stage N1', 'Stage N2']
-const DIRECTIONS = ['Administration', 'Direction Exécutive', 'Direction des Programmes', 'Exploitation', 'Autre']
 const CATEGORIES = ['Contrat', 'Convention', 'Avenant', 'Offre de stage']
+const SOURCES_FINANCEMENT = ['Expertise France (CLEE-2i)', 'Prometiers', 'ABED Directe', 'Réserve', 'Autre']
 
 function statutBadge(statut: string, dateFin: string | null) {
   const today = new Date().toISOString().split('T')[0]
@@ -141,6 +141,7 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
   const [search, setSearch] = useState('')
   const [deleteStep, setDeleteStep] = useState<Record<string, number>>({})
   const deleteTimers = useState<Record<string, ReturnType<typeof setTimeout>>>(() => ({}))[0]
+  const [directions, setDirections] = useState<{ id: string; nom: string }[]>([])
   const [wfTarget, setWfTarget] = useState<Contrat | null>(null)
   const [wfAction, setWfAction] = useState<string>('')
   const [wfSignataireId, setWfSignataireId] = useState('')
@@ -170,6 +171,9 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
 
   useEffect(() => {
     fetch('/api/config/taux').then(r => r.json()).then(d => setTauxCaf({ direct: d.taux_direct, credit: d.taux_credit })).catch(() => {})
+  }, [])
+  useEffect(() => {
+    fetch('/api/config/listes?type=directions').then(r => r.json()).then(j => setDirections(j.data ?? [])).catch(() => {})
   }, [])
 
   function tauxPourType(type: string | undefined, taux: { direct: number; credit: number } | null): number | null {
@@ -225,7 +229,7 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
     const draft = loadDraft(draftKeyEdit(c.id))
     if (draft) { setForm(draft.form); setArticles(draft.articles); setDraftRestoredAt(draft.savedAt) }
     else {
-      setForm({ categorie_document: c.categorie_document ?? 'Contrat', type_contrat: c.type_contrat, poste: c.poste ?? '', direction: c.direction ?? '', date_debut: c.date_debut, date_fin: c.date_fin ?? '', salaire_brut: c.salaire_brut ?? '', observations: c.observations ?? '', objet: c.objet ?? '', commentaires_rh: c.commentaires_rh ?? '' })
+      setForm({ categorie_document: c.categorie_document ?? 'Contrat', type_contrat: c.type_contrat, poste: c.poste ?? '', direction: c.direction ?? '', date_debut: c.date_debut, date_fin: c.date_fin ?? '', salaire_brut: c.salaire_brut ?? '', observations: c.observations ?? '', objet: c.objet ?? '', commentaires_rh: c.commentaires_rh ?? '', source_financement: (c as any).source_financement ?? '' })
       setArticles(Array.isArray(c.articles) ? c.articles : [])
       setDraftRestoredAt(null)
     }
@@ -239,7 +243,7 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
     } else if (editTarget) {
       const c = editTarget
       clearDraft(draftKeyEdit(c.id))
-      setForm({ categorie_document: c.categorie_document ?? 'Contrat', type_contrat: c.type_contrat, poste: c.poste ?? '', direction: c.direction ?? '', date_debut: c.date_debut, date_fin: c.date_fin ?? '', salaire_brut: c.salaire_brut ?? '', observations: c.observations ?? '', objet: c.objet ?? '', commentaires_rh: c.commentaires_rh ?? '' })
+      setForm({ categorie_document: c.categorie_document ?? 'Contrat', type_contrat: c.type_contrat, poste: c.poste ?? '', direction: c.direction ?? '', date_debut: c.date_debut, date_fin: c.date_fin ?? '', salaire_brut: c.salaire_brut ?? '', observations: c.observations ?? '', objet: c.objet ?? '', commentaires_rh: c.commentaires_rh ?? '', source_financement: (c as any).source_financement ?? '' })
       setArticles(Array.isArray(c.articles) ? c.articles : [])
     }
     setDraftRestoredAt(null)
@@ -424,7 +428,17 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
         <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Direction</label>
         <select value={form.direction ?? ''} onChange={e => setForm((f: any) => ({ ...f, direction: e.target.value }))} style={inputStyle}>
           <option value="">— Choisir —</option>
-          {DIRECTIONS.map(d => <option key={d} value={d}>{d}</option>)}
+          {directions.map(d => <option key={d.id} value={d.nom}>{d.nom}</option>)}
+          {form.direction && !directions.some(d => d.nom === form.direction) && (
+            <option value={form.direction}>{form.direction} (ancienne valeur)</option>
+          )}
+        </select>
+      </div>
+      <div style={{ marginBottom: 12 }}>
+        <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Source de financement</label>
+        <select value={form.source_financement ?? ''} onChange={e => setForm((f: any) => ({ ...f, source_financement: e.target.value }))} style={inputStyle}>
+          <option value="">— Non précisée —</option>
+          {SOURCES_FINANCEMENT.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
       </div>
       <div className="grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>

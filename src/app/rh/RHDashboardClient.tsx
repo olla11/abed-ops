@@ -1,9 +1,9 @@
 'use client'
-import { Users, FileText, Palmtree, ClipboardEdit, BarChart3 } from 'lucide-react'
+import { Users, FileText, Palmtree, ClipboardEdit, BarChart3, Wallet, Scale } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
-type Personnel = { id: string; nom: string; prenoms: string; role: string; type_emploi: string | null; direction: string | null; fonction: string | null }
-type Contrat = { id: string; type_contrat: string; statut: string; date_fin: string | null; date_debut: string; direction: string | null; poste: string | null; profile_id: string; profile: { nom: string; prenoms: string } | null }
+type Personnel = { id: string; nom: string; prenoms: string; role: string; type_emploi: string | null; direction: string | null; fonction: string | null; genre: string | null }
+type Contrat = { id: string; type_contrat: string; statut: string; date_fin: string | null; date_debut: string; direction: string | null; poste: string | null; profile_id: string; salaire_brut: number | null; source_financement: string | null; profile: { nom: string; prenoms: string } | null }
 type Conge = { id: string; statut: string; date_debut: string; date_fin: string; nb_jours: number | null; created_at: string; profile: { nom: string; prenoms: string; direction: string | null } | null; type_conge: { nom: string } | null }
 type Evaluation = { id: string; statut: string; score_moyen: number | null; declenchee_le: string | null; profile: { nom: string; prenoms: string } | null }
 
@@ -66,6 +66,52 @@ export default function RHDashboardClient({ personnel, contrats, contratsExpiran
   const dirsSorted = Object.entries(parDir).sort((a, b) => b[1] - a[1]).slice(0, 8)
   const maxDir = dirsSorted[0]?.[1] ?? 1
 
+  // ── KPIs stratégiques ──────────────────────────────────────────────────
+  const genreById: Record<string, string | null> = {}
+  personnel.forEach(p => { genreById[p.id] = p.genre })
+
+  const avecGenre = personnel.filter(p => p.genre === 'M' || p.genre === 'F')
+  const pctFemmes = avecGenre.length > 0
+    ? Math.round((avecGenre.filter(p => p.genre === 'F').length / avecGenre.length) * 100)
+    : null
+
+  const contratsActifsList = contrats.filter(c => c.statut === 'actif')
+  const masseSalariale = contratsActifsList.reduce((sum, c) => sum + (c.salaire_brut ?? 0), 0)
+
+  const salairesF = contratsActifsList.filter(c => genreById[c.profile_id] === 'F' && c.salaire_brut).map(c => c.salaire_brut as number)
+  const salairesM = contratsActifsList.filter(c => genreById[c.profile_id] === 'M' && c.salaire_brut).map(c => c.salaire_brut as number)
+  const moyenne = (arr: number[]) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0
+  const ratioSalarial = salairesM.length > 0 && salairesF.length > 0 ? moyenne(salairesF) / moyenne(salairesM) : null
+
+  // Répartition par direction, avec H/F
+  const parDirGenre: Record<string, { h: number; f: number }> = {}
+  personnel.forEach(p => {
+    const d = p.direction ?? 'Non assigné'
+    if (!parDirGenre[d]) parDirGenre[d] = { h: 0, f: 0 }
+    if (p.genre === 'M') parDirGenre[d].h++
+    else if (p.genre === 'F') parDirGenre[d].f++
+  })
+
+  // Masse salariale par type de contrat (actifs)
+  const parTypeContrat: Record<string, { count: number; total: number }> = {}
+  contratsActifsList.forEach(c => {
+    const t = c.type_contrat || 'Non précisé'
+    if (!parTypeContrat[t]) parTypeContrat[t] = { count: 0, total: 0 }
+    parTypeContrat[t].count++
+    parTypeContrat[t].total += c.salaire_brut ?? 0
+  })
+  const typesContratSorted = Object.entries(parTypeContrat).sort((a, b) => b[1].total - a[1].total)
+
+  // Masse salariale par source de financement (actifs)
+  const parBailleur: Record<string, number> = {}
+  contratsActifsList.forEach(c => {
+    const b = c.source_financement || 'Non précisé'
+    parBailleur[b] = (parBailleur[b] ?? 0) + (c.salaire_brut ?? 0)
+  })
+  const bailleursSorted = Object.entries(parBailleur).sort((a, b) => b[1] - a[1])
+
+  const fmtFCFA = (n: number) => n.toLocaleString('fr-FR') + ' FCFA'
+
   const TYPE_LABELS: Record<string, string> = {
     benevole: 'Bénévole', stagiaire_n1: 'Stagiaire N1', stagiaire_n2: 'Stagiaire N2',
     cdd: 'CDD', cdi: 'CDI', prestataire_direct: 'Prestataire direct',
@@ -117,6 +163,41 @@ export default function RHDashboardClient({ personnel, contrats, contratsExpiran
                 background: tauxActivite >= 80 ? '#16a34a' : tauxActivite >= 50 ? '#f59e0b' : '#dc2626',
                 width: `${tauxActivite}%` }} />
             </div>
+          </div>
+        </div>
+
+        {/* Masse salariale */}
+        <div style={{ ...card, display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{ width: 48, height: 48, borderRadius: 12, background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Wallet size={22} color="#166534" strokeWidth={1.75} />
+          </div>
+          <div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: '#166534', lineHeight: 1 }}>{fmtFCFA(masseSalariale)}</div>
+            <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>Masse salariale / mois (contrats actifs)</div>
+          </div>
+        </div>
+
+        {/* % Femmes */}
+        <div style={{ ...card, display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{ width: 48, height: 48, borderRadius: 12, background: '#fdf2f8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Users size={22} color="#9d174d" strokeWidth={1.75} />
+          </div>
+          <div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: '#9d174d', lineHeight: 1 }}>{pctFemmes !== null ? `${pctFemmes}%` : '—'}</div>
+            <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>
+              % Femmes {pctFemmes !== null ? `(sur ${avecGenre.length} profils renseignés)` : '(genre non renseigné)'}
+            </div>
+          </div>
+        </div>
+
+        {/* Ratio salarial H/F */}
+        <div style={{ ...card, display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{ width: 48, height: 48, borderRadius: 12, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Scale size={22} color="#1e40af" strokeWidth={1.75} />
+          </div>
+          <div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: '#1e40af', lineHeight: 1 }}>{ratioSalarial !== null ? ratioSalarial.toFixed(2) : '—'}</div>
+            <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>Ratio salarial F/H (1.0 = équité)</div>
           </div>
         </div>
       </div>
@@ -205,6 +286,73 @@ export default function RHDashboardClient({ personnel, contrats, contratsExpiran
                   <div style={{ background: '#f3f4f6', borderRadius: 4, height: 8, overflow: 'hidden' }}>
                     <div style={{ height: '100%', background: '#3b82f6', width: `${count / maxDir * 100}%`, borderRadius: 4 }} />
                   </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Analyse stratégique : H/F par direction, masse salariale par type de contrat et par bailleur */}
+      <div style={{ marginBottom: 24 }}>
+        <div style={card}>
+          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 16, color: '#111827' }}>Répartition H/F par direction</div>
+          {Object.keys(parDirGenre).length === 0 ? (
+            <div style={{ color: '#9ca3af', fontSize: 13 }}>{tc('noData')}</div>
+          ) : (
+            <div className="table-wrap">
+              <table style={{ minWidth: 480 }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: 'left', fontSize: 12, color: '#6b7280' }}>Direction</th>
+                    <th style={{ fontSize: 12, color: '#6b7280' }}>H</th>
+                    <th style={{ fontSize: 12, color: '#6b7280' }}>F</th>
+                    <th style={{ fontSize: 12, color: '#6b7280' }}>Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.entries(parDirGenre).sort((a, b) => (b[1].h + b[1].f) - (a[1].h + a[1].f)).map(([dir, g]) => (
+                    <tr key={dir}>
+                      <td style={{ fontSize: 12.5, color: '#374151' }}>{dir}</td>
+                      <td style={{ fontSize: 12.5, textAlign: 'center' }}>{g.h}</td>
+                      <td style={{ fontSize: 12.5, textAlign: 'center' }}>{g.f}</td>
+                      <td style={{ fontSize: 12.5, textAlign: 'center', fontWeight: 700 }}>{g.h + g.f}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
+        <div style={card}>
+          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 16, color: '#111827' }}>Masse salariale par type de contrat</div>
+          {typesContratSorted.length === 0 ? (
+            <div style={{ color: '#9ca3af', fontSize: 13 }}>{tc('noData')}</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {typesContratSorted.map(([type, d]) => (
+                <div key={type} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}>
+                  <span style={{ color: '#374151' }}>{type} <span style={{ color: '#9ca3af' }}>({d.count})</span></span>
+                  <span style={{ fontWeight: 700, color: 'var(--abed-green)' }}>{fmtFCFA(d.total)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div style={card}>
+          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 16, color: '#111827' }}>Masse salariale par source de financement</div>
+          {bailleursSorted.length === 0 ? (
+            <div style={{ color: '#9ca3af', fontSize: 13 }}>{tc('noData')}</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {bailleursSorted.map(([bailleur, total]) => (
+                <div key={bailleur} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}>
+                  <span style={{ color: '#374151' }}>{bailleur}</span>
+                  <span style={{ fontWeight: 700, color: '#1e40af' }}>{fmtFCFA(total)} <span style={{ color: '#9ca3af', fontWeight: 400 }}>({masseSalariale > 0 ? Math.round(total / masseSalariale * 100) : 0}%)</span></span>
                 </div>
               ))}
             </div>

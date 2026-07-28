@@ -15,10 +15,13 @@ export async function PATCH(req: NextRequest) {
   const { id, ...fields } = body
   if (!id) return NextResponse.json({ error: 'id requis' }, { status: 400 })
 
-  const allowed = ['fonction', 'direction', 'telephone', 'matricule', 'adresse', 'manager_id']
+  const allowed = [
+    'fonction', 'direction', 'telephone', 'matricule', 'adresse', 'manager_id',
+    'genre', 'ville', 'niveau_etude', 'nombre_enfants',
+  ]
   const updates: Record<string, unknown> = {}
   for (const k of allowed) {
-    if (k in fields) updates[k] = fields[k] || null
+    if (k in fields) updates[k] = fields[k] === '' || fields[k] === undefined ? null : fields[k]
   }
 
   const service = createServiceClient(

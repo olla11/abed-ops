@@ -15,7 +15,7 @@ export async function PUT(
   if (!['rh', 'admin', 'de', 'dp'].includes(me?.role ?? '')) return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
 
   const body = await req.json()
-  const { type_contrat, poste, direction, date_debut, date_fin, salaire_brut, observations, objet, articles, commentaires_rh } = body
+  const { type_contrat, poste, direction, date_debut, date_fin, salaire_brut, observations, objet, articles, commentaires_rh, source_financement } = body
 
   const admin = createAdminClient()
   const { data, error } = await admin.from('contrats')
@@ -27,6 +27,7 @@ export async function PUT(
       date_fin: date_fin || null,
       salaire_brut: salaire_brut || null,
       observations: observations || null,
+      source_financement: source_financement || null,
       objet: objet || null,
       articles: articles ?? [],
       commentaires_rh: commentaires_rh || null,
