@@ -45,7 +45,7 @@ export default async function ProjetDetailPage({ params }: { params: Promise<{ i
       .eq('espace_id', projet.espace_id)
     assignableProfiles = (espMembres ?? []).map(m => m.profile).filter(Boolean) as typeof assignableProfiles
   } else {
-    const { data: allP } = await supabase.from('profiles').select('id, nom, prenoms').order('prenoms')
+    const { data: allP } = await supabase.from('profiles_annuaire').select('id, nom, prenoms').eq('archived', false).order('prenoms')
     assignableProfiles = allP ?? []
   }
 

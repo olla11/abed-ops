@@ -7,8 +7,9 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
 
   const { data, error } = await supabase
-    .from('profiles')
+    .from('profiles_annuaire')
     .select('id, nom, prenoms')
+    .eq('archived', false)
     .order('prenoms')
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

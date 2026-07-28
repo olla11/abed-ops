@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import AppHeader from '@/components/AppHeader'
 import RolePreviewBanner from '@/components/RolePreviewBanner'
 import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
+import { getCachedProfilesForSignatures } from '@/lib/cache'
 import SignaturesClient from './SignaturesClient'
 
 export type SignataireRow = {
@@ -55,7 +56,7 @@ export default async function SignaturesPage() {
   const role = await getEffectiveRole(realRole)
   const previewRole = await getRolePreview()
 
-  const [{ data: demandes }, { data: profiles }] = await Promise.all([
+  const [{ data: demandes }, profiles] = await Promise.all([
     supabase
       .from('demandes_signature')
       .select(`
@@ -64,10 +65,7 @@ export default async function SignaturesPage() {
         signataires(profile_id, email, nom_externe, signe, signe_le, refuse, refuse_le, refuse_motif, profile:profiles!signataires_profile_id_fkey(nom, prenoms))
       `)
       .order('created_at', { ascending: false }),
-    supabase
-      .from('profiles')
-      .select('id, nom, prenoms, email, role, avatar_url, type_emploi')
-      .order('nom', { ascending: true }),
+    getCachedProfilesForSignatures(),
   ])
 
   const allDemandes = (demandes ?? []) as unknown as DemandeRow[]

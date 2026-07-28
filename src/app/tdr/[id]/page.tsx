@@ -37,7 +37,7 @@ export default async function TdrDetailPage({ params }: { params: Promise<{ id: 
   if (!tdr) redirect('/tdr')
 
   const { data: allProfiles } = await supabase
-    .from('profiles').select('id, nom, prenoms').eq('archived', false).order('prenoms')
+    .from('profiles_annuaire').select('id, nom, prenoms').eq('archived', false).order('prenoms')
 
   return (
     <>
