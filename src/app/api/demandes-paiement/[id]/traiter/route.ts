@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse, after } from 'next/server'
-import { createClient } from '@/lib/supabase-server'
+import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { sendEmail } from '@/lib/resend'
 import { accordGenre } from '@/lib/genre'
 
@@ -13,6 +13,12 @@ export async function POST(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
+
+  // Client service-role : les traiteurs (ex. AAF) ne sont pas tous dans la
+  // liste des rôles autorisés à lire tous les profils par RLS, et personne
+  // ne peut insérer une notification pour quelqu'un d'autre via le client
+  // authentifié normal — nécessaire pour prévenir le prochain traiteur.
+  const admin = createAdminClient()
 
   const { data: profile } = await supabase
     .from('profiles').select('role, nom, prenoms, email').eq('id', user.id).single()
@@ -53,7 +59,7 @@ export async function POST(
       update = { status: 'valide_caf', caf_id: user.id, caf_le: now, commentaire_caf: null }
       nextRoles = ['de', 'dp']
       emailSubject = '[ABED-ONG] Demande de paiement — Autorisation DE/DP requise'
-      const { data: deProfile } = await supabase.from('profiles').select('civilite').eq('role', 'de').maybeSingle()
+      const { data: deProfile } = await admin.from('profiles').select('civilite').eq('role', 'de').maybeSingle()
       emailMsg = `validée par la CAF, en attente d'autorisation ${accordGenre(deProfile?.civilite, 'du Directeur Exécutif', 'de la Directrice Exécutive')}`
     } else {
       if (!commentaire?.trim()) return NextResponse.json({ error: 'Commentaire obligatoire' }, { status: 400 })
@@ -80,7 +86,7 @@ export async function POST(
     const tasks: PromiseLike<unknown>[] = []
 
     if (update.status === 'autorise') {
-      tasks.push(supabase.from('notifications').insert({
+      tasks.push(admin.from('notifications').insert({
         user_id: demandeur.id,
         titre: '✓ Demande de paiement autorisée',
         message: `Votre demande "${demande.objet}" a été autorisée. L'AAF procédera au paiement.`,
@@ -94,7 +100,7 @@ export async function POST(
         }).catch(e => console.error('[Email]:', e)))
       }
     } else if (['rejete_aaf','rejete_caf','refuse_caf','refuse_de'].includes(update.status)) {
-      tasks.push(supabase.from('notifications').insert({
+      tasks.push(admin.from('notifications').insert({
         user_id: demandeur.id,
         titre: 'Demande de paiement rejetée',
         message: `Votre demande "${demande.objet}" a été rejetée. Motif : ${commentaire}`,
@@ -110,9 +116,9 @@ export async function POST(
     }
 
     if (nextRoles) {
-      const { data: nextUsers } = await supabase.from('profiles').select('id, email, prenoms, nom').in('role', nextRoles)
+      const { data: nextUsers } = await admin.from('profiles').select('id, email, prenoms, nom').in('role', nextRoles)
       for (const u of nextUsers ?? []) {
-        tasks.push(supabase.from('notifications').insert({
+        tasks.push(admin.from('notifications').insert({
           user_id: u.id,
           titre: `Demande de paiement à traiter`,
           message: `${demande.nom_complet} — ${demande.objet} — ${Number(demande.montant).toLocaleString('fr-FR')} FCFA`,

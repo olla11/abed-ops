@@ -33,6 +33,30 @@ export default async function ProjetDetailPage({ params }: { params: Promise<{ i
   // accessibles à l'utilisateur (public/créateur/assigné, ou membre de l'espace).
   if (!projet) redirect('/projets')
 
+  // Comme pour les TDR : le RLS de `profiles` masque les autres personnes
+  // pour un rôle non privilégié, donc le créateur/assigné d'une activité
+  // peut ressortir `null` du embed ci-dessus. On complète via l'annuaire.
+  {
+    const idsReferences = new Set<string>()
+    if ((projet as any).created_by) idsReferences.add((projet as any).created_by)
+    for (const a of (projet as any).activites ?? []) {
+      if (a.assignee_id) idsReferences.add(a.assignee_id)
+      if (a.created_by) idsReferences.add(a.created_by)
+    }
+    if (idsReferences.size > 0) {
+      const { data: annuaire } = await supabase
+        .from('profiles_annuaire').select('id, nom, prenoms').in('id', [...idsReferences])
+      const parId = new Map((annuaire ?? []).map(p => [p.id, p]))
+      if (!(projet as any).created_by_profile && (projet as any).created_by) {
+        (projet as any).created_by_profile = parId.get((projet as any).created_by) ?? null
+      }
+      for (const a of (projet as any).activites ?? []) {
+        if (!a.assignee && a.assignee_id) a.assignee = parId.get(a.assignee_id) ?? null
+        if (!a.created_by_profile && a.created_by) a.created_by_profile = parId.get(a.created_by) ?? null
+      }
+    }
+  }
+
   // Fetch espace members if project belongs to an espace
   let assignableProfiles: { id: string; nom: string; prenoms: string }[] = []
   const { createAdminClient } = await import('@/lib/supabase-server')

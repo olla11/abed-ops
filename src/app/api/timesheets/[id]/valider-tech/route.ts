@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase-server'
+import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { sendEmail } from '@/lib/resend'
 
 // ── Templates email ──────────────────────────────────────────────────────────
@@ -94,6 +94,11 @@ export async function POST(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'non authentifie' }, { status: 401 })
 
+  // Client service-role : le responsable validant (ex. AAF) ne peut pas
+  // forcément lire le profil du prestataire ni celui du CAF, ni insérer une
+  // notification pour quelqu'un d'autre, via le client authentifié normal.
+  const admin = createAdminClient()
+
   const body = await req.json()
   const { action, heures_retenues, justification_heures, commentaire_manager } = body
 
@@ -127,13 +132,13 @@ export async function POST(
     }).eq('id', id)
 
     // Récupérer le profil du prestataire (email + type_emploi)
-    const { data: prestataire } = await supabase
+    const { data: prestataire } = await admin
       .from('profiles')
       .select('email, prenoms, nom, type_emploi')
       .eq('id', soum.prestataire_id).single()
 
     // Notification in-app au prestataire
-    await supabase.from('notifications').insert({
+    await admin.from('notifications').insert({
       user_id: soum.prestataire_id,
       titre: 'Timesheet validé techniquement',
       message: `${soum.titre} : ${heures_retenues}h retenues sur ${soum.heures_declarees}h déclarées.`,
@@ -141,10 +146,10 @@ export async function POST(
     })
 
     // Notification in-app à un CAF
-    const { data: caf } = await supabase
+    const { data: caf } = await admin
       .from('profiles').select('id').eq('role', 'caf').limit(1).single()
     if (caf) {
-      await supabase.from('notifications').insert({
+      await admin.from('notifications').insert({
         user_id: caf.id,
         titre: 'Timesheet validé techniquement — à contrôler',
         message: `${soum.titre} — ${heures_retenues}h retenues. Vérifiez la facture.`,
@@ -179,7 +184,7 @@ export async function POST(
       commentaire_manager,
     }).eq('id', id)
 
-    await supabase.from('notifications').insert({
+    await admin.from('notifications').insert({
       user_id: soum.prestataire_id,
       titre: action === 'rejeter' ? 'Timesheet rejeté' : 'Corrections demandées sur votre timesheet',
       message: `${soum.titre} — ${commentaire_manager}`,

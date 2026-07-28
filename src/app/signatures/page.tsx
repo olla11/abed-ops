@@ -69,6 +69,27 @@ export default async function SignaturesPage() {
   ])
 
   const allDemandes = (demandes ?? []) as unknown as DemandeRow[]
+
+  // Comme pour les TDR : le RLS de `profiles` masque les autres personnes
+  // pour un rôle non privilégié, donc le créateur ou un co-signataire peut
+  // ressortir `null` du embed ci-dessus. On complète via l'annuaire.
+  {
+    const idsReferences = new Set<string>()
+    for (const d of allDemandes) {
+      if (d.createur_id) idsReferences.add(d.createur_id)
+      for (const s of d.signataires ?? []) if (s.profile_id) idsReferences.add(s.profile_id)
+    }
+    if (idsReferences.size > 0) {
+      const { data: annuaire } = await supabase
+        .from('profiles_annuaire').select('id, nom, prenoms').in('id', [...idsReferences])
+      const parId = new Map((annuaire ?? []).map(p => [p.id, p]))
+      for (const d of allDemandes) {
+        if (!d.createur && d.createur_id) d.createur = parId.get(d.createur_id) ?? null
+        for (const s of d.signataires ?? []) if (!s.profile && s.profile_id) s.profile = parId.get(s.profile_id) ?? null
+      }
+    }
+  }
+
   // Les demandes liées à un contrat (titre généré automatiquement par le RH) sont
   // gérées dans "Contrats à signer" (Mon espace > Mes contrats), pas ici.
   const CONTRAT_TITRE_RE = /^(Contrat|Convention|Avenant|Offre de stage) .* — /

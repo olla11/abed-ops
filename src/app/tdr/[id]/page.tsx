@@ -36,6 +36,32 @@ export default async function TdrDetailPage({ params }: { params: Promise<{ id: 
 
   if (!tdr) redirect('/tdr')
 
+  // Le RLS de `profiles` masque les autres personnes à qui n'a pas un rôle
+  // privilégié (caf/de/dp/admin/manager/rh/superadmin) : pour un
+  // collaborateur ou missionnaire consultant son propre TDR, les noms de
+  // l'initiateur/responsable technique/autres collaborateurs/signataires
+  // ressortent donc `null` du embed ci-dessus. On les complète depuis
+  // l'annuaire (qui contourne cette restriction pour l'essentiel : nom,
+  // prénoms, fonction).
+  const idsReferences = new Set<string>()
+  if (tdr.initiateur_id) idsReferences.add(tdr.initiateur_id)
+  if (tdr.responsable_technique_id) idsReferences.add(tdr.responsable_technique_id)
+  if (tdr.cloture_par) idsReferences.add(tdr.cloture_par)
+  for (const c of tdr.collaborateurs ?? []) if (c.profile_id) idsReferences.add(c.profile_id)
+  for (const s of tdr.signataires ?? []) if (s.profile_id) idsReferences.add(s.profile_id)
+
+  if (idsReferences.size > 0) {
+    const { data: annuaire } = await supabase
+      .from('profiles_annuaire').select('id, nom, prenoms, fonction').in('id', [...idsReferences])
+    const parId = new Map((annuaire ?? []).map(p => [p.id, p]))
+
+    if (!tdr.initiateur && tdr.initiateur_id) tdr.initiateur = parId.get(tdr.initiateur_id) ?? null
+    if (!tdr.responsable_technique && tdr.responsable_technique_id) tdr.responsable_technique = parId.get(tdr.responsable_technique_id) ?? null
+    if (!tdr.cloture_par_profile && tdr.cloture_par) tdr.cloture_par_profile = parId.get(tdr.cloture_par) ?? null
+    for (const c of tdr.collaborateurs ?? []) if (!c.profile && c.profile_id) c.profile = parId.get(c.profile_id) ?? null
+    for (const s of tdr.signataires ?? []) if (!s.profile && s.profile_id) s.profile = parId.get(s.profile_id) ?? null
+  }
+
   const { data: allProfiles } = await supabase
     .from('profiles_annuaire').select('id, nom, prenoms').eq('archived', false).order('prenoms')
 

@@ -186,10 +186,10 @@ export async function POST(
   }
 
   // ── Cas non-partenaire crédit ou avance → validation CAF ──
-  const { data: cafs } = await supabase
+  const { data: cafs } = await admin
     .from('profiles').select('id').in('role', ['caf', 'admin'])
   for (const c of cafs ?? []) {
-    await supabase.from('notifications').insert({
+    await admin.from('notifications').insert({
       user_id: c.id,
       titre: `Réconciliation à valider — Mission ${mission.reference ?? id}`,
       message: `La réconciliation de la mission « ${mission.objet} » est soumise pour validation CAF. Mode financement : ${modeLabelFr(mode_financement)}.`,

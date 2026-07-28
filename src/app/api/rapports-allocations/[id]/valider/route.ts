@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse, after } from 'next/server'
-import { createClient } from '@/lib/supabase-server'
+import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { sendEmail } from '@/lib/resend'
 import { accordGenre } from '@/lib/genre'
 
@@ -11,6 +11,11 @@ export async function POST(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
+
+  // Client service-role : certains valideurs (manager, aaf) ne peuvent pas
+  // lister les prochains valideurs par rôle, ni insérer une notification
+  // pour quelqu'un d'autre, via le client authentifié normal.
+  const admin = createAdminClient()
 
   const { data: profile } = await supabase
     .from('profiles').select('role, nom, prenoms, civilite').eq('id', user.id).single()
@@ -99,7 +104,7 @@ export async function POST(
       const notifMsg = estSalarie
         ? `Votre fiche de paie de ${mois} est disponible. Salaire net : ${Number(rapport.montant_allocation).toLocaleString('fr-FR')} FCFA.`
         : `Votre rapport de ${mois} a été autorisé. Montant : ${Number(rapport.montant_allocation).toLocaleString('fr-FR')} FCFA.`
-      tasks.push(supabase.from('notifications').insert({ user_id: prest.id, titre: notifTitre, message: notifMsg, lien: '/timesheets' }))
+      tasks.push(admin.from('notifications').insert({ user_id: prest.id, titre: notifTitre, message: notifMsg, lien: '/timesheets' }))
       if (prest.email) {
         tasks.push(sendEmail({
           to: prest.email,
@@ -120,9 +125,9 @@ export async function POST(
     }
 
     if (nextRoles) {
-      const { data: nextUsers } = await supabase.from('profiles').select('id, email, prenoms, nom').in('role', nextRoles)
+      const { data: nextUsers } = await admin.from('profiles').select('id, email, prenoms, nom').in('role', nextRoles)
       for (const u of nextUsers ?? []) {
-        tasks.push(supabase.from('notifications').insert({
+        tasks.push(admin.from('notifications').insert({
           user_id: u.id,
           titre: `Rapport mensuel à traiter`,
           message: `${prest.prenoms} ${prest.nom} — ${mois}${rapport.montant_allocation ? ` — ${Number(rapport.montant_allocation).toLocaleString('fr-FR')} FCFA` : ''}`,

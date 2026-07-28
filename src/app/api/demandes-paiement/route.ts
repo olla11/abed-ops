@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase-server'
+import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { sendEmail } from '@/lib/resend'
 import { rateLimit } from '@/lib/rate-limit'
 import { validate, s } from '@/lib/validate'
@@ -75,12 +75,15 @@ export async function POST(req: NextRequest) {
       .eq('prestataire_id', user.id)
   }
 
-  // Notifier les AAF par email
-  const { data: aafs } = await supabase
+  // Notifier les AAF par email — client service-role : le demandeur (souvent
+  // un rôle non privilégié) ne peut ni lister les profils AAF ni insérer une
+  // notification pour quelqu'un d'autre via le client authentifié normal.
+  const admin = createAdminClient()
+  const { data: aafs } = await admin
     .from('profiles').select('id, email, prenoms, nom').eq('role', 'aaf')
 
   for (const aaf of aafs ?? []) {
-    await supabase.from('notifications').insert({
+    await admin.from('notifications').insert({
       user_id: aaf.id,
       titre: 'Nouvelle demande de paiement',
       message: `${v.data.nom_complet} — ${v.data.objet} — ${Number(v.data.montant).toLocaleString('fr-FR')} FCFA`,
