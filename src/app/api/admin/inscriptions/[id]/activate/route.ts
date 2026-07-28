@@ -5,6 +5,7 @@ import { sendEmail } from '@/lib/resend'
 import { revalidateTag } from 'next/cache'
 import { z } from 'zod'
 import { validate } from '@/lib/validate'
+import { genererMatricule } from '@/lib/rh-derive'
 
 const ActivateSchema = z.object({
   role:       z.string().min(1, 'Rôle requis').max(50),
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // Fetch profile before activation
   const { data: profile, error: fetchError } = await admin
     .from('profiles')
-    .select('nom, prenoms, civilite, email, registration_status')
+    .select('nom, prenoms, civilite, email, registration_status, matricule')
     .eq('id', id)
     .single()
 
@@ -49,6 +50,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: 'Ce compte n\'est pas en attente d\'activation' }, { status: 400 })
   }
 
+  // Le matricule est attribué à l'activation (pas à l'inscription — c'est
+  // RH qui confirme qu'il s'agit bien d'un membre du personnel).
+  const matricule = profile.matricule || await genererMatricule(admin)
+
   // Activate: set role, type_emploi, manager_id, clear registration_status
   const { error: updateError } = await admin
     .from('profiles')
@@ -56,6 +61,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       role,
       type_emploi,
       manager_id:          manager_id || null,
+      matricule,
       registration_status: null,
       must_change_password: true,
     })

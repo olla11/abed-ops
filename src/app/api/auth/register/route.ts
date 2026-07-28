@@ -4,6 +4,7 @@ import { rateLimit } from '@/lib/rate-limit'
 import { validate, s } from '@/lib/validate'
 import { sendEmail } from '@/lib/resend'
 import { signVerifyToken } from '@/app/api/auth/verify-email/route'
+import { civiliteToGenre, deriveVilleFromAdresse } from '@/lib/rh-derive'
 import { z } from 'zod'
 
 const RegisterSchema = z.object({
@@ -77,9 +78,10 @@ export async function POST(req: NextRequest) {
   const userId = userData.user.id
 
   // Update profile with all registration fields
+  const civiliteFinale = civilite || 'M.'
   await admin.from('profiles').update({
     nom, prenoms,
-    civilite:        civilite       || 'M.',
+    civilite:        civiliteFinale,
     telephone:       telephone      || null,
     fonction:        fonction       || null,
     adresse:         adresse        || null,
@@ -88,6 +90,8 @@ export async function POST(req: NextRequest) {
     nationalite:     nationalite    || null,
     ifu:             ifu            || null,
     grade_indice:    grade_indice   || null,
+    genre:           civiliteToGenre(civiliteFinale),
+    ville:           deriveVilleFromAdresse(adresse),
     registration_status: 'pending_email',
     must_change_password: false,
   }).eq('id', userId)

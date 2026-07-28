@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Pagination, { paginate } from '@/components/Pagination'
+import { deriveVilleFromAdresse } from '@/lib/rh-derive'
 
 type P = {
   id: string; nom: string; prenoms: string; role: string; type_emploi: string | null
@@ -156,8 +157,6 @@ export default function PersonnelClient({ personnel, managers }: { personnel: P[
             {[
               ['fonction', 'Fonction'],
               ['telephone', 'Téléphone'],
-              ['matricule', 'Matricule'],
-              ['adresse', 'Adresse'],
             ].map(([key, label]) => (
               <div key={key} style={{ marginBottom: 14 }}>
                 <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>{label}</label>
@@ -168,6 +167,26 @@ export default function PersonnelClient({ personnel, managers }: { personnel: P[
                 />
               </div>
             ))}
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>Matricule</label>
+              <input value={form.matricule ?? ''} onChange={e => setForm(f => ({ ...f, matricule: e.target.value }))} style={inputStyle} />
+              <p style={{ fontSize: 11, color: 'var(--abed-muted)', margin: '4px 0 0' }}>Attribué automatiquement à la création — modifiable si besoin.</p>
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>Adresse</label>
+              <input
+                value={form.adresse ?? ''}
+                onChange={e => {
+                  const adresse = e.target.value
+                  setForm(f => {
+                    const villeAuto = !f.ville ? deriveVilleFromAdresse(adresse) : null
+                    return { ...f, adresse, ...(villeAuto ? { ville: villeAuto } : {}) }
+                  })
+                }}
+                style={inputStyle}
+              />
+              <p style={{ fontSize: 11, color: 'var(--abed-muted)', margin: '4px 0 0' }}>La ville ci-dessous se déduit automatiquement de l&apos;adresse si elle est vide.</p>
+            </div>
             <div style={{ marginBottom: 14 }}>
               <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>Direction / Service</label>
               <select value={form.direction ?? ''} onChange={e => setForm(f => ({ ...f, direction: e.target.value || null }))} style={inputStyle}>
@@ -193,6 +212,7 @@ export default function PersonnelClient({ personnel, managers }: { personnel: P[
                   <option value="M">M</option>
                   <option value="F">F</option>
                 </select>
+                <p style={{ fontSize: 11, color: 'var(--abed-muted)', margin: '4px 0 0' }}>Déduit de la civilité (M./Mme) — à corriger si besoin.</p>
               </div>
               <div>
                 <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>Nombre d&apos;enfants</label>

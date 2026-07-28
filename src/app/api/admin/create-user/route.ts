@@ -5,6 +5,7 @@ import { revalidateTag } from 'next/cache'
 import { sendEmail } from '@/lib/resend'
 import { rateLimit } from '@/lib/rate-limit'
 import { validate, s } from '@/lib/validate'
+import { civiliteToGenre, deriveVilleFromAdresse, genererMatricule } from '@/lib/rh-derive'
 import { z } from 'zod'
 
 const CreateUserSchema = z.object({
@@ -64,13 +65,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: authError?.message ?? 'Echec creation Auth' }, { status: 400 })
   }
 
+  const civiliteFinale = civilite || 'M.'
+  const matricule = await genererMatricule(admin)
+
   // UPDATE du profil cree par le trigger handle_new_user()
   const { error: profileError } = await admin
     .from('profiles')
     .update({
       nom:                   nom,
       prenoms:               prenoms,
-      civilite:              civilite       || 'M.',
+      civilite:              civiliteFinale,
       telephone:             telephone      || null,
       fonction:              fonction       || null,
       ifu:                   ifu            || null,
@@ -79,6 +83,9 @@ export async function POST(req: NextRequest) {
       date_naissance:        date_naissance || null,
       lieu_naissance:        lieu_naissance || null,
       nationalite:           nationalite    || null,
+      genre:                 civiliteToGenre(civiliteFinale),
+      ville:                 deriveVilleFromAdresse(adresse),
+      matricule,
       must_change_password:  true,
       role:                  role            || 'missionnaire',
       type_emploi:           type_emploi     || null,

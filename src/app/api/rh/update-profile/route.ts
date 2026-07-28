@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { revalidateTag } from 'next/cache'
+import { deriveVilleFromAdresse } from '@/lib/rh-derive'
 
 export async function PATCH(req: NextRequest) {
   const supabase = await createClient()
@@ -22,6 +23,13 @@ export async function PATCH(req: NextRequest) {
   const updates: Record<string, unknown> = {}
   for (const k of allowed) {
     if (k in fields) updates[k] = fields[k] === '' || fields[k] === undefined ? null : fields[k]
+  }
+
+  // Filet de sécurité : si l'adresse change et qu'aucune ville n'a été
+  // fournie, on la déduit de l'adresse plutôt que de la laisser vide.
+  if (typeof updates.adresse === 'string' && !updates.ville) {
+    const villeDeduite = deriveVilleFromAdresse(updates.adresse)
+    if (villeDeduite) updates.ville = villeDeduite
   }
 
   const service = createServiceClient(
