@@ -37,7 +37,12 @@ export async function POST(
   let nextEmailSubject = ''
   let nextEmailMsg = ''
 
-  if (role === 'manager' && rapport.status === 'soumis') {
+  // Le premier niveau de validation revient au responsable direct assigné
+  // sur le rapport (rapport.manager_id), quel que soit son rôle système —
+  // "Responsable direct" peut être un manager, mais aussi un DP/DE/CAF/AAF/RH
+  // (voir ManagerAssignSelect). Vérifier le rôle littéral 'manager' au lieu
+  // du lien réel excluait à tort tout responsable ayant un autre rôle.
+  if (rapport.manager_id === user.id && rapport.status === 'soumis') {
     if (action === 'valider') {
       update = { status: 'valide_tech', manager_valide_le: now, commentaire_manager: null }
       nextRoles = ['aaf']
