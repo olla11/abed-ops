@@ -29,7 +29,7 @@ export const getCachedPersonnel = () =>
     async () => {
       const { data } = await service()
         .from('profiles')
-        .select('id, nom, prenoms, role, type_emploi, direction, fonction, email, telephone, civilite, manager_id, genre, ville, niveau_etude, nombre_enfants')
+        .select('id, nom, prenoms, role, type_emploi, direction, fonction, email, telephone, civilite, manager_id, genre, ville, niveau_etude, nombre_enfants, matricule, adresse')
         .neq('role', 'admin')
         .eq('archived', false)
         .order('prenoms')
