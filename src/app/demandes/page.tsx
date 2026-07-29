@@ -34,6 +34,7 @@ export default async function DemandesPage() {
       <div className="page-container" style={{ display: 'grid', gap: 28 }}>
       <DemandesClient
         role={role}
+        userId={user.id}
         userEmail={profile?.email ?? ''}
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
       />

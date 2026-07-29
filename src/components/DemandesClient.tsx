@@ -23,8 +23,8 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
 
 const isTraiteur = (r: string) => ['aaf', 'caf', 'de', 'dp', 'admin', 'administrateur'].includes(r)
 
-export default function DemandesClient({ role, userEmail, userName }: {
-  role: string; userEmail: string; userName: string
+export default function DemandesClient({ role, userId, userEmail, userName }: {
+  role: string; userId: string; userEmail: string; userName: string
 }) {
   const [showForm, setShowForm] = useState(false)
   const [mesDemandes, setMesDemandes] = useState<Demande[]>([])
@@ -65,7 +65,7 @@ export default function DemandesClient({ role, userEmail, userName }: {
       </div>
 
       {/* Vue traitement pour AAF/CAF/DE/Admin */}
-      {isTraiteur(role) && <TraitementDemandes role={role} />}
+      {isTraiteur(role) && <TraitementDemandes role={role} userId={userId} />}
 
       {/* Mes demandes pour tous */}
       {!isTraiteur(role) && (

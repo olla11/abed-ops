@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import Pagination, { paginate } from '@/components/Pagination'
 
 type Demande = {
-  id: string; numero: string | null; nom_complet: string; email_contact: string; departement: string
+  id: string; numero: string | null; demandeur_id: string; nom_complet: string; email_contact: string; departement: string
   objet: string; code_budgetaire: string; projet: string; nature_depense: string
   montant: number; mode_paiement: string; beneficiaire: string; reference_piece: string
   justification: string; urgence: string; date_souhaitee: string | null
@@ -28,6 +28,9 @@ const URGENCE_COLOR: Record<string, string> = {
   urgente: '#991b1b', normale: '#92660b', peut_attendre: '#1e40af',
 }
 
+// Statuts définitifs : plus aucune action possible sur la demande.
+const STATUTS_TERMINAUX = ['autorise', 'rejete_aaf', 'rejete_caf', 'refuse_caf', 'refuse_de']
+
 async function openFile(path: string) {
   const res = await fetch(`/api/storage/signed-url?bucket=timesheets&path=${encodeURIComponent(path)}`)
   const json = await res.json()
@@ -35,12 +38,16 @@ async function openFile(path: string) {
   else alert('Impossible d\'ouvrir : ' + (json.error ?? 'erreur'))
 }
 
-export default function TraitementDemandes({ role }: { role: string }) {
+export default function TraitementDemandes({ role, userId }: { role: string; userId: string }) {
   const [demandes, setDemandes] = useState<Demande[]>([])
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState<string | null>(null)
   const [pageATraiter, setPageATraiter] = useState(1)
-  const [pageHistorique, setPageHistorique] = useState(1)
+  const [pageMesDemandes, setPageMesDemandes] = useState(1)
+  const [pageEnCours, setPageEnCours] = useState(1)
+  const [pageCloturees, setPageCloturees] = useState(1)
+  const [ouvrirEnCours, setOuvrirEnCours] = useState(false)
+  const [ouvrirCloturees, setOuvrirCloturees] = useState(false)
   const [commentMap, setCommentMap] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState<string | null>(null)
 
@@ -76,8 +83,13 @@ export default function TraitementDemandes({ role }: { role: string }) {
     return false
   }
 
-  const aTraiter = demandes.filter(canAct)
-  const autres = demandes.filter(d => !canAct(d))
+  // Mes propres demandes personnelles à part, quel que soit leur statut — y compris
+  // celles qu'on pourrait théoriquement "traiter" soi-même (pas d'auto-validation affichée ici).
+  const mesDemandes = demandes.filter(d => d.demandeur_id === userId)
+  const autres = demandes.filter(d => d.demandeur_id !== userId)
+  const aTraiter = autres.filter(canAct)
+  const enCours = autres.filter(d => !canAct(d) && !STATUTS_TERMINAUX.includes(d.status))
+  const cloturees = autres.filter(d => !canAct(d) && STATUTS_TERMINAUX.includes(d.status))
 
   if (loading) return <p>Chargement…</p>
 
@@ -209,13 +221,54 @@ export default function TraitementDemandes({ role }: { role: string }) {
           <Pagination page={pageATraiter} total={aTraiter.length} onChange={setPageATraiter} />
         </div>
       )}
-      {autres.length > 0 && (
-        <div className="card">
-          <h3 style={{ marginBottom: 4 }}>Historique ({autres.length})</h3>
-          {paginate(autres, pageHistorique).map(d => renderDemande(d, false))}
-          <Pagination page={pageHistorique} total={autres.length} onChange={setPageHistorique} />
+
+      {mesDemandes.length > 0 && (
+        <div className="card" style={{ borderLeft: '4px solid var(--abed-green)' }}>
+          <h3 style={{ marginBottom: 4 }}>👤 Mes demandes personnelles ({mesDemandes.length})</h3>
+          <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: 12 }}>
+            Les demandes que vous avez soumises vous-même.
+          </p>
+          {paginate(mesDemandes, pageMesDemandes).map(d => renderDemande(d, false))}
+          <Pagination page={pageMesDemandes} total={mesDemandes.length} onChange={setPageMesDemandes} />
         </div>
       )}
+
+      {enCours.length > 0 && (
+        <div className="card">
+          <h3 style={{ marginBottom: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+            onClick={() => setOuvrirEnCours(o => !o)}>
+            🔄 En cours ailleurs ({enCours.length}) <span style={{ fontSize: 12, color: 'var(--abed-muted)' }}>{ouvrirEnCours ? '▲' : '▼'}</span>
+          </h3>
+          <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: ouvrirEnCours ? 12 : 0 }}>
+            Demandes d'autres collaborateurs, en attente d'un autre traiteur.
+          </p>
+          {ouvrirEnCours && (
+            <>
+              {paginate(enCours, pageEnCours).map(d => renderDemande(d, false))}
+              <Pagination page={pageEnCours} total={enCours.length} onChange={setPageEnCours} />
+            </>
+          )}
+        </div>
+      )}
+
+      {cloturees.length > 0 && (
+        <div className="card">
+          <h3 style={{ marginBottom: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+            onClick={() => setOuvrirCloturees(o => !o)}>
+            ✅ Clôturées ({cloturees.length}) <span style={{ fontSize: 12, color: 'var(--abed-muted)' }}>{ouvrirCloturees ? '▲' : '▼'}</span>
+          </h3>
+          <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: ouvrirCloturees ? 12 : 0 }}>
+            Autorisées, rejetées ou refusées — statut définitif.
+          </p>
+          {ouvrirCloturees && (
+            <>
+              {paginate(cloturees, pageCloturees).map(d => renderDemande(d, false))}
+              <Pagination page={pageCloturees} total={cloturees.length} onChange={setPageCloturees} />
+            </>
+          )}
+        </div>
+      )}
+
       {demandes.length === 0 && (
         <div className="card">
           <p style={{ color: 'var(--abed-muted)' }}>Aucune demande de paiement.</p>
