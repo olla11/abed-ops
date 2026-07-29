@@ -75,10 +75,14 @@ export default function TraitementDemandes({ role, userId }: { role: string; use
     setSubmitting(null); load()
   }
 
+  // Seuls AAF, CAF et DE ont une action réelle sur ce circuit (+ admin en secours
+  // technique aux deux étapes). Brancher d'abord sur le statut plutôt que sur le
+  // rôle : sinon "admin" — présent aux deux étapes — retournait toujours le
+  // résultat de la première condition testée, quel que soit le statut réel.
   function canAct(d: Demande) {
-    if (role === 'aaf' || role === 'admin') return d.status === 'soumis'
-    if (role === 'caf') return d.status === 'valide_aaf'
-    if (role === 'de' || role === 'dp' || role === 'administrateur') return d.status === 'valide_caf'
+    if (d.status === 'soumis') return role === 'aaf' || role === 'admin'
+    if (d.status === 'valide_aaf') return role === 'caf'
+    if (d.status === 'valide_caf') return role === 'de' || role === 'admin'
     return false
   }
 
@@ -192,7 +196,7 @@ export default function TraitementDemandes({ role, userId }: { role: string; use
                     placeholder="Motif de rejet ou observation…" />
                 </div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {(role === 'de' || role === 'dp' || role === 'administrateur') ? (
+                  {d.status === 'valide_caf' ? (
                     <>
                       <button className="btn" style={{ background: '#166534', fontSize: 13 }}
                         disabled={submitting === d.id} onClick={() => agir(d.id, 'autoriser')}>

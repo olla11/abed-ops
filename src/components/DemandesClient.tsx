@@ -21,7 +21,8 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
   refuse_de:    { label: '✗ Refusé (DE)',    color: '#991b1b' },
 }
 
-const isTraiteur = (r: string) => ['aaf', 'caf', 'de', 'dp', 'admin', 'administrateur'].includes(r)
+// Seuls AAF, CAF et DE ont une action sur le circuit des demandes de paiement.
+const isTraiteur = (r: string) => ['aaf', 'caf', 'de', 'admin'].includes(r)
 
 export default function DemandesClient({ role, userId, userEmail, userName }: {
   role: string; userId: string; userEmail: string; userName: string

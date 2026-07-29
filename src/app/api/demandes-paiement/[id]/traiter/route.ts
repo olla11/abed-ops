@@ -24,7 +24,8 @@ export async function POST(
     .from('profiles').select('role, nom, prenoms, email').eq('id', user.id).single()
   const role = profile?.role ?? ''
 
-  if (!['aaf', 'caf', 'de', 'dp', 'admin', 'administrateur'].includes(role)) {
+  // Seuls AAF, CAF et DE ont une action sur ce circuit (+ admin en secours technique).
+  if (!['aaf', 'caf', 'de', 'admin'].includes(role)) {
     return NextResponse.json({ error: 'accès refusé' }, { status: 403 })
   }
 
@@ -57,15 +58,15 @@ export async function POST(
   } else if (role === 'caf' && demande.status === 'valide_aaf') {
     if (action === 'valider') {
       update = { status: 'valide_caf', caf_id: user.id, caf_le: now, commentaire_caf: null }
-      nextRoles = ['de', 'dp']
-      emailSubject = '[ABED-ONG] Demande de paiement — Autorisation DE/DP requise'
+      nextRoles = ['de']
+      emailSubject = '[ABED-ONG] Demande de paiement — Autorisation DE requise'
       const { data: deProfile } = await admin.from('profiles').select('civilite').eq('role', 'de').maybeSingle()
       emailMsg = `validée par la CAF, en attente d'autorisation ${accordGenre(deProfile?.civilite, 'du Directeur Exécutif', 'de la Directrice Exécutive')}`
     } else {
       if (!commentaire?.trim()) return NextResponse.json({ error: 'Commentaire obligatoire' }, { status: 400 })
       update = { status: action === 'refuser' ? 'refuse_caf' : 'rejete_caf', caf_id: user.id, caf_le: now, commentaire_caf: commentaire }
     }
-  } else if (['de', 'dp', 'admin', 'administrateur'].includes(role) && demande.status === 'valide_caf') {
+  } else if (['de', 'admin'].includes(role) && demande.status === 'valide_caf') {
     if (action === 'autoriser') {
       update = { status: 'autorise', de_id: user.id, de_le: now, commentaire_de: null }
     } else {

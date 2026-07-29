@@ -31,7 +31,10 @@ export async function GET(req: NextRequest) {
 
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
   const role = profile?.role ?? ''
-  const isTraiteur = ['aaf', 'caf', 'de', 'dp', 'admin', 'administrateur'].includes(role)
+  // Seuls AAF, CAF et DE ont une action réelle sur le circuit des demandes de
+  // paiement (traitement, validation, autorisation) — les autres rôles n'y ont
+  // jamais rien à traiter et ne voient que leurs propres demandes soumises.
+  const isTraiteur = ['aaf', 'caf', 'de', 'admin'].includes(role)
 
   let query = supabase
     .from('demandes_paiement')
