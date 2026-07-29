@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { Clock, User, Users, CheckCircle2, type LucideIcon } from 'lucide-react'
 import Pagination, { paginate } from '@/components/Pagination'
 
 type Demande = {
@@ -38,16 +39,14 @@ async function openFile(path: string) {
   else alert('Impossible d\'ouvrir : ' + (json.error ?? 'erreur'))
 }
 
+type Onglet = { key: string; icon: LucideIcon; label: string; desc: string; count: number; color?: string; items: Demande[]; actif: boolean }
+
 export default function TraitementDemandes({ role, userId }: { role: string; userId: string }) {
   const [demandes, setDemandes] = useState<Demande[]>([])
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState<string | null>(null)
-  const [pageATraiter, setPageATraiter] = useState(1)
-  const [pageMesDemandes, setPageMesDemandes] = useState(1)
-  const [pageEnCours, setPageEnCours] = useState(1)
-  const [pageCloturees, setPageCloturees] = useState(1)
-  const [ouvrirEnCours, setOuvrirEnCours] = useState(false)
-  const [ouvrirCloturees, setOuvrirCloturees] = useState(false)
+  const [activeTab, setActiveTab] = useState<string | null>(null)
+  const [page, setPage] = useState(1)
   const [commentMap, setCommentMap] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState<string | null>(null)
 
@@ -91,7 +90,29 @@ export default function TraitementDemandes({ role, userId }: { role: string; use
   const enCours = autres.filter(d => !canAct(d) && !STATUTS_TERMINAUX.includes(d.status))
   const cloturees = autres.filter(d => !canAct(d) && STATUTS_TERMINAUX.includes(d.status))
 
+  const onglets: Onglet[] = [
+    { key: 'a_traiter', icon: Clock, label: 'À traiter', desc: 'Votre action requise',
+      count: aTraiter.length, color: aTraiter.length > 0 ? '#b45309' : undefined, items: aTraiter, actif: true },
+    { key: 'mes_demandes', icon: User, label: 'Mes demandes', desc: 'Vos soumissions personnelles',
+      count: mesDemandes.length, color: mesDemandes.length > 0 ? '#166534' : undefined, items: mesDemandes, actif: false },
+    { key: 'en_cours', icon: Users, label: 'En cours ailleurs', desc: "Chez d'autres traiteurs",
+      count: enCours.length, color: enCours.length > 0 ? '#1e40af' : undefined, items: enCours, actif: false },
+    { key: 'cloturees', icon: CheckCircle2, label: 'Clôturées', desc: 'Statut définitif',
+      count: cloturees.length, color: cloturees.length > 0 ? '#6b7280' : undefined, items: cloturees, actif: false },
+  ]
+
   if (loading) return <p>Chargement…</p>
+
+  if (demandes.length === 0) {
+    return (
+      <div className="card">
+        <p style={{ color: 'var(--abed-muted)' }}>Aucune demande de paiement.</p>
+      </div>
+    )
+  }
+
+  const currentKey = activeTab ?? (aTraiter.length > 0 ? 'a_traiter' : onglets.find(o => o.count > 0)?.key ?? 'a_traiter')
+  const current = onglets.find(o => o.key === currentKey) ?? onglets[0]
 
   const renderDemande = (d: Demande, actif: boolean) => {
     const isOpen = expanded === d.id
@@ -211,69 +232,71 @@ export default function TraitementDemandes({ role, userId }: { role: string; use
 
   return (
     <div style={{ display: 'grid', gap: 20 }}>
-      {aTraiter.length > 0 && (
-        <div className="card" style={{ borderLeft: '4px solid var(--abed-amber)' }}>
-          <h3 style={{ marginBottom: 4 }}>⏳ À traiter ({aTraiter.length})</h3>
-          <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: 12 }}>
-            Demandes en attente de votre action.
-          </p>
-          {paginate(aTraiter, pageATraiter).map(d => renderDemande(d, true))}
-          <Pagination page={pageATraiter} total={aTraiter.length} onChange={setPageATraiter} />
-        </div>
-      )}
+      {/* Onglets sous forme de cartes */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+        gap: 10,
+      }}>
+        {onglets.map(o => {
+          const active = currentKey === o.key
+          return (
+            <button
+              key={o.key}
+              onClick={() => { setActiveTab(o.key); setPage(1) }}
+              style={{
+                background: active ? 'var(--abed-green)' : 'white',
+                border: active ? '2px solid var(--abed-green)' : '2px solid #e5e7eb',
+                borderRadius: 14, padding: '14px 16px',
+                cursor: 'pointer', textAlign: 'left',
+                transition: 'all 0.15s',
+                boxShadow: active ? '0 4px 14px rgba(6,95,70,0.18)' : '0 1px 3px rgba(0,0,0,0.05)',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                <o.icon size={22} color={active ? 'white' : (o.color ?? '#6b7280')} strokeWidth={1.75} />
+                <span style={{
+                  background: active ? 'rgba(255,255,255,0.25)' : (o.count > 0 ? '#fef3c7' : '#f3f4f6'),
+                  color: active ? 'white' : (o.count > 0 ? '#92400e' : '#9ca3af'),
+                  borderRadius: 999, padding: '2px 9px', fontSize: 12, fontWeight: 700,
+                  border: active ? '1px solid rgba(255,255,255,0.3)' : (o.count > 0 ? '1px solid #fcd34d' : '1px solid #e5e7eb'),
+                }}>
+                  {o.count}
+                </span>
+              </div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: active ? 'white' : '#111827', marginBottom: 2 }}>
+                {o.label}
+              </div>
+              <div style={{ fontSize: 11, color: active ? 'rgba(255,255,255,0.75)' : '#9ca3af' }}>
+                {o.desc}
+              </div>
+            </button>
+          )
+        })}
+      </div>
 
-      {mesDemandes.length > 0 && (
-        <div className="card" style={{ borderLeft: '4px solid var(--abed-green)' }}>
-          <h3 style={{ marginBottom: 4 }}>👤 Mes demandes personnelles ({mesDemandes.length})</h3>
-          <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: 12 }}>
-            Les demandes que vous avez soumises vous-même.
-          </p>
-          {paginate(mesDemandes, pageMesDemandes).map(d => renderDemande(d, false))}
-          <Pagination page={pageMesDemandes} total={mesDemandes.length} onChange={setPageMesDemandes} />
+      {/* Contenu de l'onglet actif */}
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--abed-border)', background: '#f9fafb', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <current.icon size={16} color="var(--abed-green)" strokeWidth={2} />
+          <span style={{ fontWeight: 700, fontSize: 15, color: '#111827' }}>{current.label}</span>
+          {current.count > 0 && (
+            <span style={{ background: '#fef3c7', color: '#92400e', borderRadius: 999, padding: '1px 8px', fontSize: 12, fontWeight: 700, border: '1px solid #fcd34d' }}>
+              {current.count}
+            </span>
+          )}
         </div>
-      )}
-
-      {enCours.length > 0 && (
-        <div className="card">
-          <h3 style={{ marginBottom: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
-            onClick={() => setOuvrirEnCours(o => !o)}>
-            🔄 En cours ailleurs ({enCours.length}) <span style={{ fontSize: 12, color: 'var(--abed-muted)' }}>{ouvrirEnCours ? '▲' : '▼'}</span>
-          </h3>
-          <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: ouvrirEnCours ? 12 : 0 }}>
-            Demandes d'autres collaborateurs, en attente d'un autre traiteur.
-          </p>
-          {ouvrirEnCours && (
+        <div style={{ padding: 24 }}>
+          {current.items.length === 0 ? (
+            <p style={{ color: 'var(--abed-muted)', fontSize: 14 }}>Aucune demande dans cette catégorie.</p>
+          ) : (
             <>
-              {paginate(enCours, pageEnCours).map(d => renderDemande(d, false))}
-              <Pagination page={pageEnCours} total={enCours.length} onChange={setPageEnCours} />
+              {paginate(current.items, page).map(d => renderDemande(d, current.actif))}
+              <Pagination page={page} total={current.items.length} onChange={setPage} />
             </>
           )}
         </div>
-      )}
-
-      {cloturees.length > 0 && (
-        <div className="card">
-          <h3 style={{ marginBottom: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
-            onClick={() => setOuvrirCloturees(o => !o)}>
-            ✅ Clôturées ({cloturees.length}) <span style={{ fontSize: 12, color: 'var(--abed-muted)' }}>{ouvrirCloturees ? '▲' : '▼'}</span>
-          </h3>
-          <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: ouvrirCloturees ? 12 : 0 }}>
-            Autorisées, rejetées ou refusées — statut définitif.
-          </p>
-          {ouvrirCloturees && (
-            <>
-              {paginate(cloturees, pageCloturees).map(d => renderDemande(d, false))}
-              <Pagination page={pageCloturees} total={cloturees.length} onChange={setPageCloturees} />
-            </>
-          )}
-        </div>
-      )}
-
-      {demandes.length === 0 && (
-        <div className="card">
-          <p style={{ color: 'var(--abed-muted)' }}>Aucune demande de paiement.</p>
-        </div>
-      )}
+      </div>
     </div>
   )
 }
