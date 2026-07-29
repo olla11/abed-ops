@@ -5,7 +5,7 @@ import TraitementDemandes from './TraitementDemandes'
 import Pagination, { paginate } from '@/components/Pagination'
 
 type Demande = {
-  id: string; nom_complet: string; objet: string; montant: number
+  id: string; numero: string | null; nom_complet: string; objet: string; montant: number
   departement: string; status: string; created_at: string; urgence: string
   commentaire_aaf: string | null; commentaire_caf: string | null; commentaire_de: string | null
 }
@@ -89,6 +89,11 @@ export default function DemandesClient({ role, userEmail, userName }: {
                 <div key={d.id} style={{ borderBottom: '1px solid var(--abed-border)', padding: '12px 0' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
                     <div>
+                      {d.numero && (
+                        <span style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', fontFamily: 'monospace', display: 'block' }}>
+                          {d.numero}
+                        </span>
+                      )}
                       <strong>{d.objet}</strong>
                       <div style={{ fontSize: 12, color: 'var(--abed-muted)', marginTop: 2 }}>
                         {d.departement} — <strong style={{ color: 'var(--abed-green)' }}>

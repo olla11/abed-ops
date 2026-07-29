@@ -19,6 +19,8 @@ const DemandeSchema = z.object({
   reference_piece:  z.string().min(1).max(200),
   justification:    z.string().min(1).max(2000),
   urgence:          z.string().min(1).max(50),
+  date_souhaitee:   s.date,
+  fichier_justificatif_url: z.string().max(500).nullable().optional(),
   soumission_id:    z.string().uuid().nullable().optional(),
 })
 
@@ -54,13 +56,27 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
 
   const body = await req.json().catch(() => null)
+  if (body && body.date_souhaitee === '') body.date_souhaitee = null
   const v = validate(DemandeSchema, body)
   if ('error' in v) return v.error
 
   const { soumission_id, ...demandeFields } = v.data
 
+  // Numéro officiel attribué à la création : DDP-{année}-{séquence sur 3 chiffres}, par année civile.
+  // Comptage via le client service-role : la RLS ne laisse un demandeur non-traiteur
+  // voir que ses propres demandes, ce qui donnerait un compteur par utilisateur (et
+  // donc des doublons de numéro) plutôt qu'un compteur global sur l'organisation.
+  const admin = createAdminClient()
+  const year = new Date().getFullYear()
+  const { count } = await admin.from('demandes_paiement')
+    .select('id', { count: 'exact', head: true })
+    .gte('created_at', `${year}-01-01`)
+    .lt('created_at', `${year + 1}-01-01`)
+  const numero = `DDP-${year}-${String((count ?? 0) + 1).padStart(3, '0')}`
+
   const { data, error } = await supabase.from('demandes_paiement').insert({
     demandeur_id: user.id,
+    numero,
     ...demandeFields,
   }).select().single()
 
@@ -78,7 +94,6 @@ export async function POST(req: NextRequest) {
   // Notifier les AAF par email — client service-role : le demandeur (souvent
   // un rôle non privilégié) ne peut ni lister les profils AAF ni insérer une
   // notification pour quelqu'un d'autre via le client authentifié normal.
-  const admin = createAdminClient()
   const { data: aafs } = await admin
     .from('profiles').select('id, email, prenoms, nom').eq('role', 'aaf')
 
@@ -100,7 +115,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true, id: data.id })
+  return NextResponse.json({ ok: true, id: data.id, numero: data.numero })
 }
 
 function buildEmailAAF({ body, aafNom, id }: any) {

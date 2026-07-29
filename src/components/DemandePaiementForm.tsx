@@ -30,6 +30,7 @@ export default function DemandePaiementForm({ onClose, prefill, soumissionId }: 
   const [msg, setMsg] = useState('')
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
+  const [numero, setNumero] = useState<string | null>(null)
 
   useEffect(() => {
     Promise.all([
@@ -81,6 +82,7 @@ export default function DemandePaiementForm({ onClose, prefill, soumissionId }: 
       })
       const json = await res.json()
       if (!res.ok) { setMsg('Erreur : ' + json.error); setLoading(false); return }
+      setNumero(json.numero ?? null)
       setDone(true)
     } catch (e: any) { setMsg('Erreur : ' + e.message) }
     finally { setLoading(false) }
@@ -90,6 +92,11 @@ export default function DemandePaiementForm({ onClose, prefill, soumissionId }: 
     <div style={{ textAlign: 'center', padding: 32 }}>
       <div style={{ fontSize: 48, marginBottom: 12 }}>✅</div>
       <h3 style={{ color: '#166534' }}>Demande soumise avec succès !</h3>
+      {numero && (
+        <p style={{ fontSize: 13, fontWeight: 700, fontFamily: 'monospace', color: '#374151', marginBottom: 8 }}>
+          N° {numero}
+        </p>
+      )}
       <p style={{ color: 'var(--abed-muted)', marginBottom: 20 }}>
         Votre demande a été transmise à l'AAF. Vous recevrez un email à chaque étape.
       </p>

@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import Pagination, { paginate } from '@/components/Pagination'
 
 type Demande = {
-  id: string; nom_complet: string; email_contact: string; departement: string
+  id: string; numero: string | null; nom_complet: string; email_contact: string; departement: string
   objet: string; code_budgetaire: string; projet: string; nature_depense: string
   montant: number; mode_paiement: string; beneficiaire: string; reference_piece: string
   justification: string; urgence: string; date_souhaitee: string | null
@@ -90,6 +90,11 @@ export default function TraitementDemandes({ role }: { role: string }) {
           onClick={() => setExpanded(isOpen ? null : d.id)}>
           <div style={{ flex: 1 }}>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 4 }}>
+              {d.numero && (
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', fontFamily: 'monospace' }}>
+                  {d.numero}
+                </span>
+              )}
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6,
                 background: '#e8f5e9', border: '1px solid #a5d6a7', borderRadius: 6,
                 padding: '3px 10px', fontSize: 13, fontWeight: 700, color: '#1b5e20' }}>
