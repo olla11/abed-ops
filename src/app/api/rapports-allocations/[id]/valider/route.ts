@@ -66,13 +66,14 @@ export async function POST(
     }
   } else if (role === 'caf' && rapport.status === 'traite_aaf') {
     if (action === 'valider') {
-      // Si le soumetteur est lui-même un directeur (DE/DP), son supérieur hiérarchique (Président du CA) doit autoriser
+      // Si le soumetteur est lui-même un directeur (DE/DP), son supérieur hiérarchique (Président du CA) doit autoriser.
+      // L'autorisation finale normale revient exclusivement au DE (le DP ne fait que la validation technique de premier niveau).
       const soumetteurEstDirecteur = ['de', 'dp'].includes((rapport.prestataire as any)?.role)
       update = { status: 'valide_caf', caf_id: user.id, caf_le: now, commentaire_caf: null }
-      nextRoles = soumetteurEstDirecteur ? ['administrateur'] : ['de', 'dp']
+      nextRoles = soumetteurEstDirecteur ? ['administrateur'] : ['de']
       nextEmailSubject = soumetteurEstDirecteur
         ? '[ABED-ONG] Rapport mensuel DE/DP — Autorisation Président du CA requise'
-        : '[ABED-ONG] Rapport mensuel — Autorisation DE/DP requise'
+        : '[ABED-ONG] Rapport mensuel — Autorisation DE requise'
       nextEmailMsg = soumetteurEstDirecteur
         ? 'validé par la CAF, en attente de votre autorisation en tant que Président du CA'
         : 'validé par la CAF, en attente de votre autorisation'
@@ -80,7 +81,7 @@ export async function POST(
       if (!commentaire?.trim()) return NextResponse.json({ error: 'Commentaire requis' }, { status: 400 })
       update = { status: 'rejete_caf', caf_id: user.id, caf_le: now, commentaire_caf: commentaire }
     }
-  } else if (['de', 'dp', 'admin', 'administrateur'].includes(role) && rapport.status === 'valide_caf') {
+  } else if (['de', 'admin', 'administrateur'].includes(role) && rapport.status === 'valide_caf') {
     if (action === 'autoriser') {
       update = { status: 'autorise', de_id: user.id, de_le: now, commentaire_de: null }
     } else {

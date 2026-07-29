@@ -24,18 +24,25 @@ export default async function TimesheetsPage() {
   const estManager = ['manager', 'caf', 'admin', 'de', 'dp', 'aaf'].includes(role)
   const estCAF = ['caf', 'admin'].includes(role)
   const estAAF = ['aaf', 'admin'].includes(role)
-  const estDE = ['de', 'dp', 'administrateur', 'admin'].includes(role)
+  // L'autorisation finale des rapports d'allocation est réservée au Directeur
+  // Exécutif (et à l'administrateur en cas d'auto-soumission par de/dp) — le DP
+  // n'y figure plus, il ne fait que la validation technique de premier niveau.
+  const estDE = ['de', 'administrateur', 'admin'].includes(role)
 
   // Comptes des items en attente (pour les badges des onglets)
   const [
     { count: countTimesheetsAValider },
+    { count: countRapportsAValider },
     { count: countTimesheetsCAF },
     { count: countRapportsAAF },
     { count: countRapportsCAF },
     { count: countRapportsDE },
   ] = await Promise.all([
     estManager
-      ? supabase.from('soumissions').select('*', { count: 'exact', head: true }).eq('status', 'soumis')
+      ? supabase.from('soumissions').select('*', { count: 'exact', head: true }).eq('status', 'soumis').eq('manager_id', user.id)
+      : Promise.resolve({ count: 0 }),
+    estManager
+      ? supabase.from('rapports_allocations').select('*', { count: 'exact', head: true }).eq('status', 'soumis').eq('manager_id', user.id)
       : Promise.resolve({ count: 0 }),
     estCAF
       ? supabase.from('soumissions').select('*', { count: 'exact', head: true }).eq('status', 'valide_tech').eq('paye', false)
@@ -68,6 +75,7 @@ export default async function TimesheetsPage() {
         managerId={profile?.manager_id ?? null}
         hasManager={!!profile?.manager_id}
         countTimesheetsAValider={countTimesheetsAValider ?? 0}
+        countRapportsAValider={countRapportsAValider ?? 0}
         countTimesheetsCAF={countTimesheetsCAF ?? 0}
         countRapportsAAF={countRapportsAAF ?? 0}
         countRapportsCAF={countRapportsCAF ?? 0}

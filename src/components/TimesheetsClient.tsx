@@ -26,6 +26,7 @@ type Props = {
   hasManager: boolean
   // pending counts
   countTimesheetsAValider: number
+  countRapportsAValider: number
   countTimesheetsCAF: number
   countRapportsAAF: number
   countRapportsCAF: number
@@ -34,7 +35,7 @@ type Props = {
 
 export default function TimesheetsClient({
   role, typeEmploi, managerId, hasManager,
-  countTimesheetsAValider, countTimesheetsCAF,
+  countTimesheetsAValider, countRapportsAValider, countTimesheetsCAF,
   countRapportsAAF, countRapportsCAF, countRapportsDE,
 }: Props) {
 
@@ -44,7 +45,8 @@ export default function TimesheetsClient({
   const estManager = ['manager', 'caf', 'admin', 'de', 'dp', 'aaf'].includes(role)
   const estCAF = ['caf', 'admin'].includes(role)
   const estAAF = ['aaf', 'admin'].includes(role)
-  const estDE = ['de', 'dp', 'administrateur'].includes(role)
+  // Autorisation finale réservée au DE (+ administrateur pour l'auto-soumission de/dp) — le DP n'autorise plus.
+  const estDE = ['de', 'administrateur'].includes(role)
 
   // Construire les onglets selon les droits
   const tabs: Tab[] = []
@@ -102,7 +104,7 @@ export default function TimesheetsClient({
 
   // Validation technique (manager, AAF, CAF, DE, admin)
   if (estManager) {
-    const totalTech = countTimesheetsAValider
+    const totalTech = countTimesheetsAValider + countRapportsAValider
     tabs.push({
       key: 'validation_tech', icon: CheckCircle2, label: 'Validation technique',
       desc: 'Timesheets & rapports soumis',
