@@ -1,4 +1,5 @@
 export const dynamic = 'force-dynamic'
+import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import AppHeader from '@/components/AppHeader'
@@ -39,7 +40,9 @@ export default async function OverviewPage() {
         </p>
       </div>
 
-      <OverviewOperations role={role} />
+      <Suspense fallback={<p style={{ fontSize: 13, color: 'var(--abed-muted)' }}>Chargement…</p>}>
+        <OverviewOperations role={role} />
+      </Suspense>
       </div>
     </>
   )

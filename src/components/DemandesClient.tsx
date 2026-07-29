@@ -1,8 +1,13 @@
 'use client'
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import DemandePaiementForm from './DemandePaiementForm'
 import TraitementDemandes from './TraitementDemandes'
 import Pagination, { paginate } from '@/components/Pagination'
+
+// DP et administrateur (CA) n'ont aucune action sur ce circuit, mais gardent
+// un droit de regard sur son évolution — via la Vue d'ensemble, en lecture seule.
+const ROLES_TRANSPARENCE = ['dp', 'administrateur']
 
 type Demande = {
   id: string; numero: string | null; nom_complet: string; objet: string; montant: number
@@ -70,7 +75,25 @@ export default function DemandesClient({ role, userId, userEmail, userName }: {
 
       {/* Mes demandes pour tous */}
       {!isTraiteur(role) && (
-        loading ? <p>Chargement…</p> :
+        <>
+        {ROLES_TRANSPARENCE.includes(role) && (
+          <Link href="/overview?type=demande&statut=tous" className="card" style={{
+            display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none',
+            borderLeft: '4px solid var(--abed-green)',
+          }}>
+            <span style={{ fontSize: 20 }}>👁</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>
+                Suivre toutes les demandes de paiement de l'organisation
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--abed-muted)' }}>
+                Vue transparence en lecture seule — voir leur évolution dans le circuit (AAF → CAF → DE)
+              </div>
+            </div>
+            <span style={{ fontSize: 13, color: 'var(--abed-green)', fontWeight: 700 }}>Voir →</span>
+          </Link>
+        )}
+        {loading ? <p>Chargement…</p> :
         mesDemandes.length === 0 ? (
           <div className="card" style={{ textAlign: 'center', padding: 40 }}>
             <p style={{ color: 'var(--abed-muted)', marginBottom: 16 }}>
@@ -118,7 +141,8 @@ export default function DemandesClient({ role, userId, userEmail, userName }: {
             })}
             <Pagination page={page} total={mesDemandes.length} onChange={setPage} />
           </div>
-        )
+        )}
+        </>
       )}
 
       {/* Traiteurs voient aussi leurs propres demandes en bas */}

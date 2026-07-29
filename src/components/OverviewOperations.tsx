@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 
 type Item = {
   id: string; type: 'timesheet' | 'rapport' | 'om' | 'demande'
@@ -133,11 +134,18 @@ function PendingActions({ items, role }: { items: Item[]; role: string }) {
   )
 }
 
+const TYPES_VALIDES = ['tous', 'timesheet', 'rapport', 'om', 'demande']
+const STATUTS_VALIDES = ['tous', 'en_cours', 'clos']
+
 export default function OverviewOperations({ role = '' }: { role?: string }) {
+  const searchParams = useSearchParams()
+  const typeParam = searchParams.get('type')
+  const statutParam = searchParams.get('statut')
+
   const [items, setItems]         = useState<Item[]>([])
   const [loading, setLoading]     = useState(true)
-  const [filterType, setFilterType]   = useState('tous')
-  const [filterStatut, setFilterStatut] = useState('en_cours')
+  const [filterType, setFilterType]   = useState(TYPES_VALIDES.includes(typeParam ?? '') ? typeParam! : 'tous')
+  const [filterStatut, setFilterStatut] = useState(STATUTS_VALIDES.includes(statutParam ?? '') ? statutParam! : 'en_cours')
   const [filterTexte, setFilterTexte]   = useState('')
   const [expanded, setExpanded]   = useState<string | null>(null)
 
