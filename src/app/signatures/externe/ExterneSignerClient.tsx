@@ -43,7 +43,7 @@ function SignatureBlock({ name, date, hash, small }: { name: string; date: strin
   const sepLine = Math.round(bh * 0.778)
   const dateBottom = Math.round(bh * 0.97)
   return (
-    <div style={{ position: 'relative', width: bw, height: bh, userSelect: 'none', background: 'white', overflow: 'visible' }}>
+    <div style={{ position: 'relative', width: bw, height: bh, userSelect: 'none', overflow: 'visible' }}>
       <svg width={hookLen + 4} height={bh} style={{ position: 'absolute', left: 0, top: 0, overflow: 'visible' }}>
         <path d={bracketPath(hookLen, bracketInset, bh - bracketInset, cornerRadius)} stroke={BRACKET_COLOR} strokeWidth={barW} fill="none" strokeLinecap="round" />
       </svg>
@@ -56,7 +56,9 @@ function SignatureBlock({ name, date, hash, small }: { name: string; date: strin
         </span>
       </div>
       <div style={{ position: 'absolute', top: sepLine, left: hookLen + 8, right: 4, borderTop: '1px solid #d1d5db' }} />
-      <div style={{ position: 'absolute', top: sepLine + 4, bottom: bh - dateBottom, left: hookLen + 8, right: 4, fontSize: small ? 7 : 8, color: '#6b7280', display: 'flex', justifyContent: 'space-between', fontFamily: 'Arial, sans-serif', alignItems: 'center' }}>
+      {/* Footer — le hash suit directement la date au lieu d'être plaqué à
+          droite du bloc, ce qui laissait un grand vide pour un nom court. */}
+      <div style={{ position: 'absolute', top: sepLine + 4, bottom: bh - dateBottom, left: hookLen + 8, right: 4, fontSize: small ? 7 : 8, color: '#6b7280', display: 'flex', gap: 8, fontFamily: 'Arial, sans-serif', alignItems: 'center' }}>
         <span>{date}</span>
         <span style={{ color: '#9ca3af' }}>{hash.slice(0, 12)}...</span>
       </div>
@@ -247,25 +249,45 @@ export default function ExterneSignerClient({
 
   async function captureSignatureImage(): Promise<string> {
     const SCALE = 3
-    const BW = 240 * SCALE, BH = 80 * SCALE
+    const BH = 80 * SCALE   // hauteur fixe (même échelle de police pour tout le monde)
     const hookLen = 13 * SCALE, fontSize = 24 * SCALE
     const cornerRadius = Math.round(BH * 0.047)
     const bracketInset = Math.round(BH * 0.165)
-
-    const canvas = document.createElement('canvas')
-    canvas.width = BW; canvas.height = BH
-    const ctx = canvas.getContext('2d')!
+    const bx = 2 * SCALE
+    const textX = bx + hookLen + 8 * SCALE
+    const nomSignataire = nomExterne ?? ''
+    const hashTexte = `${sigHash.slice(0, 12)}...`
+    const dateHashGap = 10 * SCALE
 
     // Laisse le temps à la police (embarquée dans le bundle) de finir de
     // se préparer, sans jamais bloquer la signature sur cette base.
     await attendrePoliceSignature()
+
+    // Mesure d'abord le texte (avant de fixer la largeur du canvas — la
+    // redimensionner efface le contexte) pour que la largeur du tampon
+    // s'adapte à la longueur réelle du nom, au lieu d'un rectangle fixe
+    // laissant un grand vide avant le hash pour les noms courts.
+    const mesure = document.createElement('canvas').getContext('2d')!
+    mesure.font = `bold ${9 * SCALE}px Arial, sans-serif`
+    const headerW = mesure.measureText('MYABED SIGNED BY:').width
+    mesure.font = `${fontSize}px BrittanySignature`
+    const nameW = mesure.measureText(nomSignataire).width
+    mesure.font = `${8 * SCALE}px Arial, sans-serif`
+    const dateW = mesure.measureText(today).width
+    const hashW = mesure.measureText(hashTexte).width
+
+    const contentW = Math.max(headerW, nameW, dateW + dateHashGap + hashW)
+    const BW = Math.max(150 * SCALE, Math.ceil(textX + contentW + 6 * SCALE))
+
+    const canvas = document.createElement('canvas')
+    canvas.width = BW; canvas.height = BH
+    const ctx = canvas.getContext('2d')!
 
     // Fond transparent : un canvas est transparent par défaut, donc rien à
     // dessiner ici — le tampon s'intègre directement sur la page du document
     // au lieu d'apparaître dans un rectangle blanc.
 
     // Bracket (blue C-shape) — coins arrondis, resserré vers le centre
-    const bx = 2 * SCALE
     ctx.strokeStyle = BRACKET_COLOR
     ctx.lineWidth = 2 * SCALE
     ctx.lineCap = 'round'
@@ -278,16 +300,15 @@ export default function ExterneSignerClient({
     ctx.lineTo(bx + hookLen, BH - bracketInset)
     ctx.stroke()
 
-    const textX = bx + hookLen + 8 * SCALE
-
     ctx.fillStyle = '#374151'
     ctx.font = `bold ${9 * SCALE}px Arial, sans-serif`
     ctx.fillText('MYABED SIGNED BY:', textX, Math.round(BH * 0.155))
 
     ctx.fillStyle = '#000000'
     ctx.font = `${fontSize}px BrittanySignature`
-    ctx.fillText(nomExterne ?? '', textX, Math.round(BH * 0.604))
+    ctx.fillText(nomSignataire, textX, Math.round(BH * 0.604))
 
+    // Separator line — s'arrête à la largeur réelle du contenu.
     ctx.strokeStyle = '#d1d5db'
     ctx.lineWidth = 1 * SCALE
     ctx.beginPath()
@@ -295,11 +316,12 @@ export default function ExterneSignerClient({
     ctx.lineTo(BW - 4 * SCALE, Math.round(BH * 0.778))
     ctx.stroke()
 
+    // Date and hash — le hash suit immédiatement la date.
     ctx.fillStyle = '#6b7280'
     ctx.font = `${8 * SCALE}px Arial, sans-serif`
     ctx.fillText(today, textX, Math.round(BH * 0.933))
     ctx.fillStyle = '#9ca3af'
-    ctx.fillText(`${sigHash.slice(0, 12)}...`, textX + 90 * SCALE, Math.round(BH * 0.933))
+    ctx.fillText(hashTexte, textX + dateW + dateHashGap, Math.round(BH * 0.933))
 
     return canvas.toDataURL('image/png')
   }

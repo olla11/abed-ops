@@ -22,9 +22,16 @@ export async function embedSignatureInPdf(
   const pngBytes = Buffer.from(base64, 'base64')
   const pngImage = await pdfDoc.embedPng(pngBytes)
 
-  // Maintain the same aspect ratio as the UI block (240 × 90)
-  const sigW = width * 0.20        // ~20% of page width
-  const sigH = sigW * (90 / 240)   // preserve 240:90 aspect ratio
+  // La largeur du PNG capturé varie désormais selon la longueur du nom signé
+  // (voir captureSignatureImage côté client), mais sa hauteur reste toujours
+  // fixe (même échelle de police pour tout le monde). On calibre donc
+  // l'échelle sur une largeur de référence — celle d'un nom "standard" —
+  // pour que la hauteur affichée reste constante quel que soit le nom, tout
+  // en laissant la largeur réellement apposée se réduire pour un nom court.
+  const REF_BW = 720  // largeur nominale de référence (240 × échelle 3× côté capture)
+  const scale = (width * 0.20) / REF_BW
+  const sigW = pngImage.width * scale
+  const sigH = pngImage.height * scale
 
   // Convert % from top to PDF coords (origin = bottom-left)
   const cx = (xPct / 100) * width
