@@ -33,18 +33,40 @@ function bracketPath(hookLen: number, topY: number, bottomY: number, radius: num
 }
 
 function SignatureBlock({ name, date, hash, small }: { name: string; date: string; hash: string; small?: boolean }) {
-  // Layout mirrors the canvas capture: header 15.5%, name baseline 60.4%, sep 77.8%, date 93.3%
-  const bw = small ? 190 : 240
+  // Layout mirrors the canvas capture: header 15.5%, name baseline 60.4%, sep 70%, date 93.3%
   const bh = small ? 68 : 85
   const barW = 2
   const hookLen = small ? 9 : 13
   const fontSize = small ? 18 : 24
+  const headerFontSize = small ? 7.5 : 9
+  const footerFontSize = small ? 7 : 8
   const cornerRadius = Math.round(bh * 0.047)
   const bracketInset = Math.round(bh * 0.165)
   const headerTop = Math.round(bh * 0.04)
   const nameLine = Math.round(bh * 0.604)   // aligns with canvas baseline %
-  const sepLine   = Math.round(bh * 0.778)
+  const sepLine   = Math.round(bh * 0.70)   // resserré vers le nom (presque collé, sans couper les descendantes)
   const dateBottom = Math.round(bh * 0.97)
+  const textLeft = hookLen + 8
+  const hashTexte = `${hash.slice(0, 12)}...`
+
+  // Largeur dynamique : mesure le texte réel (comme la capture canvas) pour
+  // que le tampon et sa ligne séparatrice épousent la longueur du nom, au
+  // lieu d'un rectangle fixe qui débordait toujours pour un nom court.
+  let bw = small ? 190 : 240
+  if (typeof document !== 'undefined') {
+    const mesure = document.createElement('canvas').getContext('2d')
+    if (mesure) {
+      mesure.font = `bold ${headerFontSize}px Arial, sans-serif`
+      const headerW = mesure.measureText('MYABED SIGNED BY:').width
+      mesure.font = `${fontSize}px BrittanySignature`
+      const nameW = mesure.measureText(name).width
+      mesure.font = `${footerFontSize}px Arial, sans-serif`
+      const dateW = mesure.measureText(date).width
+      const hashW = mesure.measureText(hashTexte).width
+      const contentW = Math.max(headerW, nameW, dateW + 8 + hashW)
+      bw = Math.max(small ? 120 : 150, Math.ceil(textLeft + contentW + 6))
+    }
+  }
   return (
     <div style={{ position: 'relative', width: bw, height: bh, userSelect: 'none', overflow: 'visible' }}>
       {/* Bracket — resserré vers le centre, coins arrondis */}
@@ -363,7 +385,7 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
     // Header baseline  :  42px (15.5% — gives label room then gap before name)
     // Name baseline    : 163px (60.4% — Brittany ascenders ~72px above → top at 91px,
     //                            well below header end; descenders ~18px below → 181px)
-    // Separator        : 210px (77.8% — 29px below descender bottom, clean gap)
+    // Separator        : 168px (70% — resserré vers le nom, presque collé aux descendantes)
     // Date baseline    : 252px (93.3%)
 
     // Header label
@@ -381,17 +403,19 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
     ctx.strokeStyle = '#d1d5db'
     ctx.lineWidth = 1 * SCALE
     ctx.beginPath()
-    ctx.moveTo(textX, Math.round(BH * 0.778))
-    ctx.lineTo(BW - 4 * SCALE, Math.round(BH * 0.778))
+    ctx.moveTo(textX, Math.round(BH * 0.70))
+    ctx.lineTo(BW - 4 * SCALE, Math.round(BH * 0.70))
     ctx.stroke()
 
     // Date and hash — le hash suit immédiatement la date (plus de décalage
-    // fixe qui laissait un vide quand la date/le nom sont courts).
+    // fixe qui laissait un vide quand la date/le nom sont courts). Décalés
+    // d'autant que la ligne séparatrice pour garder le même espacement
+    // ligne→date qu'avant (seul l'espace nom→ligne est resserré).
     ctx.fillStyle = '#6b7280'
     ctx.font = `${8 * SCALE}px Arial, sans-serif`
-    ctx.fillText(today, textX, Math.round(BH * 0.933))
+    ctx.fillText(today, textX, Math.round(BH * 0.855))
     ctx.fillStyle = '#9ca3af'
-    ctx.fillText(hashTexte, textX + dateW + dateHashGap, Math.round(BH * 0.933))
+    ctx.fillText(hashTexte, textX + dateW + dateHashGap, Math.round(BH * 0.855))
 
     return canvas.toDataURL('image/png')
   }

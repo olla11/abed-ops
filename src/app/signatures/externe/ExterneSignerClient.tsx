@@ -31,17 +31,39 @@ function bracketPath(hookLen: number, topY: number, bottomY: number, radius: num
 }
 
 function SignatureBlock({ name, date, hash, small }: { name: string; date: string; hash: string; small?: boolean }) {
-  const bw = small ? 190 : 240
   const bh = small ? 68 : 85
   const barW = 2
   const hookLen = small ? 9 : 13
   const fontSize = small ? 18 : 24
+  const headerFontSize = small ? 7.5 : 9
+  const footerFontSize = small ? 7 : 8
   const cornerRadius = Math.round(bh * 0.047)
   const bracketInset = Math.round(bh * 0.165)
   const headerTop = Math.round(bh * 0.04)
   const nameLine = Math.round(bh * 0.604)
-  const sepLine = Math.round(bh * 0.778)
+  const sepLine = Math.round(bh * 0.70)   // resserré vers le nom (presque collé, sans couper les descendantes)
   const dateBottom = Math.round(bh * 0.97)
+  const textLeft = hookLen + 8
+  const hashTexte = `${hash.slice(0, 12)}...`
+
+  // Largeur dynamique : mesure le texte réel (comme la capture canvas) pour
+  // que le tampon et sa ligne séparatrice épousent la longueur du nom, au
+  // lieu d'un rectangle fixe qui débordait toujours pour un nom court.
+  let bw = small ? 190 : 240
+  if (typeof document !== 'undefined') {
+    const mesure = document.createElement('canvas').getContext('2d')
+    if (mesure) {
+      mesure.font = `bold ${headerFontSize}px Arial, sans-serif`
+      const headerW = mesure.measureText('MYABED SIGNED BY:').width
+      mesure.font = `${fontSize}px BrittanySignature`
+      const nameW = mesure.measureText(name).width
+      mesure.font = `${footerFontSize}px Arial, sans-serif`
+      const dateW = mesure.measureText(date).width
+      const hashW = mesure.measureText(hashTexte).width
+      const contentW = Math.max(headerW, nameW, dateW + 8 + hashW)
+      bw = Math.max(small ? 120 : 150, Math.ceil(textLeft + contentW + 6))
+    }
+  }
   return (
     <div style={{ position: 'relative', width: bw, height: bh, userSelect: 'none', overflow: 'visible' }}>
       <svg width={hookLen + 4} height={bh} style={{ position: 'absolute', left: 0, top: 0, overflow: 'visible' }}>
@@ -308,20 +330,22 @@ export default function ExterneSignerClient({
     ctx.font = `${fontSize}px BrittanySignature`
     ctx.fillText(nomSignataire, textX, Math.round(BH * 0.604))
 
-    // Separator line — s'arrête à la largeur réelle du contenu.
+    // Separator line — s'arrête à la largeur réelle du contenu, resserrée
+    // vers le nom (presque collée aux descendantes, sans les couper).
     ctx.strokeStyle = '#d1d5db'
     ctx.lineWidth = 1 * SCALE
     ctx.beginPath()
-    ctx.moveTo(textX, Math.round(BH * 0.778))
-    ctx.lineTo(BW - 4 * SCALE, Math.round(BH * 0.778))
+    ctx.moveTo(textX, Math.round(BH * 0.70))
+    ctx.lineTo(BW - 4 * SCALE, Math.round(BH * 0.70))
     ctx.stroke()
 
-    // Date and hash — le hash suit immédiatement la date.
+    // Date and hash — le hash suit immédiatement la date. Décalés d'autant
+    // que la ligne pour garder le même espacement ligne→date qu'avant.
     ctx.fillStyle = '#6b7280'
     ctx.font = `${8 * SCALE}px Arial, sans-serif`
-    ctx.fillText(today, textX, Math.round(BH * 0.933))
+    ctx.fillText(today, textX, Math.round(BH * 0.855))
     ctx.fillStyle = '#9ca3af'
-    ctx.fillText(hashTexte, textX + dateW + dateHashGap, Math.round(BH * 0.933))
+    ctx.fillText(hashTexte, textX + dateW + dateHashGap, Math.round(BH * 0.855))
 
     return canvas.toDataURL('image/png')
   }
