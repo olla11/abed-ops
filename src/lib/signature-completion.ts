@@ -13,12 +13,16 @@ type AdminClient = ReturnType<typeof createAdminClient>
 export async function finalizeAfterSignature(
   admin: AdminClient,
   demandeId: string,
-  demande: { titre: string; createur_id: string },
+  demande: { titre: string; createur_id: string; fichier_url?: string | null },
   signerName: string,
   signerUserId: string | null
 ) {
-  const { data: allSigs } = await admin.from('signataires').select('signe').eq('demande_id', demandeId)
-  const allSigned = allSigs?.every((s: { signe: boolean }) => s.signe) ?? false
+  // Les observateurs (destinataires non-signataires) ne comptent pas dans le
+  // calcul "tout le monde a signé" — ils ne signent jamais, ils reçoivent
+  // seulement le document une fois complet (voir plus bas).
+  const { data: allSigsRows } = await admin.from('signataires').select('signe, est_observateur').eq('demande_id', demandeId)
+  const signataireRows = (allSigsRows ?? []).filter((s: { est_observateur: boolean }) => !s.est_observateur)
+  const allSigned = signataireRows.length > 0 && signataireRows.every((s: { signe: boolean }) => s.signe)
 
   // Notifie le créateur qu'une signature a été reçue (sauf s'il a signé son propre document)
   if (demande.createur_id !== signerUserId) {
@@ -92,6 +96,52 @@ export async function finalizeAfterSignature(
         <p style="margin-top:24px;color:#9ca3af;font-size:12px;">My ABED · ABED ONG</p>
       </div>`,
     }).catch(err => console.error('[Signatures] Creator email error:', err))
+  }
+
+  // Destinataires non-signataires : reçoivent le document final par email,
+  // en pièce jointe, une fois que tout le monde a signé.
+  const { data: observateurs } = await admin
+    .from('signataires')
+    .select('profile_id, email, nom_externe, profile:profiles!signataires_profile_id_fkey(nom, prenoms, email)')
+    .eq('demande_id', demandeId)
+    .eq('est_observateur', true)
+
+  if (observateurs && observateurs.length > 0 && demande.fichier_url) {
+    const { data: fileData } = await admin.storage.from('documents').download(demande.fichier_url)
+    if (fileData) {
+      const contentB64 = Buffer.from(await fileData.arrayBuffer()).toString('base64')
+      const filename = `${demande.titre.replace(/[^a-zA-Z0-9._ -]/g, '_') || 'document'}.pdf`
+
+      for (const obs of observateurs) {
+        const p = obs.profile as unknown as { nom: string; prenoms: string; email: string | null } | null
+        const email = p?.email ?? obs.email
+        const nom = p ? `${p.prenoms} ${p.nom}` : (obs.nom_externe ?? '')
+        if (!email) continue
+
+        if (obs.profile_id) {
+          await admin.from('notifications').insert({
+            user_id: obs.profile_id,
+            titre: '✓ Document signé',
+            message: `Le document « ${demande.titre} » a été signé par tous les signataires. Vous le trouverez aussi en pièce jointe de l'email envoyé.`,
+            lien: `/signatures/${demandeId}/view`,
+          }).then(({ error: e }: { error: unknown }) => { if (e) console.error('[Signatures] Notif observateur error:', e) })
+        }
+
+        await sendEmail({
+          to: email,
+          subject: `My ABED — Document signé : ${demande.titre}`,
+          html: `<div style="font-family:sans-serif;max-width:560px;margin:0 auto;">
+            <h2 style="color:#16a34a;">My ABED — Document signé ✓</h2>
+            <p>Bonjour${nom ? ` <strong>${nom}</strong>` : ''},</p>
+            <p>Le document <strong>${demande.titre}</strong> a été signé par l'ensemble des signataires. Vous le trouverez en pièce jointe de cet email.</p>
+            <p style="margin-top:24px;color:#9ca3af;font-size:12px;">My ABED · ABED ONG</p>
+          </div>`,
+          attachments: [{ filename, content: contentB64 }],
+        }).catch(err => console.error(`[Signatures] email observateur error (${email}):`, err))
+      }
+    } else {
+      console.error('[Signatures] Impossible de télécharger le document signé pour les observateurs')
+    }
   }
 
   return { allSigned: true }

@@ -19,10 +19,13 @@ export async function sendEmail({
   to,
   subject,
   html,
+  attachments,
 }: {
   to: string | string[]
   subject: string
   html: string
+  // Pièces jointes (ex. document PDF signé) — content en base64, sans le préfixe data URI.
+  attachments?: { filename: string; content: string }[]
 }) {
   const apiKey = process.env.RESEND_API_KEY
   // Resend free plan: only verified domains work. Use onboarding@resend.dev as safe fallback
@@ -45,6 +48,7 @@ export async function sendEmail({
       to: Array.isArray(to) ? to : [to],
       subject,
       html: `${html}${disclaimerEmail()}`,
+      ...(attachments && attachments.length > 0 ? { attachments } : {}),
       // Disable link tracking so Resend does not pre-fetch OTP links before the user clicks
       tags: [{ name: 'track_clicks', value: 'false' }],
     }),

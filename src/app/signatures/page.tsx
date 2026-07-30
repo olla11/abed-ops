@@ -16,6 +16,7 @@ export type SignataireRow = {
   refuse: boolean
   refuse_le: string | null
   refuse_motif: string | null
+  est_observateur: boolean
   profile: { nom: string; prenoms: string } | null
 }
 
@@ -62,7 +63,7 @@ export default async function SignaturesPage() {
       .select(`
         id, titre, description, fichier_url, statut, created_at, createur_id,
         createur:profiles!demandes_signature_createur_id_fkey(nom, prenoms),
-        signataires(profile_id, email, nom_externe, signe, signe_le, refuse, refuse_le, refuse_motif, profile:profiles!signataires_profile_id_fkey(nom, prenoms))
+        signataires(profile_id, email, nom_externe, signe, signe_le, refuse, refuse_le, refuse_motif, est_observateur, profile:profiles!signataires_profile_id_fkey(nom, prenoms))
       `)
       .order('created_at', { ascending: false }),
     getCachedProfilesForSignatures(),
@@ -97,7 +98,7 @@ export default async function SignaturesPage() {
   // Requests where current user is a signatory and hasn't signed yet
   const mesDemandesASign = allDemandes.filter(d =>
     d.statut === 'en_attente' &&
-    d.signataires?.some(s => s.profile_id === user.id && !s.signe) &&
+    d.signataires?.some(s => s.profile_id === user.id && !s.signe && !s.est_observateur) &&
     !CONTRAT_TITRE_RE.test(d.titre)
   )
 

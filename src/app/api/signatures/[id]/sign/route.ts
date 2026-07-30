@@ -39,12 +39,16 @@ export async function POST(
 
   const { data: signataire, error: sigErr } = await admin
     .from('signataires')
-    .select('id, signe')
+    .select('id, signe, est_observateur')
     .eq('demande_id', demandeId)
     .eq('profile_id', user.id)
     .single()
 
   if (sigErr || !signataire) return NextResponse.json({ error: "Vous n'êtes pas signataire de ce document" }, { status: 403 })
+  // Un observateur (destinataire non-signataire) ne peut jamais signer, même
+  // en appelant cette route directement — il n'a été ajouté que pour
+  // recevoir le document final (voir finalizeAfterSignature).
+  if (signataire.est_observateur) return NextResponse.json({ error: "Vous n'êtes pas signataire de ce document" }, { status: 403 })
   if (signataire.signe) return NextResponse.json({ error: 'Vous avez déjà signé ce document' }, { status: 400 })
 
   // Get signer name

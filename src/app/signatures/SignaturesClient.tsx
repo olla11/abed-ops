@@ -22,6 +22,24 @@ function SignataireChip({ s }: { s: SignataireRow }) {
     ? `${s.profile.prenoms} ${s.profile.nom}`
     : (s.nom_externe || s.email || s.profile_id || 'Signataire')
   const isExterne = !s.profile_id
+
+  // Un observateur ne signe jamais — chip neutre distincte, sans icône de
+  // statut de signature qui n'aurait pas de sens pour lui.
+  if (s.est_observateur) {
+    return (
+      <span
+        title="Reçoit le document par email une fois signé par tout le monde"
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 5,
+          padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600,
+          background: '#eff6ff', color: '#1e40af', border: '1px solid #bfdbfe',
+        }}>
+        👁 {name}{isExterne && <span title="Destinataire externe" style={{ fontWeight: 400 }}> (externe)</span>}
+        <span style={{ fontWeight: 400, fontSize: 11 }}>· destinataire</span>
+      </span>
+    )
+  }
+
   const bg = s.refuse ? '#fee2e2' : s.signe ? '#dcfce7' : '#fef3c7'
   const color = s.refuse ? '#991b1b' : s.signe ? '#166534' : '#92400e'
   const border = s.refuse ? '#fca5a5' : s.signe ? '#86efac' : '#fde68a'
@@ -53,10 +71,13 @@ function DemandeCard({ d, userId, onDeleted, onCorrected }: { d: DemandeRow; use
   const correctionFileRef = useRef<HTMLInputElement>(null)
   const createur = d.createur ? `${d.createur.prenoms} ${d.createur.nom}` : '—'
   const myEntry = d.signataires.find(s => s.profile_id === userId)
-  const canSign = !!myEntry && !myEntry.signe && d.statut === 'en_attente'
+  const canSign = !!myEntry && !myEntry.est_observateur && !myEntry.signe && d.statut === 'en_attente'
   const canDelete = d.createur_id === userId
-  const signed = d.signataires.filter(s => s.signe).length
-  const total = d.signataires.length
+  // Les observateurs (destinataires non-signataires) ne comptent pas dans le
+  // "X/Y ont signé" — ils ne signent jamais.
+  const vraisSignataires = d.signataires.filter(s => !s.est_observateur)
+  const signed = vraisSignataires.filter(s => s.signe).length
+  const total = vraisSignataires.length
   const refusePar = d.signataires.find(s => s.refuse)
   const refuseParNom = refusePar ? (refusePar.profile ? `${refusePar.profile.prenoms} ${refusePar.profile.nom}` : (refusePar.nom_externe || refusePar.email || 'Un signataire')) : null
 
@@ -246,6 +267,12 @@ export default function SignaturesClient({ userId, mesDemandesASign: initialASig
   const [internalSearch, setInternalSearch] = useState('')
   const [externalEmails, setExternalEmails] = useState<string[]>([])
   const [externalEmailInput, setExternalEmailInput] = useState('')
+  // Destinataires non-signataires : reçoivent le document par email une fois
+  // signé par tout le monde, mais ne signent jamais eux-mêmes.
+  const [selectedObservateurs, setSelectedObservateurs] = useState<string[]>([])
+  const [observateurSearch, setObservateurSearch] = useState('')
+  const [observateurEmails, setObservateurEmails] = useState<string[]>([])
+  const [observateurEmailInput, setObservateurEmailInput] = useState('')
   const [fichier, setFichier] = useState<File | null>(null)
   const [creating, setCreating] = useState(false)
   const [createErr, setCreateErr] = useState<string | null>(null)
@@ -288,6 +315,31 @@ export default function SignaturesClient({ userId, mesDemandesASign: initialASig
     setExternalEmails(prev => prev.filter(e => e !== email))
   }
 
+  function toggleObservateur(id: string) {
+    setSelectedObservateurs(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    )
+  }
+
+  function addObservateurEmail() {
+    const email = observateurEmailInput.trim().toLowerCase()
+    if (!email) return
+    if (!EMAIL_RE.test(email)) { setCreateErr('Adresse email invalide.'); return }
+    if (observateurEmails.includes(email)) { setObservateurEmailInput(''); return }
+    const compteExistant = profiles.find(p => p.email?.toLowerCase() === email)
+    if (compteExistant) {
+      setCreateErr(`Cet email correspond déjà à un compte existant (${compteExistant.prenoms} ${compteExistant.nom}). Sélectionnez directement son nom dans la liste des destinataires internes ci-dessous.`)
+      return
+    }
+    setObservateurEmails(prev => [...prev, email])
+    setObservateurEmailInput('')
+    setCreateErr(null)
+  }
+
+  function removeObservateurEmail(email: string) {
+    setObservateurEmails(prev => prev.filter(e => e !== email))
+  }
+
   async function submitCreate() {
     if (!form.titre.trim()) { setCreateErr('Le titre est requis.'); return }
     if (selectedSignataires.length === 0 && externalEmails.length === 0) {
@@ -301,6 +353,8 @@ export default function SignaturesClient({ userId, mesDemandesASign: initialASig
     if (fichier) fd.append('fichier', fichier)
     fd.append('signataires', JSON.stringify(selectedSignataires))
     fd.append('signataires_externes', JSON.stringify(externalEmails))
+    fd.append('observateurs', JSON.stringify(selectedObservateurs))
+    fd.append('observateurs_externes', JSON.stringify(observateurEmails))
 
     const res = await fetch('/api/signatures/create', { method: 'POST', body: fd })
     setCreating(false)
@@ -313,6 +367,9 @@ export default function SignaturesClient({ userId, mesDemandesASign: initialASig
       setSelectedSignataires([])
       setExternalEmails([])
       setExternalEmailInput('')
+      setSelectedObservateurs([])
+      setObservateurEmails([])
+      setObservateurEmailInput('')
       setFichier(null)
       if (fileRef.current) fileRef.current.value = ''
     } else {
@@ -520,6 +577,93 @@ export default function SignaturesClient({ userId, mesDemandesASign: initialASig
                 {profiles.filter(p => selectedSignataires.includes(p.id) || `${p.prenoms} ${p.nom}`.toLowerCase().includes(internalSearch.trim().toLowerCase())).length === 0 && (
                   <p style={{ fontSize: 12, color: 'var(--abed-muted)', textAlign: 'center', padding: '14px 0', margin: 0 }}>Aucun résultat.</p>
                 )}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 18, paddingTop: 14, borderTop: '1px solid #f3f4f6' }}>
+              <label style={labelStyle}>Destinataires (optionnel — ne signent pas)</label>
+              <p style={{ fontSize: 11, color: 'var(--abed-muted)', marginTop: -2, marginBottom: 8 }}>
+                Ces personnes ne signent rien : elles recevront le document par email, en pièce jointe, une fois signé par tous les signataires.
+              </p>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                <input
+                  type="email"
+                  value={observateurEmailInput}
+                  onChange={e => setObservateurEmailInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addObservateurEmail() } }}
+                  placeholder="email@exterieur.com"
+                  style={inputStyle}
+                />
+                <button
+                  type="button"
+                  onClick={addObservateurEmail}
+                  style={{ padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: '#1e40af', color: 'white', border: 'none', whiteSpace: 'nowrap' }}
+                >
+                  + Ajouter
+                </button>
+              </div>
+              {observateurEmails.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+                  {observateurEmails.map(email => (
+                    <span key={email} style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                      padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600,
+                      background: '#eff6ff', color: '#1e40af', border: '1px solid #bfdbfe',
+                    }}>
+                      👁 {email}
+                      <button
+                        type="button"
+                        onClick={() => removeObservateurEmail(email)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1e40af', fontWeight: 700, padding: 0, fontSize: 13, lineHeight: 1 }}
+                      >
+                        ✕
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <input
+                type="text"
+                placeholder="🔍 Rechercher un nom…"
+                value={observateurSearch}
+                onChange={e => setObservateurSearch(e.target.value)}
+                style={{ ...inputStyle, marginBottom: 8 }}
+              />
+              <div style={{
+                border: '1px solid var(--abed-border)', borderRadius: 8, maxHeight: 160, overflowY: 'auto',
+                background: '#fafafa',
+              }}>
+                {profiles
+                  .filter(p => !selectedSignataires.includes(p.id))
+                  .filter(p => selectedObservateurs.includes(p.id) || `${p.prenoms} ${p.nom}`.toLowerCase().includes(observateurSearch.trim().toLowerCase()))
+                  .map(p => {
+                    const selected = selectedObservateurs.includes(p.id)
+                    return (
+                      <label
+                        key={p.id}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 10,
+                          padding: '9px 14px', cursor: 'pointer',
+                          background: selected ? '#eff6ff' : 'transparent',
+                          borderBottom: '1px solid #f3f4f6',
+                          fontSize: 13,
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selected}
+                          onChange={() => toggleObservateur(p.id)}
+                          style={{ accentColor: '#1e40af', width: 15, height: 15, flexShrink: 0 }}
+                        />
+                        <span style={{ fontWeight: selected ? 600 : 400, color: selected ? '#1e40af' : '#374151' }}>
+                          {p.prenoms} {p.nom}
+                        </span>
+                        {p.role && (
+                          <span style={{ fontSize: 11, color: '#9ca3af', marginLeft: 'auto' }}>{p.role}</span>
+                        )}
+                      </label>
+                    )
+                  })}
               </div>
             </div>
 

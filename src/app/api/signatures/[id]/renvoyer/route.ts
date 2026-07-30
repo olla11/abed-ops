@@ -53,11 +53,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const { data: sigs } = await admin
     .from('signataires')
-    .select('id, profile_id, email')
+    .select('id, profile_id, email, est_observateur')
     .eq('demande_id', demandeId)
 
-  const internalIds = (sigs ?? []).filter(s => s.profile_id).map(s => s.profile_id as string)
-  const externalRows = (sigs ?? []).filter(s => !s.profile_id && s.email)
+  // Les observateurs (destinataires non-signataires) ne signent jamais et ne
+  // reçoivent donc pas de relance de signature ici — ils recevront le
+  // document final une fois que les vrais signataires auront signé.
+  const internalIds = (sigs ?? []).filter(s => s.profile_id && !s.est_observateur).map(s => s.profile_id as string)
+  const externalRows = (sigs ?? []).filter(s => !s.profile_id && s.email && !s.est_observateur)
 
   if (internalIds.length > 0) {
     const { data: profs } = await admin.from('profiles').select('id, nom, prenoms, email').in('id', internalIds)
@@ -131,7 +134,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     .select(`
       id, titre, description, fichier_url, statut, created_at, createur_id,
       createur:profiles!demandes_signature_createur_id_fkey(nom, prenoms),
-      signataires(profile_id, email, nom_externe, signe, signe_le, refuse, refuse_le, refuse_motif, profile:profiles!signataires_profile_id_fkey(nom, prenoms))
+      signataires(profile_id, email, nom_externe, signe, signe_le, refuse, refuse_le, refuse_motif, est_observateur, profile:profiles!signataires_profile_id_fkey(nom, prenoms))
     `)
     .eq('id', demandeId)
     .single()

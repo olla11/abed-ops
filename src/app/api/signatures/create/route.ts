@@ -16,6 +16,8 @@ export async function POST(req: NextRequest) {
   const fichier = formData.get('fichier') as File | null
   const signatairesRaw = formData.get('signataires') as string | null
   const signatairesExternesRaw = formData.get('signataires_externes') as string | null
+  const observateursRaw = formData.get('observateurs') as string | null
+  const observateursExternesRaw = formData.get('observateurs_externes') as string | null
 
   if (!titre) {
     return NextResponse.json({ error: 'Le titre est requis' }, { status: 400 })
@@ -47,13 +49,38 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Au moins un signataire est requis' }, { status: 400 })
   }
 
+  // Destinataires non-signataires (observateurs) : reçoivent le document une
+  // fois signé, ne signent jamais. Une personne déjà signataire ne peut pas
+  // aussi être observateur sur la même demande — on la retire silencieusement
+  // plutôt que de bloquer la création pour un doublon mineur.
+  let observateursIds: string[] = []
+  try {
+    const parsed = JSON.parse(observateursRaw ?? '[]')
+    if (Array.isArray(parsed)) observateursIds = parsed.filter((id: unknown) => typeof id === 'string' && !signatairesIds.includes(id))
+  } catch { /* liste vide par défaut */ }
+
+  let observateursExternes: { email: string }[] = []
+  try {
+    const parsed = JSON.parse(observateursExternesRaw ?? '[]')
+    if (Array.isArray(parsed)) {
+      const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      const emailsSignataires = new Set(signatairesExternes.map(s => s.email))
+      observateursExternes = parsed
+        .map((e: unknown) => (typeof e === 'string' ? e.trim().toLowerCase() : ''))
+        .filter((e: string) => emailRe.test(e) && !emailsSignataires.has(e))
+        .filter((e: string, i: number, arr: string[]) => arr.indexOf(e) === i)
+        .map((email: string) => ({ email }))
+    }
+  } catch { /* liste vide par défaut */ }
+
   const admin = createAdminClient()
 
-  // Un email externe qui correspond déjà à un compte existant doit être
-  // sélectionné directement dans la liste des signataires internes, pas
-  // invité comme externe (sinon on duplique l'identité de la personne).
-  if (signatairesExternes.length > 0) {
-    const emailsRecherches = new Set(signatairesExternes.map(s => s.email))
+  // Un email externe (signataire ou observateur) qui correspond déjà à un
+  // compte existant doit être sélectionné directement dans la liste interne,
+  // pas invité par email (sinon on duplique l'identité de la personne).
+  const tousEmailsExternes = [...signatairesExternes, ...observateursExternes]
+  if (tousEmailsExternes.length > 0) {
+    const emailsRecherches = new Set(tousEmailsExternes.map(s => s.email))
     const { data: tousLesProfils } = await admin.from('profiles').select('nom, prenoms, email')
     const comptesExistants = (tousLesProfils ?? []).filter(
       p => p.email && emailsRecherches.has(p.email.toLowerCase())
@@ -64,7 +91,7 @@ export async function POST(req: NextRequest) {
         .map(p => `${p.email} (${p.prenoms} ${p.nom})`)
         .join(', ')
       return NextResponse.json({
-        error: `Ces emails correspondent déjà à un compte existant dans le système : ${details}. Sélectionnez directement leur nom dans la liste des signataires internes au lieu de les inviter par email.`,
+        error: `Ces emails correspondent déjà à un compte existant dans le système : ${details}. Sélectionnez directement leur nom dans la liste interne au lieu de les inviter par email.`,
       }, { status: 400 })
     }
   }
@@ -102,7 +129,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Erreur lors de la création de la demande' }, { status: 500 })
   }
 
-  // Insert signataires (internes + externes)
+  // Insert signataires (internes + externes) + observateurs (destinataires
+  // non-signataires, internes + externes)
   const sigRows = [
     ...signatairesIds.map((pid, idx) => ({
       demande_id: demande.id,
@@ -115,9 +143,22 @@ export async function POST(req: NextRequest) {
       email: s.email,
       ordre: signatairesIds.length + idx,
     })),
+    ...observateursIds.map((pid, idx) => ({
+      demande_id: demande.id,
+      profile_id: pid,
+      ordre: signatairesIds.length + signatairesExternes.length + idx,
+      est_observateur: true,
+    })),
+    ...observateursExternes.map((s, idx) => ({
+      demande_id: demande.id,
+      profile_id: null,
+      email: s.email,
+      ordre: signatairesIds.length + signatairesExternes.length + observateursIds.length + idx,
+      est_observateur: true,
+    })),
   ]
 
-  const { data: insertedSigs, error: sigErr } = await admin.from('signataires').insert(sigRows).select('id, profile_id, email')
+  const { data: insertedSigs, error: sigErr } = await admin.from('signataires').insert(sigRows).select('id, profile_id, email, est_observateur')
   if (sigErr) {
     console.error('[Signatures] Insert signataires error:', sigErr)
     // Clean up demande
@@ -129,11 +170,14 @@ export async function POST(req: NextRequest) {
   const [{ data: createur }, { data: signatairesProfiles }, { data: sigRows2 }] = await Promise.all([
     admin.from('profiles').select('nom, prenoms').eq('id', user.id).single(),
     admin.from('profiles').select('id, nom, prenoms, email').in('id', signatairesIds),
-    admin.from('signataires').select('profile_id, email, nom_externe, signe, signe_le, profile:profiles!signataires_profile_id_fkey(nom, prenoms)').eq('demande_id', demande.id),
+    admin.from('signataires').select('profile_id, email, nom_externe, signe, signe_le, est_observateur, profile:profiles!signataires_profile_id_fkey(nom, prenoms)').eq('demande_id', demande.id),
   ])
 
   const createurNom = createur ? `${createur.prenoms} ${createur.nom}` : 'Un utilisateur'
-  const externalRows = (insertedSigs ?? []).filter(s => !s.profile_id && s.email)
+  // Les observateurs externes ne reçoivent pas de lien de signature à la
+  // création — seulement le document final, une fois signé (voir
+  // finalizeAfterSignature).
+  const externalRows = (insertedSigs ?? []).filter(s => !s.profile_id && s.email && !s.est_observateur)
 
   // Notifications + emails aux signataires — après la réponse, tous en parallèle
   after(async () => {

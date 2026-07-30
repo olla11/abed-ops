@@ -19,13 +19,17 @@ export async function POST(req: NextRequest) {
 
   const { data: signataire, error: sigErr } = await admin
     .from('signataires')
-    .select('id, demande_id, email, nom_externe, signe')
+    .select('id, demande_id, email, nom_externe, signe, est_observateur')
     .eq('id', payload.signataireId)
     .single()
 
   if (sigErr || !signataire || signataire.email !== payload.email) {
     return NextResponse.json({ error: 'Signataire introuvable' }, { status: 404 })
   }
+  // Un observateur (destinataire non-signataire) ne peut jamais signer, même
+  // avec un token valide — il n'a été ajouté que pour recevoir le document
+  // final (voir finalizeAfterSignature).
+  if (signataire.est_observateur) return NextResponse.json({ error: 'Signataire introuvable' }, { status: 404 })
   if (signataire.signe) return NextResponse.json({ error: 'Vous avez déjà signé ce document' }, { status: 400 })
   if (!signataire.nom_externe) return NextResponse.json({ error: 'Veuillez d\'abord indiquer votre nom et prénom' }, { status: 400 })
 

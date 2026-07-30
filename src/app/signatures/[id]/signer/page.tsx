@@ -22,18 +22,19 @@ export default async function SignerPage({
     .from('demandes_signature')
     .select(`
       id, titre, description, fichier_url, statut,
-      signataires(id, profile_id, signe, signe_le)
+      signataires(id, profile_id, signe, signe_le, est_observateur)
     `)
     .eq('id', demandeId)
     .single()
 
   if (error || !demande) notFound()
 
-  // Verify current user is an unsigned signatory
-  const myEntry = (demande.signataires as Array<{ id: string; profile_id: string; signe: boolean; signe_le: string | null }>)
+  // Verify current user is an unsigned signatory — un observateur (destinataire
+  // non-signataire) n'a rien à signer, il reçoit seulement le document final.
+  const myEntry = (demande.signataires as Array<{ id: string; profile_id: string; signe: boolean; signe_le: string | null; est_observateur: boolean }>)
     .find(s => s.profile_id === user.id)
 
-  if (!myEntry || myEntry.signe || demande.statut !== 'en_attente') {
+  if (!myEntry || myEntry.signe || myEntry.est_observateur || demande.statut !== 'en_attente') {
     redirect('/signatures')
   }
 
