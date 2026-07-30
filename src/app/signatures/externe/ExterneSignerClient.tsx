@@ -260,8 +260,9 @@ export default function ExterneSignerClient({
     // se préparer, sans jamais bloquer la signature sur cette base.
     await attendrePoliceSignature()
 
-    ctx.fillStyle = 'white'
-    ctx.fillRect(0, 0, BW, BH)
+    // Fond transparent : un canvas est transparent par défaut, donc rien à
+    // dessiner ici — le tampon s'intègre directement sur la page du document
+    // au lieu d'apparaître dans un rectangle blanc.
 
     // Bracket (blue C-shape) — coins arrondis, resserré vers le centre
     const bx = 2 * SCALE

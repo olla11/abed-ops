@@ -23,7 +23,7 @@ export async function embedSignatureInPdf(
   const pngImage = await pdfDoc.embedPng(pngBytes)
 
   // Maintain the same aspect ratio as the UI block (240 × 90)
-  const sigW = width * 0.30        // ~30% of page width
+  const sigW = width * 0.20        // ~20% of page width
   const sigH = sigW * (90 / 240)   // preserve 240:90 aspect ratio
 
   // Convert % from top to PDF coords (origin = bottom-left)
