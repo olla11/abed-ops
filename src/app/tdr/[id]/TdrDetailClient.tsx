@@ -56,6 +56,17 @@ function ChapitreEditor({ chapitre, onChange, readOnly, collab, onComment }: {
   collab?: import('@/components/RichTextEditor').CollabConfig
   onComment?: (commentId: string, texte: string) => void
 }) {
+  // Codes budgétaires (référence) — rechargés à chaque passage sur ce chapitre
+  // pour toujours refléter la liste gérée dans les paramètres CAF, sans jamais
+  // la dupliquer en dur ici.
+  const [codesBudgetaires, setCodesBudgetaires] = useState<{ id: string; code: string; libelle: string }[]>([])
+  useEffect(() => {
+    if (chapitre.cle !== 'financement_budget') return
+    fetch('/api/config/listes?type=codes_budgetaires')
+      .then(r => r.ok ? r.json() : null)
+      .then(j => { if (j?.data) setCodesBudgetaires(j.data) })
+  }, [chapitre.cle])
+
   if (chapitre.type === 'texte') {
     return (
       <RichTextEditor
@@ -97,6 +108,27 @@ function ChapitreEditor({ chapitre, onChange, readOnly, collab, onComment }: {
 
   return (
     <div>
+      {colonnesFixes && !readOnly && (
+        <p style={{ fontSize: 12, color: 'var(--abed-muted)', fontStyle: 'italic', margin: '0 0 12px' }}>
+          Format obligatoire — l&apos;entête ({tableau.colonnes.join(' / ')}) est fixe : ajoutez une ligne par source de financement.
+        </p>
+      )}
+      {chapitre.cle === 'financement_budget' && (
+        <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '10px 14px', marginBottom: 14 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#166534', marginBottom: 6 }}>📊 Codes budgétaires disponibles</div>
+          {codesBudgetaires.length === 0 ? (
+            <p style={{ fontSize: 12, color: '#6b7280', margin: 0 }}>Aucun code budgétaire configuré (paramètres CAF).</p>
+          ) : (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {codesBudgetaires.map(c => (
+                <span key={c.id} style={{ fontSize: 11, background: 'white', border: '1px solid #bbf7d0', borderRadius: 6, padding: '3px 8px', color: '#374151' }}>
+                  <strong>{c.code}</strong> — {c.libelle}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       <RichTextEditor
         value={chapitre.texte ?? ''}
         onChange={html => onChange({ ...chapitre, texte: html })}
@@ -104,11 +136,6 @@ function ChapitreEditor({ chapitre, onChange, readOnly, collab, onComment }: {
         collab={collab}
         onComment={onComment}
       />
-      {colonnesFixes && !readOnly && (
-        <p style={{ fontSize: 12, color: 'var(--abed-muted)', fontStyle: 'italic', margin: '8px 0 0' }}>
-          Format obligatoire — l&apos;entête ({tableau.colonnes.join(' / ')}) est fixe : ajoutez une ligne par source de financement.
-        </p>
-      )}
       <div className="table-wrap" style={{ marginTop: 16 }}>
         <table style={{ minWidth: 500 }}>
           <thead>
