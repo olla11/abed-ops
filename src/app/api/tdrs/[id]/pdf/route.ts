@@ -68,7 +68,6 @@ function sigBlock(role: SignataireRole, signataire: any): string {
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const exclureCles = new Set((req.nextUrl.searchParams.get('exclure') ?? '').split(',').filter(Boolean))
-  const apercu = req.nextUrl.searchParams.get('apercu') === '1'
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
@@ -83,6 +82,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     .single()
 
   if (error || !tdr) return NextResponse.json({ error: 'TDR introuvable ou accès refusé' }, { status: 404 })
+
+  // Le document est téléchargeable à tout moment (avec les modalités de
+  // masquage ci-dessus) ; tant que le TDR n'est pas actif/clôturé, il s'agit
+  // d'un aperçu de brouillon — les signatures manquantes n'ont pas encore
+  // toutes été données.
+  const apercu = tdr.statut !== 'actif' && tdr.statut !== 'cloture'
 
   const chapitresOrdonnes: Chapitre[] = CHAPITRE_CLES
     .map(cle => (tdr.chapitres as Chapitre[]).find(c => c.cle === cle))

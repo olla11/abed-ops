@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import * as Y from 'yjs'
-import { Download, Eye, UserPlus, X, Check, Trash2, Send, PenLine, XCircle, Lock, MessageSquare, PanelRightOpen, PanelRightClose } from 'lucide-react'
+import { Download, UserPlus, X, Check, Trash2, Send, PenLine, XCircle, Lock, MessageSquare, PanelRightOpen, PanelRightClose, MoreVertical } from 'lucide-react'
 import { CHAPITRE_CLES, TDR_STATUT_LABELS, labelSignataireRole, STATUT_TOUR, isColonneNumerique, colonnesVerrouillees, type Chapitre, type TdrStatut, type SignataireRole } from '@/lib/tdr'
 import RichTextEditor from '@/components/RichTextEditor'
 import { createClient as createBrowserClient } from '@/lib/supabase-client'
@@ -26,6 +26,8 @@ type Tdr = {
   initiateur: Profile & { fonction: string | null } | null
   responsable_technique: Profile | null
   cloture_par_profile: Profile | null
+  derniere_modif_par_profile: Profile | null
+  updated_at: string
   collaborateurs: Collaborateur[]
   signataires: Signataire[]
 }
@@ -209,11 +211,13 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
   const [showInvite, setShowInvite] = useState(false)
   const [inviteSearch, setInviteSearch] = useState('')
   const [invitePermission, setInvitePermission] = useState<'lecture' | 'revision'>('lecture')
-  const [deleteArmed, setDeleteArmed] = useState(false)
+  const [showSupprimer, setShowSupprimer] = useState(false)
   const [panelOpen, setPanelOpen] = useState(false)
-  const [previewing, setPreviewing] = useState(false)
+  const [preparingPdf, setPreparingPdf] = useState(false)
   const [showTelecharger, setShowTelecharger] = useState(false)
   const [chapitresExclus, setChapitresExclus] = useState<Set<string>>(new Set())
+  const [showActionsMenu, setShowActionsMenu] = useState(false)
+  const actionsMenuRef = useRef<HTMLDivElement>(null)
 
   const isInitiateur = tdr.initiateur_id === myId
   const monCollab = tdr.collaborateurs.find(c => c.profile_id === myId)
@@ -221,9 +225,13 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
   const monSignataire = tdr.signataires.find(s => s.role === roleAttendu)
   const estMonTour = !!roleAttendu && monSignataire?.profile_id === myId
   const peutCloturer = tdr.statut === 'actif' && myRole === 'caf'
-  const peutTelecharger = tdr.statut === 'actif' || tdr.statut === 'cloture'
+  // Toute personne impliquée sur le TDR (initiateur, collaborateur en
+  // révision, ou n'importe quel signataire) peut modifier le contenu à tout
+  // moment — même une fois transmis, même quand ce n'est pas son tour. Un
+  // collaborateur en simple lecture reste lecture seule.
+  const estImplique = isInitiateur || monCollab?.permission === 'revision' || tdr.signataires.some(s => s.profile_id === myId)
   const canEditMeta = tdr.statut === 'brouillon' && (isInitiateur || monCollab?.permission === 'revision')
-  const canEdit = canEditMeta || peutCloturer || estMonTour
+  const canEdit = estImplique
 
   const statutColor = STATUT_COLORS[tdr.statut] ?? STATUT_COLORS.brouillon
 
@@ -271,6 +279,15 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chapitres])
+
+  // Ferme le menu d'actions (•••) au clic en dehors.
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (actionsMenuRef.current && !actionsMenuRef.current.contains(e.target as Node)) setShowActionsMenu(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
 
   // ── Commentaires ancrés à une sélection ──
   const [commentaires, setCommentaires] = useState<Commentaire[]>([])
@@ -349,7 +366,7 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
 
   async function sauvegarder(silencieux = false) {
     if (!silencieux) { setSaving(true); setErr('') }
-    const body: Record<string, unknown> = { chapitres }
+    const body: Record<string, unknown> = { chapitres, notifier: !silencieux }
     if (canEditMeta) { body.titre_activite = titreActivite; body.projet = projet; body.periode = periode }
     const res = await fetch(`/api/tdrs/${tdr.id}`, {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
@@ -362,15 +379,6 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
     }
   }
 
-  async function apercu() {
-    // Enregistre d'abord pour que l'aperçu reflète le contenu actuel de
-    // l'éditeur, pas la dernière version sauvegardée automatiquement.
-    setPreviewing(true)
-    await sauvegarder(true)
-    setPreviewing(false)
-    window.open(`/api/tdrs/${tdr.id}/pdf?apercu=1`, '_blank', 'noopener')
-  }
-
   function toggleChapitreExclu(cle: string) {
     setChapitresExclus(s => {
       const n = new Set(s)
@@ -379,7 +387,12 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
     })
   }
 
-  function telecharger() {
+  async function telecharger() {
+    // Enregistre d'abord (silencieusement) pour que le PDF reflète le contenu
+    // actuel de l'éditeur, pas la dernière version auto-sauvegardée.
+    setPreparingPdf(true)
+    await sauvegarder(true)
+    setPreparingPdf(false)
     const url = chapitresExclus.size > 0
       ? `/api/tdrs/${tdr.id}/pdf?exclure=${[...chapitresExclus].join(',')}`
       : `/api/tdrs/${tdr.id}/pdf`
@@ -488,6 +501,12 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
             <span style={{ fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: statutColor.bg, color: statutColor.color }}>
               {TDR_STATUT_LABELS[tdr.statut]}
             </span>
+            {tdr.derniere_modif_par_profile && (
+              <span style={{ fontSize: 11, color: 'var(--abed-muted)' }}>
+                Dernière modification par {tdr.derniere_modif_par_profile.prenoms} {tdr.derniere_modif_par_profile.nom}
+                {' '}le {new Date(tdr.updated_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -509,23 +528,6 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
               </span>
             )}
           </button>
-          {!peutTelecharger && (
-            <button onClick={apercu} disabled={previewing}
-              style={{ padding: '9px 18px', borderRadius: 8, fontSize: 13, fontWeight: 700, background: 'white', color: '#374151', border: '1px solid var(--abed-border)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Eye size={15} /> {previewing ? 'Préparation…' : 'Aperçu du document'}
-            </button>
-          )}
-          {peutTelecharger && (
-            <button onClick={() => { setChapitresExclus(new Set()); setShowTelecharger(true) }}
-              style={{ padding: '9px 18px', borderRadius: 8, fontSize: 13, fontWeight: 700, background: 'var(--abed-green)', color: 'white', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Download size={15} /> Télécharger le PDF
-            </button>
-          )}
-          {tdr.statut === 'brouillon' && isInitiateur && (
-            <button onClick={() => setShowSoumettre(true)} style={{ padding: '9px 18px', borderRadius: 8, fontSize: 13, fontWeight: 700, background: '#2563eb', color: 'white', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Send size={15} /> Transmettre pour signature
-            </button>
-          )}
           {estMonTour && (
             <>
               <button onClick={signer} disabled={saving} style={{ padding: '9px 18px', borderRadius: 8, fontSize: 13, fontWeight: 700, background: 'var(--abed-green)', color: 'white', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -541,15 +543,42 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
               <Lock size={15} /> Ajuster et clôturer
             </button>
           )}
-          {tdr.statut === 'brouillon' && isInitiateur && (
-            deleteArmed ? (
-              <button onClick={supprimerTdr} style={{ padding: '9px 14px', borderRadius: 8, fontSize: 13, fontWeight: 700, background: '#dc2626', color: 'white', border: 'none', cursor: 'pointer' }}>Confirmer la suppression</button>
-            ) : (
-              <button onClick={() => setDeleteArmed(true)} style={{ padding: '9px 14px', borderRadius: 8, fontSize: 13, background: 'white', color: '#dc2626', border: '1px solid #e5e7eb', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Trash2 size={15} />
-              </button>
-            )
-          )}
+
+          {/* Menu regroupé : transmettre, télécharger, supprimer */}
+          <div ref={actionsMenuRef} style={{ position: 'relative' }}>
+            <button onClick={() => setShowActionsMenu(v => !v)}
+              style={{
+                padding: '9px 10px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                background: showActionsMenu ? 'var(--abed-green)' : 'white', color: showActionsMenu ? 'white' : '#374151',
+                border: showActionsMenu ? 'none' : '1px solid var(--abed-border)', display: 'flex', alignItems: 'center',
+              }}>
+              <MoreVertical size={17} />
+            </button>
+            {showActionsMenu && (
+              <div style={{
+                position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 300, minWidth: 230,
+                background: 'white', border: '1px solid var(--abed-border)', borderRadius: 10,
+                boxShadow: '0 8px 24px rgba(0,0,0,.12)', overflow: 'hidden',
+              }}>
+                {tdr.statut === 'brouillon' && isInitiateur && (
+                  <button onClick={() => { setShowActionsMenu(false); setShowSoumettre(true) }}
+                    style={{ width: '100%', textAlign: 'left', padding: '11px 16px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#2563eb', fontWeight: 600 }}>
+                    <Send size={15} /> Transmettre pour signature
+                  </button>
+                )}
+                <button onClick={() => { setShowActionsMenu(false); setChapitresExclus(new Set()); setShowTelecharger(true) }}
+                  style={{ width: '100%', textAlign: 'left', padding: '11px 16px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#374151' }}>
+                  <Download size={15} /> Télécharger le PDF
+                </button>
+                {tdr.statut === 'brouillon' && isInitiateur && (
+                  <button onClick={() => { setShowActionsMenu(false); setShowSupprimer(true) }}
+                    style={{ width: '100%', textAlign: 'left', padding: '11px 16px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#dc2626', borderTop: '1px solid #f3f4f6' }}>
+                    <Trash2 size={15} /> Supprimer
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -610,7 +639,7 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
             />
           </div>
 
-          {(tdr.statut === 'brouillon' || estMonTour) && canEdit && (
+          {canEdit && (
             <div style={{ marginTop: 16 }}>
               <button className="btn" disabled={saving} onClick={() => sauvegarder()}>{saving ? 'Enregistrement…' : 'Enregistrer'}</button>
             </div>
@@ -850,8 +879,26 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
             </div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button onClick={() => setShowTelecharger(false)} style={{ padding: '9px 20px', borderRadius: 8, cursor: 'pointer', background: 'white', border: '1px solid var(--abed-border)', fontSize: 13 }}>Annuler</button>
-              <button onClick={telecharger} style={{ padding: '9px 20px', borderRadius: 8, cursor: 'pointer', background: 'var(--abed-green)', color: 'white', border: 'none', fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Download size={14} /> Télécharger
+              <button onClick={telecharger} disabled={preparingPdf} style={{ padding: '9px 20px', borderRadius: 8, cursor: 'pointer', background: 'var(--abed-green)', color: 'white', border: 'none', fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Download size={14} /> {preparingPdf ? 'Préparation…' : 'Télécharger'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal : supprimer */}
+      {showSupprimer && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: 'white', borderRadius: 14, padding: 28, width: '100%', maxWidth: 420 }}>
+            <h3 style={{ marginBottom: 12, fontSize: 16 }}>Supprimer ce TDR ?</h3>
+            <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: 18 }}>
+              Cette action est définitive et supprime tout le contenu, les commentaires et le circuit de signature de ce TDR.
+            </p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowSupprimer(false)} style={{ padding: '9px 20px', borderRadius: 8, cursor: 'pointer', background: 'white', border: '1px solid var(--abed-border)', fontSize: 13 }}>Annuler</button>
+              <button onClick={supprimerTdr} style={{ padding: '9px 20px', borderRadius: 8, cursor: 'pointer', background: '#dc2626', color: 'white', border: 'none', fontSize: 13, fontWeight: 700 }}>
+                Supprimer définitivement
               </button>
             </div>
           </div>
