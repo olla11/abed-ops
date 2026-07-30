@@ -1,5 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
+import { notifyTdr } from '@/lib/tdr-notify'
+import { escapeHtml } from '@/lib/html'
+import type { Chapitre } from '@/lib/tdr'
 
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -62,5 +65,24 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }).select('id, chapitre_cle, mark_id, texte_cite, contenu, created_at, parent_id, auteur:profiles!tdr_commentaires_auteur_id_fkey(id, nom, prenoms)').single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Notifie (in-app + email) tout le monde sur le TDR, avec le commentaire
+  // complet et le chapitre concerné — sauf l'auteur du commentaire lui-même.
+  // Après la réponse : le webhook Resend/l'insertion notifications ne doivent
+  // pas retarder la confirmation d'envoi du commentaire à l'auteur.
+  after(async () => {
+    const { data: tdr } = await supabase.from('tdrs').select('titre_activite, chapitres').eq('id', id).single()
+    if (!tdr) return
+    const chapitreTitre = (tdr.chapitres as Chapitre[]).find(c => c.cle === chapitreCle)?.titre ?? chapitreCle
+    const auteur = data.auteur as any
+    const auteurNom = auteur ? `${auteur.prenoms} ${auteur.nom}` : 'Quelqu\'un'
+    const citation = texteCite ? ` (sur « ${escapeHtml(texteCite)} »)` : ''
+    await notifyTdr(id, {
+      titre: `💬 Nouveau commentaire sur le TDR « ${escapeHtml(tdr.titre_activite)} »`,
+      message: `${escapeHtml(auteurNom)} a commenté le chapitre « ${escapeHtml(chapitreTitre)} »${citation} :<br><br>« ${escapeHtml(contenu)} »`,
+      excludeId: user.id,
+    }).catch(e => console.error('[notifyTdr commentaire]:', e))
+  })
+
   return NextResponse.json({ data })
 }

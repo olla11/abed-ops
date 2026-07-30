@@ -1,5 +1,5 @@
 // Système de rédaction et signature des TDR (Termes de Référence).
-// Un TDR a toujours exactement ces 8 chapitres (contenu éditable, structure fixe).
+// Un TDR a toujours exactement ces chapitres (contenu éditable, structure fixe).
 
 import { accordGenre } from './genre'
 
@@ -28,6 +28,8 @@ export const CHAPITRES_DEFAUT: Chapitre[] = [
     tableau: { colonnes: ['Désignation', 'Unité', 'Qté', 'Coût unitaire (FCFA)', 'Coût total (FCFA)'], lignes: [] } },
   { cle: 'budget', titre: 'Budget prévisionnel détaillé', type: 'tableau', texte: '',
     tableau: { colonnes: ['Désignation', 'Unité', 'Qté', 'Coût unitaire (FCFA)', 'Coût total (FCFA)'], lignes: [] } },
+  { cle: 'financement_budget', titre: 'Financement du Budget', type: 'tableau', texte: '',
+    tableau: { colonnes: ['Source de financement: Budget', 'Pourcentage (Montant)', 'Titulaire du Budget'], lignes: [] } },
 ]
 
 export const CHAPITRE_CLES = CHAPITRES_DEFAUT.map(c => c.cle)
@@ -35,6 +37,13 @@ export const CHAPITRE_CLES = CHAPITRES_DEFAUT.map(c => c.cle)
 // Dans les chapitres budget, les colonnes de coût n'acceptent que des chiffres.
 export function isColonneNumerique(chapitreCle: string, nomColonne: string): boolean {
   return (chapitreCle === 'budget' || chapitreCle === 'budget_interne') && /co[uû]t/i.test(nomColonne)
+}
+
+// "Financement du Budget" doit toujours avoir exactement les mêmes colonnes
+// (source/pourcentage/titulaire), pour que ce tableau soit identique d'un TDR
+// à l'autre — l'entête n'est donc ni renommable, ni ajoutable/supprimable.
+export function colonnesVerrouillees(chapitreCle: string): boolean {
+  return chapitreCle === 'financement_budget'
 }
 
 export function chapitresValides(chapitres: unknown): chapitres is Chapitre[] {

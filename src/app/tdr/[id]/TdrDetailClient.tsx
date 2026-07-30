@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import * as Y from 'yjs'
 import { Download, Eye, UserPlus, X, Check, Trash2, Send, PenLine, XCircle, Lock, MessageSquare, PanelRightOpen, PanelRightClose } from 'lucide-react'
-import { CHAPITRE_CLES, TDR_STATUT_LABELS, labelSignataireRole, STATUT_TOUR, isColonneNumerique, type Chapitre, type TdrStatut, type SignataireRole } from '@/lib/tdr'
+import { CHAPITRE_CLES, TDR_STATUT_LABELS, labelSignataireRole, STATUT_TOUR, isColonneNumerique, colonnesVerrouillees, type Chapitre, type TdrStatut, type SignataireRole } from '@/lib/tdr'
 import RichTextEditor from '@/components/RichTextEditor'
 import { createClient as createBrowserClient } from '@/lib/supabase-client'
 import { SupabaseYjsProvider, couleurPourUser } from '@/lib/yjs-supabase-provider'
@@ -67,6 +67,7 @@ function ChapitreEditor({ chapitre, onChange, readOnly, collab, onComment }: {
   }
 
   const tableau = chapitre.tableau ?? { colonnes: [], lignes: [] }
+  const colonnesFixes = colonnesVerrouillees(chapitre.cle)
 
   function updateCell(rowIdx: number, colIdx: number, value: string) {
     const valeur = isColonneNumerique(chapitre.cle, tableau.colonnes[colIdx] ?? '')
@@ -101,13 +102,18 @@ function ChapitreEditor({ chapitre, onChange, readOnly, collab, onComment }: {
         collab={collab}
         onComment={onComment}
       />
+      {colonnesFixes && !readOnly && (
+        <p style={{ fontSize: 12, color: 'var(--abed-muted)', fontStyle: 'italic', margin: '8px 0 0' }}>
+          Format obligatoire — l&apos;entête ({tableau.colonnes.join(' / ')}) est fixe : ajoutez une ligne par source de financement.
+        </p>
+      )}
       <div className="table-wrap" style={{ marginTop: 16 }}>
         <table style={{ minWidth: 500 }}>
           <thead>
             <tr>
               {tableau.colonnes.map((col, i) => (
                 <th key={i} style={{ minWidth: 120 }}>
-                  {readOnly ? col : (
+                  {readOnly || colonnesFixes ? col : (
                     <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                       <input value={col} onChange={e => updateColonne(i, e.target.value)} style={{ ...inputStyle, padding: '5px 8px', fontSize: 12, fontWeight: 700 }} />
                       {tableau.colonnes.length > 1 && (
@@ -152,7 +158,9 @@ function ChapitreEditor({ chapitre, onChange, readOnly, collab, onComment }: {
       {!readOnly && (
         <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
           <button type="button" className="btn secondary" style={{ fontSize: 12 }} onClick={ajouterLigne}>+ Ligne</button>
-          <button type="button" className="btn secondary" style={{ fontSize: 12 }} onClick={ajouterColonne}>+ Colonne</button>
+          {!colonnesFixes && (
+            <button type="button" className="btn secondary" style={{ fontSize: 12 }} onClick={ajouterColonne}>+ Colonne</button>
+          )}
         </div>
       )}
     </div>
