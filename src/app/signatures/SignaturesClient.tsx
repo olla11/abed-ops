@@ -243,6 +243,7 @@ export default function SignaturesClient({ userId, mesDemandesASign: initialASig
   // Creation form state
   const [form, setForm] = useState({ titre: '', description: '' })
   const [selectedSignataires, setSelectedSignataires] = useState<string[]>([])
+  const [internalSearch, setInternalSearch] = useState('')
   const [externalEmails, setExternalEmails] = useState<string[]>([])
   const [externalEmailInput, setExternalEmailInput] = useState('')
   const [fichier, setFichier] = useState<File | null>(null)
@@ -475,11 +476,20 @@ export default function SignaturesClient({ userId, mesDemandesASign: initialASig
 
             <div style={{ marginBottom: 18 }}>
               <label style={labelStyle}>Signataires internes ({selectedSignataires.length} sélectionné{selectedSignataires.length > 1 ? 's' : ''})</label>
+              <input
+                type="text"
+                placeholder="🔍 Rechercher un nom…"
+                value={internalSearch}
+                onChange={e => setInternalSearch(e.target.value)}
+                style={{ ...inputStyle, marginBottom: 8 }}
+              />
               <div style={{
                 border: '1px solid var(--abed-border)', borderRadius: 8, maxHeight: 200, overflowY: 'auto',
                 background: '#fafafa',
               }}>
-                {[...profiles].sort((a, b) => (a.id === userId ? -1 : b.id === userId ? 1 : 0)).map(p => {
+                {[...profiles]
+                  .filter(p => selectedSignataires.includes(p.id) || `${p.prenoms} ${p.nom}`.toLowerCase().includes(internalSearch.trim().toLowerCase()))
+                  .sort((a, b) => (a.id === userId ? -1 : b.id === userId ? 1 : 0)).map(p => {
                   const selected = selectedSignataires.includes(p.id)
                   return (
                     <label
@@ -507,6 +517,9 @@ export default function SignaturesClient({ userId, mesDemandesASign: initialASig
                     </label>
                   )
                 })}
+                {profiles.filter(p => selectedSignataires.includes(p.id) || `${p.prenoms} ${p.nom}`.toLowerCase().includes(internalSearch.trim().toLowerCase())).length === 0 && (
+                  <p style={{ fontSize: 12, color: 'var(--abed-muted)', textAlign: 'center', padding: '14px 0', margin: 0 }}>Aucun résultat.</p>
+                )}
               </div>
             </div>
 
