@@ -8,6 +8,7 @@ import MissionDeleteButton from './MissionDeleteButton'
 import AppHeader from '@/components/AppHeader'
 import ReconciliationValidationCAF from '@/components/ReconciliationValidationCAF'
 import RetryPaymentButton from './RetryPaymentButton'
+import PiecesJointesList from '@/components/PiecesJointesList'
 
 export default async function MissionDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -153,6 +154,7 @@ export default async function MissionDetail({ params }: { params: Promise<{ id: 
               <Row label="Solde missionnaire" value={mission.solde_missionnaire != null ? `${Number(mission.solde_missionnaire).toLocaleString('fr-FR')} FCFA` : '—'} />
             )}
           </tbody></table>
+          <PiecesJointesList pieces={mission.reconciliation_pieces_jointes} />
         </div>
       )}
 
@@ -165,6 +167,7 @@ export default async function MissionDetail({ params }: { params: Promise<{ id: 
             rapport: mission.rapport,
             total_depenses: mission.total_depenses,
             reconciliation_commentaire: mission.reconciliation_commentaire,
+            reconciliation_pieces_jointes: mission.reconciliation_pieces_jointes,
           }}
         />
       )}

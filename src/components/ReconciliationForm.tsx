@@ -32,6 +32,7 @@ export default function ReconciliationForm({
   const [montantRecu, setMontantRecu] = useState(0)
   const [rapport, setRapport] = useState<Rapport>({ objectifs: '', activites: '', resultats: '', difficultes: '', suite: '' })
   const [modeFinancement, setModeFinancement] = useState<ModeFinancement | ''>('')
+  const [pieces, setPieces] = useState<File[]>([])
   const [msg, setMsg] = useState('')
   const [msgType, setMsgType] = useState<'ok' | 'err' | 'warn'>('ok')
   const [loading, setLoading] = useState(false)
@@ -79,6 +80,21 @@ export default function ReconciliationForm({
     const err = validate()
     if (err) { setMsg(err); setMsgType('err'); return }
     setLoading(true); setMsg(''); setPaymentFailed(false); setEmailFailed(false)
+
+    const piecesJointes: { path: string; nom: string }[] = []
+    for (const file of pieces) {
+      const fd = new FormData(); fd.append('file', file)
+      const up = await fetch(`/api/missions/${missionId}/reconcile/upload`, { method: 'POST', body: fd })
+      const upj = await up.json()
+      if (!up.ok) {
+        setLoading(false)
+        setMsg(`Erreur pièce jointe "${file.name}" : ${upj.error ?? 'inconnue'}`)
+        setMsgType('err')
+        return
+      }
+      piecesJointes.push({ path: upj.path, nom: upj.nom })
+    }
+
     const res = await fetch(`/api/missions/${missionId}/reconcile`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -87,6 +103,7 @@ export default function ReconciliationForm({
         montant_recu: montantRecu,
         rapport,
         mode_financement: aChargePartenaire ? null : modeFinancement,
+        pieces_jointes: piecesJointes,
       }),
     })
     const data = await res.json()
@@ -253,6 +270,36 @@ export default function ReconciliationForm({
                   onChange={e => setRapport(r => ({ ...r, [k]: e.target.value }))} />
               </div>
             ))}
+          </div>
+
+          <div className="card">
+            <h3 style={{ marginBottom: 4 }}>Pièces jointes (optionnel)</h3>
+            <p style={{ fontSize: 12, color: 'var(--abed-muted)', marginBottom: 12 }}>
+              Vous pouvez joindre des documents justificatifs (Word, Excel ou PDF).
+            </p>
+            <input
+              className="input"
+              type="file"
+              multiple
+              accept=".pdf,.doc,.docx,.xls,.xlsx"
+              onChange={e => setPieces(prev => [...prev, ...Array.from(e.target.files ?? [])])}
+            />
+            {pieces.length > 0 && (
+              <ul style={{ marginTop: 12, display: 'grid', gap: 6, listStyle: 'none', padding: 0 }}>
+                {pieces.map((f, i) => (
+                  <li key={i} style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    background: 'var(--abed-bg)', borderRadius: 6, padding: '6px 10px', fontSize: 13,
+                  }}>
+                    <span>📎 {f.name}</span>
+                    <button type="button" className="btn secondary" style={{ padding: '2px 10px', fontSize: 12 }}
+                      onClick={() => setPieces(prev => prev.filter((_, idx) => idx !== i))}>
+                      Retirer
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </>
       )}

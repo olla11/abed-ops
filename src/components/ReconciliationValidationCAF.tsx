@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import PiecesJointesList from '@/components/PiecesJointesList'
 
 const MODE_LABELS: Record<string, string> = {
   credit: 'À crédit',
@@ -19,6 +20,7 @@ export default function ReconciliationValidationCAF({
     rapport: any
     total_depenses: number | null
     reconciliation_commentaire: string | null
+    reconciliation_pieces_jointes?: { path: string; nom: string }[] | null
   }
 }) {
   const router = useRouter()
@@ -98,6 +100,8 @@ export default function ReconciliationValidationCAF({
       <div style={{ fontSize: 13, fontWeight: 700, textAlign: 'right', marginBottom: 16 }}>
         Total dépenses : {Number(mission.total_depenses ?? 0).toLocaleString('fr-FR')} F CFA
       </div>
+
+      <PiecesJointesList pieces={mission.reconciliation_pieces_jointes} />
 
       {/* Actions */}
       <div className="field">

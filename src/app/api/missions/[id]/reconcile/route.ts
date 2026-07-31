@@ -13,7 +13,7 @@ export async function POST(
   if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
 
   const body = await req.json()
-  const { point_financier, montant_recu, rapport, mode_financement } = body
+  const { point_financier, montant_recu, rapport, mode_financement, pieces_jointes } = body
 
   const totalDepenses = Array.isArray(point_financier)
     ? point_financier.reduce((s: number, l: any) => s + (Number(l.montant) || 0), 0)
@@ -39,6 +39,7 @@ export async function POST(
       total_depenses: totalDepenses,
       rapport,
       mode_financement: mode_financement ?? null,
+      reconciliation_pieces_jointes: Array.isArray(pieces_jointes) ? pieces_jointes : [],
       status: statusInitial,
     })
     .eq('id', id)
