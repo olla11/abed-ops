@@ -102,6 +102,8 @@ function PdfCanvasViewer({
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const wrapperRef = useRef<HTMLDivElement>(null)
   const [rendering, setRendering] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [retryCount, setRetryCount] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
   const dragOffsetRef = useRef({ x: 0, y: 0 })
   const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null)
@@ -110,6 +112,7 @@ function PdfCanvasViewer({
   useEffect(() => {
     let cancelled = false
     setRendering(true)
+    setError(null)
     renderTaskRef.current?.cancel()
 
     async function render() {
@@ -142,11 +145,16 @@ function PdfCanvasViewer({
     }
 
     render().catch(err => {
-      if (err?.name !== 'RenderingCancelledException' && !cancelled) setRendering(false)
+      if (cancelled) return
+      if (err?.name !== 'RenderingCancelledException') {
+        console.error('[PdfCanvasViewer] Échec du rendu PDF :', err)
+        setRendering(false)
+        setError('Impossible d\'afficher le document (fichier illisible ou lien expiré).')
+      }
     })
 
     return () => { cancelled = true; renderTaskRef.current?.cancel() }
-  }, [docUrl, pageNumber])
+  }, [docUrl, pageNumber, retryCount])
 
   function getPct(clientX: number, clientY: number) {
     const rect = canvasRef.current?.getBoundingClientRect()
@@ -192,12 +200,21 @@ function PdfCanvasViewer({
   return (
     <div ref={wrapperRef} style={{ position: 'relative', width: '100%', background: '#525659' }}>
       {isDragging && <div style={{ position: 'fixed', inset: 0, zIndex: 9999, cursor: 'grabbing' }} />}
-      {rendering && (
+      {rendering && !error && (
         <div style={{ position: 'absolute', inset: 0, minHeight: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontSize: 14, zIndex: 5 }}>
           Chargement de la page...
         </div>
       )}
-      <canvas ref={canvasRef} onClick={handleCanvasClick} style={{ display: 'block', width: '100%', height: 'auto', cursor: placingMode ? 'crosshair' : 'default' }} />
+      {error && (
+        <div style={{ position: 'absolute', inset: 0, minHeight: 200, display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center', justifyContent: 'center', color: '#fca5a5', fontSize: 14, textAlign: 'center', padding: 24, zIndex: 5 }}>
+          <span>⚠️ {error}</span>
+          <button onClick={() => setRetryCount(c => c + 1)}
+            style={{ padding: '8px 18px', borderRadius: 6, border: '1px solid #6b7280', background: 'transparent', color: '#e5e7eb', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+            🔄 Réessayer
+          </button>
+        </div>
+      )}
+      <canvas ref={canvasRef} onClick={handleCanvasClick} style={{ display: 'block', width: '100%', height: 'auto', cursor: placingMode ? 'crosshair' : 'default', visibility: error ? 'hidden' : 'visible' }} />
       {placingMode && (
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.15)', cursor: 'crosshair', zIndex: 2 }} onClick={handleCanvasClick} />
       )}
@@ -220,8 +237,10 @@ export default function ExterneSignerClient({
   const [nomErr, setNomErr] = useState<string | null>(null)
 
   const [docUrl, setDocUrl] = useState<string | null>(null)
+  const [docError, setDocError] = useState<string | null>(null)
   const [numPages, setNumPages] = useState<number | null>(null)
   const [loadingDoc, setLoadingDoc] = useState(!!fichierUrl)
+  const [docRetryCount, setDocRetryCount] = useState(0)
   const [placingMode, setPlacingMode] = useState(false)
   const [sigPos, setSigPos] = useState<{ x: number; y: number } | null>(null)
   const [sigPage, setSigPage] = useState(1)
@@ -246,9 +265,16 @@ export default function ExterneSignerClient({
 
   useEffect(() => {
     if (!fichierUrl || !nomExterne) return
+    setLoadingDoc(true); setDocError(null)
     fetch(`/api/signatures/externe/document?t=${encodeURIComponent(token)}`)
       .then(r => r.json())
       .then(async data => {
+        if (data.error) {
+          console.error('[ExterneSignerClient] Erreur récupération document :', data.error)
+          setDocError('Le document n\'a pas pu être récupéré. Réessayez ou contactez l\'expéditeur.')
+          setLoadingDoc(false)
+          return
+        }
         const url = data.url ?? null
         setDocUrl(url)
         if (url) {
@@ -257,12 +283,16 @@ export default function ExterneSignerClient({
             lib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString()
             const pdf = await lib.getDocument({ url, withCredentials: false }).promise
             setNumPages(pdf.numPages)
-          } catch { /* non-blocking */ }
+          } catch (e) { console.error('[ExterneSignerClient] Échec lecture PDF (numPages) :', e) }
         }
         setLoadingDoc(false)
       })
-      .catch(() => setLoadingDoc(false))
-  }, [token, fichierUrl, nomExterne])
+      .catch(e => {
+        console.error('[ExterneSignerClient] Erreur réseau document :', e)
+        setDocError('Le document n\'a pas pu être récupéré (erreur réseau). Réessayez.')
+        setLoadingDoc(false)
+      })
+  }, [token, fichierUrl, nomExterne, docRetryCount])
 
   function goToPage(n: number) {
     const clamped = Math.max(1, Math.min(numPages ?? 1, n))
@@ -524,6 +554,14 @@ export default function ExterneSignerClient({
         <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
           {loadingDoc ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#9ca3af', fontSize: 14 }}>Chargement...</div>
+          ) : docError ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, alignItems: 'center', justifyContent: 'center', height: '100%', color: '#fca5a5', fontSize: 14, textAlign: 'center', padding: 32 }}>
+              <span>⚠️ {docError}</span>
+              <button onClick={() => setDocRetryCount(c => c + 1)}
+                style={{ padding: '8px 18px', borderRadius: 6, border: '1px solid #6b7280', background: 'transparent', color: '#e5e7eb', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                🔄 Réessayer
+              </button>
+            </div>
           ) : !docUrl ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#9ca3af', fontSize: 14, textAlign: 'center', padding: 32 }}>
               Ce document n&apos;a pas de fichier joint
@@ -585,7 +623,12 @@ export default function ExterneSignerClient({
           </div>
         )}
 
-        {!docUrl && !loadingDoc && (
+        {docError && (
+          <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 8, padding: '12px 14px', fontSize: 13, color: '#991b1b' }}>
+            ⚠️ {docError}
+          </div>
+        )}
+        {!docUrl && !loadingDoc && !docError && (
           <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '12px 14px', fontSize: 13, color: '#1e40af' }}>
             Aucun fichier joint — vous pouvez signer directement.
           </div>
@@ -626,7 +669,7 @@ export default function ExterneSignerClient({
         )}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 'auto' }}>
-          {(sigPos || (!docUrl && !loadingDoc)) && !showRefuseForm && (
+          {(sigPos || (!docUrl && !loadingDoc && !docError)) && !showRefuseForm && (
             <button onClick={confirmSign} disabled={loading}
               style={{ padding: '12px 20px', borderRadius: 8, fontSize: 14, fontWeight: 700, background: '#16a34a', color: 'white', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1 }}>
               {loading ? 'Signature en cours...' : '✅ Confirmer la signature'}
