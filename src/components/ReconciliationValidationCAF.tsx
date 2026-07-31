@@ -73,8 +73,8 @@ export default function ReconciliationValidationCAF({
             ['Suite', rapport.suite],
           ].map(([k, v]) => (
             <tr key={k}>
-              <td style={{ fontWeight: 600, width: 120, paddingRight: 12, verticalAlign: 'top', paddingBottom: 6 }}>{k}</td>
-              <td style={{ paddingBottom: 6 }}>{v || '—'}</td>
+              <td style={{ fontWeight: 600, width: 120, paddingRight: 12, verticalAlign: 'top', paddingBottom: 6, whiteSpace: 'normal' }}>{k}</td>
+              <td style={{ paddingBottom: 6, whiteSpace: 'normal', overflow: 'visible', textOverflow: 'clip', wordBreak: 'break-word', verticalAlign: 'top' }}>{v || '—'}</td>
             </tr>
           ))}
         </tbody>
