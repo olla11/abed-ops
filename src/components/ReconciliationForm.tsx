@@ -318,7 +318,7 @@ export default function ReconciliationForm({
 
       {!submitted && !aChargePartenaire && (modeFinancement === 'credit' || modeFinancement === 'avance') && (
         <p style={{ fontSize: 13, color: 'var(--abed-amber)', background: '#fef3c7', padding: '10px 14px', borderRadius: 8 }}>
-          ⚠ Votre réconciliation sera transmise à l'AAF puis à la CAF pour validation avant clôture définitive.
+          ⚠ Votre réconciliation sera transmise à l'AAF, puis à la CAF, puis au Directeur Exécutif pour validation avant clôture définitive.
         </p>
       )}
 

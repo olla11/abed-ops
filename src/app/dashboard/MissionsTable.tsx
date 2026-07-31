@@ -21,6 +21,7 @@ const STATUS_LABELS: Record<string, string> = {
   brouillon: 'Brouillon', soumis: 'Soumis', signe: 'Signé',
   en_mission: 'En mission', reconciliation: 'Réconciliation',
   reconciliation_aaf: 'Validation AAF', reconciliation_caf: 'Validation CAF',
+  reconciliation_de: 'Autorisation DE',
   paiement_attente: 'Paiement en attente', cloture: 'Clôturé', rejete: 'Rejeté',
 }
 
@@ -136,7 +137,18 @@ const VALIDER_CAF_TAB: ActionTab = {
   filter: (missions) => missions.filter(m => m.status === 'reconciliation_caf'),
   banner: (n) => ({
     title: `${n} réconciliation${n > 1 ? 's' : ''} en attente de votre validation`,
-    desc: 'Validez ou rejetez la réconciliation pour clôturer définitivement la mission.',
+    desc: 'Validez ou rejetez la réconciliation avant transmission au Directeur Exécutif.',
+  }),
+  icon: FileCheck,
+}
+
+const AUTORISER_DE_TAB: ActionTab = {
+  key: 'autoriser_de',
+  label: 'Réconciliations à autoriser (DE)',
+  filter: (missions) => missions.filter(m => m.status === 'reconciliation_de'),
+  banner: (n) => ({
+    title: `${n} réconciliation${n > 1 ? 's' : ''} en attente de votre autorisation`,
+    desc: 'Déjà validées par l\'AAF et la CAF. Votre autorisation clôture définitivement la mission.',
   }),
   icon: FileCheck,
 }
@@ -147,6 +159,7 @@ export default function MissionsTable({
   isSignataire,
   isAAF,
   canValidateReconc,
+  canAutoriserDE,
   userId,
 }: {
   missions: Mission[]
@@ -154,12 +167,14 @@ export default function MissionsTable({
   isSignataire: boolean
   isAAF: boolean
   canValidateReconc: boolean
+  canAutoriserDE: boolean
   userId: string
 }) {
   const actionTabs: ActionTab[] = [
     ...(isSignataire ? [SIGNER_TAB] : []),
     ...(isAAF ? [VALIDER_AAF_TAB] : []),
     ...(canValidateReconc ? [VALIDER_CAF_TAB] : []),
+    ...(canAutoriserDE ? [AUTORISER_DE_TAB] : []),
   ]
   const hasTabs = actionTabs.length > 0 || isAAF
 

@@ -8,6 +8,7 @@ import MissionDeleteButton from './MissionDeleteButton'
 import AppHeader from '@/components/AppHeader'
 import ReconciliationValidationCAF from '@/components/ReconciliationValidationCAF'
 import ReconciliationValidationAAF from '@/components/ReconciliationValidationAAF'
+import ReconciliationValidationDE from '@/components/ReconciliationValidationDE'
 import RetryPaymentButton from './RetryPaymentButton'
 import PiecesJointesList from '@/components/PiecesJointesList'
 
@@ -43,6 +44,7 @@ export default async function MissionDetail({ params }: { params: Promise<{ id: 
     && ['signe', 'en_mission', 'reconciliation'].includes(mission.status)
   const canValidateReconcAAF = ['aaf', 'admin'].includes(role) && mission.status === 'reconciliation_aaf'
   const canValidateReconc = ['caf', 'admin'].includes(role) && mission.status === 'reconciliation_caf'
+  const canAutoriserReconcDE = ['de', 'admin'].includes(role) && mission.status === 'reconciliation_de'
   const canRetryPayment = user.id === mission.missionnaire_id && mission.status === 'paiement_attente'
 
   const STATUS_LABELS: Record<string, string> = {
@@ -53,6 +55,7 @@ export default async function MissionDetail({ params }: { params: Promise<{ id: 
     reconciliation: 'Réconciliation requise',
     reconciliation_aaf: 'Validation AAF en attente',
     reconciliation_caf: 'Validation CAF en attente',
+    reconciliation_de: 'Autorisation DE en attente',
     paiement_attente: 'Paiement en attente',
     cloture: 'Clôturé',
     rejete: 'Rejeté',
@@ -177,6 +180,20 @@ export default async function MissionDetail({ params }: { params: Promise<{ id: 
 
       {canValidateReconc && (
         <ReconciliationValidationCAF
+          missionId={id}
+          mission={{
+            mode_financement: mission.mode_financement,
+            point_financier: mission.point_financier,
+            rapport: mission.rapport,
+            total_depenses: mission.total_depenses,
+            reconciliation_commentaire: mission.reconciliation_commentaire,
+            reconciliation_pieces_jointes: mission.reconciliation_pieces_jointes,
+          }}
+        />
+      )}
+
+      {canAutoriserReconcDE && (
+        <ReconciliationValidationDE
           missionId={id}
           mission={{
             mode_financement: mission.mode_financement,

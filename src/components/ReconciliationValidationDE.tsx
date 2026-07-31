@@ -9,7 +9,7 @@ const MODE_LABELS: Record<string, string> = {
   totalite_avant: 'Totalité avant départ',
 }
 
-export default function ReconciliationValidationCAF({
+export default function ReconciliationValidationDE({
   missionId,
   mission,
 }: {
@@ -37,7 +37,7 @@ export default function ReconciliationValidationCAF({
       setMsg('Saisissez un commentaire pour le rejet.'); setMsgType('err'); return
     }
     setLoading(action); setMsg('')
-    const res = await fetch(`/api/missions/${missionId}/valider-reconciliation`, {
+    const res = await fetch(`/api/missions/${missionId}/valider-reconciliation-de`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action, commentaire }),
@@ -47,7 +47,7 @@ export default function ReconciliationValidationCAF({
     if (!res.ok) {
       setMsg('Erreur : ' + (data.error ?? 'inconnue')); setMsgType('err'); return
     }
-    setMsg(action === 'valider' ? 'Réconciliation validée. Transmise au Directeur Exécutif.' : 'Réconciliation rejetée.')
+    setMsg(action === 'valider' ? 'Réconciliation autorisée. Mission clôturée.' : 'Réconciliation rejetée.')
     setMsgType('ok')
     setTimeout(() => router.refresh(), 1200)
   }
@@ -55,10 +55,10 @@ export default function ReconciliationValidationCAF({
   return (
     <div className="card" style={{ border: '2px solid var(--abed-amber)', marginTop: 20 }}>
       <h3 style={{ marginBottom: 4, fontSize: 15, color: '#92400e' }}>
-        Validation CAF — Réconciliation en attente
+        Autorisation DE — Réconciliation en attente
       </h3>
       <p style={{ fontSize: 12, color: 'var(--abed-muted)', marginBottom: 16 }}>
-        Mode financement : <strong>{MODE_LABELS[mission.mode_financement ?? ''] ?? '—'}</strong>
+        Mode financement : <strong>{MODE_LABELS[mission.mode_financement ?? ''] ?? '—'}</strong> — déjà validée par l'AAF et la CAF.
       </p>
 
       {/* Rapport */}
@@ -121,7 +121,7 @@ export default function ReconciliationValidationCAF({
 
       <div style={{ display: 'flex', gap: 12 }}>
         <button className="btn" onClick={() => handle('valider')} disabled={!!loading}>
-          {loading === 'valider' ? '⏳…' : '✓ Valider & transmettre au DE'}
+          {loading === 'valider' ? '⏳…' : '✓ Autoriser & clôturer'}
         </button>
         <button className="btn danger" onClick={() => handle('rejeter')} disabled={!!loading}>
           {loading === 'rejeter' ? '⏳…' : 'Rejeter'}

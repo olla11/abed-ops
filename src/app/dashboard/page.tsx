@@ -24,6 +24,7 @@ export default async function Dashboard() {
   const isSignataire = ['caf', 'de', 'dp', 'admin', 'administrateur'].includes(role)
   const isAAF = role === 'aaf'
   const canValidateReconc = ['caf', 'admin'].includes(role)
+  const canAutoriserDE = ['de', 'admin'].includes(role)
 
   const { data: missions } = await supabase
     .from('missions')
@@ -38,6 +39,7 @@ export default async function Dashboard() {
     reconciliation: 'Réconciliation',
     reconciliation_aaf: 'Validation AAF',
     reconciliation_caf: 'Validation CAF',
+    reconciliation_de: 'Autorisation DE',
     paiement_attente: 'Paiement en attente',
     cloture: 'Clôturé',
     rejete: 'Rejeté',
@@ -79,6 +81,7 @@ export default async function Dashboard() {
           isSignataire={isSignataire}
           isAAF={isAAF}
           canValidateReconc={canValidateReconc}
+          canAutoriserDE={canAutoriserDE}
           userId={user.id}
         />
       </div>
