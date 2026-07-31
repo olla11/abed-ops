@@ -22,6 +22,8 @@ export default async function Dashboard() {
   const previewRole = await getRolePreview()
   const isManager = ['admin', 'rh', 'caf', 'de', 'dp', 'administrateur'].includes(role)
   const isSignataire = ['caf', 'de', 'dp', 'admin', 'administrateur'].includes(role)
+  const isAAF = role === 'aaf'
+  const canValidateReconc = ['caf', 'admin'].includes(role)
 
   const { data: missions } = await supabase
     .from('missions')
@@ -34,6 +36,7 @@ export default async function Dashboard() {
     signe: 'Signé',
     en_mission: 'En mission',
     reconciliation: 'Réconciliation',
+    reconciliation_aaf: 'Validation AAF',
     reconciliation_caf: 'Validation CAF',
     paiement_attente: 'Paiement en attente',
     cloture: 'Clôturé',
@@ -54,12 +57,17 @@ export default async function Dashboard() {
       <div className="page-container">
 
       <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: isSignataire ? 4 : 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: (isSignataire || isAAF) ? 4 : 16 }}>
           <div>
             <h3 style={{ margin: 0 }}>Ordres de mission</h3>
             {isSignataire && (
               <p style={{ fontSize: 13, color: 'var(--abed-muted)', margin: '3px 0 0' }}>
                 Gérez vos missions et signez celles qui vous sont soumises.
+              </p>
+            )}
+            {isAAF && (
+              <p style={{ fontSize: 13, color: 'var(--abed-muted)', margin: '3px 0 0' }}>
+                Gérez vos missions et validez les réconciliations qui vous sont soumises.
               </p>
             )}
           </div>
@@ -69,6 +77,8 @@ export default async function Dashboard() {
           missions={(missions ?? []) as any}
           isManager={isManager}
           isSignataire={isSignataire}
+          isAAF={isAAF}
+          canValidateReconc={canValidateReconc}
           userId={user.id}
         />
       </div>

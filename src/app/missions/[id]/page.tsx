@@ -7,6 +7,7 @@ import MissionEditForm from './MissionEditForm'
 import MissionDeleteButton from './MissionDeleteButton'
 import AppHeader from '@/components/AppHeader'
 import ReconciliationValidationCAF from '@/components/ReconciliationValidationCAF'
+import ReconciliationValidationAAF from '@/components/ReconciliationValidationAAF'
 import RetryPaymentButton from './RetryPaymentButton'
 import PiecesJointesList from '@/components/PiecesJointesList'
 
@@ -40,6 +41,7 @@ export default async function MissionDetail({ params }: { params: Promise<{ id: 
   const pdfDispo = !['brouillon', 'soumis'].includes(mission.status)
   const canReconcile = user.id === mission.missionnaire_id
     && ['signe', 'en_mission', 'reconciliation'].includes(mission.status)
+  const canValidateReconcAAF = ['aaf', 'admin'].includes(role) && mission.status === 'reconciliation_aaf'
   const canValidateReconc = ['caf', 'admin'].includes(role) && mission.status === 'reconciliation_caf'
   const canRetryPayment = user.id === mission.missionnaire_id && mission.status === 'paiement_attente'
 
@@ -49,6 +51,7 @@ export default async function MissionDetail({ params }: { params: Promise<{ id: 
     signe: 'Signé',
     en_mission: 'En mission',
     reconciliation: 'Réconciliation requise',
+    reconciliation_aaf: 'Validation AAF en attente',
     reconciliation_caf: 'Validation CAF en attente',
     paiement_attente: 'Paiement en attente',
     cloture: 'Clôturé',
@@ -156,6 +159,20 @@ export default async function MissionDetail({ params }: { params: Promise<{ id: 
           </tbody></table>
           <PiecesJointesList pieces={mission.reconciliation_pieces_jointes} />
         </div>
+      )}
+
+      {canValidateReconcAAF && (
+        <ReconciliationValidationAAF
+          missionId={id}
+          mission={{
+            mode_financement: mission.mode_financement,
+            point_financier: mission.point_financier,
+            rapport: mission.rapport,
+            total_depenses: mission.total_depenses,
+            reconciliation_commentaire: mission.reconciliation_commentaire,
+            reconciliation_pieces_jointes: mission.reconciliation_pieces_jointes,
+          }}
+        />
       )}
 
       {canValidateReconc && (

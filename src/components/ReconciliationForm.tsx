@@ -117,7 +117,7 @@ export default function ReconciliationForm({
     }
     setSubmitted(true)
     setMsg(data.message ?? 'Réconciliation enregistrée.')
-    setMsgType(data.status === 'reconciliation_caf' ? 'warn' : 'ok')
+    setMsgType(data.status === 'reconciliation_aaf' ? 'warn' : 'ok')
     if (data.paymentUrl) setPaymentUrl(data.paymentUrl)
     if (data.email_sent === false) {
       setEmailFailed(true)
@@ -161,7 +161,7 @@ export default function ReconciliationForm({
     <div style={{ display: 'grid', gap: 24 }}>
       {commentaireRejet && (
         <div style={{ background: '#fee2e2', border: '1px solid #f87171', borderRadius: 8, padding: '12px 16px' }}>
-          <strong style={{ color: '#991b1b', fontSize: 14 }}>Réconciliation rejetée par la CAF</strong>
+          <strong style={{ color: '#991b1b', fontSize: 14 }}>Réconciliation rejetée</strong>
           <p style={{ margin: '6px 0 0', fontSize: 13, color: '#7f1d1d' }}>Commentaire : {commentaireRejet}</p>
           <p style={{ margin: '4px 0 0', fontSize: 12, color: '#991b1b' }}>Corrigez les informations ci-dessous et resoumettez.</p>
         </div>
@@ -318,7 +318,7 @@ export default function ReconciliationForm({
 
       {!submitted && !aChargePartenaire && (modeFinancement === 'credit' || modeFinancement === 'avance') && (
         <p style={{ fontSize: 13, color: 'var(--abed-amber)', background: '#fef3c7', padding: '10px 14px', borderRadius: 8 }}>
-          ⚠ Votre réconciliation sera transmise à la CAF pour validation avant clôture définitive.
+          ⚠ Votre réconciliation sera transmise à l'AAF puis à la CAF pour validation avant clôture définitive.
         </p>
       )}
 

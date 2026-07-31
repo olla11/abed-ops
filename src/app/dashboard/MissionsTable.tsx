@@ -3,7 +3,7 @@ import React from 'react'
 import Link from 'next/link'
 import { useState } from 'react'
 import Pagination, { paginate } from '@/components/Pagination'
-import { PenLine, Plane, FolderOpen } from 'lucide-react'
+import { PenLine, Plane, FolderOpen, FileCheck } from 'lucide-react'
 
 export type Mission = {
   id: string
@@ -20,8 +20,8 @@ export type Mission = {
 const STATUS_LABELS: Record<string, string> = {
   brouillon: 'Brouillon', soumis: 'Soumis', signe: 'Signé',
   en_mission: 'En mission', reconciliation: 'Réconciliation',
-  reconciliation_caf: 'Validation CAF', paiement_attente: 'Paiement en attente',
-  cloture: 'Clôturé', rejete: 'Rejeté',
+  reconciliation_aaf: 'Validation AAF', reconciliation_caf: 'Validation CAF',
+  paiement_attente: 'Paiement en attente', cloture: 'Clôturé', rejete: 'Rejeté',
 }
 
 function MissionsTableSimple({ missions, showMissionnaire }: { missions: Mission[]; showMissionnaire: boolean }) {
@@ -100,32 +100,83 @@ function MissionsTableSimple({ missions, showMissionnaire }: { missions: Mission
   )
 }
 
-type Tab = 'signer' | 'mes' | 'tous'
+type ActionTab = {
+  key: string
+  label: string
+  filter: (missions: Mission[]) => Mission[]
+  banner: (count: number) => { title: string; desc: string }
+  icon: React.ElementType
+}
+
+const SIGNER_TAB: ActionTab = {
+  key: 'signer',
+  label: 'À signer',
+  filter: (missions) => missions.filter(m => m.status === 'soumis'),
+  banner: (n) => ({
+    title: `${n} ordre${n > 1 ? 's' : ''} en attente de votre signature`,
+    desc: 'Ces missions ont été soumises et nécessitent votre signature pour être officialisées.',
+  }),
+  icon: PenLine,
+}
+
+const VALIDER_AAF_TAB: ActionTab = {
+  key: 'valider_aaf',
+  label: 'Réconciliations à valider (AAF)',
+  filter: (missions) => missions.filter(m => m.status === 'reconciliation_aaf'),
+  banner: (n) => ({
+    title: `${n} réconciliation${n > 1 ? 's' : ''} en attente de votre validation`,
+    desc: 'Vérifiez le point financier et le rapport de mission avant transmission à la CAF.',
+  }),
+  icon: FileCheck,
+}
+
+const VALIDER_CAF_TAB: ActionTab = {
+  key: 'valider_caf',
+  label: 'Réconciliations à valider (CAF)',
+  filter: (missions) => missions.filter(m => m.status === 'reconciliation_caf'),
+  banner: (n) => ({
+    title: `${n} réconciliation${n > 1 ? 's' : ''} en attente de votre validation`,
+    desc: 'Validez ou rejetez la réconciliation pour clôturer définitivement la mission.',
+  }),
+  icon: FileCheck,
+}
 
 export default function MissionsTable({
   missions,
   isManager,
   isSignataire,
+  isAAF,
+  canValidateReconc,
   userId,
 }: {
   missions: Mission[]
   isManager: boolean
   isSignataire: boolean
+  isAAF: boolean
+  canValidateReconc: boolean
   userId: string
 }) {
-  const [tab, setTab] = useState<Tab>(isSignataire ? 'signer' : 'mes')
+  const actionTabs: ActionTab[] = [
+    ...(isSignataire ? [SIGNER_TAB] : []),
+    ...(isAAF ? [VALIDER_AAF_TAB] : []),
+    ...(canValidateReconc ? [VALIDER_CAF_TAB] : []),
+  ]
+  const hasTabs = actionTabs.length > 0 || isAAF
 
-  if (!isSignataire) {
-    // Vue simple : missionnaire standard, manager non-signataire (rh)
-    return <MissionsTableSimple missions={missions} showMissionnaire={isManager && !isSignataire} />
+  const [tab, setTab] = useState<string>(actionTabs[0]?.key ?? 'mes')
+
+  if (!hasTabs) {
+    // Vue simple : missionnaire standard, manager non-signataire/AAF (rh)
+    return <MissionsTableSimple missions={missions} showMissionnaire={isManager} />
   }
 
-  // Vue signataire : onglets
-  const aSignerMissions = missions.filter(m => m.status === 'soumis' && m.missionnaire_id !== userId)
   const mesMissions = missions.filter(m => m.missionnaire_id === userId)
 
-  const tabs: { key: Tab; label: string; count?: number; icon: React.ElementType; color?: string }[] = [
-    { key: 'signer', label: 'À signer', count: aSignerMissions.length, icon: PenLine, color: aSignerMissions.length > 0 ? '#b45309' : undefined },
+  const tabs: { key: string; label: string; count?: number; icon: React.ElementType; color?: string }[] = [
+    ...actionTabs.map(t => {
+      const filtered = t.filter(missions).filter(m => m.missionnaire_id !== userId)
+      return { key: t.key, label: t.label, count: filtered.length, icon: t.icon, color: filtered.length > 0 ? '#b45309' : undefined }
+    }),
     { key: 'mes', label: 'Mes ordres de mission', icon: Plane },
     { key: 'tous', label: 'Tous les ordres', icon: FolderOpen },
   ]
@@ -164,31 +215,34 @@ export default function MissionsTable({
         })}
       </div>
 
-      {/* Contenu onglet À signer */}
-      {tab === 'signer' && (
-        <div>
-          {aSignerMissions.length > 0 ? (
-            <>
-              <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 10, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontSize: 18 }}>⏳</span>
-                <div>
-                  <strong style={{ fontSize: 14, color: '#92400e' }}>{aSignerMissions.length} ordre{aSignerMissions.length > 1 ? 's' : ''} en attente de votre signature</strong>
-                  <p style={{ fontSize: 12, color: '#b45309', margin: '2px 0 0' }}>
-                    Ces missions ont été soumises et nécessitent votre signature pour être officialisées.
-                  </p>
+      {/* Contenu des onglets d'action */}
+      {actionTabs.map(t => {
+        if (tab !== t.key) return null
+        const list = t.filter(missions).filter(m => m.missionnaire_id !== userId)
+        const b = t.banner(list.length)
+        return (
+          <div key={t.key}>
+            {list.length > 0 ? (
+              <>
+                <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 10, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: 18 }}>⏳</span>
+                  <div>
+                    <strong style={{ fontSize: 14, color: '#92400e' }}>{b.title}</strong>
+                    <p style={{ fontSize: 12, color: '#b45309', margin: '2px 0 0' }}>{b.desc}</p>
+                  </div>
                 </div>
+                <MissionsTableSimple missions={list} showMissionnaire={true} />
+              </>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--abed-muted)' }}>
+                <div style={{ fontSize: 40, marginBottom: 12 }}>✅</div>
+                <p style={{ fontSize: 15, fontWeight: 600, color: '#374151', marginBottom: 4 }}>Rien en attente</p>
+                <p style={{ fontSize: 13 }}>Aucun ordre de mission ne nécessite votre action pour le moment.</p>
               </div>
-              <MissionsTableSimple missions={aSignerMissions} showMissionnaire={true} />
-            </>
-          ) : (
-            <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--abed-muted)' }}>
-              <div style={{ fontSize: 40, marginBottom: 12 }}>✅</div>
-              <p style={{ fontSize: 15, fontWeight: 600, color: '#374151', marginBottom: 4 }}>Aucun ordre en attente</p>
-              <p style={{ fontSize: 13 }}>Toutes les demandes de mission soumises ont été traitées.</p>
-            </div>
-          )}
-        </div>
-      )}
+            )}
+          </div>
+        )
+      })}
 
       {/* Contenu onglet Mes missions */}
       {tab === 'mes' && (

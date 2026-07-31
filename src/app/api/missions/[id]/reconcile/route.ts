@@ -27,7 +27,7 @@ export async function POST(
   }
 
   // Statut initial selon mode
-  const statusInitial = mode_financement === 'totalite_avant' ? 'cloture' : 'reconciliation_caf'
+  const statusInitial = mode_financement === 'totalite_avant' ? 'cloture' : 'reconciliation_aaf'
 
   // Service role pour contourner la RLS WITH CHECK qui bloque status='cloture' pour le missionnaire
   const admin = createAdminClient()
@@ -186,22 +186,22 @@ export async function POST(
     })
   }
 
-  // ── Cas non-partenaire crédit ou avance → validation CAF ──
-  const { data: cafs } = await admin
-    .from('profiles').select('id').in('role', ['caf', 'admin'])
-  for (const c of cafs ?? []) {
+  // ── Cas non-partenaire crédit ou avance → validation AAF puis CAF ──
+  const { data: aafs } = await admin
+    .from('profiles').select('id').in('role', ['aaf', 'admin'])
+  for (const a of aafs ?? []) {
     await admin.from('notifications').insert({
-      user_id: c.id,
+      user_id: a.id,
       titre: `Réconciliation à valider — Mission ${mission.reference ?? id}`,
-      message: `La réconciliation de la mission « ${mission.objet} » est soumise pour validation CAF. Mode financement : ${modeLabelFr(mode_financement)}.`,
+      message: `La réconciliation de la mission « ${mission.objet} » est soumise pour validation AAF. Mode financement : ${modeLabelFr(mode_financement)}.`,
       lien: `/missions/${id}`,
     })
   }
 
   return NextResponse.json({
     ok: true,
-    status: 'reconciliation_caf',
-    message: 'Réconciliation transmise à la CAF pour validation.',
+    status: 'reconciliation_aaf',
+    message: 'Réconciliation transmise à l\'AAF pour validation.',
   })
 }
 
