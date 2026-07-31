@@ -126,7 +126,18 @@ function PdfCanvasViewer({
       const page = await pdf.getPage(Math.min(pageNumber, pdf.numPages))
       if (cancelled) return
 
-      const containerWidth = wrapperRef.current?.clientWidth ?? 700
+      // clientWidth peut valoir 0 si le conteneur n'a pas encore fini sa mise
+      // en page (ex. layout flex pas encore stabilisé) — un `??` ne rattrape
+      // pas ce cas car 0 n'est pas nullish, ce qui produisait un canvas de
+      // taille nulle (page "rendue" mais invisible, sans aucune erreur).
+      // On attend une frame pour laisser le layout se stabiliser avant de
+      // se rabattre sur une largeur par défaut.
+      let containerWidth = wrapperRef.current?.clientWidth || 0
+      if (containerWidth === 0) {
+        await new Promise(r => requestAnimationFrame(r))
+        if (cancelled) return
+        containerWidth = wrapperRef.current?.clientWidth || 700
+      }
       const unscaledVp = page.getViewport({ scale: 1 })
       const scale = containerWidth / unscaledVp.width
       const viewport = page.getViewport({ scale })
