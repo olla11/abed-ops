@@ -33,7 +33,7 @@ export default async function SignatureExterneePage({
 
   const { data: signataire } = await admin
     .from('signataires')
-    .select('id, demande_id, email, nom_externe, signe, signe_le, ordre')
+    .select('id, demande_id, email, nom_externe, signe, signe_le, ordre, sig_x, sig_y, sig_page')
     .eq('id', payload.signataireId)
     .single()
 
@@ -70,6 +70,10 @@ export default async function SignatureExterneePage({
     }
   }
 
+  const zoneImposee = signataire.sig_x !== null && signataire.sig_x !== undefined
+    ? { x: signataire.sig_x, y: signataire.sig_y ?? 50, page: signataire.sig_page ?? 1 }
+    : null
+
   return (
     <ExterneSignerClient
       token={token}
@@ -82,6 +86,7 @@ export default async function SignatureExterneePage({
       signeLe={signataire.signe_le}
       nomExterne={signataire.nom_externe}
       email={signataire.email ?? ''}
+      zoneImposee={zoneImposee}
     />
   )
 }

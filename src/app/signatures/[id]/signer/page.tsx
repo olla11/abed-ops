@@ -23,7 +23,7 @@ export default async function SignerPage({
     .from('demandes_signature')
     .select(`
       id, titre, description, fichier_url, statut,
-      signataires(id, profile_id, signe, signe_le, est_observateur, ordre)
+      signataires(id, profile_id, signe, signe_le, est_observateur, ordre, sig_x, sig_y, sig_page)
     `)
     .eq('id', demandeId)
     .single()
@@ -32,7 +32,7 @@ export default async function SignerPage({
 
   // Verify current user is an unsigned signatory — un observateur (destinataire
   // non-signataire) n'a rien à signer, il reçoit seulement le document final.
-  const myEntry = (demande.signataires as Array<{ id: string; profile_id: string; signe: boolean; signe_le: string | null; est_observateur: boolean; ordre: number | null }>)
+  const myEntry = (demande.signataires as Array<{ id: string; profile_id: string; signe: boolean; signe_le: string | null; est_observateur: boolean; ordre: number | null; sig_x: number | null; sig_y: number | null; sig_page: number | null }>)
     .find(s => s.profile_id === user.id)
 
   if (!myEntry || myEntry.signe || myEntry.est_observateur || demande.statut !== 'en_attente') {
@@ -67,6 +67,10 @@ export default async function SignerPage({
     ? formatSignatureDisplayName(profile.prenoms, profile.nom)
     : (user.email ?? 'Utilisateur')
 
+  const zoneImposee = myEntry.sig_x !== null && myEntry.sig_x !== undefined
+    ? { x: myEntry.sig_x, y: myEntry.sig_y ?? 50, page: myEntry.sig_page ?? 1 }
+    : null
+
   return (
     <SignerClient
       demandeId={demandeId}
@@ -74,6 +78,7 @@ export default async function SignerPage({
       fichierUrl={demande.fichier_url ?? null}
       userName={userName}
       contratId={null}
+      zoneImposee={zoneImposee}
     />
   )
 }

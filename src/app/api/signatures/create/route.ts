@@ -17,6 +17,7 @@ export async function POST(req: NextRequest) {
   const signatairesRaw = formData.get('signataires') as string | null
   const signatairesExternesRaw = formData.get('signataires_externes') as string | null
   const ordreSignatairesRaw = formData.get('ordre_signataires') as string | null
+  const zonesSignatureRaw = formData.get('zones_signature') as string | null
   const observateursRaw = formData.get('observateurs') as string | null
   const observateursExternesRaw = formData.get('observateurs_externes') as string | null
 
@@ -72,6 +73,22 @@ export async function POST(req: NextRequest) {
       if (memeEnsemble) ordreEntries = candidat
     }
   } catch { /* garde l'ordre par défaut */ }
+
+  // Zones de signature imposées (optionnel) : position figée choisie par le
+  // créateur, clé "type:valeur" identique à celle de ordreEntries.
+  type Zone = { page: number; x: number; y: number }
+  let zonesParCle: Record<string, Zone> = {}
+  try {
+    const parsed = JSON.parse(zonesSignatureRaw ?? 'null')
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+        const z = v as Partial<Zone> | null
+        if (z && typeof z.page === 'number' && typeof z.x === 'number' && typeof z.y === 'number') {
+          zonesParCle[k] = { page: z.page, x: z.x, y: z.y }
+        }
+      }
+    }
+  } catch { zonesParCle = {} }
 
   // Destinataires non-signataires (observateurs) : reçoivent le document une
   // fois signé, ne signent jamais. Une personne déjà signataire ne peut pas
@@ -157,10 +174,13 @@ export async function POST(req: NextRequest) {
   // (destinataires non-signataires, internes + externes — l'ordre ne compte
   // pas pour eux puisqu'ils ne signent jamais).
   const sigRows = [
-    ...ordreEntries.map((e, idx) => e.type === 'interne'
-      ? { demande_id: demande.id, profile_id: e.value, ordre: idx }
-      : { demande_id: demande.id, profile_id: null, email: e.value, ordre: idx }
-    ),
+    ...ordreEntries.map((e, idx) => {
+      const zone = zonesParCle[`${e.type}:${e.value}`]
+      const zoneFields = zone ? { sig_page: zone.page, sig_x: zone.x, sig_y: zone.y } : {}
+      return e.type === 'interne'
+        ? { demande_id: demande.id, profile_id: e.value, ordre: idx, ...zoneFields }
+        : { demande_id: demande.id, profile_id: null, email: e.value, ordre: idx, ...zoneFields }
+    }),
     ...observateursIds.map((pid, idx) => ({
       demande_id: demande.id,
       profile_id: pid,

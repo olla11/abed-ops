@@ -9,6 +9,7 @@ type Props = {
   fichierUrl: string | null
   userName: string
   contratId?: string | null
+  zoneImposee?: { x: number; y: number; page: number } | null
 }
 
 function shortHash(s: string): string {
@@ -113,6 +114,7 @@ function PdfCanvasViewer({
   sigBlock,
   sigScale,
   onScaleChange,
+  locked,
 }: {
   docUrl: string
   pageNumber: number
@@ -123,6 +125,7 @@ function PdfCanvasViewer({
   sigBlock: React.ReactNode
   sigScale: number
   onScaleChange: (scale: number) => void
+  locked?: boolean
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const wrapperRef = useRef<HTMLDivElement>(null)
@@ -287,13 +290,13 @@ function PdfCanvasViewer({
       {displayPos && !placingMode && (
         <div
           ref={blockRef}
-          onMouseDown={handleSigMouseDown}
+          onMouseDown={locked ? undefined : handleSigMouseDown}
           style={{
             position: 'absolute',
             left: `${displayPos.x}%`,
             top: `${displayPos.y}%`,
             transform: `translate(-50%, -50%) scale(${sigScale})`,
-            cursor: isDragging ? 'grabbing' : 'grab',
+            cursor: locked ? 'default' : (isDragging ? 'grabbing' : 'grab'),
             zIndex: 10,
           }}
         >
@@ -315,15 +318,21 @@ function PdfCanvasViewer({
   )
 }
 
-export default function SignerClient({ demandeId, titre, fichierUrl, userName, contratId }: Props) {
+export default function SignerClient({ demandeId, titre, fichierUrl, userName, contratId, zoneImposee }: Props) {
   const router = useRouter()
   const [docUrl, setDocUrl] = useState<string | null>(null)
   const [numPages, setNumPages] = useState<number | null>(null)
   const [loadingDoc, setLoadingDoc] = useState(!!fichierUrl)
   const [placingMode, setPlacingMode] = useState(false)
-  const [sigPos, setSigPos] = useState<{ x: number; y: number } | null>(null)
+  const [sigPos, setSigPos] = useState<{ x: number; y: number } | null>(zoneImposee ? { x: zoneImposee.x, y: zoneImposee.y } : null)
   const [sigScale, setSigScale] = useState(1)
-  const [sigPage, setSigPage] = useState(1)
+  const [sigPage, setSigPage] = useState(zoneImposee?.page ?? 1)
+  // Zone imposée : la page de la signature reste fixe (sigPage), mais on
+  // permet de feuilleter librement le document pour le lire — la page
+  // affichée (viewPage) est donc distincte de la page où signer.
+  const [viewPage, setViewPage] = useState(zoneImposee?.page ?? 1)
+  const renderedPage = zoneImposee ? viewPage : sigPage
+  const overlaySigPos = (!zoneImposee || viewPage === sigPage) ? sigPos : null
   const [signed, setSigned] = useState(false)
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -369,8 +378,13 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
 
   function goToPage(n: number) {
     const clamped = Math.max(1, Math.min(numPages ?? 1, n))
+    if (zoneImposee) {
+      setViewPage(clamped) // simple lecture, la zone imposée ne bouge pas
+      return
+    }
     if (clamped !== sigPage) {
       setSigPage(clamped)
+      setViewPage(clamped)
       setSigPos(null) // clear position when changing page — user must re-place
     }
   }
@@ -573,7 +587,7 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
               📥 Télécharger
             </button>
           )}
-          {docUrl && !placingMode && !sigPos && (
+          {docUrl && !placingMode && !sigPos && !zoneImposee && (
             <button onClick={() => setPlacingMode(true)}
               style={{ padding: '5px 14px', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer', background: '#16a34a', color: 'white', border: 'none', whiteSpace: 'nowrap', flexShrink: 0 }}>
               ✍️ Placer ma signature
@@ -585,7 +599,10 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
               <button onClick={() => setPlacingMode(false)} style={{ background: 'none', border: 'none', color: '#fca5a5', cursor: 'pointer', fontSize: 12, fontWeight: 700, padding: 0 }}>✕ Annuler</button>
             </span>
           )}
-          {sigPos && !placingMode && (
+          {sigPos && !placingMode && zoneImposee && (
+            <span style={{ fontSize: 12, color: '#93c5fd', flexShrink: 0 }}>🔒 Zone imposée par l&apos;expéditeur</span>
+          )}
+          {sigPos && !placingMode && !zoneImposee && (
             <span style={{ fontSize: 12, color: '#86efac', flexShrink: 0 }}>↕ Glissez pour repositionner</span>
           )}
         </div>
@@ -607,14 +624,15 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
           ) : (
             <PdfCanvasViewer
               docUrl={docUrl}
-              pageNumber={sigPage}
+              pageNumber={renderedPage}
               placingMode={placingMode}
-              sigPos={sigPos}
+              sigPos={overlaySigPos}
               onPlace={(x, y) => { setSigPos({ x, y }); setPlacingMode(false) }}
               onDragEnd={(x, y) => setSigPos({ x, y })}
               sigBlock={sigBlock}
               sigScale={sigScale}
               onScaleChange={setSigScale}
+              locked={!!zoneImposee}
             />
           )}
         </div>
@@ -623,18 +641,18 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
         {numPages && numPages > 1 && (
           <div style={{ padding: '8px 16px', background: '#3d4043', borderTop: '1px solid #2a2d30', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, flexShrink: 0 }}>
             <button
-              onClick={() => goToPage(sigPage - 1)}
-              disabled={sigPage <= 1}
-              style={{ padding: '4px 14px', borderRadius: 6, border: '1px solid #555', background: sigPage <= 1 ? '#333' : '#555', color: sigPage <= 1 ? '#666' : '#fff', cursor: sigPage <= 1 ? 'default' : 'pointer', fontSize: 13, fontWeight: 700 }}>
+              onClick={() => goToPage(renderedPage - 1)}
+              disabled={renderedPage <= 1}
+              style={{ padding: '4px 14px', borderRadius: 6, border: '1px solid #555', background: renderedPage <= 1 ? '#333' : '#555', color: renderedPage <= 1 ? '#666' : '#fff', cursor: renderedPage <= 1 ? 'default' : 'pointer', fontSize: 13, fontWeight: 700 }}>
               ‹ Précédent
             </button>
             <span style={{ color: '#e5e7eb', fontSize: 13, fontWeight: 600, minWidth: 100, textAlign: 'center' }}>
-              Page {sigPage} / {numPages}
+              Page {renderedPage} / {numPages}
             </span>
             <button
-              onClick={() => goToPage(sigPage + 1)}
-              disabled={sigPage >= numPages}
-              style={{ padding: '4px 14px', borderRadius: 6, border: '1px solid #555', background: sigPage >= numPages ? '#333' : '#555', color: sigPage >= numPages ? '#666' : '#fff', cursor: sigPage >= numPages ? 'default' : 'pointer', fontSize: 13, fontWeight: 700 }}>
+              onClick={() => goToPage(renderedPage + 1)}
+              disabled={renderedPage >= numPages}
+              style={{ padding: '4px 14px', borderRadius: 6, border: '1px solid #555', background: renderedPage >= numPages ? '#333' : '#555', color: renderedPage >= numPages ? '#666' : '#fff', cursor: renderedPage >= numPages ? 'default' : 'pointer', fontSize: 13, fontWeight: 700 }}>
               Suivant ›
             </button>
           </div>
@@ -665,9 +683,11 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
         {/* Page indicator */}
         {docUrl && numPages && (
           <div style={{ background: '#f3f4f6', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#374151' }}>
-            📄 Page <strong>{sigPage}</strong> sur <strong>{numPages}</strong>
-            {sigPos && <span style={{ color: '#16a34a', marginLeft: 6 }}>— signature placée ici</span>}
-            {!sigPos && <span style={{ color: '#6b7280', marginLeft: 6 }}>— naviguez puis placez la signature</span>}
+            📄 Page <strong>{renderedPage}</strong> sur <strong>{numPages}</strong>
+            {zoneImposee && renderedPage === sigPage && <span style={{ color: '#2563eb', marginLeft: 6 }}>— zone de signature ici</span>}
+            {zoneImposee && renderedPage !== sigPage && <span style={{ color: '#6b7280', marginLeft: 6 }}>— signature en attente page {sigPage}</span>}
+            {!zoneImposee && sigPos && <span style={{ color: '#16a34a', marginLeft: 6 }}>— signature placée ici</span>}
+            {!zoneImposee && !sigPos && <span style={{ color: '#6b7280', marginLeft: 6 }}>— naviguez puis placez la signature</span>}
           </div>
         )}
 
@@ -682,7 +702,7 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
             Aucun fichier joint — vous pouvez signer directement.
           </div>
         )}
-        {docUrl && !sigPos && !placingMode && (
+        {docUrl && !sigPos && !placingMode && !zoneImposee && (
           <div style={{ background: '#fef9ec', border: '1px solid #fde68a', borderRadius: 8, padding: '12px 14px', fontSize: 13, color: '#92400e' }}>
             Cliquez sur <strong>« ✍️ Placer ma signature »</strong> puis cliquez l&apos;endroit voulu sur le document. Vous pourrez ensuite la déplacer.
           </div>
@@ -692,7 +712,21 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
             Cliquez sur le document à l&apos;endroit où vous souhaitez apposer votre signature.
           </div>
         )}
-        {sigPos && (
+        {sigPos && zoneImposee && (
+          <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#1e40af' }}>
+            <div>🔒 <strong>Zone de signature imposée</strong> — l&apos;expéditeur a défini où vous devez signer, vous ne pouvez pas la déplacer.</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6, fontSize: 12 }}>
+              <span>↔️ Vous pouvez tout de même la redimensionner ({Math.round(sigScale * 100)}%)</span>
+              {sigScale !== 1 && (
+                <button onClick={() => setSigScale(1)}
+                  style={{ fontSize: 11, padding: '3px 8px', borderRadius: 4, cursor: 'pointer', background: 'white', border: '1px solid #bfdbfe', color: '#1e40af', marginLeft: 8, flexShrink: 0 }}>
+                  Taille normale
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+        {sigPos && !zoneImposee && (
           <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#166534' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span>✅ Signature placée — glissez pour ajuster</span>

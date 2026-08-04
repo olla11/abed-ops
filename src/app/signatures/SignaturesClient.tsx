@@ -1,7 +1,124 @@
 'use client'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import type { DemandeRow, ProfileOption, SignataireRow } from './page'
 import Pagination, { paginate, PAGE_SIZE } from '@/components/Pagination'
+
+type Zone = { page: number; x: number; y: number }
+type PickEntry = { type: 'interne' | 'externe'; value: string }
+
+function entryKey(e: PickEntry) { return `${e.type}:${e.value}` }
+
+const MARKER_COLORS = ['#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed', '#0891b2', '#db2777']
+
+/**
+ * Aperçu du PDF (fichier local, pas encore uploadé) avec un repère nommé par
+ * signataire déjà positionné, et placement au clic pour le signataire actif.
+ * Duplique volontairement la logique de rendu pdf.js des éditeurs de
+ * signature (PdfCanvasViewer) — même convention que le reste du code.
+ */
+function ZonePdfEditor({
+  fichier, entries, labels, zones, activeKey, page, onPageChange, onPlace,
+}: {
+  fichier: File
+  entries: PickEntry[]
+  labels: Record<string, string>
+  zones: Record<string, Zone>
+  activeKey: string | null
+  page: number
+  onPageChange: (n: number) => void
+  onPlace: (key: string, page: number, x: number, y: number) => void
+}) {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null)
+  const [numPages, setNumPages] = useState<number | null>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const wrapperRef = useRef<HTMLDivElement>(null)
+  const [rendering, setRendering] = useState(true)
+
+  useEffect(() => {
+    const url = URL.createObjectURL(fichier)
+    setBlobUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [fichier])
+
+  useEffect(() => {
+    if (!blobUrl) return
+    let cancelled = false
+    setRendering(true)
+    async function render() {
+      const lib = await import('pdfjs-dist')
+      lib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString()
+      const pdf = await lib.getDocument({ url: blobUrl! }).promise
+      if (cancelled) return
+      setNumPages(pdf.numPages)
+      const pageObj = await pdf.getPage(Math.min(page, pdf.numPages))
+      if (cancelled) return
+      const containerWidth = wrapperRef.current?.clientWidth || 700
+      const unscaledVp = pageObj.getViewport({ scale: 1 })
+      const scale = containerWidth / unscaledVp.width
+      const viewport = pageObj.getViewport({ scale })
+      const canvas = canvasRef.current
+      if (!canvas || cancelled) return
+      canvas.width = viewport.width
+      canvas.height = viewport.height
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return
+      await pageObj.render({ canvasContext: ctx, viewport, canvas }).promise
+      if (!cancelled) setRendering(false)
+    }
+    render().catch(() => { if (!cancelled) setRendering(false) })
+    return () => { cancelled = true }
+  }, [blobUrl, page])
+
+  function handleClick(e: React.MouseEvent) {
+    if (!activeKey) return
+    const rect = canvasRef.current?.getBoundingClientRect()
+    if (!rect) return
+    const x = Math.round(Math.max(2, Math.min(98, ((e.clientX - rect.left) / rect.width) * 100)) * 10) / 10
+    const y = Math.round(Math.max(2, Math.min(98, ((e.clientY - rect.top) / rect.height) * 100)) * 10) / 10
+    onPlace(activeKey, page, x, y)
+  }
+
+  const markersOnPage = entries
+    .map((e, i) => ({ key: entryKey(e), i, zone: zones[entryKey(e)] }))
+    .filter((m): m is { key: string; i: number; zone: Zone } => !!m.zone && m.zone.page === page)
+
+  return (
+    <div>
+      <div ref={wrapperRef} style={{ position: 'relative', width: '100%', background: '#525659', borderRadius: 8, overflow: 'hidden' }}>
+        {rendering && (
+          <div style={{ position: 'absolute', inset: 0, minHeight: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontSize: 13, zIndex: 3 }}>
+            Chargement...
+          </div>
+        )}
+        <canvas ref={canvasRef} onClick={handleClick}
+          style={{ display: 'block', width: '100%', height: 'auto', cursor: activeKey ? 'crosshair' : 'default' }} />
+        {markersOnPage.map(m => (
+          <div key={m.key} style={{
+            position: 'absolute', left: `${m.zone.x}%`, top: `${m.zone.y}%`, transform: 'translate(-50%, -50%)',
+            display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 20,
+            background: MARKER_COLORS[m.i % MARKER_COLORS.length], color: 'white', fontSize: 11, fontWeight: 700,
+            whiteSpace: 'nowrap', boxShadow: '0 1px 4px rgba(0,0,0,.35)', pointerEvents: 'none', zIndex: 4,
+          }}>
+            {m.i + 1}. {labels[m.key] ?? m.key}
+          </div>
+        ))}
+      </div>
+      {numPages && numPages > 1 && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 8 }}>
+          <button type="button" onClick={() => onPageChange(Math.max(1, page - 1))} disabled={page <= 1}
+            style={{ padding: '3px 12px', borderRadius: 6, border: '1px solid var(--abed-border)', background: page <= 1 ? '#f3f4f6' : 'white', cursor: page <= 1 ? 'default' : 'pointer', fontSize: 12 }}>
+            ‹ Précédent
+          </button>
+          <span style={{ fontSize: 12, color: '#6b7280' }}>Page {page} / {numPages}</span>
+          <button type="button" onClick={() => onPageChange(Math.min(numPages, page + 1))} disabled={page >= numPages}
+            style={{ padding: '3px 12px', borderRadius: 6, border: '1px solid var(--abed-border)', background: page >= numPages ? '#f3f4f6' : 'white', cursor: page >= numPages ? 'default' : 'pointer', fontSize: 12 }}>
+            Suivant ›
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
 
 const inputStyle: React.CSSProperties = {
   width: '100%', padding: '8px 12px', borderRadius: 8, fontSize: 14,
@@ -270,7 +387,12 @@ export default function SignaturesClient({ userId, mesDemandesASign: initialASig
   // Ordre unifié de signature : mélange interne/externe dans l'ordre réel où
   // la personne a été ajoutée (peu importe la section du formulaire), pour
   // que l'ordre choisi soit exactement celui respecté à la signature.
-  const [pickOrder, setPickOrder] = useState<{ type: 'interne' | 'externe'; value: string }[]>([])
+  const [pickOrder, setPickOrder] = useState<PickEntry[]>([])
+  // Zones de signature imposées (optionnel) : position figée par signataire,
+  // choisie par le créateur sur un aperçu du PDF avant envoi.
+  const [zones, setZones] = useState<Record<string, Zone>>({})
+  const [zoneActiveKey, setZoneActiveKey] = useState<string | null>(null)
+  const [zonePage, setZonePage] = useState(1)
   // Destinataires non-signataires : reçoivent le document par email une fois
   // signé par tout le monde, mais ne signent jamais eux-mêmes.
   const [selectedObservateurs, setSelectedObservateurs] = useState<string[]>([])
@@ -292,12 +414,24 @@ export default function SignaturesClient({ userId, mesDemandesASign: initialASig
     setDemandesASign(list => list.map(d => d.id === demande.id ? demande : d))
   }
 
+  function labelFor(entry: PickEntry): string {
+    if (entry.type === 'externe') return entry.value
+    const p = profiles.find(pp => pp.id === entry.value)
+    return p ? `${p.prenoms} ${p.nom}` : entry.value
+  }
+
+  function removeZone(key: string) {
+    setZones(prev => { const next = { ...prev }; delete next[key]; return next })
+    setZoneActiveKey(k => k === key ? null : k)
+  }
+
   function toggleSignataire(id: string) {
     const alreadySelected = selectedSignataires.includes(id)
     setSelectedSignataires(prev => alreadySelected ? prev.filter(x => x !== id) : [...prev, id])
     setPickOrder(prev => alreadySelected
       ? prev.filter(e => !(e.type === 'interne' && e.value === id))
       : [...prev, { type: 'interne', value: id }])
+    if (alreadySelected) removeZone(entryKey({ type: 'interne', value: id }))
   }
 
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -321,6 +455,7 @@ export default function SignaturesClient({ userId, mesDemandesASign: initialASig
   function removeExternalEmail(email: string) {
     setExternalEmails(prev => prev.filter(e => e !== email))
     setPickOrder(prev => prev.filter(e => !(e.type === 'externe' && e.value === email)))
+    removeZone(entryKey({ type: 'externe', value: email }))
   }
 
   function toggleObservateur(id: string) {
@@ -362,6 +497,7 @@ export default function SignaturesClient({ userId, mesDemandesASign: initialASig
     fd.append('signataires', JSON.stringify(selectedSignataires))
     fd.append('signataires_externes', JSON.stringify(externalEmails))
     fd.append('ordre_signataires', JSON.stringify(pickOrder))
+    fd.append('zones_signature', JSON.stringify(zones))
     fd.append('observateurs', JSON.stringify(selectedObservateurs))
     fd.append('observateurs_externes', JSON.stringify(observateurEmails))
 
@@ -377,6 +513,9 @@ export default function SignaturesClient({ userId, mesDemandesASign: initialASig
       setExternalEmails([])
       setExternalEmailInput('')
       setPickOrder([])
+      setZones({})
+      setZoneActiveKey(null)
+      setZonePage(1)
       setSelectedObservateurs([])
       setObservateurEmails([])
       setObservateurEmailInput('')
@@ -507,9 +646,7 @@ export default function SignaturesClient({ userId, mesDemandesASign: initialASig
                 </p>
                 <ol style={{ margin: 0, paddingLeft: 20, display: 'grid', gap: 4 }}>
                   {pickOrder.map((entry, i) => {
-                    const label = entry.type === 'interne'
-                      ? (() => { const p = profiles.find(pp => pp.id === entry.value); return p ? `${p.prenoms} ${p.nom}` : entry.value })()
-                      : entry.value
+                    const label = labelFor(entry)
                     return (
                       <li key={`${entry.type}-${entry.value}`} style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span style={{ flex: 1 }}>{entry.type === 'externe' ? '✉️ ' : ''}{label}</span>
@@ -524,6 +661,62 @@ export default function SignaturesClient({ userId, mesDemandesASign: initialASig
                     )
                   })}
                 </ol>
+              </div>
+            )}
+
+            {fichier && pickOrder.length > 0 && (
+              <div style={{ marginBottom: 14, background: '#f9fafb', border: '1px solid var(--abed-border)', borderRadius: 8, padding: '10px 14px' }}>
+                <label style={{ ...labelStyle, marginBottom: 4 }}>Zones de signature (optionnel)</label>
+                <p style={{ fontSize: 11, color: 'var(--abed-muted)', margin: '0 0 8px' }}>
+                  Cliquez sur une personne ci-dessous puis sur l'endroit du document où elle devra signer. Sans zone définie, la personne choisit librement où signer (comportement actuel).
+                </p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+                  {pickOrder.map((entry, i) => {
+                    const key = entryKey(entry)
+                    const active = zoneActiveKey === key
+                    const has = !!zones[key]
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setZoneActiveKey(active ? null : key)}
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 6,
+                          padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                          background: active ? MARKER_COLORS[i % MARKER_COLORS.length] : (has ? '#f0fdf4' : 'white'),
+                          color: active ? 'white' : (has ? '#166534' : '#374151'),
+                          border: `1px solid ${active ? MARKER_COLORS[i % MARKER_COLORS.length] : (has ? '#86efac' : 'var(--abed-border)')}`,
+                        }}
+                      >
+                        {i + 1}. {labelFor(entry)} {has && !active ? '✓' : ''}
+                      </button>
+                    )
+                  })}
+                </div>
+                {zoneActiveKey && (
+                  <p style={{ fontSize: 11, color: '#1e40af', margin: '0 0 8px' }}>
+                    👆 Cliquez sur le document à l'endroit où <strong>{labelFor(pickOrder.find(e => entryKey(e) === zoneActiveKey)!)}</strong> devra signer.
+                  </p>
+                )}
+                <ZonePdfEditor
+                  fichier={fichier}
+                  entries={pickOrder}
+                  labels={Object.fromEntries(pickOrder.map(e => [entryKey(e), labelFor(e)]))}
+                  zones={zones}
+                  activeKey={zoneActiveKey}
+                  page={zonePage}
+                  onPageChange={setZonePage}
+                  onPlace={(key, page, x, y) => {
+                    setZones(prev => ({ ...prev, [key]: { page, x, y } }))
+                    setZoneActiveKey(null)
+                  }}
+                />
+                {Object.keys(zones).length > 0 && (
+                  <button type="button" onClick={() => setZones({})}
+                    style={{ marginTop: 8, fontSize: 11, padding: '3px 8px', borderRadius: 4, cursor: 'pointer', background: 'white', border: '1px solid var(--abed-border)', color: '#6b7280' }}>
+                    Effacer toutes les zones
+                  </button>
+                )}
               </div>
             )}
 
