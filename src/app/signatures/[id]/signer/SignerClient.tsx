@@ -115,6 +115,8 @@ function PdfCanvasViewer({
   sigScale,
   onScaleChange,
   locked,
+  zoneRect,
+  onConfirmZone,
 }: {
   docUrl: string
   pageNumber: number
@@ -126,6 +128,10 @@ function PdfCanvasViewer({
   sigScale: number
   onScaleChange: (scale: number) => void
   locked?: boolean
+  // Repère vert affiché tant que le signataire n'a pas encore posé sa
+  // signature sur une zone imposée — disparaît dès que sigPos est défini.
+  zoneRect?: { x: number; y: number } | null
+  onConfirmZone?: () => void
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const wrapperRef = useRef<HTMLDivElement>(null)
@@ -286,6 +292,28 @@ function PdfCanvasViewer({
           onClick={handleCanvasClick} />
       )}
 
+      {/* Repère "signez ici" pour une zone imposée pas encore posée — un
+          rectangle vert plutôt que la signature elle-même, pour ne pas
+          donner l'impression qu'elle est déjà apposée avant confirmation. */}
+      {zoneRect && !placingMode && (
+        <div
+          onClick={onConfirmZone}
+          title="Cliquez pour poser votre signature ici"
+          style={{
+            position: 'absolute', left: `${zoneRect.x}%`, top: `${zoneRect.y}%`,
+            transform: 'translate(-50%, -50%)',
+            width: '18%', minWidth: 130, height: '7%', minHeight: 46,
+            border: '2px dashed #16a34a', background: 'rgba(22,163,74,0.10)',
+            borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', zIndex: 10,
+          }}
+        >
+          <span style={{ fontSize: 11.5, fontWeight: 700, color: '#166534', background: 'rgba(255,255,255,.9)', padding: '2px 9px', borderRadius: 20, whiteSpace: 'nowrap' }}>
+            ✍️ Signez ici
+          </span>
+        </div>
+      )}
+
       {/* Draggable signature overlay — positioned as % of the canvas */}
       {displayPos && !placingMode && (
         <div
@@ -324,7 +352,10 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
   const [numPages, setNumPages] = useState<number | null>(null)
   const [loadingDoc, setLoadingDoc] = useState(!!fichierUrl)
   const [placingMode, setPlacingMode] = useState(false)
-  const [sigPos, setSigPos] = useState<{ x: number; y: number } | null>(zoneImposee ? { x: zoneImposee.x, y: zoneImposee.y } : null)
+  // Zone imposée : on n'initialise plus sigPos avec la zone — tant que le
+  // signataire n'a pas cliqué pour confirmer, seul un repère vert (zoneRect)
+  // s'affiche. sigPos ne devient non-nul qu'après ce clic explicite.
+  const [sigPos, setSigPos] = useState<{ x: number; y: number } | null>(null)
   const [sigScale, setSigScale] = useState(1)
   const [sigPage, setSigPage] = useState(zoneImposee?.page ?? 1)
   // Zone imposée : la page de la signature reste fixe (sigPage), mais on
@@ -333,6 +364,13 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
   const [viewPage, setViewPage] = useState(zoneImposee?.page ?? 1)
   const renderedPage = zoneImposee ? viewPage : sigPage
   const overlaySigPos = (!zoneImposee || viewPage === sigPage) ? sigPos : null
+  const overlayZoneRect = (zoneImposee && !sigPos && viewPage === sigPage)
+    ? { x: zoneImposee.x, y: zoneImposee.y } : null
+
+  function confirmerZone() {
+    if (!zoneImposee) return
+    setSigPos({ x: zoneImposee.x, y: zoneImposee.y })
+  }
   const [signed, setSigned] = useState(false)
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -593,6 +631,12 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
               ✍️ Placer ma signature
             </button>
           )}
+          {docUrl && !placingMode && !sigPos && zoneImposee && (
+            <button onClick={confirmerZone}
+              style={{ padding: '5px 14px', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer', background: '#16a34a', color: 'white', border: 'none', whiteSpace: 'nowrap', flexShrink: 0 }}>
+              ✍️ Poser ma signature ici
+            </button>
+          )}
           {placingMode && (
             <span style={{ fontSize: 12, color: '#fbbf24', fontWeight: 600, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
               👆 Cliquez pour placer
@@ -633,6 +677,8 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
               sigScale={sigScale}
               onScaleChange={setSigScale}
               locked={!!zoneImposee}
+              zoneRect={overlayZoneRect}
+              onConfirmZone={confirmerZone}
             />
           )}
         </div>
@@ -705,6 +751,11 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
         {docUrl && !sigPos && !placingMode && !zoneImposee && (
           <div style={{ background: '#fef9ec', border: '1px solid #fde68a', borderRadius: 8, padding: '12px 14px', fontSize: 13, color: '#92400e' }}>
             Cliquez sur <strong>« ✍️ Placer ma signature »</strong> puis cliquez l&apos;endroit voulu sur le document. Vous pourrez ensuite la déplacer.
+          </div>
+        )}
+        {docUrl && !sigPos && !placingMode && zoneImposee && (
+          <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '12px 14px', fontSize: 13, color: '#1e40af' }}>
+            🔒 <strong>Zone de signature imposée</strong> — l&apos;expéditeur a indiqué où vous devez signer (rectangle vert sur le document). Cliquez dessus, ou sur <strong>« ✍️ Poser ma signature ici »</strong>, pour l&apos;apposer.
           </div>
         )}
         {placingMode && (

@@ -24,6 +24,9 @@ export async function POST(req: NextRequest) {
   if (!titre) {
     return NextResponse.json({ error: 'Le titre est requis' }, { status: 400 })
   }
+  if (!fichier || fichier.size === 0) {
+    return NextResponse.json({ error: 'Le document est requis' }, { status: 400 })
+  }
 
   let signatairesIds: string[] = []
   try {

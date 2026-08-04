@@ -8,13 +8,16 @@ type PickEntry = { type: 'interne' | 'externe'; value: string }
 
 function entryKey(e: PickEntry) { return `${e.type}:${e.value}` }
 
-const MARKER_COLORS = ['#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed', '#0891b2', '#db2777']
+// Taille (en % de la page) du rectangle représentant une zone de signature —
+// proportions proches d'un vrai tampon de signature.
+const ZONE_W_PCT = 18
+const ZONE_H_PCT = 7
 
 /**
- * Aperçu du PDF (fichier local, pas encore uploadé) avec un repère nommé par
- * signataire déjà positionné, et placement au clic pour le signataire actif.
- * Duplique volontairement la logique de rendu pdf.js des éditeurs de
- * signature (PdfCanvasViewer) — même convention que le reste du code.
+ * Aperçu du PDF (fichier local, pas encore uploadé) avec un rectangle vert
+ * déplaçable par signataire, placé au premier clic puis glissé pour
+ * l'ajuster. Duplique volontairement la logique de rendu pdf.js des
+ * éditeurs de signature (PdfCanvasViewer) — même convention que le reste du code.
  */
 function ZonePdfEditor({
   fichier, entries, labels, zones, activeKey, page, onPageChange, onPlace,
@@ -35,6 +38,10 @@ function ZonePdfEditor({
   const [rendering, setRendering] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [retryCount, setRetryCount] = useState(0)
+  // Rectangle déjà placé : on peut le saisir directement pour le déplacer,
+  // sans repasser par la sélection de la pastille du signataire.
+  const [draggingKey, setDraggingKey] = useState<string | null>(null)
+  const dragOffsetRef = useRef({ dx: 0, dy: 0 })
 
   useEffect(() => {
     const url = URL.createObjectURL(fichier)
@@ -95,6 +102,33 @@ function ZonePdfEditor({
     onPlace(activeKey, page, x, y)
   }
 
+  function handleRectMouseDown(key: string, e: React.MouseEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    const rect = canvasRef.current?.getBoundingClientRect()
+    const zone = zones[key]
+    if (!rect || !zone) return
+    const centerX = rect.left + (zone.x / 100) * rect.width
+    const centerY = rect.top + (zone.y / 100) * rect.height
+    dragOffsetRef.current = { dx: e.clientX - centerX, dy: e.clientY - centerY }
+    setDraggingKey(key)
+  }
+
+  useEffect(() => {
+    if (!draggingKey) return
+    function onMove(e: MouseEvent) {
+      const rect = canvasRef.current?.getBoundingClientRect()
+      if (!rect || !draggingKey) return
+      const x = Math.round(Math.max(2, Math.min(98, ((e.clientX - dragOffsetRef.current.dx - rect.left) / rect.width) * 100)) * 10) / 10
+      const y = Math.round(Math.max(2, Math.min(98, ((e.clientY - dragOffsetRef.current.dy - rect.top) / rect.height) * 100)) * 10) / 10
+      onPlace(draggingKey, page, x, y)
+    }
+    function onUp() { setDraggingKey(null) }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
+  }, [draggingKey, page, onPlace])
+
   const markersOnPage = entries
     .map((e, i) => ({ key: entryKey(e), i, zone: zones[entryKey(e)] }))
     .filter((m): m is { key: string; i: number; zone: Zone } => !!m.zone && m.zone.page === page)
@@ -119,13 +153,24 @@ function ZonePdfEditor({
         <canvas ref={canvasRef} onClick={handleClick}
           style={{ display: 'block', width: '100%', height: 'auto', cursor: activeKey ? 'crosshair' : 'default', visibility: error ? 'hidden' : 'visible' }} />
         {markersOnPage.map(m => (
-          <div key={m.key} style={{
-            position: 'absolute', left: `${m.zone.x}%`, top: `${m.zone.y}%`, transform: 'translate(-50%, -50%)',
-            display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 20,
-            background: MARKER_COLORS[m.i % MARKER_COLORS.length], color: 'white', fontSize: 11, fontWeight: 700,
-            whiteSpace: 'nowrap', boxShadow: '0 1px 4px rgba(0,0,0,.35)', pointerEvents: 'none', zIndex: 4,
-          }}>
-            {m.i + 1}. {labels[m.key] ?? m.key}
+          <div key={m.key}
+            onMouseDown={e => handleRectMouseDown(m.key, e)}
+            title="Glisser pour déplacer cette zone"
+            style={{
+              position: 'absolute', left: `${m.zone.x}%`, top: `${m.zone.y}%`,
+              width: `${ZONE_W_PCT}%`, minWidth: 110, height: `${ZONE_H_PCT}%`, minHeight: 40,
+              transform: 'translate(-50%, -50%)',
+              border: '2px solid var(--abed-green)', background: 'rgba(99,165,33,0.16)',
+              borderRadius: 6, cursor: draggingKey === m.key ? 'grabbing' : 'grab', zIndex: 4,
+              boxShadow: draggingKey === m.key ? '0 4px 14px rgba(0,0,0,.3)' : 'none',
+            }}>
+            <span style={{
+              position: 'absolute', top: -11, left: 6, padding: '2px 8px', borderRadius: 20,
+              background: 'var(--abed-green)', color: 'white', fontSize: 11, fontWeight: 700,
+              whiteSpace: 'nowrap', boxShadow: '0 1px 4px rgba(0,0,0,.3)', pointerEvents: 'none',
+            }}>
+              {m.i + 1}. {labels[m.key] ?? m.key}
+            </span>
           </div>
         ))}
       </div>
@@ -191,6 +236,10 @@ export default function NouvelleDemandeClient({ userId, profiles }: Props) {
   const [creating, setCreating] = useState(false)
   const [createErr, setCreateErr] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  // L'aperçu et les zones de signature reposent sur pdf.js, qui ne sait lire
+  // que du PDF — un document Word/Excel est accepté en pièce jointe mais
+  // sans aperçu ni zone imposée.
+  const isPdf = !!fichier && (fichier.type === 'application/pdf' || /\.pdf$/i.test(fichier.name))
 
   function labelFor(entry: PickEntry): string {
     if (entry.type === 'externe') return entry.value
@@ -263,6 +312,7 @@ export default function NouvelleDemandeClient({ userId, profiles }: Props) {
 
   async function submitCreate() {
     if (!form.titre.trim()) { setCreateErr('Le titre est requis.'); return }
+    if (!fichier) { setCreateErr('Le document est requis.'); return }
     if (selectedSignataires.length === 0 && externalEmails.length === 0) {
       setCreateErr('Choisissez au moins un signataire.'); return
     }
@@ -310,15 +360,18 @@ export default function NouvelleDemandeClient({ userId, profiles }: Props) {
           />
         </div>
         <div>
-          <label style={labelStyle}>Document PDF (optionnel)</label>
+          <label style={labelStyle}>Document *</label>
           <input
             ref={fileRef}
             type="file"
-            accept=".pdf,application/pdf"
+            accept=".pdf,.doc,.docx,.xls,.xlsx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             onChange={e => setFichier(e.target.files?.[0] ?? null)}
             style={{ ...inputStyle, padding: '6px 10px' }}
           />
           {fichier && <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>📄 {fichier.name}</div>}
+          <p style={{ fontSize: 11, color: 'var(--abed-muted)', marginTop: 4 }}>
+            PDF, Word (.doc/.docx) ou Excel (.xls/.xlsx). L&apos;aperçu et les zones de signature ne sont disponibles que pour un PDF.
+          </p>
         </div>
         <div style={{ gridColumn: '1 / -1' }}>
           <label style={labelStyle}>Description (optionnel)</label>
@@ -547,7 +600,11 @@ export default function NouvelleDemandeClient({ userId, profiles }: Props) {
             <label style={{ ...labelStyle, marginBottom: 4 }}>Zones de signature (optionnel)</label>
             {!fichier ? (
               <p style={{ fontSize: 12, color: 'var(--abed-muted)', margin: 0 }}>
-                Ajoutez un document PDF ci-dessus pour définir, si vous le souhaitez, l'endroit précis où chaque personne devra signer. Sans document ou sans zone définie, chacun choisit librement où signer.
+                Ajoutez le document ci-dessus pour définir, si vous le souhaitez, l'endroit précis où chaque personne devra signer. Sans zone définie, chacun choisit librement où signer.
+              </p>
+            ) : !isPdf ? (
+              <p style={{ fontSize: 12, color: 'var(--abed-muted)', margin: 0 }}>
+                L&apos;aperçu et les zones de signature ne sont disponibles que pour un document PDF — <strong>{fichier.name}</strong> sera tout de même joint à la demande, et chacun choisira librement où signer.
               </p>
             ) : pickOrder.length === 0 ? (
               <p style={{ fontSize: 12, color: 'var(--abed-muted)', margin: 0 }}>
@@ -571,9 +628,9 @@ export default function NouvelleDemandeClient({ userId, profiles }: Props) {
                         style={{
                           display: 'inline-flex', alignItems: 'center', gap: 6,
                           padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                          background: active ? MARKER_COLORS[i % MARKER_COLORS.length] : (has ? '#f0fdf4' : 'white'),
+                          background: active ? 'var(--abed-green)' : (has ? '#f0fdf4' : 'white'),
                           color: active ? 'white' : (has ? '#166534' : '#374151'),
-                          border: `1px solid ${active ? MARKER_COLORS[i % MARKER_COLORS.length] : (has ? '#86efac' : 'var(--abed-border)')}`,
+                          border: `1px solid ${active ? 'var(--abed-green)' : (has ? '#86efac' : 'var(--abed-border)')}`,
                         }}
                       >
                         {i + 1}. {labelFor(entry)} {has && !active ? '✓' : ''}
