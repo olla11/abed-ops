@@ -196,12 +196,32 @@ const inputStyle: React.CSSProperties = {
   border: '1px solid var(--abed-border)', outline: 'none', boxSizing: 'border-box',
 }
 
-const labelStyle: React.CSSProperties = {
-  fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4,
+const uppercaseLabelStyle: React.CSSProperties = {
+  fontSize: 11, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase',
+  color: '#6b7280', display: 'block', marginBottom: 6,
 }
 
-const sectionCard: React.CSSProperties = {
-  background: 'white', border: '1px solid var(--abed-border)', borderRadius: 10, padding: '16px 18px', marginBottom: 16,
+const fileBoxStyle: React.CSSProperties = {
+  display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 14px',
+  borderRadius: 8, border: '1px solid var(--abed-border)', background: 'white',
+  fontSize: 13, color: '#6b7280', cursor: 'pointer', textAlign: 'left', boxSizing: 'border-box',
+}
+
+function SectionHeader({ icon, title, badge }: { icon: string; title: string; badge?: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+      <span style={{ fontSize: 15 }}>{icon}</span>
+      <h3 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: '#111827' }}>{title}</h3>
+      {badge && (
+        <span style={{
+          marginLeft: 'auto', fontSize: 11, fontWeight: 700, padding: '2px 10px', borderRadius: 20,
+          background: '#f0fdf4', color: 'var(--abed-green)', border: '1px solid #bbf0a0', whiteSpace: 'nowrap',
+        }}>
+          {badge}
+        </span>
+      )}
+    </div>
+  )
 }
 
 type Props = {
@@ -341,81 +361,95 @@ export default function NouvelleDemandeClient({ userId, profiles }: Props) {
     }
   }
 
+  const filteredInternes = [...profiles]
+    .filter(p => selectedSignataires.includes(p.id) || `${p.prenoms} ${p.nom}`.toLowerCase().includes(internalSearch.trim().toLowerCase()))
+    .sort((a, b) => (a.id === userId ? -1 : b.id === userId ? 1 : 0))
+
+  const filteredObservateurs = profiles
+    .filter(p => !selectedSignataires.includes(p.id))
+    .filter(p => selectedObservateurs.includes(p.id) || `${p.prenoms} ${p.nom}`.toLowerCase().includes(observateurSearch.trim().toLowerCase()))
+
   return (
-    <div className="page-container" style={{ maxWidth: 1180 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 22 }}>
+    <div className="nds-shell">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '16px 24px', borderBottom: '1px solid var(--abed-border)', flexShrink: 0 }}>
         <a href="/signatures" style={{ fontSize: 13, color: '#6b7280', textDecoration: 'none', fontWeight: 600 }}>← Retour</a>
-        <h2 style={{ color: 'var(--abed-green)', fontSize: 22, margin: 0 }}>Nouvelle demande de signature</h2>
+        <h2 style={{ color: '#111827', fontSize: 18, fontWeight: 800, margin: 0 }}>Nouvelle demande de signature</h2>
       </div>
 
-      <div style={{ ...sectionCard, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-        <div>
-          <label style={labelStyle}>Titre *</label>
-          <input
-            type="text"
-            value={form.titre}
-            onChange={e => setForm(f => ({ ...f, titre: e.target.value }))}
-            placeholder="Ex : Contrat de prestation Q3 2025"
-            style={inputStyle}
-          />
-        </div>
-        <div>
-          <label style={labelStyle}>Document *</label>
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".pdf,.doc,.docx,.xls,.xlsx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            onChange={e => setFichier(e.target.files?.[0] ?? null)}
-            style={{ ...inputStyle, padding: '6px 10px' }}
-          />
-          {fichier && <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>📄 {fichier.name}</div>}
-          <p style={{ fontSize: 11, color: 'var(--abed-muted)', marginTop: 4 }}>
-            PDF, Word (.doc/.docx) ou Excel (.xls/.xlsx). L&apos;aperçu et les zones de signature ne sont disponibles que pour un PDF.
-          </p>
-        </div>
-        <div style={{ gridColumn: '1 / -1' }}>
-          <label style={labelStyle}>Description (optionnel)</label>
-          <textarea
-            value={form.description}
-            onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-            placeholder="Contexte ou instructions pour les signataires..."
-            style={{ ...inputStyle, minHeight: 64, resize: 'vertical' }}
-          />
-        </div>
-      </div>
+      <div className="nds-body">
+        {/* Colonne gauche : formulaire */}
+        <div className="nds-left" style={{ padding: 20, background: 'white', borderRight: '1px solid var(--abed-border)' }}>
+          {/* Document */}
+          <SectionHeader icon="📄" title="Document" />
+          <div style={{ marginBottom: 14 }}>
+            <label style={uppercaseLabelStyle}>Titre *</label>
+            <input
+              type="text"
+              value={form.titre}
+              onChange={e => setForm(f => ({ ...f, titre: e.target.value }))}
+              placeholder="Ex : Contrat de prestation Q3 2025"
+              style={inputStyle}
+            />
+          </div>
+          <div style={{ marginBottom: 14 }}>
+            <label style={uppercaseLabelStyle}>Description (optionnel)</label>
+            <textarea
+              value={form.description}
+              onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+              placeholder="Contexte ou instructions pour les signataires..."
+              style={{ ...inputStyle, minHeight: 64, resize: 'vertical' }}
+            />
+          </div>
+          <div style={{ marginBottom: 24 }}>
+            <label style={uppercaseLabelStyle}>Document *</label>
+            <button type="button" onClick={() => fileRef.current?.click()} style={fileBoxStyle}>
+              <span>⬆️</span>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {fichier ? fichier.name : 'Choisir un fichier...'}
+              </span>
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".pdf,.doc,.docx,.xls,.xlsx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              onChange={e => setFichier(e.target.files?.[0] ?? null)}
+              style={{ display: 'none' }}
+            />
+            <p style={{ fontSize: 11, color: 'var(--abed-muted)', marginTop: 6 }}>
+              PDF, Word (.doc/.docx) ou Excel (.xls/.xlsx). L&apos;aperçu et les zones de signature ne sont disponibles que pour un PDF.
+            </p>
+          </div>
 
-      <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-        <div style={{ flex: '1 1 380px', minWidth: 340, maxWidth: 460 }}>
-          {pickOrder.length > 0 && (
-            <div style={sectionCard}>
-              <label style={{ ...labelStyle, marginBottom: 8 }}>
-                Ordre de signature ({pickOrder.length} personne{pickOrder.length > 1 ? 's' : ''})
-              </label>
-              <p style={{ fontSize: 11, color: 'var(--abed-muted)', margin: '0 0 8px' }}>
-                Chaque personne ne sera notifiée qu'une fois la précédente ayant signé.
+          {/* Signataires */}
+          <div style={{ borderTop: '1px solid var(--abed-border)', paddingTop: 20, marginBottom: 24 }}>
+            <SectionHeader icon="👥" title="Signataires" badge={`${pickOrder.length} sélectionné${pickOrder.length > 1 ? 's' : ''}`} />
+
+            {pickOrder.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+                {pickOrder.map((entry, i) => (
+                  <span key={`${entry.type}-${entry.value}`} style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    padding: '5px 10px', borderRadius: 20, fontSize: 12.5, fontWeight: 600,
+                    background: '#f0fdf4', color: 'var(--abed-green)', border: '1px solid #bbf0a0',
+                  }}>
+                    {i + 1}. {entry.type === 'externe' ? '✉️ ' : ''}{labelFor(entry)}
+                    <button
+                      type="button"
+                      onClick={() => entry.type === 'interne' ? toggleSignataire(entry.value) : removeExternalEmail(entry.value)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--abed-green)', fontWeight: 800, padding: 0, fontSize: 13, lineHeight: 1 }}
+                    >
+                      ✕
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+            {pickOrder.length > 1 && (
+              <p style={{ fontSize: 11, color: 'var(--abed-muted)', margin: '0 0 12px' }}>
+                Ordre de signature ci-dessus — chaque personne n&apos;est notifiée qu&apos;une fois la précédente ayant signé.
               </p>
-              <ol style={{ margin: 0, paddingLeft: 20, display: 'grid', gap: 4 }}>
-                {pickOrder.map((entry) => {
-                  const label = labelFor(entry)
-                  return (
-                    <li key={`${entry.type}-${entry.value}`} style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ flex: 1 }}>{entry.type === 'externe' ? '✉️ ' : ''}{label}</span>
-                      <button
-                        type="button"
-                        onClick={() => entry.type === 'interne' ? toggleSignataire(entry.value) : removeExternalEmail(entry.value)}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontWeight: 700, padding: 0, fontSize: 13, lineHeight: 1 }}
-                      >
-                        ✕
-                      </button>
-                    </li>
-                  )
-                })}
-              </ol>
-            </div>
-          )}
+            )}
 
-          <div style={sectionCard}>
-            <label style={labelStyle}>Inviter des signataires externes (par email)</label>
             <div style={{ display: 'flex', gap: 8 }}>
               <input
                 type="email"
@@ -428,38 +462,15 @@ export default function NouvelleDemandeClient({ userId, profiles }: Props) {
               <button
                 type="button"
                 onClick={addExternalEmail}
-                style={{ padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: 'var(--abed-green)', color: 'white', border: 'none', whiteSpace: 'nowrap' }}
+                style={{ padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: '#4f46e5', color: 'white', border: 'none', whiteSpace: 'nowrap' }}
               >
                 + Ajouter
               </button>
             </div>
-            <p style={{ fontSize: 11, color: 'var(--abed-muted)', marginTop: 4 }}>
+            <p style={{ fontSize: 11, color: 'var(--abed-muted)', margin: '6px 0 12px' }}>
               La personne recevra un email avec un lien pour saisir son nom et signer, sans avoir besoin de compte.
             </p>
-            {externalEmails.length > 0 && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
-                {externalEmails.map(email => (
-                  <span key={email} style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 6,
-                    padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600,
-                    background: '#eff6ff', color: '#1e40af', border: '1px solid #bfdbfe',
-                  }}>
-                    ✉️ {email}
-                    <button
-                      type="button"
-                      onClick={() => removeExternalEmail(email)}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1e40af', fontWeight: 700, padding: 0, fontSize: 13, lineHeight: 1 }}
-                    >
-                      ✕
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
 
-          <div style={sectionCard}>
-            <label style={labelStyle}>Signataires internes ({selectedSignataires.length} sélectionné{selectedSignataires.length > 1 ? 's' : ''})</label>
             <input
               type="text"
               placeholder="🔍 Rechercher un nom…"
@@ -471,9 +482,7 @@ export default function NouvelleDemandeClient({ userId, profiles }: Props) {
               border: '1px solid var(--abed-border)', borderRadius: 8, maxHeight: 200, overflowY: 'auto',
               background: '#fafafa',
             }}>
-              {[...profiles]
-                .filter(p => selectedSignataires.includes(p.id) || `${p.prenoms} ${p.nom}`.toLowerCase().includes(internalSearch.trim().toLowerCase()))
-                .sort((a, b) => (a.id === userId ? -1 : b.id === userId ? 1 : 0)).map(p => {
+              {filteredInternes.map(p => {
                 const selected = selectedSignataires.includes(p.id)
                 return (
                   <label
@@ -501,15 +510,16 @@ export default function NouvelleDemandeClient({ userId, profiles }: Props) {
                   </label>
                 )
               })}
-              {profiles.filter(p => selectedSignataires.includes(p.id) || `${p.prenoms} ${p.nom}`.toLowerCase().includes(internalSearch.trim().toLowerCase())).length === 0 && (
+              {filteredInternes.length === 0 && (
                 <p style={{ fontSize: 12, color: 'var(--abed-muted)', textAlign: 'center', padding: '14px 0', margin: 0 }}>Aucun résultat.</p>
               )}
             </div>
           </div>
 
-          <div style={sectionCard}>
-            <label style={labelStyle}>Destinataires (optionnel — ne signent pas)</label>
-            <p style={{ fontSize: 11, color: 'var(--abed-muted)', marginTop: -2, marginBottom: 8 }}>
+          {/* Destinataires */}
+          <div style={{ borderTop: '1px solid var(--abed-border)', paddingTop: 20 }}>
+            <SectionHeader icon="👁" title="Destinataires" badge={selectedObservateurs.length + observateurEmails.length > 0 ? `${selectedObservateurs.length + observateurEmails.length}` : undefined} />
+            <p style={{ fontSize: 11, color: 'var(--abed-muted)', marginTop: -8, marginBottom: 12 }}>
               Ces personnes ne signent rien : elles recevront le document par email, en pièce jointe, une fois signé par tous les signataires.
             </p>
             <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
@@ -560,60 +570,76 @@ export default function NouvelleDemandeClient({ userId, profiles }: Props) {
               border: '1px solid var(--abed-border)', borderRadius: 8, maxHeight: 160, overflowY: 'auto',
               background: '#fafafa',
             }}>
-              {profiles
-                .filter(p => !selectedSignataires.includes(p.id))
-                .filter(p => selectedObservateurs.includes(p.id) || `${p.prenoms} ${p.nom}`.toLowerCase().includes(observateurSearch.trim().toLowerCase()))
-                .map(p => {
-                  const selected = selectedObservateurs.includes(p.id)
-                  return (
-                    <label
-                      key={p.id}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 10,
-                        padding: '9px 14px', cursor: 'pointer',
-                        background: selected ? '#eff6ff' : 'transparent',
-                        borderBottom: '1px solid #f3f4f6',
-                        fontSize: 13,
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selected}
-                        onChange={() => toggleObservateur(p.id)}
-                        style={{ accentColor: '#1e40af', width: 15, height: 15, flexShrink: 0 }}
-                      />
-                      <span style={{ fontWeight: selected ? 600 : 400, color: selected ? '#1e40af' : '#374151' }}>
-                        {p.prenoms} {p.nom}
-                      </span>
-                      {p.role && (
-                        <span style={{ fontSize: 11, color: '#9ca3af', marginLeft: 'auto' }}>{p.role}</span>
-                      )}
-                    </label>
-                  )
-                })}
+              {filteredObservateurs.map(p => {
+                const selected = selectedObservateurs.includes(p.id)
+                return (
+                  <label
+                    key={p.id}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      padding: '9px 14px', cursor: 'pointer',
+                      background: selected ? '#eff6ff' : 'transparent',
+                      borderBottom: '1px solid #f3f4f6',
+                      fontSize: 13,
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selected}
+                      onChange={() => toggleObservateur(p.id)}
+                      style={{ accentColor: '#1e40af', width: 15, height: 15, flexShrink: 0 }}
+                    />
+                    <span style={{ fontWeight: selected ? 600 : 400, color: selected ? '#1e40af' : '#374151' }}>
+                      {p.prenoms} {p.nom}
+                    </span>
+                    {p.role && (
+                      <span style={{ fontSize: 11, color: '#9ca3af', marginLeft: 'auto' }}>{p.role}</span>
+                    )}
+                  </label>
+                )
+              })}
             </div>
           </div>
         </div>
 
-        <div style={{ flex: '2 1 520px', minWidth: 420 }}>
-          <div style={sectionCard}>
-            <label style={{ ...labelStyle, marginBottom: 4 }}>Zones de signature (optionnel)</label>
+        {/* Colonne droite : aperçu & zones */}
+        <div className="nds-right">
+          <div style={{ padding: '14px 22px', borderBottom: '1px solid var(--abed-border)', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            <span style={{ fontSize: 13, color: 'var(--abed-green)' }}>▷</span>
+            <h3 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: '#111827' }}>Aperçu &amp; zones de signature</h3>
+          </div>
+          <div style={{ flex: 1, overflowY: 'auto' }}>
             {!fichier ? (
-              <p style={{ fontSize: 12, color: 'var(--abed-muted)', margin: 0 }}>
-                Ajoutez le document ci-dessus pour définir, si vous le souhaitez, l'endroit précis où chaque personne devra signer. Sans zone définie, chacun choisit librement où signer.
-              </p>
+              <div style={{ height: '100%', minHeight: 360, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: 40, gap: 14 }}>
+                <div style={{ width: 72, height: 72, borderRadius: '50%', background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30 }}>📄</div>
+                <h4 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: '#111827' }}>Aucun document</h4>
+                <p style={{ margin: 0, fontSize: 13, color: 'var(--abed-muted)', maxWidth: 340, lineHeight: 1.5 }}>
+                  Ajoutez le document pour le prévisualiser et, si besoin, définir l&apos;endroit exact où chaque personne devra signer.
+                </p>
+                <button type="button" onClick={() => fileRef.current?.click()}
+                  style={{ padding: '10px 24px', borderRadius: 8, background: 'var(--abed-green)', color: 'white', border: 'none', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                  Choisir un fichier
+                </button>
+                <p style={{ margin: 0, fontSize: 11.5, color: '#9ca3af' }}>Sans zone définie, chacun choisit librement où signer.</p>
+              </div>
             ) : !isPdf ? (
-              <p style={{ fontSize: 12, color: 'var(--abed-muted)', margin: 0 }}>
-                L&apos;aperçu et les zones de signature ne sont disponibles que pour un document PDF — <strong>{fichier.name}</strong> sera tout de même joint à la demande, et chacun choisira librement où signer.
-              </p>
+              <div style={{ height: '100%', minHeight: 360, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: 40, gap: 10 }}>
+                <div style={{ width: 60, height: 60, borderRadius: '50%', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>📎</div>
+                <h4 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#111827' }}>{fichier.name}</h4>
+                <p style={{ margin: 0, fontSize: 13, color: 'var(--abed-muted)', maxWidth: 340, lineHeight: 1.5 }}>
+                  L&apos;aperçu et les zones de signature ne sont disponibles que pour un document PDF. Ce fichier sera tout de même joint à la demande, et chacun choisira librement où signer.
+                </p>
+              </div>
             ) : pickOrder.length === 0 ? (
-              <p style={{ fontSize: 12, color: 'var(--abed-muted)', margin: 0 }}>
-                Ajoutez au moins un signataire pour pouvoir lui attribuer une zone de signature.
-              </p>
+              <div style={{ height: '100%', minHeight: 360, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: 40 }}>
+                <p style={{ fontSize: 13, color: 'var(--abed-muted)', maxWidth: 320, margin: 0 }}>
+                  Ajoutez au moins un signataire pour pouvoir, si vous le souhaitez, lui attribuer une zone de signature.
+                </p>
+              </div>
             ) : (
-              <>
+              <div style={{ padding: 20 }}>
                 <p style={{ fontSize: 11, color: 'var(--abed-muted)', margin: '0 0 8px' }}>
-                  Cliquez sur une personne ci-dessous puis sur l'endroit du document où elle devra signer. Sans zone définie, la personne choisit librement où signer (comportement actuel).
+                  Cliquez sur une personne ci-dessous puis sur l&apos;endroit du document où elle devra signer. Sans zone définie, la personne choisit librement où signer.
                 </p>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
                   {pickOrder.map((entry, i) => {
@@ -640,7 +666,7 @@ export default function NouvelleDemandeClient({ userId, profiles }: Props) {
                 </div>
                 {zoneActiveKey && (
                   <p style={{ fontSize: 11, color: '#1e40af', margin: '0 0 8px' }}>
-                    👆 Cliquez sur le document à l'endroit où <strong>{labelFor(pickOrder.find(e => entryKey(e) === zoneActiveKey)!)}</strong> devra signer.
+                    👆 Cliquez sur le document à l&apos;endroit où <strong>{labelFor(pickOrder.find(e => entryKey(e) === zoneActiveKey)!)}</strong> devra signer.
                   </p>
                 )}
                 <ZonePdfEditor
@@ -662,37 +688,55 @@ export default function NouvelleDemandeClient({ userId, profiles }: Props) {
                     Effacer toutes les zones
                   </button>
                 )}
-              </>
+              </div>
             )}
           </div>
         </div>
       </div>
 
       {createErr && (
-        <div style={{ color: '#c0392b', fontSize: 13, marginBottom: 14, padding: '10px 14px', background: '#fee2e2', borderRadius: 8 }}>
+        <div style={{ flexShrink: 0, color: '#c0392b', fontSize: 13, padding: '10px 24px', background: '#fee2e2', borderTop: '1px solid #fecaca' }}>
           {createErr}
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 6, paddingBottom: 30 }}>
-        <a
-          href="/signatures"
-          style={{ padding: '9px 20px', borderRadius: 8, cursor: 'pointer', background: 'white', border: '1px solid var(--abed-border)', fontSize: 13, textDecoration: 'none', color: '#374151' }}
-        >
-          Annuler
-        </a>
-        <button
-          onClick={submitCreate}
-          disabled={creating}
-          style={{
-            padding: '9px 20px', borderRadius: 8, cursor: creating ? 'not-allowed' : 'pointer',
-            background: 'var(--abed-green)', color: 'white', border: 'none', fontSize: 13, fontWeight: 700,
-            opacity: creating ? 0.7 : 1,
-          }}
-        >
-          {creating ? 'Création...' : 'Créer la demande'}
-        </button>
+      <div style={{ flexShrink: 0, borderTop: '1px solid var(--abed-border)', background: 'white', padding: '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+        <span style={{ fontSize: 13, color: '#6b7280' }}>
+          {pickOrder.length} signataire{pickOrder.length !== 1 ? 's' : ''} · {fichier ? 'avec document' : 'sans document'}
+        </span>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <a
+            href="/signatures"
+            style={{ padding: '9px 20px', borderRadius: 8, cursor: 'pointer', background: 'white', border: '1px solid var(--abed-border)', fontSize: 13, textDecoration: 'none', color: '#374151' }}
+          >
+            Annuler
+          </a>
+          <button
+            onClick={submitCreate}
+            disabled={creating}
+            style={{
+              padding: '9px 20px', borderRadius: 8, cursor: creating ? 'not-allowed' : 'pointer',
+              background: 'var(--abed-green)', color: 'white', border: 'none', fontSize: 13, fontWeight: 700,
+              opacity: creating ? 0.7 : 1,
+            }}
+          >
+            {creating ? 'Création...' : 'Créer la demande'}
+          </button>
+        </div>
       </div>
+
+      <style jsx>{`
+        .nds-shell { display: flex; flex-direction: column; height: calc(100vh - 60px); overflow: hidden; }
+        .nds-body { flex: 1; display: flex; overflow: hidden; }
+        .nds-left { flex: 0 0 420px; max-width: 420px; overflow-y: auto; }
+        .nds-right { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; background: white; }
+        @media (max-width: 900px) {
+          .nds-shell { height: auto; overflow: visible; }
+          .nds-body { flex-direction: column; overflow: visible; }
+          .nds-left { flex: none; max-width: 100%; overflow-y: visible; }
+          .nds-right { flex: none; min-height: 420px; overflow: visible; }
+        }
+      `}</style>
     </div>
   )
 }
