@@ -40,8 +40,9 @@ const securityHeaders = [
       "img-src 'self' data: blob: https://*.supabase.co https://*.supabase.in",
       // Fonts — data: nécessaire pour la police de signature embarquée en base64
       "font-src 'self' data:",
-      // API calls autorisés
-      "connect-src 'self' https://*.supabase.co https://*.supabase.in https://api.groq.com https://generativelanguage.googleapis.com https://abedong.org https://*.abedong.org",
+      // API calls autorisés — blob: nécessaire pour que pdf.js puisse lire
+      // l'aperçu d'un PDF local (pas encore uploadé) via un blob URL
+      "connect-src 'self' blob: https://*.supabase.co https://*.supabase.in https://api.groq.com https://generativelanguage.googleapis.com https://abedong.org https://*.abedong.org",
       // Frames : self + Supabase storage (PDF viewer)
       "frame-src 'self' https://*.supabase.co https://*.supabase.in",
       // Workers
