@@ -33,6 +33,8 @@ function ZonePdfEditor({
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const wrapperRef = useRef<HTMLDivElement>(null)
   const [rendering, setRendering] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [retryCount, setRetryCount] = useState(0)
 
   useEffect(() => {
     const url = URL.createObjectURL(fichier)
@@ -44,6 +46,7 @@ function ZonePdfEditor({
     if (!blobUrl) return
     let cancelled = false
     setRendering(true)
+    setError(null)
     async function render() {
       const lib = await import('pdfjs-dist')
       lib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString()
@@ -52,7 +55,16 @@ function ZonePdfEditor({
       setNumPages(pdf.numPages)
       const pageObj = await pdf.getPage(Math.min(page, pdf.numPages))
       if (cancelled) return
-      const containerWidth = wrapperRef.current?.clientWidth || 700
+      // clientWidth peut valoir 0 si le conteneur (dans une modale) n'a pas
+      // encore fini sa mise en page — voir le même correctif sur la page de
+      // signature externe. On attend une frame avant de se rabattre sur une
+      // largeur par défaut, pour éviter un canvas invisible sans erreur.
+      let containerWidth = wrapperRef.current?.clientWidth || 0
+      if (containerWidth === 0) {
+        await new Promise(r => requestAnimationFrame(r))
+        if (cancelled) return
+        containerWidth = wrapperRef.current?.clientWidth || 700
+      }
       const unscaledVp = pageObj.getViewport({ scale: 1 })
       const scale = containerWidth / unscaledVp.width
       const viewport = pageObj.getViewport({ scale })
@@ -65,9 +77,14 @@ function ZonePdfEditor({
       await pageObj.render({ canvasContext: ctx, viewport, canvas }).promise
       if (!cancelled) setRendering(false)
     }
-    render().catch(() => { if (!cancelled) setRendering(false) })
+    render().catch(err => {
+      if (cancelled) return
+      console.error('[ZonePdfEditor] Échec du rendu PDF :', err)
+      setRendering(false)
+      setError('Impossible d\'afficher un aperçu de ce PDF.')
+    })
     return () => { cancelled = true }
-  }, [blobUrl, page])
+  }, [blobUrl, page, retryCount])
 
   function handleClick(e: React.MouseEvent) {
     if (!activeKey) return
@@ -84,14 +101,23 @@ function ZonePdfEditor({
 
   return (
     <div>
-      <div ref={wrapperRef} style={{ position: 'relative', width: '100%', background: '#525659', borderRadius: 8, overflow: 'hidden' }}>
-        {rendering && (
+      <div ref={wrapperRef} style={{ position: 'relative', width: '100%', minHeight: 160, background: '#525659', borderRadius: 8, overflow: 'hidden' }}>
+        {rendering && !error && (
           <div style={{ position: 'absolute', inset: 0, minHeight: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontSize: 13, zIndex: 3 }}>
             Chargement...
           </div>
         )}
+        {error && (
+          <div style={{ position: 'absolute', inset: 0, minHeight: 160, display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center', justifyContent: 'center', color: '#fca5a5', fontSize: 13, textAlign: 'center', padding: 16, zIndex: 3 }}>
+            <span>⚠️ {error}</span>
+            <button type="button" onClick={() => setRetryCount(c => c + 1)}
+              style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid #6b7280', background: 'transparent', color: '#e5e7eb', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+              🔄 Réessayer
+            </button>
+          </div>
+        )}
         <canvas ref={canvasRef} onClick={handleClick}
-          style={{ display: 'block', width: '100%', height: 'auto', cursor: activeKey ? 'crosshair' : 'default' }} />
+          style={{ display: 'block', width: '100%', height: 'auto', cursor: activeKey ? 'crosshair' : 'default', visibility: error ? 'hidden' : 'visible' }} />
         {markersOnPage.map(m => (
           <div key={m.key} style={{
             position: 'absolute', left: `${m.zone.x}%`, top: `${m.zone.y}%`, transform: 'translate(-50%, -50%)',
