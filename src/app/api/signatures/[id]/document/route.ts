@@ -45,9 +45,11 @@ export async function GET(
     return NextResponse.json({ url: null })
   }
 
+  // 30 jours — aligné sur la durée de validité du lien de signature externe
+  // équivalent, pour rester cohérent entre les deux parcours.
   const { data: signed, error: storageErr } = await admin.storage
     .from('documents')
-    .createSignedUrl(path, 3600)
+    .createSignedUrl(path, 60 * 60 * 24 * 30)
 
   if (storageErr || !signed) {
     console.error('[Document] Storage error:', storageErr)

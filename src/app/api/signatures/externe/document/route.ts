@@ -33,9 +33,13 @@ export async function GET(req: NextRequest) {
   const path = rawUrl.includes('/documents/') ? rawUrl.split('/documents/').at(-1) : rawUrl
   if (!path) return NextResponse.json({ url: null })
 
+  // 30 jours — aligné sur la durée de validité du lien de signature lui-même
+  // (voir external-signer-token.ts), pour qu'un signataire externe qui
+  // revient consulter le document plus d'une heure après l'ouverture de
+  // l'email ne se retrouve pas avec un document introuvable.
   const { data: signed, error: storageErr } = await admin.storage
     .from('documents')
-    .createSignedUrl(path, 3600)
+    .createSignedUrl(path, 60 * 60 * 24 * 30)
 
   if (storageErr || !signed) {
     console.error('[Document externe] Storage error:', storageErr)
