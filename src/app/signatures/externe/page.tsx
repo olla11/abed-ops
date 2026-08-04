@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 import { createAdminClient } from '@/lib/supabase-server'
 import { verifyExternalSignerToken } from '@/lib/external-signer-token'
+import { verifierTour } from '@/lib/signature-completion'
 import ExterneSignerClient from './ExterneSignerClient'
 
 function ErrorCard({ title, message }: { title: string; message: string }) {
@@ -32,7 +33,7 @@ export default async function SignatureExterneePage({
 
   const { data: signataire } = await admin
     .from('signataires')
-    .select('id, demande_id, email, nom_externe, signe, signe_le')
+    .select('id, demande_id, email, nom_externe, signe, signe_le, ordre')
     .eq('id', payload.signataireId)
     .single()
 
@@ -48,6 +49,25 @@ export default async function SignatureExterneePage({
 
   if (!demande) {
     return <ErrorCard title="Document introuvable" message="La demande de signature associée à ce lien n'existe plus." />
+  }
+
+  // Signature dans l'ordre choisi : si un signataire d'un palier antérieur
+  // n'a pas encore signé, on affiche une carte d'attente plutôt que l'éditeur.
+  if (!signataire.signe && demande.statut === 'en_attente') {
+    const tour = await verifierTour(admin, signataire.demande_id, signataire.ordre)
+    if (!tour.ok) {
+      return (
+        <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 16, background: '#f4f6f9' }}>
+          <div style={{ background: 'white', borderRadius: 16, boxShadow: '0 4px 32px rgba(0,0,0,.10)', padding: '40px 36px', maxWidth: 480, width: '100%', textAlign: 'center' }}>
+            <div style={{ fontSize: 48, marginBottom: 16 }}>⏳</div>
+            <h2 style={{ color: '#111827', fontSize: 20, fontWeight: 800, margin: '0 0 12px' }}>Pas encore votre tour</h2>
+            <p style={{ fontSize: 14, color: '#6b7280', margin: 0 }}>
+              <strong>{tour.enAttenteDe}</strong> doit signer <strong>« {demande.titre} »</strong> avant vous. Vous recevrez un email avec un nouveau lien dès que ce sera votre tour.
+            </p>
+          </div>
+        </div>
+      )
+    }
   }
 
   return (

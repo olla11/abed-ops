@@ -100,6 +100,9 @@ function SignatureBlock({ name, date, hash, small }: { name: string; date: strin
  * Click/drag coordinates are relative to the canvas element only —
  * no browser toolbar or scroll offset involved, so they map 1:1 to PDF page space.
  */
+const SIG_SCALE_MIN = 0.5
+const SIG_SCALE_MAX = 2.5
+
 function PdfCanvasViewer({
   docUrl,
   pageNumber,
@@ -108,6 +111,8 @@ function PdfCanvasViewer({
   onPlace,
   onDragEnd,
   sigBlock,
+  sigScale,
+  onScaleChange,
 }: {
   docUrl: string
   pageNumber: number
@@ -116,14 +121,19 @@ function PdfCanvasViewer({
   onPlace: (x: number, y: number) => void
   onDragEnd: (x: number, y: number) => void
   sigBlock: React.ReactNode
+  sigScale: number
+  onScaleChange: (scale: number) => void
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const wrapperRef = useRef<HTMLDivElement>(null)
+  const blockRef = useRef<HTMLDivElement>(null)
   const [rendering, setRendering] = useState(true)
   const [isDragging, setIsDragging] = useState(false)
   const dragOffsetRef = useRef({ x: 0, y: 0 })
   const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null)
   const renderTaskRef = useRef<{ cancel(): void } | null>(null)
+  const [isResizing, setIsResizing] = useState(false)
+  const resizeStartRef = useRef({ scale: 1, centerX: 0, centerY: 0, initialDist: 1 })
 
   useEffect(() => {
     let cancelled = false
@@ -220,12 +230,40 @@ function PdfCanvasViewer({
     return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
   }, [isDragging])
 
+  // Redimensionnement proportionnel : la poignée au coin du tampon donne
+  // l'échelle en comparant la distance courant→centre à la distance de
+  // départ. Un seul facteur pour largeur et hauteur — jamais de déformation.
+  function handleResizeStart(e: React.MouseEvent) {
+    e.preventDefault(); e.stopPropagation()
+    const rect = blockRef.current?.getBoundingClientRect()
+    if (!rect) return
+    const centerX = rect.left + rect.width / 2
+    const centerY = rect.top + rect.height / 2
+    const initialDist = Math.max(1, Math.hypot(e.clientX - centerX, e.clientY - centerY))
+    resizeStartRef.current = { scale: sigScale, centerX, centerY, initialDist }
+    setIsResizing(true)
+  }
+
+  useEffect(() => {
+    if (!isResizing) return
+    function onMove(e: MouseEvent) {
+      const { scale, centerX, centerY, initialDist } = resizeStartRef.current
+      const dist = Math.hypot(e.clientX - centerX, e.clientY - centerY)
+      const next = Math.max(SIG_SCALE_MIN, Math.min(SIG_SCALE_MAX, scale * (dist / initialDist)))
+      onScaleChange(Math.round(next * 100) / 100)
+    }
+    function onUp() { setIsResizing(false) }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
+  }, [isResizing])
+
   const displayPos = isDragging ? dragPos : sigPos
 
   return (
     <div ref={wrapperRef} style={{ position: 'relative', width: '100%', background: '#525659' }}>
       {/* Full-screen drag capture to prevent losing mouse events over other elements */}
-      {isDragging && <div style={{ position: 'fixed', inset: 0, zIndex: 9999, cursor: 'grabbing' }} />}
+      {(isDragging || isResizing) && <div style={{ position: 'fixed', inset: 0, zIndex: 9999, cursor: isResizing ? 'nwse-resize' : 'grabbing' }} />}
 
       {rendering && (
         <div style={{ position: 'absolute', inset: 0, minHeight: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontSize: 14, zIndex: 5 }}>
@@ -248,17 +286,29 @@ function PdfCanvasViewer({
       {/* Draggable signature overlay — positioned as % of the canvas */}
       {displayPos && !placingMode && (
         <div
+          ref={blockRef}
           onMouseDown={handleSigMouseDown}
           style={{
             position: 'absolute',
             left: `${displayPos.x}%`,
             top: `${displayPos.y}%`,
-            transform: 'translate(-50%, -50%)',
+            transform: `translate(-50%, -50%) scale(${sigScale})`,
             cursor: isDragging ? 'grabbing' : 'grab',
             zIndex: 10,
           }}
         >
           {sigBlock}
+          {!isDragging && (
+            <div
+              onMouseDown={handleResizeStart}
+              title="Glisser pour redimensionner"
+              style={{
+                position: 'absolute', right: -8, bottom: -8, width: 16, height: 16,
+                borderRadius: '50%', background: 'white', border: '2px solid #2563eb',
+                cursor: 'nwse-resize', zIndex: 11, boxShadow: '0 1px 3px rgba(0,0,0,.3)',
+              }}
+            />
+          )}
         </div>
       )}
     </div>
@@ -272,6 +322,7 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
   const [loadingDoc, setLoadingDoc] = useState(!!fichierUrl)
   const [placingMode, setPlacingMode] = useState(false)
   const [sigPos, setSigPos] = useState<{ x: number; y: number } | null>(null)
+  const [sigScale, setSigScale] = useState(1)
   const [sigPage, setSigPage] = useState(1)
   const [signed, setSigned] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -328,7 +379,10 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
   // This captures the EXACT browser rendering (Brittany font included) so the
   // PDF embedding is pixel-perfect identical to what the user sees.
   async function captureSignatureImage(): Promise<string> {
-    const SCALE = 3  // render at 3× for crisp PDF embedding
+    // 3× pour un rendu net, multiplié par le facteur choisi par l'utilisateur
+    // (poignée de redimensionnement) — toutes les dimensions ci-dessous en
+    // dérivent, donc l'agrandissement reste proportionnel en largeur et hauteur.
+    const SCALE = 3 * sigScale
     const BH = 80 * SCALE   // 240px — hauteur fixe (même échelle de police pour tout le monde)
     const hookLen = 13 * SCALE  // 39px
     const fontSize = 24 * SCALE  // 72px
@@ -559,6 +613,8 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
               onPlace={(x, y) => { setSigPos({ x, y }); setPlacingMode(false) }}
               onDragEnd={(x, y) => setSigPos({ x, y })}
               sigBlock={sigBlock}
+              sigScale={sigScale}
+              onScaleChange={setSigScale}
             />
           )}
         </div>
@@ -637,12 +693,23 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
           </div>
         )}
         {sigPos && (
-          <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#166534', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span>✅ Signature placée — glissez pour ajuster</span>
-            <button onClick={() => { setSigPos(null); setPlacingMode(true) }}
-              style={{ fontSize: 11, padding: '3px 8px', borderRadius: 4, cursor: 'pointer', background: 'white', border: '1px solid #86efac', color: '#166534', marginLeft: 8, flexShrink: 0 }}>
-              Replacer
-            </button>
+          <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#166534' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>✅ Signature placée — glissez pour ajuster</span>
+              <button onClick={() => { setSigPos(null); setPlacingMode(true) }}
+                style={{ fontSize: 11, padding: '3px 8px', borderRadius: 4, cursor: 'pointer', background: 'white', border: '1px solid #86efac', color: '#166534', marginLeft: 8, flexShrink: 0 }}>
+                Replacer
+              </button>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6, fontSize: 12 }}>
+              <span>↔️ Glissez le petit cercle bleu au coin pour redimensionner ({Math.round(sigScale * 100)}%)</span>
+              {sigScale !== 1 && (
+                <button onClick={() => setSigScale(1)}
+                  style={{ fontSize: 11, padding: '3px 8px', borderRadius: 4, cursor: 'pointer', background: 'white', border: '1px solid #86efac', color: '#166534', marginLeft: 8, flexShrink: 0 }}>
+                  Taille normale
+                </button>
+              )}
+            </div>
           </div>
         )}
 

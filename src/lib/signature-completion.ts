@@ -1,9 +1,135 @@
 import { sendEmail } from '@/lib/resend'
 import { createAdminClient } from '@/lib/supabase-server'
+import { signExternalSignerToken } from '@/lib/external-signer-token'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_URL ?? 'https://myabed.app'
 
 type AdminClient = ReturnType<typeof createAdminClient>
+
+type SignataireOrdreRow = {
+  id: string
+  ordre: number | null
+  signe: boolean
+  est_observateur: boolean
+  profile_id: string | null
+  nom_externe: string | null
+  profile: { nom: string; prenoms: string } | { nom: string; prenoms: string }[] | null
+}
+
+function nomAffiche(row: SignataireOrdreRow): string {
+  const p = Array.isArray(row.profile) ? row.profile[0] : row.profile
+  return p ? `${p.prenoms} ${p.nom}` : (row.nom_externe ?? 'un autre signataire')
+}
+
+/**
+ * Vérifie que c'est bien le tour de ce signataire (signature dans l'ordre
+ * choisi à la création). Renvoie ok=true si aucun signataire d'un palier
+ * antérieur (ordre plus petit, non signé) n'est en attente.
+ */
+export async function verifierTour(
+  admin: AdminClient,
+  demandeId: string,
+  monOrdre: number | null
+): Promise<{ ok: true } | { ok: false; enAttenteDe: string }> {
+  const { data: rows } = await admin
+    .from('signataires')
+    .select('id, ordre, signe, est_observateur, profile_id, nom_externe, profile:profiles!signataires_profile_id_fkey(nom, prenoms)')
+    .eq('demande_id', demandeId)
+
+  const nonSignes = ((rows ?? []) as SignataireOrdreRow[]).filter(r => !r.est_observateur && !r.signe)
+  if (nonSignes.length === 0) return { ok: true }
+
+  const minOrdre = Math.min(...nonSignes.map(r => r.ordre ?? 0))
+  if ((monOrdre ?? 0) === minOrdre) return { ok: true }
+
+  const enAttenteDe = nonSignes.filter(r => (r.ordre ?? 0) === minOrdre).map(nomAffiche).join(', ')
+  return { ok: false, enAttenteDe }
+}
+
+/**
+ * Signature dans l'ordre choisi : une fois un palier entièrement signé,
+ * notifie (in-app + email) le palier suivant — jamais avant, jamais deux
+ * fois (voir la colonne `notifie`).
+ */
+export async function notifyNextStepIfReady(
+  admin: AdminClient,
+  demandeId: string,
+  demande: { titre: string; description?: string | null }
+) {
+  const { data: rows } = await admin
+    .from('signataires')
+    .select('id, ordre, signe, est_observateur, notifie, profile_id, email, nom_externe, profile:profiles!signataires_profile_id_fkey(nom, prenoms, email)')
+    .eq('demande_id', demandeId)
+
+  const nonSignes = ((rows ?? []) as (SignataireOrdreRow & { notifie: boolean; email: string | null })[])
+    .filter(r => !r.est_observateur && !r.signe)
+  if (nonSignes.length === 0) return
+
+  const minOrdre = Math.min(...nonSignes.map(r => r.ordre ?? 0))
+  const aNotifier = nonSignes.filter(r => (r.ordre ?? 0) === minOrdre && !r.notifie)
+  if (aNotifier.length === 0) return
+
+  await admin.from('signataires').update({ notifie: true }).in('id', aNotifier.map(r => r.id))
+
+  for (const r of aNotifier) {
+    if (r.profile_id) {
+      const p = Array.isArray(r.profile) ? r.profile[0] : r.profile
+      await admin.from('notifications').insert({
+        user_id: r.profile_id,
+        titre: 'Document à signer',
+        message: `C'est votre tour de signer « ${demande.titre} »`,
+        lien: `/signatures/${demandeId}/signer`,
+      }).then(({ error: e }: { error: unknown }) => { if (e) console.error('[Signatures] Notif étape suivante error:', e) })
+
+      const email = (p as { email?: string } | undefined)?.email
+      if (email) {
+        await sendEmail({
+          to: email,
+          subject: `My ABED — Document à signer : ${demande.titre}`,
+          html: `
+            <div style="font-family:sans-serif;max-width:560px;margin:0 auto;">
+              <h2 style="color:#16a34a;">My ABED — C'est votre tour de signer</h2>
+              <p>Bonjour <strong>${p ? `${(p as { prenoms: string }).prenoms} ${(p as { nom: string }).nom}` : ''}</strong>,</p>
+              <p>Les signataires précédents ont terminé — c'est maintenant votre tour de signer :</p>
+              <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin:16px 0;">
+                <p style="margin:0;font-size:16px;font-weight:700;">${demande.titre}</p>
+                ${demande.description ? `<p style="margin:8px 0 0;color:#6b7280;">${demande.description}</p>` : ''}
+              </div>
+              <a href="${APP_URL}/signatures" style="display:inline-block;padding:10px 22px;background:#16a34a;color:white;border-radius:8px;text-decoration:none;font-weight:700;">
+                Voir le document
+              </a>
+              <p style="margin-top:24px;color:#9ca3af;font-size:12px;">My ABED · Plateforme de gestion ABED</p>
+            </div>
+          `,
+        }).catch((err: unknown) => console.error(`[Signatures] Email étape suivante error (${email}):`, err))
+      }
+    } else if (r.email) {
+      const token = signExternalSignerToken(r.id, r.email)
+      const lienSignature = `${APP_URL}/signatures/externe?t=${token}`
+      await sendEmail({
+        to: r.email,
+        subject: `My ABED — Document à signer : ${demande.titre}`,
+        html: `
+          <div style="font-family:sans-serif;max-width:560px;margin:0 auto;">
+            <h2 style="color:#16a34a;">My ABED — C'est votre tour de signer</h2>
+            <p>Bonjour,</p>
+            <p>Les signataires précédents ont terminé — c'est maintenant votre tour de signer le document suivant :</p>
+            <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin:16px 0;">
+              <p style="margin:0;font-size:16px;font-weight:700;">${demande.titre}</p>
+              ${demande.description ? `<p style="margin:8px 0 0;color:#6b7280;">${demande.description}</p>` : ''}
+            </div>
+            <p>Aucun compte n'est nécessaire. Cliquez sur le bouton ci-dessous, indiquez votre nom et prénom, puis signez le document :</p>
+            <a href="${lienSignature}" style="display:inline-block;padding:10px 22px;background:#16a34a;color:white;border-radius:8px;text-decoration:none;font-weight:700;">
+              Signer le document
+            </a>
+            <p style="margin-top:16px;color:#9ca3af;font-size:12px;">Ce lien est personnel et valable 30 jours. Ne le partagez pas.</p>
+            <p style="margin-top:24px;color:#9ca3af;font-size:12px;">My ABED · Plateforme de gestion ABED</p>
+          </div>
+        `,
+      }).catch((err: unknown) => console.error(`[Signatures] Email étape suivante externe error (${r.email}):`, err))
+    }
+  }
+}
 
 /**
  * Appelé après qu'un signataire (interne ou externe) vient de signer.
@@ -13,7 +139,7 @@ type AdminClient = ReturnType<typeof createAdminClient>
 export async function finalizeAfterSignature(
   admin: AdminClient,
   demandeId: string,
-  demande: { titre: string; createur_id: string; fichier_url?: string | null },
+  demande: { titre: string; description?: string | null; createur_id: string; fichier_url?: string | null },
   signerName: string,
   signerUserId: string | null
 ) {
@@ -23,6 +149,10 @@ export async function finalizeAfterSignature(
   const { data: allSigsRows } = await admin.from('signataires').select('signe, est_observateur').eq('demande_id', demandeId)
   const signataireRows = (allSigsRows ?? []).filter((s: { est_observateur: boolean }) => !s.est_observateur)
   const allSigned = signataireRows.length > 0 && signataireRows.every((s: { signe: boolean }) => s.signe)
+
+  // Signature dans l'ordre choisi : si ce n'est pas fini, notifier le palier
+  // suivant maintenant qu'il est peut-être devenu le premier non signé.
+  if (!allSigned) await notifyNextStepIfReady(admin, demandeId, demande)
 
   // Notifie le créateur qu'une signature a été reçue (sauf s'il a signé son propre document)
   if (demande.createur_id !== signerUserId) {

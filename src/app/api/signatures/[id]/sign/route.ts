@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { embedSignatureInPdf, shortHash } from '@/lib/pdf-signature'
-import { finalizeAfterSignature } from '@/lib/signature-completion'
+import { finalizeAfterSignature, verifierTour } from '@/lib/signature-completion'
 
 export async function POST(
   req: NextRequest,
@@ -29,7 +29,7 @@ export async function POST(
 
   const { data: demande, error: demandeErr } = await admin
     .from('demandes_signature')
-    .select('id, titre, statut, createur_id, fichier_url')
+    .select('id, titre, description, statut, createur_id, fichier_url')
     .eq('id', demandeId)
     .single()
 
@@ -39,7 +39,7 @@ export async function POST(
 
   const { data: signataire, error: sigErr } = await admin
     .from('signataires')
-    .select('id, signe, est_observateur')
+    .select('id, signe, est_observateur, ordre')
     .eq('demande_id', demandeId)
     .eq('profile_id', user.id)
     .single()
@@ -50,6 +50,14 @@ export async function POST(
   // recevoir le document final (voir finalizeAfterSignature).
   if (signataire.est_observateur) return NextResponse.json({ error: "Vous n'êtes pas signataire de ce document" }, { status: 403 })
   if (signataire.signe) return NextResponse.json({ error: 'Vous avez déjà signé ce document' }, { status: 400 })
+
+  // Signature dans l'ordre choisi : bloque toute tentative avant le tour du
+  // signataire (lien connu à l'avance, plusieurs onglets, etc.) — pas
+  // seulement un décalage de notification.
+  const tour = await verifierTour(admin, demandeId, signataire.ordre)
+  if (!tour.ok) {
+    return NextResponse.json({ error: `Ce n'est pas encore votre tour de signer. En attente de : ${tour.enAttenteDe}.` }, { status: 403 })
+  }
 
   // Get signer name
   const { data: signerProfile } = await admin.from('profiles').select('nom, prenoms').eq('id', user.id).single()

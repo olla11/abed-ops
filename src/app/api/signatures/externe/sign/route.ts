@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase-server'
 import { verifyExternalSignerToken } from '@/lib/external-signer-token'
 import { embedSignatureInPdf } from '@/lib/pdf-signature'
-import { finalizeAfterSignature } from '@/lib/signature-completion'
+import { finalizeAfterSignature, verifierTour } from '@/lib/signature-completion'
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null)
@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
 
   const { data: signataire, error: sigErr } = await admin
     .from('signataires')
-    .select('id, demande_id, email, nom_externe, signe, est_observateur')
+    .select('id, demande_id, email, nom_externe, signe, est_observateur, ordre')
     .eq('id', payload.signataireId)
     .single()
 
@@ -35,13 +35,20 @@ export async function POST(req: NextRequest) {
 
   const { data: demande, error: demandeErr } = await admin
     .from('demandes_signature')
-    .select('id, titre, statut, createur_id, fichier_url')
+    .select('id, titre, description, statut, createur_id, fichier_url')
     .eq('id', signataire.demande_id)
     .single()
 
   if (demandeErr || !demande) return NextResponse.json({ error: 'Demande introuvable' }, { status: 404 })
   if (demande.statut === 'complete') return NextResponse.json({ error: 'Cette demande est déjà complète' }, { status: 400 })
   if (demande.statut === 'refusee') return NextResponse.json({ error: 'Cette demande est en attente de correction et ne peut pas être signée' }, { status: 400 })
+
+  // Signature dans l'ordre choisi : bloque toute tentative avant le tour du
+  // signataire.
+  const tour = await verifierTour(admin, signataire.demande_id, signataire.ordre)
+  if (!tour.ok) {
+    return NextResponse.json({ error: `Ce n'est pas encore votre tour de signer. En attente de : ${tour.enAttenteDe}.` }, { status: 403 })
+  }
 
   const signerName = signataire.nom_externe
 

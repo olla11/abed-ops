@@ -16,6 +16,7 @@ export async function POST(req: NextRequest) {
   const fichier = formData.get('fichier') as File | null
   const signatairesRaw = formData.get('signataires') as string | null
   const signatairesExternesRaw = formData.get('signataires_externes') as string | null
+  const ordreSignatairesRaw = formData.get('ordre_signataires') as string | null
   const observateursRaw = formData.get('observateurs') as string | null
   const observateursExternesRaw = formData.get('observateurs_externes') as string | null
 
@@ -48,6 +49,29 @@ export async function POST(req: NextRequest) {
   if (signatairesIds.length === 0 && signatairesExternes.length === 0) {
     return NextResponse.json({ error: 'Au moins un signataire est requis' }, { status: 400 })
   }
+
+  // Ordre de signature : mélange interne/externe dans l'ordre réel choisi
+  // par le créateur (voir pickOrder côté client). Si absent ou incohérent
+  // avec les listes ci-dessus (ancien client, ou payload corrompu), on
+  // retombe sur l'ordre par défaut — tous les internes puis tous les
+  // externes — pour ne jamais bloquer la création.
+  type OrdreEntry = { type: 'interne' | 'externe'; value: string }
+  let ordreEntries: OrdreEntry[] = [
+    ...signatairesIds.map((id): OrdreEntry => ({ type: 'interne', value: id })),
+    ...signatairesExternes.map((s): OrdreEntry => ({ type: 'externe', value: s.email })),
+  ]
+  try {
+    const parsed = JSON.parse(ordreSignatairesRaw ?? 'null')
+    if (Array.isArray(parsed)) {
+      const candidat: OrdreEntry[] = parsed.filter((e: unknown): e is OrdreEntry =>
+        !!e && typeof e === 'object' && ((e as OrdreEntry).type === 'interne' || (e as OrdreEntry).type === 'externe') && typeof (e as OrdreEntry).value === 'string'
+      )
+      const candidatKeys = new Set(candidat.map(e => `${e.type}:${e.value}`))
+      const attenduKeys = new Set(ordreEntries.map(e => `${e.type}:${e.value}`))
+      const memeEnsemble = candidatKeys.size === attenduKeys.size && [...attenduKeys].every(k => candidatKeys.has(k))
+      if (memeEnsemble) ordreEntries = candidat
+    }
+  } catch { /* garde l'ordre par défaut */ }
 
   // Destinataires non-signataires (observateurs) : reçoivent le document une
   // fois signé, ne signent jamais. Une personne déjà signataire ne peut pas
@@ -129,36 +153,30 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Erreur lors de la création de la demande' }, { status: 500 })
   }
 
-  // Insert signataires (internes + externes) + observateurs (destinataires
-  // non-signataires, internes + externes)
+  // Insert signataires (internes + externes, dans l'ordre choisi) + observateurs
+  // (destinataires non-signataires, internes + externes — l'ordre ne compte
+  // pas pour eux puisqu'ils ne signent jamais).
   const sigRows = [
-    ...signatairesIds.map((pid, idx) => ({
-      demande_id: demande.id,
-      profile_id: pid,
-      ordre: idx,
-    })),
-    ...signatairesExternes.map((s, idx) => ({
-      demande_id: demande.id,
-      profile_id: null,
-      email: s.email,
-      ordre: signatairesIds.length + idx,
-    })),
+    ...ordreEntries.map((e, idx) => e.type === 'interne'
+      ? { demande_id: demande.id, profile_id: e.value, ordre: idx }
+      : { demande_id: demande.id, profile_id: null, email: e.value, ordre: idx }
+    ),
     ...observateursIds.map((pid, idx) => ({
       demande_id: demande.id,
       profile_id: pid,
-      ordre: signatairesIds.length + signatairesExternes.length + idx,
+      ordre: ordreEntries.length + idx,
       est_observateur: true,
     })),
     ...observateursExternes.map((s, idx) => ({
       demande_id: demande.id,
       profile_id: null,
       email: s.email,
-      ordre: signatairesIds.length + signatairesExternes.length + observateursIds.length + idx,
+      ordre: ordreEntries.length + observateursIds.length + idx,
       est_observateur: true,
     })),
   ]
 
-  const { data: insertedSigs, error: sigErr } = await admin.from('signataires').insert(sigRows).select('id, profile_id, email, est_observateur')
+  const { data: insertedSigs, error: sigErr } = await admin.from('signataires').insert(sigRows).select('id, profile_id, email, est_observateur, ordre')
   if (sigErr) {
     console.error('[Signatures] Insert signataires error:', sigErr)
     // Clean up demande
@@ -177,16 +195,33 @@ export async function POST(req: NextRequest) {
   // Les observateurs externes ne reçoivent pas de lien de signature à la
   // création — seulement le document final, une fois signé (voir
   // finalizeAfterSignature).
-  const externalRows = (insertedSigs ?? []).filter(s => !s.profile_id && s.email && !s.est_observateur)
+  const nonObservateurRows = (insertedSigs ?? []).filter(s => !s.est_observateur)
+  const externalRows = nonObservateurRows.filter(s => !s.profile_id && s.email)
+
+  // Signature dans l'ordre choisi : seul le premier palier (le plus petit
+  // `ordre` parmi les signataires) est notifié à la création. Chaque palier
+  // suivant n'est notifié qu'une fois le précédent entièrement signé (voir
+  // notifyNextStep dans signature-completion.ts).
+  const premierPalier = nonObservateurRows.length > 0
+    ? Math.min(...nonObservateurRows.map(s => s.ordre as number))
+    : 0
+  const ordreParProfileId = new Map(nonObservateurRows.filter(s => s.profile_id).map(s => [s.profile_id as string, s.ordre as number]))
+  const signatairesAPrevenirMaintenant = (signatairesProfiles ?? []).filter(p => ordreParProfileId.get(p.id) === premierPalier)
+  const externesAPrevenirMaintenant = externalRows.filter(s => s.ordre === premierPalier)
+
+  const rowsPremierPalier = nonObservateurRows.filter(s => s.ordre === premierPalier)
+  if (rowsPremierPalier.length > 0) {
+    await admin.from('signataires').update({ notifie: true }).in('id', rowsPremierPalier.map(s => s.id))
+  }
 
   // Notifications + emails aux signataires — après la réponse, tous en parallèle
   after(async () => {
     const tasks: PromiseLike<unknown>[] = []
 
-    if (signatairesProfiles && signatairesProfiles.length > 0) {
+    if (signatairesAPrevenirMaintenant.length > 0) {
       tasks.push(
         admin.from('notifications').insert(
-          signatairesProfiles.map(p => ({
+          signatairesAPrevenirMaintenant.map(p => ({
             user_id: p.id,
             titre: 'Document à signer',
             message: `${createurNom} vous a assigné comme signataire pour « ${titre} »`,
@@ -195,7 +230,7 @@ export async function POST(req: NextRequest) {
         ).then(({ error: e }) => { if (e) console.error('[Signatures] Notif insert error:', e) })
       )
 
-      for (const p of signatairesProfiles) {
+      for (const p of signatairesAPrevenirMaintenant) {
         if (!p.email) continue
         tasks.push(sendEmail({
           to: p.email,
@@ -221,7 +256,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Invite les signataires externes (sans compte) par email, avec un lien magique tokenisé
-    for (const s of externalRows) {
+    for (const s of externesAPrevenirMaintenant) {
       const email = s.email as string
       const token = signExternalSignerToken(s.id, email)
       const lienSignature = `${APP_URL}/signatures/externe?t=${token}`

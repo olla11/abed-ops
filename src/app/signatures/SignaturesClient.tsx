@@ -267,6 +267,10 @@ export default function SignaturesClient({ userId, mesDemandesASign: initialASig
   const [internalSearch, setInternalSearch] = useState('')
   const [externalEmails, setExternalEmails] = useState<string[]>([])
   const [externalEmailInput, setExternalEmailInput] = useState('')
+  // Ordre unifié de signature : mélange interne/externe dans l'ordre réel où
+  // la personne a été ajoutée (peu importe la section du formulaire), pour
+  // que l'ordre choisi soit exactement celui respecté à la signature.
+  const [pickOrder, setPickOrder] = useState<{ type: 'interne' | 'externe'; value: string }[]>([])
   // Destinataires non-signataires : reçoivent le document par email une fois
   // signé par tout le monde, mais ne signent jamais eux-mêmes.
   const [selectedObservateurs, setSelectedObservateurs] = useState<string[]>([])
@@ -289,9 +293,11 @@ export default function SignaturesClient({ userId, mesDemandesASign: initialASig
   }
 
   function toggleSignataire(id: string) {
-    setSelectedSignataires(prev =>
-      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-    )
+    const alreadySelected = selectedSignataires.includes(id)
+    setSelectedSignataires(prev => alreadySelected ? prev.filter(x => x !== id) : [...prev, id])
+    setPickOrder(prev => alreadySelected
+      ? prev.filter(e => !(e.type === 'interne' && e.value === id))
+      : [...prev, { type: 'interne', value: id }])
   }
 
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -307,12 +313,14 @@ export default function SignaturesClient({ userId, mesDemandesASign: initialASig
       return
     }
     setExternalEmails(prev => [...prev, email])
+    setPickOrder(prev => [...prev, { type: 'externe', value: email }])
     setExternalEmailInput('')
     setCreateErr(null)
   }
 
   function removeExternalEmail(email: string) {
     setExternalEmails(prev => prev.filter(e => e !== email))
+    setPickOrder(prev => prev.filter(e => !(e.type === 'externe' && e.value === email)))
   }
 
   function toggleObservateur(id: string) {
@@ -353,6 +361,7 @@ export default function SignaturesClient({ userId, mesDemandesASign: initialASig
     if (fichier) fd.append('fichier', fichier)
     fd.append('signataires', JSON.stringify(selectedSignataires))
     fd.append('signataires_externes', JSON.stringify(externalEmails))
+    fd.append('ordre_signataires', JSON.stringify(pickOrder))
     fd.append('observateurs', JSON.stringify(selectedObservateurs))
     fd.append('observateurs_externes', JSON.stringify(observateurEmails))
 
@@ -367,6 +376,7 @@ export default function SignaturesClient({ userId, mesDemandesASign: initialASig
       setSelectedSignataires([])
       setExternalEmails([])
       setExternalEmailInput('')
+      setPickOrder([])
       setSelectedObservateurs([])
       setObservateurEmails([])
       setObservateurEmailInput('')
@@ -486,6 +496,36 @@ export default function SignaturesClient({ userId, mesDemandesASign: initialASig
               />
               {fichier && <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>📄 {fichier.name}</div>}
             </div>
+
+            {pickOrder.length > 0 && (
+              <div style={{ marginBottom: 14, background: '#f9fafb', border: '1px solid var(--abed-border)', borderRadius: 8, padding: '10px 14px' }}>
+                <label style={{ ...labelStyle, marginBottom: 8 }}>
+                  Ordre de signature ({pickOrder.length} personne{pickOrder.length > 1 ? 's' : ''})
+                </label>
+                <p style={{ fontSize: 11, color: 'var(--abed-muted)', margin: '0 0 8px' }}>
+                  Chaque personne ne sera notifiée qu'une fois la précédente ayant signé.
+                </p>
+                <ol style={{ margin: 0, paddingLeft: 20, display: 'grid', gap: 4 }}>
+                  {pickOrder.map((entry, i) => {
+                    const label = entry.type === 'interne'
+                      ? (() => { const p = profiles.find(pp => pp.id === entry.value); return p ? `${p.prenoms} ${p.nom}` : entry.value })()
+                      : entry.value
+                    return (
+                      <li key={`${entry.type}-${entry.value}`} style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ flex: 1 }}>{entry.type === 'externe' ? '✉️ ' : ''}{label}</span>
+                        <button
+                          type="button"
+                          onClick={() => entry.type === 'interne' ? toggleSignataire(entry.value) : removeExternalEmail(entry.value)}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontWeight: 700, padding: 0, fontSize: 13, lineHeight: 1 }}
+                        >
+                          ✕
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ol>
+              </div>
+            )}
 
             <div style={{ marginBottom: 14 }}>
               <label style={labelStyle}>Inviter des signataires externes (par email)</label>
