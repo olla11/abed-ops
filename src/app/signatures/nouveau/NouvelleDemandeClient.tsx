@@ -261,6 +261,15 @@ export default function NouvelleDemandeClient({ userId, profiles }: Props) {
   // sans aperçu ni zone imposée.
   const isPdf = !!fichier && (fichier.type === 'application/pdf' || /\.pdf$/i.test(fichier.name))
 
+  // La barre d'action fixe en bas de cette page occupe le même coin que la
+  // bulle flottante AGA (voir AgaWidget.tsx) — même convention que les
+  // panneaux latéraux (ProjetDetailClient, MesContratsClient...) pour la
+  // masquer tant qu'on est sur cette page.
+  useEffect(() => {
+    document.body.classList.add('panel-open')
+    return () => document.body.classList.remove('panel-open')
+  }, [])
+
   function labelFor(entry: PickEntry): string {
     if (entry.type === 'externe') return entry.value
     const p = profiles.find(pp => pp.id === entry.value)
@@ -349,15 +358,19 @@ export default function NouvelleDemandeClient({ userId, profiles }: Props) {
     fd.append('observateurs', JSON.stringify(selectedObservateurs))
     fd.append('observateurs_externes', JSON.stringify(observateurEmails))
 
-    const res = await fetch('/api/signatures/create', { method: 'POST', body: fd })
-    setCreating(false)
-
-    if (res.ok) {
-      router.push('/signatures')
-      router.refresh()
-    } else {
+    try {
+      const res = await fetch('/api/signatures/create', { method: 'POST', body: fd })
+      if (res.ok) {
+        router.push('/signatures')
+        router.refresh()
+        return
+      }
       const data = await res.json().catch(() => ({}))
       setCreateErr(data.error ?? 'Erreur lors de la création')
+    } catch {
+      setCreateErr('Erreur réseau — vérifiez votre connexion et réessayez.')
+    } finally {
+      setCreating(false)
     }
   }
 
