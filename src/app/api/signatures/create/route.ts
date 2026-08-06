@@ -176,13 +176,18 @@ export async function POST(req: NextRequest) {
   // Insert signataires (internes + externes, dans l'ordre choisi) + observateurs
   // (destinataires non-signataires, internes + externes — l'ordre ne compte
   // pas pour eux puisqu'ils ne signent jamais).
+  // Note : les lignes ci-dessous doivent toutes fournir la même colonne
+  // `est_observateur` explicitement. PostgREST construit l'INSERT à partir de
+  // l'union des clés du tableau ; une ligne où la clé est absente reçoit un
+  // NULL explicite au lieu du défaut de la colonne, ce qui viole sa
+  // contrainte NOT NULL dès qu'un lot mélange signataires et observateurs.
   const sigRows = [
     ...ordreEntries.map((e, idx) => {
       const zone = zonesParCle[`${e.type}:${e.value}`]
       const zoneFields = zone ? { sig_page: zone.page, sig_x: zone.x, sig_y: zone.y } : {}
       return e.type === 'interne'
-        ? { demande_id: demande.id, profile_id: e.value, ordre: idx, ...zoneFields }
-        : { demande_id: demande.id, profile_id: null, email: e.value, ordre: idx, ...zoneFields }
+        ? { demande_id: demande.id, profile_id: e.value, ordre: idx, est_observateur: false, ...zoneFields }
+        : { demande_id: demande.id, profile_id: null, email: e.value, ordre: idx, est_observateur: false, ...zoneFields }
     }),
     ...observateursIds.map((pid, idx) => ({
       demande_id: demande.id,
