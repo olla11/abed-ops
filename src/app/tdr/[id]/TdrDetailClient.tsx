@@ -231,6 +231,8 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
 
   const [showSoumettre, setShowSoumettre] = useState(false)
   const [responsableTechniqueId, setResponsableTechniqueId] = useState('')
+  const [showChangerResponsable, setShowChangerResponsable] = useState(false)
+  const [nouveauResponsableTechniqueId, setNouveauResponsableTechniqueId] = useState('')
   const [showRefuser, setShowRefuser] = useState(false)
   const [commentaireRefus, setCommentaireRefus] = useState('')
   const [showCloture, setShowCloture] = useState(false)
@@ -439,6 +441,18 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
     else { const j = await res.json().catch(() => ({})); setErr(j.error ?? 'Erreur') }
   }
 
+  async function changerResponsable() {
+    if (!nouveauResponsableTechniqueId) { setErr('Choisissez un responsable technique.'); return }
+    setSaving(true); setErr('')
+    const res = await fetch(`/api/tdrs/${tdr.id}/changer-responsable-technique`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ responsable_technique_id: nouveauResponsableTechniqueId }),
+    })
+    setSaving(false)
+    if (res.ok) { setShowChangerResponsable(false); await refresh() }
+    else { const j = await res.json().catch(() => ({})); setErr(j.error ?? 'Erreur') }
+  }
+
   async function signer() {
     setSaving(true); setErr('')
     const res = await fetch(`/api/tdrs/${tdr.id}/signer`, { method: 'POST' })
@@ -591,6 +605,12 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
                   <button onClick={() => { setShowActionsMenu(false); setShowSoumettre(true) }}
                     style={{ width: '100%', textAlign: 'left', padding: '11px 16px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#2563eb', fontWeight: 600 }}>
                     <Send size={15} /> Transmettre pour signature
+                  </button>
+                )}
+                {tdr.statut !== 'brouillon' && isInitiateur && (
+                  <button onClick={() => { setShowActionsMenu(false); setNouveauResponsableTechniqueId(tdr.responsable_technique_id ?? ''); setShowChangerResponsable(true) }}
+                    style={{ width: '100%', textAlign: 'left', padding: '11px 16px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#2563eb', fontWeight: 600 }}>
+                    <Send size={15} /> Changer le responsable technique
                   </button>
                 )}
                 <button onClick={() => { setShowActionsMenu(false); setChapitresExclus(new Set()); setShowTelecharger(true) }}
@@ -815,6 +835,35 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
               <button onClick={() => setShowSoumettre(false)} style={{ padding: '9px 20px', borderRadius: 8, cursor: 'pointer', background: 'white', border: '1px solid var(--abed-border)', fontSize: 13 }}>Annuler</button>
               <button onClick={soumettre} disabled={saving} style={{ padding: '9px 20px', borderRadius: 8, cursor: 'pointer', background: '#2563eb', color: 'white', border: 'none', fontSize: 13, fontWeight: 700 }}>
                 {saving ? 'Envoi…' : 'Transmettre'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal : changer le responsable technique — possible à tout moment
+          après la transmission initiale, même si l'actuel a déjà signé. */}
+      {showChangerResponsable && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: 'white', borderRadius: 14, padding: 28, width: '100%', maxWidth: 420 }}>
+            <h3 style={{ marginBottom: 16, fontSize: 16 }}>Changer le responsable technique</h3>
+            <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: 14 }}>
+              {tdr.statut === 'en_validation_technique'
+                ? "Réassignez la validation technique à une autre personne — l'actuel responsable technique n'aura plus la main sur ce TDR."
+                : "L'actuel responsable technique a déjà validé ce TDR. Le réassigner remettra la validation technique en attente pour la nouvelle personne, et annulera les visas CAF / Directeur Exécutif déjà obtenus — ils devront être redonnés."}
+            </p>
+            <div style={{ marginBottom: 18 }}>
+              <label style={labelStyle}>Nouveau responsable technique *</label>
+              <select className="select" style={{ width: '100%' }} value={nouveauResponsableTechniqueId} onChange={e => setNouveauResponsableTechniqueId(e.target.value)}>
+                <option value="">— Choisir —</option>
+                {allProfiles.map(p => <option key={p.id} value={p.id}>{p.prenoms} {p.nom}</option>)}
+              </select>
+            </div>
+            {err && <div style={{ color: '#c0392b', fontSize: 13, marginBottom: 14 }}>{err}</div>}
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowChangerResponsable(false)} style={{ padding: '9px 20px', borderRadius: 8, cursor: 'pointer', background: 'white', border: '1px solid var(--abed-border)', fontSize: 13 }}>Annuler</button>
+              <button onClick={changerResponsable} disabled={saving} style={{ padding: '9px 20px', borderRadius: 8, cursor: 'pointer', background: '#2563eb', color: 'white', border: 'none', fontSize: 13, fontWeight: 700 }}>
+                {saving ? 'Envoi…' : 'Changer'}
               </button>
             </div>
           </div>
