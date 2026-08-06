@@ -137,6 +137,8 @@ function PdfCanvasViewer({
   const wrapperRef = useRef<HTMLDivElement>(null)
   const blockRef = useRef<HTMLDivElement>(null)
   const [rendering, setRendering] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [retryCount, setRetryCount] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
   const dragOffsetRef = useRef({ x: 0, y: 0 })
   const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null)
@@ -147,6 +149,7 @@ function PdfCanvasViewer({
   useEffect(() => {
     let cancelled = false
     setRendering(true)
+    setError(null)
 
     // Cancel any previous render
     renderTaskRef.current?.cancel()
@@ -166,7 +169,17 @@ function PdfCanvasViewer({
       const page = await pdf.getPage(Math.min(pageNumber, pdf.numPages))
       if (cancelled) return
 
-      const containerWidth = wrapperRef.current?.clientWidth ?? 700
+      // clientWidth peut valoir 0 si le conteneur n'a pas encore fini sa mise
+      // en page — un `??` ne rattrape pas ce cas car 0 n'est pas nullish, ce
+      // qui produisait un canvas de taille nulle (page "rendue" mais
+      // invisible, sans aucune erreur). On attend une frame pour laisser le
+      // layout se stabiliser avant de se rabattre sur une largeur par défaut.
+      let containerWidth = wrapperRef.current?.clientWidth || 0
+      if (containerWidth === 0) {
+        await new Promise(r => requestAnimationFrame(r))
+        if (cancelled) return
+        containerWidth = wrapperRef.current?.clientWidth || 700
+      }
       const unscaledVp = page.getViewport({ scale: 1 })
       const scale = containerWidth / unscaledVp.width
       const viewport = page.getViewport({ scale })
@@ -185,15 +198,20 @@ function PdfCanvasViewer({
     }
 
     render().catch(err => {
+      if (cancelled) return
       // RenderingCancelled is expected when page changes quickly
-      if (err?.name !== 'RenderingCancelledException' && !cancelled) setRendering(false)
+      if (err?.name !== 'RenderingCancelledException') {
+        console.error('[PdfCanvasViewer] Échec du rendu PDF :', err)
+        setRendering(false)
+        setError('Impossible d\'afficher le document (fichier illisible ou lien expiré).')
+      }
     })
 
     return () => {
       cancelled = true
       renderTaskRef.current?.cancel()
     }
-  }, [docUrl, pageNumber])
+  }, [docUrl, pageNumber, retryCount])
 
   function getPct(clientX: number, clientY: number) {
     const rect = canvasRef.current?.getBoundingClientRect()
@@ -274,16 +292,26 @@ function PdfCanvasViewer({
       {/* Full-screen drag capture to prevent losing mouse events over other elements */}
       {(isDragging || isResizing) && <div style={{ position: 'fixed', inset: 0, zIndex: 9999, cursor: isResizing ? 'nwse-resize' : 'grabbing' }} />}
 
-      {rendering && (
+      {rendering && !error && (
         <div style={{ position: 'absolute', inset: 0, minHeight: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontSize: 14, zIndex: 5 }}>
           Chargement de la page...
+        </div>
+      )}
+
+      {error && (
+        <div style={{ position: 'absolute', inset: 0, minHeight: 200, display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center', justifyContent: 'center', color: '#fca5a5', fontSize: 14, textAlign: 'center', padding: 24, zIndex: 5 }}>
+          <span>⚠️ {error}</span>
+          <button onClick={() => setRetryCount(c => c + 1)}
+            style={{ padding: '8px 18px', borderRadius: 6, border: '1px solid #6b7280', background: 'transparent', color: '#e5e7eb', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+            🔄 Réessayer
+          </button>
         </div>
       )}
 
       <canvas
         ref={canvasRef}
         onClick={handleCanvasClick}
-        style={{ display: 'block', width: '100%', height: 'auto', cursor: placingMode ? 'crosshair' : 'default' }}
+        style={{ display: 'block', width: '100%', height: 'auto', cursor: placingMode ? 'crosshair' : 'default', visibility: error ? 'hidden' : 'visible' }}
       />
 
       {/* Dim overlay when in placing mode */}
