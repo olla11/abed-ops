@@ -65,54 +65,66 @@ export async function POST(
   const sigDate = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
   const sigHash = shortHash(user.id + demandeId + sigDate)
 
-  // Embed signature PNG image into the PDF at the chosen position
-  let newFichierUrl: string | null = null
+  // Embed signature PNG image into the PDF at the chosen position.
+  // Toute erreur ici DOIT bloquer la signature : si on la laisse passer en
+  // silence (comme avant), le signataire est marqué signé en base alors que
+  // son tampon n'a jamais été écrit dans le PDF partagé — c'est exactement
+  // ce qui produisait des documents finaux avec une signature manquante.
   if (demande.fichier_url && sig_x !== undefined && sig_y !== undefined && sig_image) {
-    try {
-      const rawFichierUrl = demande.fichier_url as string
-      const filePath = rawFichierUrl.includes('/documents/') ? rawFichierUrl.split('/documents/').at(-1) : rawFichierUrl
-      if (filePath) {
-        // Download current PDF
-        const { data: fileData } = await admin.storage.from('documents').download(filePath)
-        if (fileData) {
-          const pdfBytes = await fileData.arrayBuffer()
-          const signedPdf = await embedSignatureInPdf(
-            pdfBytes, sig_image,
-            sig_x, sig_y, (sig_page ?? 1) - 1
-          )
-          // Upload signed PDF (overwrite)
-          const { error: uploadErr } = await admin.storage
-            .from('documents')
-            .upload(filePath, signedPdf, { contentType: 'application/pdf', upsert: true })
+    const rawFichierUrl = demande.fichier_url as string
+    const filePath = rawFichierUrl.includes('/documents/') ? rawFichierUrl.split('/documents/').at(-1) : rawFichierUrl
+    if (!filePath) {
+      return NextResponse.json({ error: 'Chemin du document introuvable.' }, { status: 500 })
+    }
 
-          if (!uploadErr) {
-            // Keep the same URL (file is overwritten in place)
-            newFichierUrl = demande.fichier_url as string
-          }
-        }
+    const { data: fileData, error: downloadErr } = await admin.storage.from('documents').download(filePath)
+    if (downloadErr || !fileData) {
+      console.error('[Sign] PDF download error:', downloadErr)
+      return NextResponse.json({ error: 'Impossible de récupérer le document pour y apposer votre signature. Réessayez.' }, { status: 500 })
+    }
+
+    try {
+      const pdfBytes = await fileData.arrayBuffer()
+      const signedPdf = await embedSignatureInPdf(pdfBytes, sig_image, sig_x, sig_y, (sig_page ?? 1) - 1)
+      // Upload signed PDF (overwrite, same path)
+      const { error: uploadErr } = await admin.storage
+        .from('documents')
+        .upload(filePath, signedPdf, { contentType: 'application/pdf', upsert: true })
+      if (uploadErr) {
+        console.error('[Sign] PDF upload error:', uploadErr)
+        return NextResponse.json({ error: 'Impossible d\'enregistrer votre signature sur le document. Réessayez.' }, { status: 500 })
       }
     } catch (pdfErr) {
       console.error('[Sign] PDF embed error:', pdfErr)
-      // Continue signing even if PDF embed fails
+      return NextResponse.json({ error: 'Erreur lors de l\'apposition de votre signature sur le document. Réessayez.' }, { status: 500 })
     }
   }
 
-  // Update signataire
+  // Update signataire — conditionné à signe=false pour détecter une double
+  // soumission (double-clic, requête relancée) : la signature a déjà été
+  // apposée sur le PDF ci-dessus, inutile de la traiter une seconde fois
+  // côté finalisation (notifications, envoi aux destinataires, etc.).
   const updatePayload: Record<string, unknown> = { signe: true, signe_le: new Date().toISOString() }
   if (sig_x !== undefined) updatePayload.sig_x = sig_x
   if (sig_y !== undefined) updatePayload.sig_y = sig_y
   if (sig_page !== undefined) updatePayload.sig_page = sig_page
 
-  let { error: updateErr } = await admin.from('signataires').update(updatePayload).eq('id', signataire.id)
+  let { data: updatedRows, error: updateErr } = await admin
+    .from('signataires').update(updatePayload).eq('id', signataire.id).eq('signe', false).select('id')
 
   if (updateErr && (sig_x !== undefined || sig_y !== undefined)) {
-    const r2 = await admin.from('signataires').update({ signe: true, signe_le: new Date().toISOString() }).eq('id', signataire.id)
+    const r2 = await admin
+      .from('signataires').update({ signe: true, signe_le: new Date().toISOString() }).eq('id', signataire.id).eq('signe', false).select('id')
     updateErr = r2.error
+    updatedRows = r2.data
   }
 
   if (updateErr) {
     console.error('[Signatures] Update signataire error:', updateErr)
     return NextResponse.json({ error: 'Erreur lors de la signature' }, { status: 500 })
+  }
+  if (!updatedRows || updatedRows.length === 0) {
+    return NextResponse.json({ ok: true, allSigned: false })
   }
 
   const { allSigned } = await finalizeAfterSignature(admin, demandeId, demande, signerName, user.id)
