@@ -70,7 +70,15 @@ export async function POST(
   // silence (comme avant), le signataire est marqué signé en base alors que
   // son tampon n'a jamais été écrit dans le PDF partagé — c'est exactement
   // ce qui produisait des documents finaux avec une signature manquante.
-  if (demande.fichier_url && sig_x !== undefined && sig_y !== undefined && sig_image) {
+  // Ce cas précis (sig_x/sig_y/sig_image absents ou invalides alors qu'il y
+  // a un document à signer) a été confirmé en base : un signataire marqué
+  // signé sans qu'aucune écriture n'ait jamais eu lieu sur le fichier de
+  // stockage à cet instant — la condition ci-dessous faisait alors passer
+  // la signature en silence au lieu de la bloquer.
+  if (demande.fichier_url) {
+    if (sig_x === undefined || sig_y === undefined || !sig_image) {
+      return NextResponse.json({ error: 'Signature invalide : position ou image de la signature manquante. Rechargez la page et réessayez.' }, { status: 400 })
+    }
     const rawFichierUrl = demande.fichier_url as string
     const filePath = rawFichierUrl.includes('/documents/') ? rawFichierUrl.split('/documents/').at(-1) : rawFichierUrl
     if (!filePath) {
