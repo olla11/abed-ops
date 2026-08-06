@@ -45,7 +45,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }).eq('id', demandeId)
 
   await admin.from('signataires').update({
-    signe: false, signe_le: null, refuse: false, refuse_le: null, refuse_motif: null, sig_x: null, sig_y: null,
+    signe: false, signe_le: null, refuse: false, refuse_le: null, refuse_motif: null,
+    sig_x: null, sig_y: null, sig_image_b64: null,
   }).eq('demande_id', demandeId)
 
   const { data: createur } = await admin.from('profiles').select('nom, prenoms').eq('id', user.id).single()

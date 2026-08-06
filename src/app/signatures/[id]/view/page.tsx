@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
+import { getComposedSignedUrl } from '@/lib/pdf-signature'
 import ViewClient from './ViewClient'
 
 export default async function ViewPage({ params }: { params: Promise<{ id: string }> }) {
@@ -19,15 +20,13 @@ export default async function ViewPage({ params }: { params: Promise<{ id: strin
 
   if (!demande) redirect('/signatures')
 
-  // Generate signed URL for the document
+  // Recompose le PDF depuis l'original intact + les tampons déjà
+  // enregistrés (voir getComposedSignedUrl) plutôt que de pointer vers un
+  // fichier potentiellement muté en place.
   let docUrl: string | null = null
   if (demande.fichier_url) {
     try {
-      const path = (demande.fichier_url as string).split('/documents/').at(-1)
-      if (path) {
-        const { data } = await admin.storage.from('documents').createSignedUrl(path, 3600)
-        docUrl = data?.signedUrl ?? null
-      }
+      docUrl = await getComposedSignedUrl(admin, id, demande.fichier_url as string, 3600)
     } catch { /* no file */ }
   }
 

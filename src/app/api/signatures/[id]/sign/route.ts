@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
-import { embedSignatureInPdf, shortHash } from '@/lib/pdf-signature'
+import { embedSignatureInPdf, shortHash, storagePathFromFichierUrl } from '@/lib/pdf-signature'
 import { finalizeAfterSignature, verifierTour } from '@/lib/signature-completion'
 
 export async function POST(
@@ -65,22 +65,19 @@ export async function POST(
   const sigDate = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
   const sigHash = shortHash(user.id + demandeId + sigDate)
 
-  // Embed signature PNG image into the PDF at the chosen position.
-  // Toute erreur ici DOIT bloquer la signature : si on la laisse passer en
-  // silence (comme avant), le signataire est marqué signé en base alors que
-  // son tampon n'a jamais été écrit dans le PDF partagé — c'est exactement
-  // ce qui produisait des documents finaux avec une signature manquante.
-  // Ce cas précis (sig_x/sig_y/sig_image absents ou invalides alors qu'il y
-  // a un document à signer) a été confirmé en base : un signataire marqué
-  // signé sans qu'aucune écriture n'ait jamais eu lieu sur le fichier de
-  // stockage à cet instant — la condition ci-dessous faisait alors passer
-  // la signature en silence au lieu de la bloquer.
+  // Valide que la signature peut réellement être incrustée (image lisible,
+  // page valide) AVANT de l'enregistrer — mais n'écrit plus jamais dans le
+  // fichier PDF partagé lui-même. Le tampon (image PNG) est désormais
+  // conservé en base, par signataire ; le PDF entièrement signé est
+  // recomposé à la demande depuis l'original intact + tous les tampons
+  // enregistrés (voir composeSignedPdf). Cela élimine par construction le
+  // bug où le fichier partagé, muté en place à chaque signature, perdait
+  // parfois une signature précédente écrasée par la suivante.
   if (demande.fichier_url) {
     if (sig_x === undefined || sig_y === undefined || !sig_image) {
       return NextResponse.json({ error: 'Signature invalide : position ou image de la signature manquante. Rechargez la page et réessayez.' }, { status: 400 })
     }
-    const rawFichierUrl = demande.fichier_url as string
-    const filePath = rawFichierUrl.includes('/documents/') ? rawFichierUrl.split('/documents/').at(-1) : rawFichierUrl
+    const filePath = storagePathFromFichierUrl(demande.fichier_url as string)
     if (!filePath) {
       return NextResponse.json({ error: 'Chemin du document introuvable.' }, { status: 500 })
     }
@@ -93,29 +90,22 @@ export async function POST(
 
     try {
       const pdfBytes = await fileData.arrayBuffer()
-      const signedPdf = await embedSignatureInPdf(pdfBytes, sig_image, sig_x, sig_y, (sig_page ?? 1) - 1)
-      // Upload signed PDF (overwrite, same path)
-      const { error: uploadErr } = await admin.storage
-        .from('documents')
-        .upload(filePath, signedPdf, { contentType: 'application/pdf', upsert: true })
-      if (uploadErr) {
-        console.error('[Sign] PDF upload error:', uploadErr)
-        return NextResponse.json({ error: 'Impossible d\'enregistrer votre signature sur le document. Réessayez.' }, { status: 500 })
-      }
+      await embedSignatureInPdf(pdfBytes, sig_image, sig_x, sig_y, (sig_page ?? 1) - 1)
     } catch (pdfErr) {
-      console.error('[Sign] PDF embed error:', pdfErr)
+      console.error('[Sign] PDF embed validation error:', pdfErr)
       return NextResponse.json({ error: 'Erreur lors de l\'apposition de votre signature sur le document. Réessayez.' }, { status: 500 })
     }
   }
 
   // Update signataire — conditionné à signe=false pour détecter une double
   // soumission (double-clic, requête relancée) : la signature a déjà été
-  // apposée sur le PDF ci-dessus, inutile de la traiter une seconde fois
-  // côté finalisation (notifications, envoi aux destinataires, etc.).
+  // validée ci-dessus, inutile de la retraiter côté finalisation
+  // (notifications, envoi aux destinataires, etc.).
   const updatePayload: Record<string, unknown> = { signe: true, signe_le: new Date().toISOString() }
   if (sig_x !== undefined) updatePayload.sig_x = sig_x
   if (sig_y !== undefined) updatePayload.sig_y = sig_y
   if (sig_page !== undefined) updatePayload.sig_page = sig_page
+  if (sig_image) updatePayload.sig_image_b64 = sig_image
 
   let { data: updatedRows, error: updateErr } = await admin
     .from('signataires').update(updatePayload).eq('id', signataire.id).eq('signe', false).select('id')

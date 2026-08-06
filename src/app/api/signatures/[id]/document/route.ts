@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
+import { getComposedSignedUrl } from '@/lib/pdf-signature'
 
 export async function GET(
   _req: NextRequest,
@@ -39,22 +40,15 @@ export async function GET(
     return NextResponse.json({ url: null })
   }
 
-  const rawUrl = demande.fichier_url as string
-  const path = rawUrl.includes('/documents/') ? rawUrl.split('/documents/').at(-1) : rawUrl
-  if (!path) {
-    return NextResponse.json({ url: null })
-  }
-
   // 30 jours — aligné sur la durée de validité du lien de signature externe
-  // équivalent, pour rester cohérent entre les deux parcours.
-  const { data: signed, error: storageErr } = await admin.storage
-    .from('documents')
-    .createSignedUrl(path, 60 * 60 * 24 * 30)
-
-  if (storageErr || !signed) {
-    console.error('[Document] Storage error:', storageErr)
+  // équivalent, pour rester cohérent entre les deux parcours. Recompose le
+  // PDF depuis l'original intact + les tampons déjà enregistrés (voir
+  // getComposedSignedUrl) plutôt que de pointer vers un fichier
+  // potentiellement muté en place.
+  const url = await getComposedSignedUrl(admin, demandeId, demande.fichier_url as string, 60 * 60 * 24 * 30)
+  if (!url) {
     return NextResponse.json({ error: 'Erreur lors de la génération de l\'URL' }, { status: 500 })
   }
 
-  return NextResponse.json({ url: signed.signedUrl })
+  return NextResponse.json({ url })
 }

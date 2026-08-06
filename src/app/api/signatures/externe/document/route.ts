@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase-server'
 import { verifyExternalSignerToken } from '@/lib/external-signer-token'
+import { getComposedSignedUrl } from '@/lib/pdf-signature'
 
 export async function GET(req: NextRequest) {
   const token = req.nextUrl.searchParams.get('t') ?? ''
@@ -29,22 +30,17 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ url: null })
   }
 
-  const rawUrl = demande.fichier_url as string
-  const path = rawUrl.includes('/documents/') ? rawUrl.split('/documents/').at(-1) : rawUrl
-  if (!path) return NextResponse.json({ url: null })
-
   // 30 jours — aligné sur la durée de validité du lien de signature lui-même
   // (voir external-signer-token.ts), pour qu'un signataire externe qui
   // revient consulter le document plus d'une heure après l'ouverture de
-  // l'email ne se retrouve pas avec un document introuvable.
-  const { data: signed, error: storageErr } = await admin.storage
-    .from('documents')
-    .createSignedUrl(path, 60 * 60 * 24 * 30)
-
-  if (storageErr || !signed) {
-    console.error('[Document externe] Storage error:', storageErr)
+  // l'email ne se retrouve pas avec un document introuvable. Recompose le
+  // PDF depuis l'original intact + les tampons déjà enregistrés (voir
+  // getComposedSignedUrl) plutôt que de pointer vers un fichier
+  // potentiellement muté en place.
+  const url = await getComposedSignedUrl(admin, signataire.demande_id, demande.fichier_url as string, 60 * 60 * 24 * 30)
+  if (!url) {
     return NextResponse.json({ error: 'Erreur lors de la génération de l\'URL' }, { status: 500 })
   }
 
-  return NextResponse.json({ url: signed.signedUrl })
+  return NextResponse.json({ url })
 }

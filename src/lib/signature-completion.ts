@@ -1,6 +1,7 @@
 import { sendEmail } from '@/lib/resend'
 import { createAdminClient } from '@/lib/supabase-server'
 import { signExternalSignerToken } from '@/lib/external-signer-token'
+import { composeSignedPdf } from '@/lib/pdf-signature'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_URL ?? 'https://myabed.app'
 
@@ -237,9 +238,13 @@ export async function finalizeAfterSignature(
     .eq('est_observateur', true)
 
   if (observateurs && observateurs.length > 0 && demande.fichier_url) {
-    const { data: fileData } = await admin.storage.from('documents').download(demande.fichier_url)
-    if (fileData) {
-      const contentB64 = Buffer.from(await fileData.arrayBuffer()).toString('base64')
+    // Recompose le PDF final depuis l'original intact + tous les tampons
+    // enregistrés, plutôt que de télécharger le fichier partagé tel quel
+    // (voir composeSignedPdf — élimine le risque qu'une signature ait été
+    // perdue lors d'une mutation en place antérieure).
+    const composed = await composeSignedPdf(admin, demandeId, demande.fichier_url)
+    if (composed) {
+      const contentB64 = Buffer.from(composed).toString('base64')
       const filename = `${demande.titre.replace(/[^a-zA-Z0-9._ -]/g, '_') || 'document'}.pdf`
 
       for (const obs of observateurs) {

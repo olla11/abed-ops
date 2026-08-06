@@ -28,7 +28,9 @@ export async function DELETE(
     const rawUrl = demande.fichier_url as string
     const path = rawUrl.includes('/documents/') ? rawUrl.split('/documents/').at(-1) : rawUrl
     if (path) {
-      const { error: storageErr } = await admin.storage.from('documents').remove([path])
+      // Supprime aussi la copie "aperçu" recomposée (voir getComposedSignedUrl)
+      // si elle existe — sinon ignorée silencieusement par Supabase.
+      const { error: storageErr } = await admin.storage.from('documents').remove([path, `${path}.apercu.pdf`])
       if (storageErr) console.error('[Signatures] Suppression fichier storage error:', storageErr)
     }
   }
