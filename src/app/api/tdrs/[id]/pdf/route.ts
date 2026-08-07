@@ -4,6 +4,17 @@ import { formatSignatureDisplayName } from '@/lib/signature-name'
 import { CHAPITRE_CLES, labelSignataireRole, type Chapitre, type SignataireRole } from '@/lib/tdr'
 import { sanitizeChapitreTexte } from '@/lib/tdr-sanitize'
 import { BRITTANY_SIGNATURE_FONT_DATA_URI } from '@/lib/signature-font-data'
+import { LOGO_PNG_B64 } from '@/lib/logo-b64'
+import puppeteer from 'puppeteer-core'
+import chromium from '@sparticuz/chromium'
+
+// Rendu via Chromium headless (au lieu du "Imprimer" du navigateur) — c'est
+// le seul moyen d'obtenir un vrai fichier PDF avec marges/pagination fixées
+// par le serveur : un numéro de page centré sur chaque page (Chrome
+// n'autorise pas une page web à contrôler son propre pied de page pendant
+// une impression déclenchée depuis le navigateur).
+export const runtime = 'nodejs'
+export const maxDuration = 60
 
 function esc(s: string | null | undefined): string {
   return (s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -114,9 +125,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 <style>
   @font-face { font-family: 'BrittanySignature'; src: url('${BRITTANY_SIGNATURE_FONT_DATA_URI}') format('truetype'); font-weight: normal; font-style: normal; }
   * { box-sizing: border-box; }
-  body { font-family: 'Georgia', 'Times New Roman', serif; font-size: 11pt; color: #111827; padding: 32px 40px; max-width: 820px; margin: 0 auto; line-height: 1.55; }
-  .no-print { text-align: center; margin-bottom: 20px; }
-  .no-print button { background: #16a34a; color: white; border: none; border-radius: 8px; padding: 10px 22px; font-size: 13px; font-weight: 700; cursor: pointer; }
+  body { font-family: 'Georgia', 'Times New Roman', serif; font-size: 11pt; color: #111827; padding: 0; margin: 0; line-height: 1.55; }
+  .apercu-banner { font-size: 10pt; color: #92400e; background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 8px 14px; margin-bottom: 18px; font-family: Arial, sans-serif; }
   .header { display: flex; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 2px solid #16a34a; padding-bottom: 14px; margin-bottom: 20px; }
   .header img { height: 64px; }
   .org-text { text-align: center; flex: 1; }
@@ -125,18 +135,27 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   h1.titre-doc { text-align: center; font-size: 15pt; letter-spacing: 2px; margin: 0 0 18px; }
   .meta { background: #f9fafb; border-radius: 8px; padding: 14px 18px; margin-bottom: 24px; font-size: 10.5pt; }
   .meta div { margin-bottom: 4px; }
-  h2.chapitre-titre { font-size: 12.5pt; color: #14532d; border-bottom: 1px solid #d1d5db; padding-bottom: 4px; margin: 28px 0 10px; }
+  h2.chapitre-titre { font-size: 12.5pt; color: #14532d; border-bottom: 1px solid #d1d5db; padding-bottom: 4px; margin: 28px 0 10px; break-after: avoid; page-break-after: avoid; }
   p { margin: 0 0 10px; text-align: justify; }
   ul { margin: 0 0 10px; padding-left: 22px; }
   .muted { color: #9ca3af; font-style: italic; }
-  table.chapitre-table { width: 100%; border-collapse: collapse; margin: 10px 0 16px; font-size: 9.5pt; }
-  table.chapitre-table th, table.chapitre-table td { border: 1px solid #d1d5db; padding: 6px 8px; text-align: left; vertical-align: top; }
-  table.chapitre-table th { background: #f0fdf4; font-weight: bold; }
+  /* Un tableau reste groupé sur une même page tant qu'il y tient ; s'il est
+     plus grand qu'une page entière, il se scinde proprement entre deux
+     lignes (jamais au milieu d'une ligne) et son en-tête se répète en haut
+     de la page suivante. */
+  table.chapitre-table, .rte-content table {
+    width: 100%; border-collapse: collapse; margin: 10px 0 16px; font-size: 9.5pt;
+    break-inside: avoid; page-break-inside: avoid;
+  }
+  table.chapitre-table th, table.chapitre-table td,
+  .rte-content table th, .rte-content table td {
+    border: 1px solid #d1d5db; padding: 6px 8px; text-align: left; vertical-align: top;
+  }
+  table.chapitre-table th, .rte-content table th { background: #f0fdf4; font-weight: bold; }
+  table.chapitre-table thead, .rte-content table thead { display: table-header-row-group; }
+  table.chapitre-table tr, .rte-content table tr { break-inside: avoid; page-break-inside: avoid; }
   .rte-content a { color: #2563eb; }
   .rte-content ul, .rte-content ol { margin: 0 0 10px; padding-left: 22px; }
-  .rte-content table { width: 100%; border-collapse: collapse; margin: 10px 0 16px; font-size: 9.5pt; }
-  .rte-content table th, .rte-content table td { border: 1px solid #d1d5db; padding: 6px 8px; text-align: left; vertical-align: top; }
-  .rte-content table th { background: #f0fdf4; font-weight: bold; }
   .sig-block { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; margin-top: 50px; page-break-inside: avoid; }
   .sig { text-align: center; width: 22%; min-width: 150px; }
   .sig-role { font-size: 9pt; font-weight: bold; margin-bottom: 4px; min-height: 26px; }
@@ -148,22 +167,18 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   .sig-refuse { font-size: 8.5pt; color: #dc2626; margin-top: 8px; }
   .sig-stamp { font-size: 8pt; color: #16a34a; margin-top: 3px; font-weight: bold; }
   .footer { text-align: center; font-size: 8.5pt; color: #888; margin-top: 40px; border-top: 1px solid #e5e7eb; padding-top: 10px; }
-  @media print { .no-print { display: none !important; } body { padding: 24px 32px; } }
 </style>
 </head>
 <body>
-  <div class="no-print">
-    ${apercu ? '<p style="font-size:13px;color:#92400e;margin:0 0 12px;font-weight:600;">👁️ Aperçu — à quoi ressemblera le document final (les signatures manquantes apparaîtront une fois complétées)</p>' : ''}
-    <button onclick="window.print()">🖨️ Imprimer / Télécharger en PDF</button>
-  </div>
+  ${apercu ? '<div class="apercu-banner">👁️ Aperçu — brouillon : les signatures manquantes apparaîtront une fois complétées.</div>' : ''}
 
   <div class="header">
-    <img src="/logoabed2.png" alt="Logo ABED">
+    <img src="data:image/png;base64,${LOGO_PNG_B64}" alt="Logo ABED">
     <div class="org-text">
       <div class="org-name">Agriculture pour le Bien-être et le Développement Durable (ABED-ONG)</div>
       <div class="org-sub">Parakou, Wanssirou, derrière le lycée MB &nbsp;·&nbsp; Tél. : +229 0167779141<br>Email : contact@abedong.org &nbsp;|&nbsp; abedong.org</div>
     </div>
-    <img src="/logoabed2.png" alt="Logo ABED">
+    <img src="data:image/png;base64,${LOGO_PNG_B64}" alt="Logo ABED">
   </div>
 
   <h1 class="titre-doc">TERMES DE RÉFÉRENCE</h1>
@@ -193,5 +208,40 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 </body>
 </html>`
 
-  return new NextResponse(html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } })
+  const executablePath = await chromium.executablePath()
+  const browser = await puppeteer.launch({
+    args: chromium.args,
+    executablePath,
+    headless: true,
+  })
+
+  try {
+    const page = await browser.newPage()
+    // Le HTML est entièrement autonome (logo + police de signature en
+    // data URI) — 'load' suffit, pas besoin d'attendre le réseau.
+    await page.setContent(html, { waitUntil: 'load' })
+    const pdfBuffer = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      // Marges standard d'un document Word ("Normal" : 2,54 cm partout).
+      margin: { top: '2.54cm', bottom: '2.54cm', left: '2.54cm', right: '2.54cm' },
+      displayHeaderFooter: true,
+      headerTemplate: '<span></span>',
+      footerTemplate: `
+        <div style="width:100%;font-size:8px;text-align:center;color:#888;font-family:Georgia,'Times New Roman',serif;">
+          Page <span class="pageNumber"></span> / <span class="totalPages"></span>
+        </div>
+      `,
+    })
+
+    const nomFichier = `TDR-${(tdr.numero ?? tdr.id).replace(/[^a-zA-Z0-9-_]/g, '_')}.pdf`
+    return new NextResponse(new Uint8Array(pdfBuffer), {
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `inline; filename="${nomFichier}"`,
+      },
+    })
+  } finally {
+    await browser.close()
+  }
 }
