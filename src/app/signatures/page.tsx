@@ -6,6 +6,7 @@ import RolePreviewBanner from '@/components/RolePreviewBanner'
 import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
 import { getCachedProfilesForSignatures } from '@/lib/cache'
 import SignaturesClient from './SignaturesClient'
+import { estRH } from '@/lib/roles'
 
 export type SignataireRow = {
   profile_id: string | null
@@ -115,7 +116,7 @@ export default async function SignaturesPage() {
         userRole={role}
         typeEmploi={profile?.type_emploi}
         showAdmin={['admin', 'superadmin'].includes(realRole) && !previewRole}
-        showRH={role === 'rh'}
+        showRH={estRH(role)}
         avatarUrl={profile?.avatar_url ?? null}
       />
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}

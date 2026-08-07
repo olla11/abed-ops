@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
+import { estRH } from '@/lib/roles'
 
 const TABLES: Record<string, string> = {
   departements: 'departements',
@@ -12,7 +13,7 @@ const TABLES: Record<string, string> = {
 // La liste "directions" (organigramme RH) est gérée par RH ; les autres
 // listes (budgétaires) restent réservées à CAF/admin.
 function canWrite(type: string, role: string | undefined): boolean {
-  if (type === 'directions') return ['rh', 'admin'].includes(role ?? '')
+  if (type === 'directions') return estRH(role) || role === 'admin'
   return ['caf', 'admin'].includes(role ?? '')
 }
 

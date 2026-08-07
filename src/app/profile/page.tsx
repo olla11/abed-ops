@@ -7,6 +7,7 @@ import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
 import ProfileEditForm from '@/components/ProfileEditForm'
 import ProfileAssetForm from '@/components/ProfileAssetForm'
 import NotificationTopicsForm from '@/components/NotificationTopicsForm'
+import { estRH } from '@/lib/roles'
 
 export default async function ProfilePage() {
   const supabase = await createClient()
@@ -31,7 +32,7 @@ export default async function ProfilePage() {
         userRole={role}
         typeEmploi={profile?.type_emploi}
         showAdmin={['admin', 'superadmin'].includes(realRole) && !previewRole}
-        showRH={role === 'rh'}
+        showRH={estRH(role)}
         avatarUrl={profile?.avatar_url ?? null}
       />
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}

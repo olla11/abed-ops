@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase-server'
+import { estRH } from '@/lib/roles'
 import InscriptionsClient from './InscriptionsClient'
 
 export default async function InscriptionsPage() {
@@ -9,7 +10,7 @@ export default async function InscriptionsPage() {
   if (!user) redirect('/login')
 
   const { data: me } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  if (!me || !['admin', 'rh', 'superadmin'].includes(me.role)) redirect('/accueil')
+  if (!me || !(estRH(me.role) || ['admin', 'superadmin'].includes(me.role))) redirect('/accueil')
 
   const { data: pending } = await supabase
     .from('profiles')

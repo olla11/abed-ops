@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import AppHeader from '@/components/AppHeader'
 import AdminNav from './AdminNav'
+import { estRH } from '@/lib/roles'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,7 +27,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={profile?.role}
         showAdmin={['admin', 'superadmin'].includes(profile.role)}
-        showRH={profile.role === 'rh'}
+        showRH={estRH(profile.role)}
         avatarUrl={profile?.avatar_url ?? null}
       />
       <div className="page-container">

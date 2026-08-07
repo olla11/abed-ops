@@ -6,6 +6,7 @@ import AppHeader from '@/components/AppHeader'
 import RolePreviewBanner from '@/components/RolePreviewBanner'
 import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
 import MissionsTable from './MissionsTable'
+import { estRH, estAAF } from '@/lib/roles'
 
 export default async function Dashboard() {
   const supabase = await createClient()
@@ -22,7 +23,7 @@ export default async function Dashboard() {
   const previewRole = await getRolePreview()
   const isManager = ['admin', 'rh', 'caf', 'de', 'dp', 'administrateur'].includes(role)
   const isSignataire = ['caf', 'de', 'dp', 'admin', 'administrateur'].includes(role)
-  const isAAF = role === 'aaf'
+  const isAAF = estAAF(role)
   const canValidateReconc = ['caf', 'admin'].includes(role)
   const canAutoriserDE = ['de', 'admin'].includes(role)
 
@@ -52,7 +53,7 @@ export default async function Dashboard() {
         userRole={role}
         typeEmploi={profile?.type_emploi}
         showAdmin={['admin', 'superadmin'].includes(realRole) && !previewRole}
-        showRH={role === 'rh'}
+        showRH={estRH(role)}
         avatarUrl={profile?.avatar_url ?? null}
       />
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}

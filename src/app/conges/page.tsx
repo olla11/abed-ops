@@ -6,6 +6,7 @@ import RolePreviewBanner from '@/components/RolePreviewBanner'
 import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
 import { getCachedProfile, getCachedTypesConge } from '@/lib/cache'
 import MesCongesClient from './MesCongesClient'
+import { estRH } from '@/lib/roles'
 
 export default async function MesCongesPage() {
   const supabase = await createClient()
@@ -39,7 +40,7 @@ export default async function MesCongesPage() {
         userRole={role}
         typeEmploi={profile?.type_emploi}
         showAdmin={['admin', 'superadmin'].includes(realRole) && !previewRole}
-        showRH={role === 'rh'}
+        showRH={estRH(role)}
         avatarUrl={profile?.avatar_url ?? null}
       />
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
+import { estRH } from '@/lib/roles'
 
 const CATEGORIES = ['guide', 'rapport', 'lien_usuel', 'publication']
 const RAPPORT_SOUS_CATEGORIES = ['rapport_annuel', 'rapport_projet', 'rapport_technique']
@@ -26,7 +27,7 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
 
   const { data: me } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  if (!['rh', 'admin'].includes(me?.role ?? '')) {
+  if (!(estRH(me?.role) || me?.role === 'admin')) {
     return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
   }
 

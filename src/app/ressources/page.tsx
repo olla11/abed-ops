@@ -5,6 +5,7 @@ import AppHeader from '@/components/AppHeader'
 import RolePreviewBanner from '@/components/RolePreviewBanner'
 import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
 import RessourcesClient from './RessourcesClient'
+import { estRH } from '@/lib/roles'
 
 export type Ressource = {
   id: string
@@ -31,7 +32,7 @@ export default async function RessourcesPage() {
   const realRole = profile?.role ?? 'missionnaire'
   const role = await getEffectiveRole(realRole)
   const previewRole = await getRolePreview()
-  const isManager = ['rh', 'admin'].includes(realRole) && !previewRole
+  const isManager = (estRH(realRole) || realRole === 'admin') && !previewRole
 
   const admin = createAdminClient()
   const { data: ressources, error: ressourcesErr } = await admin
@@ -49,7 +50,7 @@ export default async function RessourcesPage() {
         userRole={role}
         typeEmploi={profile?.type_emploi}
         showAdmin={['admin', 'superadmin'].includes(realRole) && !previewRole}
-        showRH={role === 'rh'}
+        showRH={estRH(role)}
         avatarUrl={profile?.avatar_url ?? null}
       />
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}

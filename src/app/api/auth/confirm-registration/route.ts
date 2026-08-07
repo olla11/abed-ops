@@ -72,7 +72,7 @@ export async function POST(_req: NextRequest) {
     const { data: admins } = await admin
       .from('profiles')
       .select('email')
-      .in('role', ['admin', 'rh'])
+      .in('role', ['admin', 'rh', 'caf'])
       .eq('archived', false)
       .is('registration_status', null)
 

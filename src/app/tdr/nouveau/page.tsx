@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import AppHeader from '@/components/AppHeader'
 import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
 import NouveauTdrForm from './NouveauTdrForm'
+import { estRH } from '@/lib/roles'
 
 export default async function NouveauTdrPage() {
   const supabase = await createClient()
@@ -27,7 +28,7 @@ export default async function NouveauTdrPage() {
         userRole={role}
         typeEmploi={profile?.type_emploi}
         showAdmin={['admin', 'superadmin'].includes(realRole) && !previewRole}
-        showRH={role === 'rh'}
+        showRH={estRH(role)}
         avatarUrl={profile?.avatar_url ?? null}
       />
       <div className="page-container" style={{ maxWidth: 640 }}>

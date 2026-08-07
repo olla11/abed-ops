@@ -5,6 +5,7 @@ import AppHeader from '@/components/AppHeader'
 import RolePreviewBanner from '@/components/RolePreviewBanner'
 import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
 import TimesheetsClient from '@/components/TimesheetsClient'
+import { estRH, estAAF as roleEstAAF } from '@/lib/roles'
 
 export default async function TimesheetsPage() {
   const supabase = await createClient()
@@ -23,7 +24,7 @@ export default async function TimesheetsPage() {
 
   const estManager = ['manager', 'caf', 'admin', 'de', 'dp', 'aaf'].includes(role)
   const estCAF = ['caf', 'admin'].includes(role)
-  const estAAF = ['aaf', 'admin'].includes(role)
+  const estAAF = roleEstAAF(role) || role === 'admin'
   // L'autorisation finale des rapports d'allocation est réservée au Directeur
   // Exécutif (et à l'administrateur en cas d'auto-soumission par de/dp) — le DP
   // n'y figure plus, il ne fait que la validation technique de premier niveau.
@@ -65,7 +66,7 @@ export default async function TimesheetsPage() {
         userRole={role}
         typeEmploi={typeEmploi}
         showAdmin={['admin', 'superadmin'].includes(realRole) && !previewRole}
-        showRH={role === 'rh'}
+        showRH={estRH(role)}
         avatarUrl={profile?.avatar_url ?? null}
       />
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}

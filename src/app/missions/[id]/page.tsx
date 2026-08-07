@@ -11,6 +11,7 @@ import ReconciliationValidationAAF from '@/components/ReconciliationValidationAA
 import ReconciliationValidationDE from '@/components/ReconciliationValidationDE'
 import RetryPaymentButton from './RetryPaymentButton'
 import PiecesJointesList from '@/components/PiecesJointesList'
+import { estAAF } from '@/lib/roles'
 
 export default async function MissionDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -42,7 +43,7 @@ export default async function MissionDetail({ params }: { params: Promise<{ id: 
   const pdfDispo = !['brouillon', 'soumis'].includes(mission.status)
   const canReconcile = user.id === mission.missionnaire_id
     && ['signe', 'en_mission', 'reconciliation'].includes(mission.status)
-  const canValidateReconcAAF = ['aaf', 'admin'].includes(role) && mission.status === 'reconciliation_aaf'
+  const canValidateReconcAAF = (estAAF(role) || role === 'admin') && mission.status === 'reconciliation_aaf'
   const canValidateReconc = ['caf', 'admin'].includes(role) && mission.status === 'reconciliation_caf'
   const canAutoriserReconcDE = ['de', 'admin'].includes(role) && mission.status === 'reconciliation_de'
   const canRetryPayment = user.id === mission.missionnaire_id && mission.status === 'paiement_attente'

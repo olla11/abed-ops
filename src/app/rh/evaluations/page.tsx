@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { getCachedProfile, getCachedEvaluations } from '@/lib/cache'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { unstable_cache } from 'next/cache'
+import { estRH } from '@/lib/roles'
 import EvaluationsRHClient from './EvaluationsRHClient'
 
 export const dynamic = 'force-dynamic'
@@ -31,7 +32,7 @@ export default async function EvaluationsRHPage() {
   if (!user) redirect('/login')
 
   const me = await getCachedProfile(user.id)
-  if (!['rh', 'admin'].includes(me?.role ?? '')) redirect('/rh/conges')
+  if (!(estRH(me?.role) || me?.role === 'admin')) redirect('/rh/conges')
 
   const [evaluations, contratsActifs] = await Promise.all([
     getCachedEvaluations(),

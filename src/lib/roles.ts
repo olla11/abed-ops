@@ -114,3 +114,13 @@ export const CAN = {
 
 // Qui peut attribuer un titre (décision : Admin, RH, CAF)
 export const ROLES_QUI_ATTRIBUENT: AccessRole[] = ['admin', 'rh', 'caf']
+
+// --- Hiérarchie CAF ↔ AAF / RH ---
+// Le/la CAF est le/la responsable hiérarchique de l'AAF et des RH : il/elle
+// voit et peut agir sur tout ce que ces deux rôles voient/peuvent faire, en
+// plus de ses propres droits. Toute vérification de rôle 'aaf' ou 'rh' dans
+// l'app (API, RLS, navigation) doit passer par ces fonctions plutôt que par
+// une comparaison stricte (`role === 'aaf'`), pour que ce chevauchement
+// reste vrai partout sans dupliquer 'caf' dans chaque liste de rôles.
+export const estAAF = (r?: string | null) => r === 'aaf' || r === 'caf'
+export const estRH = (r?: string | null) => r === 'rh' || r === 'caf'

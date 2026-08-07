@@ -2,6 +2,7 @@ import { NextRequest, NextResponse, after } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { sendEmail } from '@/lib/resend'
 import { accordGenre } from '@/lib/genre'
+import { estAAF } from '@/lib/roles'
 
 export async function POST(
   req: NextRequest,
@@ -45,14 +46,14 @@ export async function POST(
   if (rapport.manager_id === user.id && rapport.status === 'soumis') {
     if (action === 'valider') {
       update = { status: 'valide_tech', manager_valide_le: now, commentaire_manager: null }
-      nextRoles = ['aaf']
+      nextRoles = ['aaf', 'caf']
       nextEmailSubject = '[ABED-ONG] Rapport mensuel à traiter (AAF)'
       nextEmailMsg = 'validé techniquement par le responsable'
     } else {
       if (!commentaire?.trim()) return NextResponse.json({ error: 'Commentaire requis' }, { status: 400 })
       update = { status: 'rejete_manager', commentaire_manager: commentaire }
     }
-  } else if (['aaf', 'admin'].includes(role) && rapport.status === 'valide_tech') {
+  } else if ((estAAF(role) || role === 'admin') && rapport.status === 'valide_tech') {
     if (action === 'valider') {
       if (!montant_allocation || +montant_allocation <= 0)
         return NextResponse.json({ error: 'Montant requis' }, { status: 400 })

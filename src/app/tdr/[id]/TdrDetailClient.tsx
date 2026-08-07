@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import * as Y from 'yjs'
-import { Download, UserPlus, X, Check, Trash2, Send, PenLine, XCircle, Lock, MessageSquare, PanelRightOpen, PanelRightClose, MoreVertical } from 'lucide-react'
+import { Download, UserPlus, X, Check, Trash2, Send, PenLine, XCircle, Lock, MessageSquare, PanelRightOpen, PanelRightClose, MoreVertical, Pencil } from 'lucide-react'
 import { CHAPITRE_CLES, TDR_STATUT_LABELS, labelSignataireRole, STATUT_TOUR, isColonneNumerique, colonnesVerrouillees, type Chapitre, type TdrStatut, type SignataireRole } from '@/lib/tdr'
 import RichTextEditor from '@/components/RichTextEditor'
 import { createClient as createBrowserClient } from '@/lib/supabase-client'
@@ -51,10 +51,11 @@ function ordonner(chapitres: Chapitre[]): Chapitre[] {
   return CHAPITRE_CLES.map(cle => chapitres.find(c => c.cle === cle)).filter((c): c is Chapitre => !!c)
 }
 
-function ChapitreEditor({ chapitre, onChange, readOnly, collab, onComment }: {
+function ChapitreEditor({ chapitre, onChange, readOnly, collab, onComment, onClickComment }: {
   chapitre: Chapitre; onChange: (c: Chapitre) => void; readOnly: boolean
   collab?: import('@/components/RichTextEditor').CollabConfig
   onComment?: (commentId: string, texte: string) => void
+  onClickComment?: (commentId: string) => void
 }) {
   // Codes budgétaires (référence) — rechargés à chaque passage sur ce chapitre
   // pour toujours refléter la liste gérée dans les paramètres CAF, sans jamais
@@ -75,6 +76,7 @@ function ChapitreEditor({ chapitre, onChange, readOnly, collab, onComment }: {
         readOnly={readOnly}
         collab={collab}
         onComment={onComment}
+        onClickComment={onClickComment}
       />
     )
   }
@@ -135,6 +137,7 @@ function ChapitreEditor({ chapitre, onChange, readOnly, collab, onComment }: {
         readOnly={readOnly}
         collab={collab}
         onComment={onComment}
+        onClickComment={onClickComment}
       />
       <div className="table-wrap" style={{ marginTop: 16 }}>
         <table style={{ minWidth: 500 }}>
@@ -196,8 +199,22 @@ function ChapitreEditor({ chapitre, onChange, readOnly, collab, onComment }: {
   )
 }
 
-function CommentRow({ c }: { c: Commentaire }) {
+function CommentRow({ c, myId, onSave, onDelete }: {
+  c: Commentaire; myId: string
+  onSave: (id: string, contenu: string) => Promise<void>
+  onDelete: (id: string) => void
+}) {
   const couleur = couleurPourUser(c.auteur?.id ?? c.mark_id)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editTexte, setEditTexte] = useState(c.contenu)
+  const estAuteur = !!c.auteur && c.auteur.id === myId
+
+  async function enregistrerEdition() {
+    if (!editTexte.trim()) return
+    await onSave(c.id, editTexte.trim())
+    setIsEditing(false)
+  }
+
   return (
     <div style={{ display: 'flex', gap: 8, borderLeft: `3px solid ${couleur}`, paddingLeft: 8 }}>
       <div style={{
@@ -207,9 +224,40 @@ function CommentRow({ c }: { c: Commentaire }) {
         {(c.auteur ? `${c.auteur.prenoms[0] ?? ''}${c.auteur.nom[0] ?? ''}` : '?').toUpperCase()}
       </div>
       <div style={{ minWidth: 0, flex: 1 }}>
-        <div style={{ fontSize: 12, fontWeight: 700 }}>{c.auteur ? `${c.auteur.prenoms} ${c.auteur.nom}` : 'Utilisateur supprimé'}</div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
+          <div style={{ fontSize: 12, fontWeight: 700 }}>{c.auteur ? `${c.auteur.prenoms} ${c.auteur.nom}` : 'Utilisateur supprimé'}</div>
+          {estAuteur && !isEditing && (
+            <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+              <button onClick={() => { setEditTexte(c.contenu); setIsEditing(true) }} title="Modifier"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', display: 'flex', padding: 2 }}>
+                <Pencil size={12} />
+              </button>
+              <button onClick={() => onDelete(c.id)} title="Supprimer"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', display: 'flex', padding: 2 }}>
+                <Trash2 size={12} />
+              </button>
+            </div>
+          )}
+        </div>
         {c.texte_cite && <div style={{ fontSize: 12, color: '#92400e', background: '#fffbeb', borderRadius: 6, padding: '4px 8px', margin: '4px 0' }}>« {c.texte_cite} »</div>}
-        <div style={{ fontSize: 13 }}>{c.contenu}</div>
+        {isEditing ? (
+          <div style={{ marginTop: 4 }}>
+            <textarea autoFocus rows={2} value={editTexte} onChange={e => setEditTexte(e.target.value)}
+              style={{ ...inputStyle, fontSize: 13, resize: 'vertical' }} />
+            <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+              <button onClick={enregistrerEdition} disabled={!editTexte.trim()}
+                style={{ fontSize: 11, fontWeight: 700, padding: '5px 10px', borderRadius: 6, border: 'none', background: 'var(--abed-green)', color: 'white', cursor: editTexte.trim() ? 'pointer' : 'not-allowed', opacity: editTexte.trim() ? 1 : 0.6 }}>
+                Enregistrer
+              </button>
+              <button onClick={() => setIsEditing(false)}
+                style={{ fontSize: 11, padding: '5px 10px', borderRadius: 6, border: '1px solid var(--abed-border)', background: 'white', cursor: 'pointer' }}>
+                Annuler
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ fontSize: 13 }}>{c.contenu}</div>
+        )}
         <div style={{ fontSize: 11, color: 'var(--abed-muted)', marginTop: 2 }}>
           {new Date(c.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
         </div>
@@ -222,7 +270,9 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
   const router = useRouter()
   const [tdr, setTdr] = useState(initial)
   const [chapitres, setChapitres] = useState<Chapitre[]>(ordonner(initial.chapitres))
-  const [activeIdx, setActiveIdx] = useState(0)
+  // Chapitre actif suivi par clé stable (pas par index) : reste correct même
+  // si la liste des chapitres est reconstruite après un enregistrement.
+  const [activeCle, setActiveCle] = useState<string>(ordonner(initial.chapitres)[0]?.cle ?? '')
   const [titreActivite, setTitreActivite] = useState(initial.titre_activite)
   const [projet, setProjet] = useState(initial.projet ?? '')
   const [periode, setPeriode] = useState(initial.periode ?? '')
@@ -261,6 +311,10 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
   const estImplique = isInitiateur || monCollab?.permission === 'revision' || tdr.signataires.some(s => s.profile_id === myId)
   const canEditMeta = tdr.statut === 'brouillon' && (isInitiateur || monCollab?.permission === 'revision')
   const canEdit = estImplique
+  // Circuit de signature (initiateur + signataires : responsable technique,
+  // CAF, DE) — tout le monde dedans peut gérer les collaborateurs à tout
+  // moment, pas seulement l'initiateur.
+  const estDansCircuitSignature = isInitiateur || tdr.signataires.some(s => s.profile_id === myId)
 
   const statutColor = STATUT_COLORS[tdr.statut] ?? STATUT_COLORS.brouillon
 
@@ -334,7 +388,7 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
     const supabase = createBrowserClient()
     const channel = supabase
       .channel(`tdr-live-${tdr.id}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tdr_commentaires', filter: `tdr_id=eq.${tdr.id}` }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tdr_commentaires', filter: `tdr_id=eq.${tdr.id}` }, () => {
         fetch(`/api/tdrs/${tdr.id}/commentaires`).then(r => r.ok ? r.json() : null).then(j => { if (j?.data) setCommentaires(j.data) })
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tdrs', filter: `id=eq.${tdr.id}` }, () => { refresh() })
@@ -348,6 +402,24 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
   const [commentaireTexte, setCommentaireTexte] = useState('')
   const [replyingTo, setReplyingTo] = useState<string | null>(null)
   const [replyTexte, setReplyTexte] = useState('')
+
+  // Clic sur un passage surligné dans le texte : ouvre le panneau et pointe
+  // le commentaire correspondant (comme dans Google Docs).
+  const [commentaireCibleId, setCommentaireCibleId] = useState<string | null>(null)
+  const commentRefs = useRef<Record<string, HTMLDivElement | null>>({})
+
+  function ouvrirCommentaireDepuisTexte(markId: string) {
+    setPanelOpen(true)
+    setCommentaireCibleId(markId)
+  }
+
+  useEffect(() => {
+    if (!commentaireCibleId || !panelOpen) return
+    const el = commentRefs.current[commentaireCibleId]
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    const t = setTimeout(() => setCommentaireCibleId(null), 2200)
+    return () => clearTimeout(t)
+  }, [commentaireCibleId, panelOpen])
 
   function creerCommentaire(chapitreCle: string, markId: string, texteSelectionne: string) {
     setPendingComment({ chapitreCle, markId, texteSelectionne })
@@ -383,8 +455,29 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
     }
   }
 
+  async function modifierCommentaire(commentId: string, contenu: string) {
+    const res = await fetch(`/api/tdrs/${tdr.id}/commentaires/${commentId}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contenu }),
+    })
+    if (res.ok) {
+      setCommentaires(cs => cs.map(c => c.id === commentId ? { ...c, contenu } : c))
+    }
+  }
+
+  async function supprimerCommentaire(commentId: string) {
+    if (!window.confirm('Supprimer ce commentaire ? Ses éventuelles réponses seront aussi supprimées.')) return
+    const res = await fetch(`/api/tdrs/${tdr.id}/commentaires/${commentId}`, { method: 'DELETE' })
+    if (res.ok) {
+      setCommentaires(cs => cs.filter(c => c.id !== commentId && c.parent_id !== commentId))
+    }
+  }
+
   async function refresh() {
-    router.refresh()
+    // Pas de router.refresh() ici : il ne sert à rien (les états tdr/chapitres
+    // sont déjà resynchronisés juste en dessous par ce fetch) et provoquait un
+    // aller-retour de navigation qui ramenait visuellement au premier chapitre
+    // après un Enregistrer.
     const res = await fetch(`/api/tdrs/${tdr.id}`)
     if (res.ok) {
       const j = await res.json()
@@ -511,7 +604,7 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
     (inviteSearch === '' || `${p.prenoms} ${p.nom}`.toLowerCase().includes(inviteSearch.toLowerCase()))
   )
 
-  const active = chapitres[activeIdx]
+  const active = chapitres.find(c => c.cle === activeCle) ?? chapitres[0]
 
   // Couleur du surlignage d'un passage commenté = couleur de l'auteur du
   // commentaire racine (même couleur que sa bulle dans le panneau), pour
@@ -653,12 +746,12 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
 
           <div style={{ display: 'flex', gap: 4, marginBottom: 14, background: '#f9fafb', borderRadius: 10, padding: 4, flexWrap: 'wrap' }}>
             {chapitres.map((c, i) => (
-              <button key={c.cle} onClick={() => setActiveIdx(i)}
+              <button key={c.cle} onClick={() => setActiveCle(c.cle)}
                 style={{
-                  padding: '8px 14px', fontSize: 12.5, fontWeight: activeIdx === i ? 700 : 500,
+                  padding: '8px 14px', fontSize: 12.5, fontWeight: activeCle === c.cle ? 700 : 500,
                   cursor: 'pointer', border: 'none', borderRadius: 8,
-                  background: activeIdx === i ? 'var(--abed-green)' : 'transparent',
-                  color: activeIdx === i ? 'white' : '#374151', whiteSpace: 'nowrap',
+                  background: activeCle === c.cle ? 'var(--abed-green)' : 'transparent',
+                  color: activeCle === c.cle ? 'white' : '#374151', whiteSpace: 'nowrap',
                 }}>
                 {i + 1}. {c.titre}
               </button>
@@ -668,21 +761,22 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
           <div className="card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
               {canEdit ? (
-                <input value={active.titre} onChange={e => setChapitres(cs => cs.map((c, i) => i === activeIdx ? { ...c, titre: e.target.value } : c))}
+                <input value={active.titre} onChange={e => setChapitres(cs => cs.map(c => c.cle === activeCle ? { ...c, titre: e.target.value } : c))}
                   style={{ ...inputStyle, fontSize: 15, fontWeight: 700, border: '1px solid transparent', padding: '2px 0' }} />
               ) : (
-                <h3 style={{ margin: 0, fontSize: 15 }}>{activeIdx + 1}. {active.titre}</h3>
+                <h3 style={{ margin: 0, fontSize: 15 }}>{chapitres.findIndex(c => c.cle === activeCle) + 1}. {active.titre}</h3>
               )}
             </div>
             <ChapitreEditor
               chapitre={active}
               readOnly={!canEdit}
-              onChange={c => setChapitres(cs => cs.map((cc, i) => i === activeIdx ? c : cc))}
+              onChange={c => setChapitres(cs => cs.map(cc => cc.cle === activeCle ? c : cc))}
               collab={collabReady && ydocRef.current && providerRef.current ? {
                 doc: ydocRef.current, fragment: active.cle, provider: providerRef.current,
                 user: { name: monNom, color: couleurPourUser(myId) },
               } : undefined}
               onComment={(markId, texte) => creerCommentaire(active.cle, markId, texte)}
+              onClickComment={ouvrirCommentaireDepuisTexte}
             />
           </div>
 
@@ -727,7 +821,7 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
           <div className="card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <h3 style={{ fontSize: 13, margin: 0 }}>Collaborateurs</h3>
-              {isInitiateur && (
+              {estDansCircuitSignature && (
                 <button onClick={() => setShowInvite(v => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--abed-green)', display: 'flex' }}>
                   <UserPlus size={16} />
                 </button>
@@ -739,7 +833,7 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
                 <span>{c.profile ? `${c.profile.prenoms} ${c.profile.nom}` : '—'}
                   <span style={{ fontSize: 10, color: 'var(--abed-muted)', marginLeft: 6 }}>({c.permission === 'revision' ? 'révision' : 'lecture'})</span>
                 </span>
-                {isInitiateur && (
+                {estDansCircuitSignature && (
                   <button onClick={() => retirerCollaborateur(c.profile_id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', display: 'flex' }}><X size={13} /></button>
                 )}
               </div>
@@ -779,11 +873,17 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
               <p style={{ fontSize: 12, color: 'var(--abed-muted)', margin: 0 }}>Aucun commentaire. Sélectionnez du texte puis cliquez sur l&apos;icône de commentaire dans la barre d&apos;outils.</p>
             )}
             {commentaires.filter(c => c.chapitre_cle === active.cle && !c.parent_id).map(c => (
-              <div key={c.id} style={{ marginBottom: 10, paddingBottom: 10, borderBottom: '1px solid #f3f4f6' }}>
-                <CommentRow c={c} />
+              <div key={c.id} ref={el => { commentRefs.current[c.mark_id] = el }}
+                style={{
+                  marginBottom: 10, paddingBottom: 10, borderBottom: '1px solid #f3f4f6',
+                  borderRadius: 8, transition: 'background-color .4s ease',
+                  background: commentaireCibleId === c.mark_id ? '#fef9c3' : 'transparent',
+                  padding: commentaireCibleId === c.mark_id ? '8px' : '0 0 10px',
+                }}>
+                <CommentRow c={c} myId={myId} onSave={modifierCommentaire} onDelete={supprimerCommentaire} />
                 {commentaires.filter(r => r.parent_id === c.id).map(r => (
                   <div key={r.id} style={{ marginLeft: 34, marginTop: 8 }}>
-                    <CommentRow c={r} />
+                    <CommentRow c={r} myId={myId} onSave={modifierCommentaire} onDelete={supprimerCommentaire} />
                   </div>
                 ))}
                 {replyingTo === c.id ? (

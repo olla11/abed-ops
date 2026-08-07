@@ -6,6 +6,7 @@ import AppHeader from '@/components/AppHeader'
 import RolePreviewBanner from '@/components/RolePreviewBanner'
 import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
 import OverviewOperations from '@/components/OverviewOperations'
+import { estRH } from '@/lib/roles'
 
 export default async function OverviewPage() {
   const supabase = await createClient()
@@ -27,7 +28,7 @@ export default async function OverviewPage() {
         userRole={role}
         typeEmploi={profile?.type_emploi}
         showAdmin={['admin', 'superadmin'].includes(realRole) && !previewRole}
-        showRH={role === 'rh'}
+        showRH={estRH(role)}
         avatarUrl={profile?.avatar_url ?? null}
       />
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}

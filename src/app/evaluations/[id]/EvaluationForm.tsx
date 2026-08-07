@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { estRH } from '@/lib/roles'
 
 type Profile = { id: string; nom: string; prenoms: string; email: string; role?: string }
 type Contrat = { id: string; type_contrat: string; date_debut: string; date_fin: string | null; poste: string | null }
@@ -163,9 +164,9 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole }: Props) 
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
 
   // Determine what this user can edit
-  const isEvaluateur = ev.evaluateur?.id === myId || ['rh', 'admin'].includes(myRole)
+  const isEvaluateur = ev.evaluateur?.id === myId || estRH(myRole) || myRole === 'admin'
   const isEvalue = ev.profile?.id === myId
-  const isRH = ['rh', 'admin', 'de', 'dp'].includes(myRole)
+  const isRH = estRH(myRole) || ['admin', 'de', 'dp'].includes(myRole)
 
   const canEditSec1to6 = ev.statut === 'en_attente' && isEvaluateur
   const canEditSec7 = ev.statut === 'evaluateur_complete' && isEvalue

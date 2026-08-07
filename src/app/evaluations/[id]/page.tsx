@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import AppHeader from '@/components/AppHeader'
 import EvaluationForm from './EvaluationForm'
+import { estRH } from '@/lib/roles'
 
 export const dynamic = 'force-dynamic'
 
@@ -37,7 +38,7 @@ export default async function EvaluationPage({ params }: { params: Promise<{ id:
   const canAccess =
     ev.profile_id === user.id ||
     ev.evaluateur_id === user.id ||
-    ['rh', 'admin', 'de', 'dp'].includes(role)
+    estRH(role) || ['admin', 'de', 'dp'].includes(role)
 
   if (!canAccess) redirect('/evaluations')
 
@@ -47,7 +48,7 @@ export default async function EvaluationPage({ params }: { params: Promise<{ id:
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={role}
         typeEmploi={profile?.type_emploi}
-        showRH={role === 'rh'}
+        showRH={estRH(role)}
         showAdmin={['admin', 'superadmin'].includes(role)}
         avatarUrl={profile?.avatar_url}
       />

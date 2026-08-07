@@ -178,7 +178,7 @@ export async function finalizeAfterSignature(
 
   if (contratLie && contratLie.workflow_statut === 'envoye_signataire') {
     await admin.from('contrats').update({ workflow_statut: 'signe_signataire' }).eq('id', contratLie.id)
-    const { data: rhs } = await admin.from('profiles').select('id').in('role', ['rh', 'admin'])
+    const { data: rhs } = await admin.from('profiles').select('id').in('role', ['rh', 'admin', 'caf'])
     for (const rh of rhs ?? []) {
       const { error: notifRhErr } = await admin.from('notifications').insert({
         user_id: rh.id,

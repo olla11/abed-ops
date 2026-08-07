@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import dynamic from 'next/dynamic'
 import { FileText, FileBarChart2, CreditCard, ClipboardList, BarChart3, CheckCircle2, ShieldCheck, Wallet, type LucideIcon } from 'lucide-react'
+import { estAAF as roleEstAAF } from '@/lib/roles'
 
 const SoumissionForm = dynamic(() => import('@/components/SoumissionForm'), { ssr: false })
 const ValidationManager = dynamic(() => import('@/components/ValidationManager'), { ssr: false })
@@ -44,7 +45,7 @@ export default function TimesheetsClient({
   const estSalarie = ['cdd', 'cdi'].includes(typeEmploi ?? '')
   const estManager = ['manager', 'caf', 'admin', 'de', 'dp', 'aaf'].includes(role)
   const estCAF = ['caf', 'admin'].includes(role)
-  const estAAF = ['aaf', 'admin'].includes(role)
+  const estAAF = roleEstAAF(role) || role === 'admin'
   // Autorisation finale réservée au DE (+ administrateur pour l'auto-soumission de/dp) — le DP n'autorise plus.
   const estDE = ['de', 'administrateur'].includes(role)
 

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { loadKnowledgeFilesRaw } from '@/lib/aga-files'
 import { chunkText, embedText } from '@/lib/aga-embeddings'
+import { estRH } from '@/lib/roles'
 
 export const maxDuration = 300
 const BATCH_SIZE = 3
@@ -15,7 +16,7 @@ export async function POST() {
   if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
 
   const { data: me } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  if (!['admin', 'rh'].includes(me?.role ?? '')) {
+  if (!(estRH(me?.role) || me?.role === 'admin')) {
     return NextResponse.json({ error: 'Accès réservé au RH/admin' }, { status: 403 })
   }
 

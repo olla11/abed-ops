@@ -4,6 +4,7 @@ import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { revalidateTag } from 'next/cache'
 import { sendEmail } from '@/lib/resend'
 import { accordGenre } from '@/lib/genre'
+import { estRH } from '@/lib/roles'
 
 type RouteContext = { params: Promise<{ id: string }> }
 
@@ -79,7 +80,7 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
   let notifMessage = ''
 
   // Vérification que l'utilisateur a le droit d'agir sur ce congé
-  const canAct = ['rh', 'admin', 'de', 'dp', 'administrateur'].includes(myRole) || conge.valideur_n1_id === user.id
+  const canAct = estRH(myRole) || ['admin', 'de', 'dp', 'administrateur'].includes(myRole) || conge.valideur_n1_id === user.id
   if (!canAct) {
     return NextResponse.json({ error: 'Action non autorisée' }, { status: 403 })
   }
@@ -89,7 +90,7 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
     notifUserId = conge.profile_id
     notifTitre = 'Demande de congé rejetée'
     notifMessage = `Votre demande de congé (${conge.date_debut} → ${conge.date_fin}) a été rejetée.${commentaire ? ` Motif : ${commentaire}` : ''}`
-  } else if (conge.statut === 'en_attente' && (conge.valideur_n1_id === user.id || ['rh', 'admin'].includes(myRole))) {
+  } else if (conge.statut === 'en_attente' && (conge.valideur_n1_id === user.id || estRH(myRole) || myRole === 'admin')) {
     newStatut = 'approuve_n1'
     // Notifs/emails aux DE — après la réponse, tous en parallèle (pas un par un)
     after(async () => {

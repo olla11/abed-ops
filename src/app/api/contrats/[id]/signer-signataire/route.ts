@@ -50,7 +50,7 @@ export async function POST(
   const { data: signataireProfile } = await admin.from('profiles').select('nom, prenoms').eq('id', user.id).single()
   const nomSignataire = signataireProfile ? `${signataireProfile.prenoms} ${signataireProfile.nom}` : 'Le signataire'
 
-  const { data: rhs } = await admin.from('profiles').select('id, email, prenoms').in('role', ['rh', 'admin'])
+  const { data: rhs } = await admin.from('profiles').select('id, email, prenoms').in('role', ['rh', 'admin', 'caf'])
   for (const rh of rhs ?? []) {
     const { error: notifErr } = await admin.from('notifications').insert({
       user_id: rh.id,

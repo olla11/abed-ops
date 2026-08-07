@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import { getCachedProfile, getCachedContrats } from '@/lib/cache'
+import { estRH } from '@/lib/roles'
 import PaieClient from './PaieClient'
 
 export const dynamic = 'force-dynamic'
@@ -21,7 +22,7 @@ export default async function PaiePage() {
   if (!user) redirect('/login')
 
   const me = await getCachedProfile(user.id)
-  if (!['rh', 'admin'].includes(me?.role ?? '')) redirect('/rh/conges')
+  if (!(estRH(me?.role) || me?.role === 'admin')) redirect('/rh/conges')
 
   const [contrats, { data: params }] = await Promise.all([
     getCachedContrats(),

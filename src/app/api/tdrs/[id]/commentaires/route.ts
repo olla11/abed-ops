@@ -12,12 +12,27 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
 
   const { data, error } = await supabase
     .from('tdr_commentaires')
-    .select('id, chapitre_cle, mark_id, texte_cite, contenu, created_at, parent_id, auteur:profiles!tdr_commentaires_auteur_id_fkey(id, nom, prenoms)')
+    .select('id, chapitre_cle, mark_id, texte_cite, contenu, created_at, parent_id, auteur_id')
     .eq('tdr_id', id)
     .order('created_at', { ascending: true })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ data })
+
+  // Le RLS de `profiles` masque les autres personnes à qui n'a pas un rôle
+  // privilégié (caf/de/dp/admin/manager/rh/superadmin) : un simple
+  // collaborateur/missionnaire ne verrait donc ni le nom ni la couleur des
+  // commentaires des autres via un embed profiles!... classique. On passe
+  // par `profiles_annuaire`, qui contourne cette restriction pour l'essentiel
+  // (nom/prénoms), comme ailleurs dans le module TDR.
+  const auteurIds = [...new Set((data ?? []).map(c => c.auteur_id).filter((v): v is string => !!v))]
+  const profilParId = new Map<string, { id: string; nom: string; prenoms: string }>()
+  if (auteurIds.length > 0) {
+    const { data: profils } = await supabase.from('profiles_annuaire').select('id, nom, prenoms').in('id', auteurIds)
+    for (const p of profils ?? []) profilParId.set(p.id, p)
+  }
+
+  const enrichi = (data ?? []).map(c => ({ ...c, auteur: c.auteur_id ? (profilParId.get(c.auteur_id) ?? null) : null }))
+  return NextResponse.json({ data: enrichi })
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

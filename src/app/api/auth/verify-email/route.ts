@@ -121,7 +121,7 @@ export async function GET(req: NextRequest) {
     const { data: admins } = await admin
       .from('profiles')
       .select('id, email, prenoms')
-      .in('role', ['admin', 'rh'])
+      .in('role', ['admin', 'rh', 'caf'])
       .eq('archived', false)
 
     for (const a of admins ?? []) {

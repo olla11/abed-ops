@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { estAAF } from '@/lib/roles'
 
 type Rapport = {
   id: string; periode_mois: number; periode_annee: number
@@ -30,17 +31,21 @@ export default function ValidationRapportsAAF({ role }: { role: string }) {
   useEffect(() => { load() }, [])
 
   function canAct(r: Rapport) {
-    if (['aaf', 'admin'].includes(role)) return STATUS_FOR_AAF.includes(r.status)
-    if (role === 'caf') return STATUS_FOR_CAF.includes(r.status)
-    if (['de', 'administrateur'].includes(role)) return STATUS_FOR_DE.includes(r.status)
-    if (role === 'manager') return r.status === 'soumis'
-    return false
+    // Le/la CAF hérite des droits de l'AAF : distinct des `if`/`return` en
+    // chaîne d'origine, sinon un rôle qui correspond à plusieurs étapes
+    // (caf = étape AAF + étape CAF) ne testerait jamais que la première.
+    const isAAFStage = (estAAF(role) || role === 'admin') && STATUS_FOR_AAF.includes(r.status)
+    const isCAFStage = role === 'caf' && STATUS_FOR_CAF.includes(r.status)
+    const isDEStage = ['de', 'administrateur'].includes(role) && STATUS_FOR_DE.includes(r.status)
+    const isManagerStage = role === 'manager' && r.status === 'soumis'
+    return isAAFStage || isCAFStage || isDEStage || isManagerStage
   }
 
   async function agir(id: string, action: string) {
     const commentaire = commentMap[id] ?? ''
     const montant = montantMap[id]
-    if (action === 'valider' && ['aaf', 'admin'].includes(role)) {
+    const rapport = rapports.find(r => r.id === id)
+    if (action === 'valider' && STATUS_FOR_AAF.includes(rapport?.status ?? '')) {
       if (!montant || +montant <= 0) { alert('Saisissez le montant de l\'allocation.'); return }
     }
     if (action !== 'valider' && action !== 'autoriser' && !commentaire.trim()) {
@@ -64,8 +69,8 @@ export default function ValidationRapportsAAF({ role }: { role: string }) {
     <div className="card" style={{ borderLeft: '4px solid #6d28d9' }}>
       <h3 style={{ marginBottom: 4 }}>📋 Rapports d'allocations à traiter ({aTraiter.length})</h3>
       <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: 12 }}>
-        {['aaf', 'admin'].includes(role) && 'Saisissez le montant de l\'allocation et validez.'}
-        {role === 'caf' && 'Vérifiez et validez les rapports traités par l\'AAF.'}
+        {(estAAF(role) || role === 'admin') && aTraiter.some(r => STATUS_FOR_AAF.includes(r.status)) && 'Saisissez le montant de l\'allocation et validez.'}
+        {role === 'caf' && aTraiter.some(r => STATUS_FOR_CAF.includes(r.status)) && ' Vérifiez et validez les rapports traités par l\'AAF.'}
         {['de', 'administrateur'].includes(role) && 'Autorisez les allocations validées par la CAF.'}
       </p>
       {aTraiter.map(r => {
@@ -98,7 +103,7 @@ export default function ValidationRapportsAAF({ role }: { role: string }) {
                     Manager : {r.commentaire_manager}
                   </p>
                 )}
-                {['aaf', 'admin'].includes(role) && (
+                {STATUS_FOR_AAF.includes(r.status) && (
                   <div className="field" style={{ marginBottom: 0 }}>
                     <label className="label">
                       {['cdd','cdi'].includes(r.prestataire?.type_emploi ?? '') ? 'Salaire net (FCFA) *' : 'Montant allocation (FCFA) *'}

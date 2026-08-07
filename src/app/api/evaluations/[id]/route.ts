@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase-server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import { sendEmail } from '@/lib/resend'
+import { estRH } from '@/lib/roles'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,7 +43,7 @@ export async function GET(_req: NextRequest, ctx: RouteContext) {
   const canAccess =
     ev.profile_id === user.id ||
     ev.evaluateur_id === user.id ||
-    ['rh', 'admin', 'de', 'dp'].includes(me?.role ?? '')
+    estRH(me?.role) || ['admin', 'de', 'dp'].includes(me?.role ?? '')
 
   if (!canAccess) return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
 
@@ -91,7 +92,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
   const nomEmploye = `${(ev.profile as any)?.prenoms ?? ''} ${(ev.profile as any)?.nom ?? ''}`.trim()
 
   if (soumettre) {
-    if (ev.statut === 'en_attente' && (ev.evaluateur_id === user.id || ['rh', 'admin'].includes(myRole))) {
+    if (ev.statut === 'en_attente' && (ev.evaluateur_id === user.id || estRH(myRole) || myRole === 'admin')) {
       newStatut = 'evaluateur_complete'
       notifUserId = ev.profile_id
       notifTitre = 'Évaluation à commenter'
@@ -102,12 +103,12 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
       notifUserId = ev.evaluateur_id
       notifTitre = 'Évaluation — commentaires de l\'évalué(e)'
       notifMessage = `${nomEmploye} a ajouté ses commentaires sur sa fiche d'évaluation.`
-    } else if (ev.statut === 'evalue_complete' && (ev.evaluateur_id === user.id || ['rh', 'admin', 'de', 'dp'].includes(myRole))) {
+    } else if (ev.statut === 'evalue_complete' && (ev.evaluateur_id === user.id || (estRH(myRole) || ['admin', 'de', 'dp'].includes(myRole)))) {
       newStatut = 'responsable_complete'
       // Notifier RH/admin
       notifTitre = 'Évaluation — avis responsable complété'
       notifMessage = `Le responsable a émis son avis sur l'évaluation de ${nomEmploye}. Décision requise.`
-    } else if (ev.statut === 'responsable_complete' && ['rh', 'admin', 'de', 'dp'].includes(myRole)) {
+    } else if (ev.statut === 'responsable_complete' && (estRH(myRole) || ['admin', 'de', 'dp'].includes(myRole))) {
       newStatut = 'cloture'
       notifUserId = ev.profile_id
       notifTitre = 'Évaluation clôturée'
@@ -178,7 +179,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
         }).catch(() => {})
       }
     } else if (newStatut === 'responsable_complete') {
-      const { data: rhUsers } = await service.from('profiles').select('email, prenoms, nom').in('role', ['rh', 'admin'])
+      const { data: rhUsers } = await service.from('profiles').select('email, prenoms, nom').in('role', ['rh', 'admin', 'caf'])
       for (const rh of rhUsers ?? []) {
         if (rh.email) {
           await sendEmail({

@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { unstable_cache } from 'next/cache'
 import { getCachedProfile, getCachedPersonnel, getCachedContrats, getCachedCongesRH, getCachedEvaluations } from '@/lib/cache'
+import { estRH } from '@/lib/roles'
 import RHDashboardClient from './RHDashboardClient'
 
 export const dynamic = 'force-dynamic'
@@ -13,7 +14,7 @@ export default async function RHDashboardPage() {
   if (!user) redirect('/login')
 
   const me = await getCachedProfile(user.id)
-  if (!['rh', 'admin'].includes(me?.role ?? '')) redirect('/rh/conges')
+  if (!(estRH(me?.role) || me?.role === 'admin')) redirect('/rh/conges')
 
   const service = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

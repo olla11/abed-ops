@@ -2,6 +2,7 @@ import { NextRequest, NextResponse, after } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { sendEmail } from '@/lib/resend'
 import { accordGenre } from '@/lib/genre'
+import { estAAF } from '@/lib/roles'
 
 // action: valider | rejeter | refuser
 // etape déduite du rôle: aaf → valide_aaf, caf → valide_caf, de → autorise
@@ -45,7 +46,7 @@ export async function POST(
   let emailSubject = ''
   let emailMsg = ''
 
-  if (['aaf', 'admin'].includes(role) && demande.status === 'soumis') {
+  if ((estAAF(role) || role === 'admin') && demande.status === 'soumis') {
     if (action === 'valider') {
       update = { status: 'valide_aaf', aaf_id: user.id, aaf_le: now, commentaire_aaf: null }
       nextRoles = ['caf']

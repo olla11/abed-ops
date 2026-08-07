@@ -64,7 +64,7 @@ export async function GET(req: Request) {
 
   // Notification interne à l'admin/RH
   const { data: admins } = await admin
-    .from('profiles').select('id').in('role', ['admin', 'rh'])
+    .from('profiles').select('id').in('role', ['admin', 'rh', 'caf'])
 
   for (const a of admins ?? []) {
     const noms = anniversaires.map(p => `${p.prenoms} ${p.nom}`).join(', ')

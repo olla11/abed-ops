@@ -6,6 +6,7 @@ import AppHeader from '@/components/AppHeader'
 import RolePreviewBanner from '@/components/RolePreviewBanner'
 import ProjetDetailClient from '@/components/ProjetDetailClient'
 import ProjetsSidebar from '@/components/ProjetsSidebar'
+import { estRH } from '@/lib/roles'
 
 export default async function ProjetDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -80,7 +81,7 @@ export default async function ProjetDetailPage({ params }: { params: Promise<{ i
         userRole={role}
         typeEmploi={profile?.type_emploi}
         showAdmin={['admin', 'superadmin'].includes(realRole) && !previewRole}
-        showRH={role === 'rh'}
+        showRH={estRH(role)}
         avatarUrl={profile?.avatar_url ?? null}
       />
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}

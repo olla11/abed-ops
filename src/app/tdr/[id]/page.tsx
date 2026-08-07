@@ -5,6 +5,7 @@ import AppHeader from '@/components/AppHeader'
 import RolePreviewBanner from '@/components/RolePreviewBanner'
 import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
 import TdrDetailClient from './TdrDetailClient'
+import { estRH } from '@/lib/roles'
 
 export default async function TdrDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -72,7 +73,7 @@ export default async function TdrDetailPage({ params }: { params: Promise<{ id: 
         userRole={role}
         typeEmploi={profile?.type_emploi}
         showAdmin={['admin', 'superadmin'].includes(realRole) && !previewRole}
-        showRH={role === 'rh'}
+        showRH={estRH(role)}
         avatarUrl={profile?.avatar_url ?? null}
       />
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}

@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import Pagination, { paginate } from '@/components/Pagination'
+import { estRH } from '@/lib/roles'
 
 type Conge = {
   id: string; statut: string; date_debut: string; date_fin: string; nb_jours: number | null
@@ -22,7 +23,7 @@ const inputStyle: React.CSSProperties = {
 }
 
 export default function CongesRHClient({ conges: initial, role }: { conges: Conge[]; role: string }) {
-  const canValiderN1 = ['rh', 'admin'].includes(role)
+  const canValiderN1 = estRH(role) || role === 'admin'
   const canValiderFinal = ['de', 'dp', 'administrateur', 'admin'].includes(role)
   const [conges, setConges] = useState(initial)
   const [filterStatut, setFilterStatut] = useState('')

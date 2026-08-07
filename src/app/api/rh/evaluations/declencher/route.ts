@@ -5,6 +5,7 @@ import { revalidateTag } from 'next/cache'
 import { sendEmail } from '@/lib/resend'
 import { LOGO_PNG_B64 } from '@/lib/logo-b64'
 import { escapeHtml } from '@/lib/html'
+import { estRH } from '@/lib/roles'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,7 +15,7 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
 
   const { data: me } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  if (!me || !['rh', 'admin'].includes(me.role)) {
+  if (!me || !(estRH(me.role) || me.role === 'admin')) {
     return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
   }
 

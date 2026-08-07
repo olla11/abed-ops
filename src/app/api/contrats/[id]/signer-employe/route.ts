@@ -41,7 +41,7 @@ export async function POST(
   const nomEmploye = `${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`.trim()
 
   // Notifier le RH
-  const { data: rhs } = await admin.from('profiles').select('id, email, prenoms').in('role', ['rh', 'admin'])
+  const { data: rhs } = await admin.from('profiles').select('id, email, prenoms').in('role', ['rh', 'admin', 'caf'])
   for (const rh of rhs ?? []) {
     const { error: notifRhErr } = await admin.from('notifications').insert({
       user_id: rh.id,

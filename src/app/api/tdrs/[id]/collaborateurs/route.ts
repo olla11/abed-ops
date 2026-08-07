@@ -10,7 +10,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const { data: tdr } = await supabase.from('tdrs').select('initiateur_id, titre_activite').eq('id', id).single()
   if (!tdr) return NextResponse.json({ error: 'TDR introuvable' }, { status: 404 })
-  if (tdr.initiateur_id !== user.id) return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+  // Tout le monde dans le circuit de signature (initiateur + signataires)
+  // peut ajouter un collaborateur à tout moment, pas seulement l'initiateur.
+  const { data: monSignataire } = await supabase
+    .from('tdr_signataires').select('id').eq('tdr_id', id).eq('profile_id', user.id).limit(1)
+  if (tdr.initiateur_id !== user.id && !(monSignataire?.length)) {
+    return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+  }
 
   const body = await req.json().catch(() => null)
   const profileId = body?.profile_id
@@ -44,7 +50,11 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
   const { data: tdr } = await supabase.from('tdrs').select('initiateur_id').eq('id', id).single()
   if (!tdr) return NextResponse.json({ error: 'TDR introuvable' }, { status: 404 })
-  if (tdr.initiateur_id !== user.id) return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+  const { data: monSignataire } = await supabase
+    .from('tdr_signataires').select('id').eq('tdr_id', id).eq('profile_id', user.id).limit(1)
+  if (tdr.initiateur_id !== user.id && !(monSignataire?.length)) {
+    return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+  }
 
   const body = await req.json().catch(() => null)
   if (!body?.profile_id) return NextResponse.json({ error: 'profile_id requis' }, { status: 400 })

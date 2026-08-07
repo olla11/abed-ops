@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { Clock, User, Users, CheckCircle2, type LucideIcon } from 'lucide-react'
 import Pagination, { paginate } from '@/components/Pagination'
+import { estAAF } from '@/lib/roles'
 
 type Demande = {
   id: string; numero: string | null; demandeur_id: string; nom_complet: string; email_contact: string; departement: string
@@ -80,7 +81,7 @@ export default function TraitementDemandes({ role, userId }: { role: string; use
   // rôle : sinon "admin" — présent aux deux étapes — retournait toujours le
   // résultat de la première condition testée, quel que soit le statut réel.
   function canAct(d: Demande) {
-    if (d.status === 'soumis') return role === 'aaf' || role === 'admin'
+    if (d.status === 'soumis') return estAAF(role) || role === 'admin'
     if (d.status === 'valide_aaf') return role === 'caf'
     if (d.status === 'valide_caf') return role === 'de' || role === 'admin'
     return false

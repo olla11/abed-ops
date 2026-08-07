@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { createMomoDebit } from '@/lib/fedapay'
 import { sendEmail } from '@/lib/resend'
+import { notifyMissionUser, notifyMissionByRole } from '@/lib/mission-notify'
 
 export async function POST(
   req: NextRequest,
@@ -140,11 +141,11 @@ export async function POST(
   // ── Cas non-partenaire : totalite_avant → cloture directe ──
   if (mode_financement === 'totalite_avant') {
     // Notifier le missionnaire
-    await admin.from('notifications').insert({
-      user_id: user.id,
+    await notifyMissionUser(admin, {
+      userId: user.id,
+      missionId: id,
       titre: 'Mission clôturée',
       message: `Votre réconciliation pour la mission ${mission.reference ?? ''} a été enregistrée. Mission clôturée automatiquement (totalité reçue avant départ).`,
-      lien: `/missions/${id}`,
     })
 
     // Envoyer rapport au DE et CAF par email
@@ -187,16 +188,13 @@ export async function POST(
   }
 
   // ── Cas non-partenaire crédit ou avance → validation AAF puis CAF ──
-  const { data: aafs } = await admin
-    .from('profiles').select('id').in('role', ['aaf', 'admin'])
-  for (const a of aafs ?? []) {
-    await admin.from('notifications').insert({
-      user_id: a.id,
-      titre: `Réconciliation à valider — Mission ${mission.reference ?? id}`,
-      message: `La réconciliation de la mission « ${mission.objet} » est soumise pour validation AAF. Mode financement : ${modeLabelFr(mode_financement)}.`,
-      lien: `/missions/${id}`,
-    })
-  }
+  await notifyMissionByRole(admin, {
+    roles: ['aaf', 'admin', 'caf'],
+    missionId: id,
+    excludeId: user.id,
+    titre: `Réconciliation à valider — Mission ${mission.reference ?? id}`,
+    message: `La réconciliation de la mission « ${mission.objet} » est soumise pour validation AAF. Mode financement : ${modeLabelFr(mode_financement)}.`,
+  })
 
   return NextResponse.json({
     ok: true,

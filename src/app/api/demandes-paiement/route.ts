@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
   // un rôle non privilégié) ne peut ni lister les profils AAF ni insérer une
   // notification pour quelqu'un d'autre via le client authentifié normal.
   const { data: aafs } = await admin
-    .from('profiles').select('id, email, prenoms, nom').eq('role', 'aaf')
+    .from('profiles').select('id, email, prenoms, nom').in('role', ['aaf', 'caf'])
 
   for (const aaf of aafs ?? []) {
     await admin.from('notifications').insert({
