@@ -7,7 +7,8 @@ import { baseTdrExtensions } from '@/lib/tdr-editor-extensions'
 import type * as Y from 'yjs'
 import type { SupabaseYjsProvider } from '@/lib/yjs-supabase-provider'
 import {
-  Bold, Italic, Underline as UnderlineIcon, Link2, List, ListOrdered, AlignJustify,
+  Bold, Italic, Underline as UnderlineIcon, Link2, List, ListOrdered,
+  AlignLeft, AlignCenter, AlignRight, AlignJustify,
   Table as TableIcon, Rows3, Columns3, TableRowsSplit, TableColumnsSplit, Trash2, MessageSquarePlus,
   Undo2, Redo2, CornerDownLeft, Merge, Split,
 } from 'lucide-react'
@@ -93,11 +94,11 @@ export default function RichTextEditor({
     editor!.chain().focus().extendMarkRange('link').setLink({ href: url }).run()
   }
 
-  function toggleJustifier() {
-    if (editor!.isActive({ textAlign: 'justify' })) {
+  function definirAlignement(valeur: 'left' | 'center' | 'right' | 'justify') {
+    if (editor!.isActive({ textAlign: valeur })) {
       editor!.chain().focus().unsetTextAlign().run()
     } else {
-      editor!.chain().focus().setTextAlign('justify').run()
+      editor!.chain().focus().setTextAlign(valeur).run()
     }
   }
 
@@ -133,10 +134,13 @@ export default function RichTextEditor({
           <ToolbarButton title="Liste à puces" active={editor.isActive('bulletList')} onClick={() => editor.chain().focus().toggleBulletList().run()}><List size={14} /></ToolbarButton>
           <ToolbarButton title="Liste numérotée" active={editor.isActive('orderedList')} onClick={() => editor.chain().focus().toggleOrderedList().run()}><ListOrdered size={14} /></ToolbarButton>
           <span style={{ width: 1, height: 18, background: '#e5e7eb', margin: '0 4px' }} />
-          <ToolbarButton title="Justifier le texte" active={editor.isActive({ textAlign: 'justify' })} onClick={toggleJustifier}><AlignJustify size={14} /></ToolbarButton>
+          <ToolbarButton title="Aligner à gauche" active={editor.isActive({ textAlign: 'left' })} onClick={() => definirAlignement('left')}><AlignLeft size={14} /></ToolbarButton>
+          <ToolbarButton title="Centrer" active={editor.isActive({ textAlign: 'center' })} onClick={() => definirAlignement('center')}><AlignCenter size={14} /></ToolbarButton>
+          <ToolbarButton title="Aligner à droite" active={editor.isActive({ textAlign: 'right' })} onClick={() => definirAlignement('right')}><AlignRight size={14} /></ToolbarButton>
+          <ToolbarButton title="Justifier" active={editor.isActive({ textAlign: 'justify' })} onClick={() => definirAlignement('justify')}><AlignJustify size={14} /></ToolbarButton>
           <ToolbarButton title="Saut de ligne (Maj+Entrée)" onClick={() => editor.chain().focus().setHardBreak().run()}><CornerDownLeft size={14} /></ToolbarButton>
           <span style={{ width: 1, height: 18, background: '#e5e7eb', margin: '0 4px' }} />
-          <ToolbarButton title="Insérer un tableau" onClick={() => editor.chain().focus().insertTable({ rows: 1, cols: 1, withHeaderRow: false }).run()}><TableIcon size={14} /></ToolbarButton>
+          <ToolbarButton title="Insérer un tableau" onClick={() => editor.chain().focus().insertTable({ rows: 2, cols: 3, withHeaderRow: true }).run()}><TableIcon size={14} /></ToolbarButton>
           {editor.isActive('table') && (
             <>
               <ToolbarButton title="Ajouter une ligne" onClick={() => editor.chain().focus().addRowAfter().run()}><Rows3 size={14} /></ToolbarButton>
@@ -170,10 +174,18 @@ export default function RichTextEditor({
         .rte-content a { color: #2563eb; text-decoration: underline; }
         .rte-content table { border-collapse: collapse; width: 100%; margin: 10px 0; }
         .rte-content table td, .rte-content table th {
-          border: 1px solid #d1d5db; padding: 6px 8px;
+          border: 1px solid #d1d5db; padding: 6px 8px; position: relative;
           overflow-wrap: break-word; word-break: break-word; white-space: normal; vertical-align: top;
         }
         .rte-content table th { background: #f0fdf4; font-weight: 700; }
+        /* Surlignage de la sélection multi-cellules (glisser sur plusieurs
+           cellules) — fourni par prosemirror-tables mais jamais importé,
+           donc jusqu'ici la sélection était invisible bien que fonctionnelle
+           (ce qui rendait fusionner/fractionner impossibles à utiliser). */
+        .rte-content .selectedCell:after {
+          z-index: 2; position: absolute; content: ''; left: 0; right: 0; top: 0; bottom: 0;
+          background: rgba(22, 163, 74, 0.18); pointer-events: none;
+        }
         .rte-content ul, .rte-content ol { padding-left: 22px; margin: 0 0 10px; }
         .rte-content [data-comment-id] { background: #fef9c3; border-bottom: 2px solid #eab308; cursor: pointer; }
         .collaboration-cursor__caret { position: relative; margin-left: -1px; margin-right: -1px; border-left: 1px solid; border-right: 1px solid; word-break: normal; pointer-events: none; }
