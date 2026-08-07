@@ -1,0 +1,33 @@
+import { createClient } from '@/lib/supabase-server'
+import { redirect } from 'next/navigation'
+import AppHeader from '@/components/AppHeader'
+import RHNav from './RHNav'
+
+export const dynamic = 'force-dynamic'
+
+export default async function RHLayout({ children }: { children: React.ReactNode }) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const { data: profile } = await supabase
+    .from('profiles').select('role, nom, prenoms, avatar_url').eq('id', user.id).single()
+
+  if (!profile || !['rh', 'admin', 'de', 'dp', 'administrateur', 'caf'].includes(profile.role)) redirect('/dashboard')
+
+  return (
+    <>
+      <AppHeader
+        userName={`${profile.prenoms ?? ''} ${profile.nom ?? ''}`}
+        userRole={profile.role}
+        showRH={true}
+        showAdmin={['admin', 'superadmin'].includes(profile.role)}
+        avatarUrl={profile.avatar_url ?? null}
+      />
+      <div className="page-container">
+        <RHNav role={profile.role} />
+        {children}
+      </div>
+    </>
+  )
+}
