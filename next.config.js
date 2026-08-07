@@ -54,10 +54,15 @@ const securityHeaders = [
 module.exports = withNextIntl({
   reactStrictMode: true,
   typescript: { ignoreBuildErrors: true },
+  // @sparticuz/chromium doit rester en dehors du bundle serveur : sinon
+  // Next.js déplace ses fichiers et casse sa référence interne à son propre
+  // dossier bin/ (erreur "input directory ... does not exist" au runtime).
+  serverExternalPackages: ['@sparticuz/chromium', 'puppeteer-core'],
   outputFileTracingIncludes: {
     '/api/aga/chat': ['./knowledge/**'],
     '/api/aga/reindex': ['./knowledge/**'],
     '/api/signatures/*/sign': ['./public/fonts/**'],
+    '/api/tdrs/*/pdf': ['./node_modules/@sparticuz/chromium/bin/**'],
   },
   async headers() {
     return [
