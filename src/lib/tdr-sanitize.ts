@@ -6,7 +6,10 @@ import type { Chapitre } from './tdr'
 // PDF, pour empêcher toute injection de script par un collaborateur en révision.
 const OPTIONS: sanitizeHtml.IOptions = {
   allowedTags: ['p', 'br', 'strong', 'b', 'em', 'i', 'u', 'a', 'ul', 'ol', 'li', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'span'],
-  allowedAttributes: { a: ['href', 'target', 'rel'], p: ['style'], span: ['data-comment-id'] },
+  allowedAttributes: {
+    a: ['href', 'target', 'rel'], p: ['style'], span: ['data-comment-id'],
+    td: ['colspan', 'rowspan'], th: ['colspan', 'rowspan'],
+  },
   allowedClasses: { span: ['tdr-comment-highlight'] },
   allowedSchemes: ['http', 'https', 'mailto'],
   allowedStyles: {
