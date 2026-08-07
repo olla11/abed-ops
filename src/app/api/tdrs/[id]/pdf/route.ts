@@ -4,7 +4,7 @@ import { formatSignatureDisplayName } from '@/lib/signature-name'
 import { CHAPITRE_CLES, labelSignataireRole, type Chapitre, type SignataireRole } from '@/lib/tdr'
 import { sanitizeChapitreTexte } from '@/lib/tdr-sanitize'
 import { BRITTANY_SIGNATURE_FONT_DATA_URI } from '@/lib/signature-font-data'
-import { LOGO_PNG_B64 } from '@/lib/logo-b64'
+import { LOGO_COLOR_PNG_B64 } from '@/lib/logo-color-b64'
 import puppeteer from 'puppeteer-core'
 import chromium from '@sparticuz/chromium'
 
@@ -156,8 +156,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   table.chapitre-table tr, .rte-content table tr { break-inside: avoid; page-break-inside: avoid; }
   .rte-content a { color: #2563eb; }
   .rte-content ul, .rte-content ol { margin: 0 0 10px; padding-left: 22px; }
-  .sig-block { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; margin-top: 50px; page-break-inside: avoid; }
-  .sig { text-align: center; width: 22%; min-width: 150px; }
+  /* Grille à 4 colonnes fixes (jamais de retour à la ligne) : la page
+     imprimée est plus étroite que l'ancien aperçu navigateur, donc un
+     flexbox avec largeur+min-width pouvait faire passer la 4e signature
+     seule à la ligne suivante, alignée à gauche au lieu d'être centrée. */
+  .sig-block { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 50px; page-break-inside: avoid; }
+  .sig { text-align: center; }
   .sig-role { font-size: 9pt; font-weight: bold; margin-bottom: 4px; min-height: 26px; }
   .sig-area { min-height: 44px; margin-top: 20px; display: flex; align-items: flex-end; justify-content: center; }
   .sig-cursive { font-family: 'BrittanySignature', cursive; font-size: 22pt; line-height: 1; color: #1e3a8a; transform: translateY(-10px); }
@@ -173,12 +177,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   ${apercu ? '<div class="apercu-banner">👁️ Aperçu — brouillon : les signatures manquantes apparaîtront une fois complétées.</div>' : ''}
 
   <div class="header">
-    <img src="data:image/png;base64,${LOGO_PNG_B64}" alt="Logo ABED">
+    <img src="data:image/png;base64,${LOGO_COLOR_PNG_B64}" alt="Logo ABED">
     <div class="org-text">
       <div class="org-name">Agriculture pour le Bien-être et le Développement Durable (ABED-ONG)</div>
       <div class="org-sub">Parakou, Wanssirou, derrière le lycée MB &nbsp;·&nbsp; Tél. : +229 0167779141<br>Email : contact@abedong.org &nbsp;|&nbsp; abedong.org</div>
     </div>
-    <img src="data:image/png;base64,${LOGO_PNG_B64}" alt="Logo ABED">
+    <img src="data:image/png;base64,${LOGO_COLOR_PNG_B64}" alt="Logo ABED">
   </div>
 
   <h1 class="titre-doc">TERMES DE RÉFÉRENCE</h1>
