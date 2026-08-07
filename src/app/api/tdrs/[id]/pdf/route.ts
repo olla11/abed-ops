@@ -25,10 +25,7 @@ function tableauEstVide(tableau: Chapitre['tableau']): tableau is undefined {
   return tableau.lignes.every(ligne => ligne.every(cell => !cell?.trim()))
 }
 
-function renderTableau(tableau: Chapitre['tableau']): string {
-  if (tableauEstVide(tableau)) {
-    return '<p class="muted">—</p>'
-  }
+function renderTableauInner(tableau: NonNullable<Chapitre['tableau']>): string {
   return `
     <table class="chapitre-table">
       <thead><tr>${tableau.colonnes.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead>
@@ -37,6 +34,18 @@ function renderTableau(tableau: Chapitre['tableau']): string {
       </tbody>
     </table>
   `
+}
+
+// Un chapitre "tableau" a deux zones de contenu (texte libre + tableau
+// structuré) — certains chapitres n'utilisent que l'une des deux (ex. des
+// tableaux dessinés directement dans le texte riche plutôt que via la zone
+// structurée). Le "—" de secours ne doit apparaître que si les DEUX zones
+// sont vides, jamais en plus d'un contenu déjà rempli dans l'autre.
+function renderChapitreTableau(c: Chapitre): string {
+  const texteVide = !c.texte || !c.texte.trim() || c.texte === '<p></p>'
+  const tabVide = tableauEstVide(c.tableau)
+  if (texteVide && tabVide) return '<p class="muted">—</p>'
+  return `${texteVide ? '' : renderTexte(c.texte)}${tabVide ? '' : renderTableauInner(c.tableau!)}`
 }
 
 function sigBlock(role: SignataireRole, signataire: any): string {
@@ -169,7 +178,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   ${chapitresOrdonnes.map((c, i) => `
     <h2 class="chapitre-titre">${i + 1}. ${esc(c.titre)}</h2>
-    ${c.type === 'tableau' ? `${c.texte && c.texte !== '<p></p>' ? renderTexte(c.texte) : ''}${renderTableau(c.tableau)}` : renderTexte(c.texte)}
+    ${c.type === 'tableau' ? renderChapitreTableau(c) : renderTexte(c.texte)}
   `).join('')}
 
   <h2 class="chapitre-titre">Approbation et autorisation</h2>
