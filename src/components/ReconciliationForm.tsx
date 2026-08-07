@@ -150,7 +150,7 @@ export default function ReconciliationForm({
       setMsgType('err')
     } else {
       setEmailFailed(false)
-      setMsg('Email envoyé avec succès au DE et à la CAF.')
+      setMsg('Email envoyé avec succès aux gestionnaires (DE, CAF, AAF).')
       setMsgType('ok')
     }
   }
@@ -335,7 +335,7 @@ export default function ReconciliationForm({
       {emailFailed && (
         <div style={{ background: '#fff7ed', border: '1px solid #f59e0b', borderRadius: 8, padding: 16 }}>
           <p style={{ fontWeight: 600, marginBottom: 8, color: '#92400e', fontSize: 14 }}>
-            L'email au DE et à la CAF n'a pas pu être envoyé. Vérifiez la configuration Resend puis réessayez.
+            L'email aux gestionnaires (DE, CAF, AAF) n'a pas pu être envoyé. Vérifiez la configuration Resend puis réessayez.
           </p>
           <button className="btn" style={{ background: '#d97706' }} onClick={retryEmail} disabled={retryingEmail}>
             {retryingEmail ? '⏳ Envoi…' : '🔄 Réessayer l\'envoi de l\'email'}

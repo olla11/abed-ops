@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { createAdminClient } from '@/lib/supabase-server'
 import { sendEmail } from '@/lib/resend'
+import { notifyMissionUser } from '@/lib/mission-notify'
 
 // POST /api/missions/[id]/valider-reconciliation-de
 // body: { action: 'valider' | 'rejeter', commentaire?: string }
@@ -50,8 +51,9 @@ export async function POST(
       reconciliation_commentaire: commentaire,
     }).eq('id', id)
 
-    await admin.from('notifications').insert({
-      user_id: mission.missionnaire_id,
+    await notifyMissionUser(admin, {
+      userId: mission.missionnaire_id,
+      missionId: id,
       titre: 'Réconciliation rejetée — à corriger',
       message: `Votre réconciliation pour la mission ${mission.reference ?? ''} a été rejetée par le Directeur Exécutif. Commentaire : ${commentaire}`,
       lien: `/missions/${id}/reconciliation`,
@@ -122,11 +124,11 @@ export async function POST(
   `
 
   // Notifier le missionnaire
-  await admin.from('notifications').insert({
-    user_id: mission.missionnaire_id,
+  await notifyMissionUser(admin, {
+    userId: mission.missionnaire_id,
+    missionId: id,
     titre: 'Réconciliation autorisée — mission clôturée',
     message: `Votre réconciliation pour la mission ${mission.reference ?? ''} a été autorisée par le Directeur Exécutif. La mission est définitivement clôturée.`,
-    lien: `/missions/${id}`,
   })
 
   // Envoyer email au DE/DP/CAF/AAF pour archivage

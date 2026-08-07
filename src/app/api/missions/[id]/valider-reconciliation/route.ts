@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { createAdminClient } from '@/lib/supabase-server'
+import { notifyMissionUser, notifyMissionByRole } from '@/lib/mission-notify'
 
 // POST /api/missions/[id]/valider-reconciliation
 // body: { action: 'valider' | 'rejeter', commentaire?: string }
@@ -50,8 +51,9 @@ export async function POST(
     }).eq('id', id)
 
     // Notifier le missionnaire
-    await admin.from('notifications').insert({
-      user_id: mission.missionnaire_id,
+    await notifyMissionUser(admin, {
+      userId: mission.missionnaire_id,
+      missionId: id,
       titre: 'Réconciliation rejetée — à corriger',
       message: `Votre réconciliation pour la mission ${mission.reference ?? ''} a été rejetée par la CAF. Commentaire : ${commentaire}`,
       lien: `/missions/${id}/reconciliation`,
@@ -67,25 +69,21 @@ export async function POST(
   }).eq('id', id)
 
   // Notifier le missionnaire
-  await admin.from('notifications').insert({
-    user_id: mission.missionnaire_id,
+  await notifyMissionUser(admin, {
+    userId: mission.missionnaire_id,
+    missionId: id,
     titre: 'Réconciliation validée par la CAF',
     message: `Votre réconciliation pour la mission ${mission.reference ?? ''} a été validée par la CAF et est en attente d'autorisation du Directeur Exécutif.`,
-    lien: `/missions/${id}`,
   })
 
   // Notifier le DE
-  const { data: des } = await admin
-    .from('profiles').select('id').in('role', ['de', 'admin'])
-  for (const d of des ?? []) {
-    if (d.id === user.id) continue
-    await admin.from('notifications').insert({
-      user_id: d.id,
-      titre: `Réconciliation à autoriser — Mission ${mission.reference ?? id}`,
-      message: `La réconciliation de la mission « ${mission.objet} » a été validée par la CAF et attend votre autorisation finale.`,
-      lien: `/missions/${id}`,
-    })
-  }
+  await notifyMissionByRole(admin, {
+    roles: ['de', 'admin'],
+    missionId: id,
+    excludeId: user.id,
+    titre: `Réconciliation à autoriser — Mission ${mission.reference ?? id}`,
+    message: `La réconciliation de la mission « ${mission.objet} » a été validée par la CAF et attend votre autorisation finale.`,
+  })
 
   return NextResponse.json({ ok: true, status: 'reconciliation_de' })
 }
