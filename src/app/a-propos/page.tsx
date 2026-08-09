@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import AppHeader from '@/components/AppHeader'
 import { Info, Sprout, ShieldCheck, Mail } from 'lucide-react'
 import pkg from '../../../package.json'
+import { estAAF } from '@/lib/roles'
 
 const FONCTIONNALITES = [
   'Ordres de mission & réconciliation',
@@ -30,6 +31,7 @@ export default async function AProposPage() {
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={profile?.role ?? ''}
         typeEmploi={profile?.type_emploi}
+        showAAF={estAAF(profile?.role ?? '')}
         avatarUrl={profile?.avatar_url ?? null}
       />
       <div className="page-container" style={{ maxWidth: 720 }}>

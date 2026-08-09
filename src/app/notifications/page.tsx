@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import AppHeader from '@/components/AppHeader'
 import NotificationsClient from './NotificationsClient'
+import { estAAF } from '@/lib/roles'
 
 export default async function NotificationsPage() {
   const supabase = await createClient()
@@ -24,6 +25,7 @@ export default async function NotificationsPage() {
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={profile?.role ?? ''}
         typeEmploi={profile?.type_emploi}
+        showAAF={estAAF(profile?.role ?? '')}
         avatarUrl={profile?.avatar_url ?? null}
       />
       <div className="page-container">

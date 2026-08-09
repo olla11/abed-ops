@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import ReconciliationForm from '@/components/ReconciliationForm'
 import AppHeader from '@/components/AppHeader'
 import Link from 'next/link'
+import { estAAF } from '@/lib/roles'
 
 export default async function ReconciliationPage({ params }: { params: Promise<{ id: string }> }) {
   const supabase = await createClient()
@@ -34,6 +35,7 @@ export default async function ReconciliationPage({ params }: { params: Promise<{
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={profile?.role}
         showAdmin={['admin', 'superadmin'].includes(profile?.role ?? '')}
+        showAAF={estAAF(profile?.role ?? '')}
       />
     <div className="page-container">
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>

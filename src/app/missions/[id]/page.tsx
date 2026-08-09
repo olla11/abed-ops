@@ -74,6 +74,7 @@ export default async function MissionDetail({ params }: { params: Promise<{ id: 
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={role}
         showAdmin={['admin', 'superadmin'].includes(role)}
+        showAAF={estAAF(role)}
       />
     <div className="page-container">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>

@@ -12,7 +12,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (!user) redirect('/login')
 
   const { data: profile } = await supabase
-    .from('profiles').select('role, nom, prenoms, avatar_url').eq('id', user.id).single()
+    .from('profiles').select('role, nom, prenoms, avatar_url, type_emploi').eq('id', user.id).single()
 
   if (!profile || !['admin', 'rh', 'caf', 'superadmin'].includes(profile.role)) redirect('/dashboard')
 
@@ -26,6 +26,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <AppHeader
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={profile?.role}
+        typeEmploi={profile.type_emploi}
         showAdmin={['admin', 'superadmin'].includes(profile.role)}
         showRH={estRH(profile.role)}
         showAAF={estAAF(profile.role)}

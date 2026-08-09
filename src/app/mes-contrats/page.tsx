@@ -3,6 +3,7 @@ import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import AppHeader from '@/components/AppHeader'
 import MesContratsClient from './MesContratsClient'
+import { estAAF } from '@/lib/roles'
 
 export default async function MesContratsPage() {
   const supabase = await createClient()
@@ -46,6 +47,7 @@ export default async function MesContratsPage() {
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={profile?.role ?? 'missionnaire'}
         typeEmploi={profile?.type_emploi}
+        showAAF={estAAF(profile?.role ?? '')}
         avatarUrl={profile?.avatar_url ?? null}
       />
       <MesContratsClient contrats={contratsAvecDemande} contratsASigner={contratsASigner} canSign={canSign} />

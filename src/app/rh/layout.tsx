@@ -12,7 +12,7 @@ export default async function RHLayout({ children }: { children: React.ReactNode
   if (!user) redirect('/login')
 
   const { data: profile } = await supabase
-    .from('profiles').select('role, nom, prenoms, avatar_url').eq('id', user.id).single()
+    .from('profiles').select('role, nom, prenoms, avatar_url, type_emploi').eq('id', user.id).single()
 
   if (!profile || !['rh', 'admin', 'de', 'dp', 'administrateur', 'caf'].includes(profile.role)) redirect('/dashboard')
 
@@ -21,6 +21,7 @@ export default async function RHLayout({ children }: { children: React.ReactNode
       <AppHeader
         userName={`${profile.prenoms ?? ''} ${profile.nom ?? ''}`}
         userRole={profile.role}
+        typeEmploi={profile.type_emploi}
         showRH={true}
         showAAF={estAAF(profile.role)}
         showAdmin={['admin', 'superadmin'].includes(profile.role)}

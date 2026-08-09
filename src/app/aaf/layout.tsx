@@ -12,7 +12,7 @@ export default async function AAFLayout({ children }: { children: React.ReactNod
   if (!user) redirect('/login')
 
   const { data: profile } = await supabase
-    .from('profiles').select('role, nom, prenoms, avatar_url').eq('id', user.id).single()
+    .from('profiles').select('role, nom, prenoms, avatar_url, type_emploi').eq('id', user.id).single()
 
   if (!profile || !(estAAF(profile.role) || ['admin', 'superadmin'].includes(profile.role))) redirect('/dashboard')
 
@@ -21,6 +21,7 @@ export default async function AAFLayout({ children }: { children: React.ReactNod
       <AppHeader
         userName={`${profile.prenoms ?? ''} ${profile.nom ?? ''}`}
         userRole={profile.role}
+        typeEmploi={profile.type_emploi}
         showAAF={true}
         showAdmin={['admin', 'superadmin'].includes(profile.role)}
         avatarUrl={profile.avatar_url ?? null}

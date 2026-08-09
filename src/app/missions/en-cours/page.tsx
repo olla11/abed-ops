@@ -3,6 +3,7 @@ import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import AppHeader from '@/components/AppHeader'
+import { estAAF } from '@/lib/roles'
 
 export default async function MissionsEnCours() {
   const supabase = await createClient()
@@ -40,6 +41,7 @@ export default async function MissionsEnCours() {
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={role}
         typeEmploi={profile?.type_emploi}
+        showAAF={estAAF(role)}
         avatarUrl={profile?.avatar_url ?? null}
       />
       <div className="page-container">
