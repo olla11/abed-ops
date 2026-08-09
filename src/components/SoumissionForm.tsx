@@ -63,6 +63,7 @@ export default function SoumissionForm({ managerId, typeEmploi }: { managerId: s
   const [reFiles, setReFiles] = useState<Record<string, { ts?: File; liv?: File; fac?: File }>>({})
   const [correcting, setCorrecting] = useState<string | null>(null)
   const [corrFiles, setCorrFiles] = useState<Record<string, { ts?: File; liv?: File; fac?: File }>>({})
+  const [corrPeriode, setCorrPeriode] = useState<Record<string, { mois: number; annee: number }>>({})
   const [correctingSubmitting, setCorrectingSubmitting] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
@@ -157,13 +158,17 @@ export default function SoumissionForm({ managerId, typeEmploi }: { managerId: s
 
   async function corriger(soumId: string) {
     const rf = corrFiles[soumId] ?? {}
-    if (!rf.ts && !rf.liv && !rf.fac) { setMsg('Choisissez au moins un fichier à remplacer.'); return }
+    const soum = history.find(s => s.id === soumId)
+    const periode = corrPeriode[soumId]
+    const periodeChangee = periode && soum && (periode.mois !== soum.periode_mois || periode.annee !== soum.periode_annee)
+    if (!rf.ts && !rf.liv && !rf.fac && !periodeChangee) { setMsg('Choisissez au moins un fichier à remplacer, ou corrigez le mois.'); return }
     setCorrectingSubmitting(soumId)
     try {
-      const uploads: Record<string, string> = {}
+      const uploads: Record<string, string | number> = {}
       if (rf.ts) uploads.fichier_timesheet_url = await uploadFile(rf.ts, 'timesheet')
       if (rf.liv) uploads.fichier_livrable_url = await uploadFile(rf.liv, 'livrable')
       if (rf.fac) uploads.fichier_facture_url = await uploadFile(rf.fac, 'facture')
+      if (periode) { uploads.periode_mois = periode.mois; uploads.periode_annee = periode.annee }
       const res = await fetch(`/api/timesheets/${soumId}/corriger`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -526,7 +531,10 @@ export default function SoumissionForm({ managerId, typeEmploi }: { managerId: s
                           {peutModifier && confirmDelete !== s.id && (
                             <div style={{ display: 'flex', gap: 6, whiteSpace: 'nowrap' }}>
                               <button className="btn secondary" style={{ fontSize: 11, padding: '3px 8px' }}
-                                onClick={() => setCorrecting(isCorrecting ? null : s.id)}>
+                                onClick={() => {
+                                  if (!isCorrecting) setCorrPeriode(p => ({ ...p, [s.id]: { mois: s.periode_mois, annee: s.periode_annee } }))
+                                  setCorrecting(isCorrecting ? null : s.id)
+                                }}>
                                 {isCorrecting ? 'Fermer' : 'Corriger'}
                               </button>
                               <button className="btn danger" style={{ fontSize: 11, padding: '3px 8px' }}
@@ -553,8 +561,24 @@ export default function SoumissionForm({ managerId, typeEmploi }: { managerId: s
                       {isCorrecting && (
                         <tr>
                           <td colSpan={7} style={{ background: '#f9fafb', padding: 14 }}>
+                            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 12 }}>
+                              <div>
+                                <label style={{ fontSize: 11, fontWeight: 600 }}>Mois</label>
+                                <input className="input" type="number" min={1} max={12}
+                                  style={{ width: 80, display: 'block', marginTop: 4 }}
+                                  value={corrPeriode[s.id]?.mois ?? s.periode_mois}
+                                  onChange={e => setCorrPeriode(p => ({ ...p, [s.id]: { mois: +e.target.value, annee: p[s.id]?.annee ?? s.periode_annee } }))} />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: 11, fontWeight: 600 }}>Année</label>
+                                <input className="input" type="number"
+                                  style={{ width: 90, display: 'block', marginTop: 4 }}
+                                  value={corrPeriode[s.id]?.annee ?? s.periode_annee}
+                                  onChange={e => setCorrPeriode(p => ({ ...p, [s.id]: { mois: p[s.id]?.mois ?? s.periode_mois, annee: +e.target.value } }))} />
+                              </div>
+                            </div>
                             <p style={{ fontSize: 12, color: 'var(--abed-muted)', marginBottom: 8 }}>
-                              Téléversez uniquement les fichiers à remplacer :
+                              Téléversez uniquement les fichiers à remplacer (facultatif si vous corrigez seulement le mois) :
                             </p>
                             <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 10 }}>
                               <div>

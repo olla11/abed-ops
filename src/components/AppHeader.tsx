@@ -68,7 +68,7 @@ export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, s
   }
 
   const dossierActive = subTabs.some(s => isActive(s.match))
-  const aafActive = showAAF && aafTabs.some(s => isActive(s.match))
+  const aafActive = showAAF && (isActive(['/aaf']) || aafTabs.some(s => isActive(s.match)))
 
   // Close mobile menu on route change
   useEffect(() => { setMobileOpen(false) }, [pathname])

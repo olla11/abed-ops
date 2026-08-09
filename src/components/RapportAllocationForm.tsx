@@ -47,7 +47,7 @@ export default function RapportAllocationForm({ typeEmploi }: { typeEmploi?: str
   const [loading, setLoading] = useState(false)
   const [history, setHistory] = useState<Rapport[]>([])
   const [resoumission, setResoumission] = useState<{ id: string; texte: string; fichier: File | null } | null>(null)
-  const [correction, setCorrection] = useState<{ id: string; texte: string; fichier: File | null } | null>(null)
+  const [correction, setCorrection] = useState<{ id: string; texte: string; fichier: File | null; mois: number; annee: number } | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -129,7 +129,10 @@ export default function RapportAllocationForm({ typeEmploi }: { typeEmploi?: str
       const res = await fetch(`/api/rapports-allocations/${correction.id}/corriger`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rapport_texte: correction.texte, fichier_rapport_url: fichier_url }),
+        body: JSON.stringify({
+          rapport_texte: correction.texte, fichier_rapport_url: fichier_url,
+          periode_mois: correction.mois, periode_annee: correction.annee,
+        }),
       })
       const json = await res.json()
       if (!res.ok) { setMsg('Erreur : ' + json.error); return }
@@ -283,7 +286,7 @@ export default function RapportAllocationForm({ typeEmploi }: { typeEmploi?: str
                     {peutModifier && !isCorrecting && confirmDelete !== r.id && (
                       <>
                         <button className="btn secondary" style={{ fontSize: 11, padding: '4px 10px' }}
-                          onClick={() => setCorrection({ id: r.id, texte: r.rapport_texte ?? '', fichier: null })}>
+                          onClick={() => setCorrection({ id: r.id, texte: r.rapport_texte ?? '', fichier: null, mois: r.periode_mois, annee: r.periode_annee })}>
                           Corriger
                         </button>
                         <button className="btn danger" style={{ fontSize: 11, padding: '4px 10px' }}
@@ -309,6 +312,18 @@ export default function RapportAllocationForm({ typeEmploi }: { typeEmploi?: str
                 </div>
                 {isCorrecting && (
                   <div style={{ marginTop: 12, display: 'grid', gap: 10 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                      <div className="field">
+                        <label className="label">Mois *</label>
+                        <input className="input" type="number" min={1} max={12} value={correction.mois}
+                          onChange={e => setCorrection(s => s ? { ...s, mois: +e.target.value } : null)} />
+                      </div>
+                      <div className="field">
+                        <label className="label">Année *</label>
+                        <input className="input" type="number" value={correction.annee}
+                          onChange={e => setCorrection(s => s ? { ...s, annee: +e.target.value } : null)} />
+                      </div>
+                    </div>
                     <div className="field">
                       <label className="label">Résumé corrigé *</label>
                       <textarea className="input" rows={5}

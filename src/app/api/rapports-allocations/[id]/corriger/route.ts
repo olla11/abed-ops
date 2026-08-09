@@ -17,9 +17,11 @@ export async function POST(
   if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
 
   const body = await req.json()
-  const { rapport_texte, fichier_rapport_url } = body
+  const { rapport_texte, fichier_rapport_url, periode_mois, periode_annee } = body
   if (!rapport_texte?.trim()) return NextResponse.json({ error: 'Rapport requis' }, { status: 400 })
   if (!fichier_rapport_url) return NextResponse.json({ error: 'Document Word requis' }, { status: 400 })
+  if (periode_mois != null && (periode_mois < 1 || periode_mois > 12))
+    return NextResponse.json({ error: 'Mois invalide' }, { status: 400 })
 
   const admin = createAdminClient()
 
@@ -36,14 +38,20 @@ export async function POST(
   }
 
   const now = new Date().toISOString()
-  const { error } = await admin.from('rapports_allocations').update({
-    rapport_texte, fichier_rapport_url, corrige_le: now,
-  }).eq('id', id)
+  const update: Record<string, any> = { rapport_texte, fichier_rapport_url, corrige_le: now }
+  if (periode_mois != null) update.periode_mois = periode_mois
+  if (periode_annee != null) update.periode_annee = periode_annee
+  const { error } = await admin.from('rapports_allocations').update(update).eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
   const prest = rapport.prestataire as any
-  const mois = new Date(rapport.periode_annee, rapport.periode_mois - 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
-  const message = `${prest?.prenoms ?? ''} ${prest?.nom ?? ''} a mis à jour son rapport de ${mois} — relisez la nouvelle version avant de le traiter.`
+  const moisAffiche = periode_mois ?? rapport.periode_mois
+  const anneeAffichee = periode_annee ?? rapport.periode_annee
+  const periodeChangee = (periode_mois != null && periode_mois !== rapport.periode_mois) || (periode_annee != null && periode_annee !== rapport.periode_annee)
+  const mois = new Date(anneeAffichee, moisAffiche - 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+  const message = periodeChangee
+    ? `${prest?.prenoms ?? ''} ${prest?.nom ?? ''} a mis à jour son rapport (désormais ${mois}) — relisez la nouvelle version avant de le traiter.`
+    : `${prest?.prenoms ?? ''} ${prest?.nom ?? ''} a mis à jour son rapport de ${mois} — relisez la nouvelle version avant de le traiter.`
 
   // Prévenir qui détient actuellement le dossier, selon son statut courant.
   if (rapport.status === 'soumis' && rapport.manager_id) {

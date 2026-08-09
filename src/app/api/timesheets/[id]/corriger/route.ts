@@ -17,16 +17,18 @@ export async function POST(
   if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
 
   const body = await req.json()
-  const { fichier_timesheet_url, fichier_livrable_url, fichier_facture_url } = body
-  if (!fichier_timesheet_url && !fichier_livrable_url && !fichier_facture_url) {
+  const { fichier_timesheet_url, fichier_livrable_url, fichier_facture_url, periode_mois, periode_annee } = body
+  if (!fichier_timesheet_url && !fichier_livrable_url && !fichier_facture_url && periode_mois == null && periode_annee == null) {
     return NextResponse.json({ error: 'Aucun fichier à remplacer' }, { status: 400 })
   }
+  if (periode_mois != null && (periode_mois < 1 || periode_mois > 12))
+    return NextResponse.json({ error: 'Mois invalide' }, { status: 400 })
 
   const admin = createAdminClient()
 
   const { data: soum } = await admin
     .from('soumissions')
-    .select('id, status, manager_id, prestataire_id, titre, prestataire:profiles!soumissions_prestataire_id_fkey(nom, prenoms)')
+    .select('id, status, manager_id, prestataire_id, titre, periode_mois, periode_annee, prestataire:profiles!soumissions_prestataire_id_fkey(nom, prenoms)')
     .eq('id', id).single()
 
   if (!soum || soum.prestataire_id !== user.id) {
@@ -40,12 +42,17 @@ export async function POST(
   if (fichier_timesheet_url) updates.fichier_timesheet_url = fichier_timesheet_url
   if (fichier_livrable_url) updates.fichier_livrable_url = fichier_livrable_url
   if (fichier_facture_url) updates.fichier_facture_url = fichier_facture_url
+  const periodeChangee = (periode_mois != null && periode_mois !== soum.periode_mois) || (periode_annee != null && periode_annee !== soum.periode_annee)
+  if (periode_mois != null) updates.periode_mois = periode_mois
+  if (periode_annee != null) updates.periode_annee = periode_annee
 
   const { error } = await admin.from('soumissions').update(updates).eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
   const prest = soum.prestataire as any
-  const message = `${prest?.prenoms ?? ''} ${prest?.nom ?? ''} a mis à jour « ${soum.titre} » — relisez la nouvelle version avant de le traiter.`
+  const message = periodeChangee
+    ? `${prest?.prenoms ?? ''} ${prest?.nom ?? ''} a mis à jour « ${soum.titre} » (période corrigée : ${periode_mois ?? soum.periode_mois}/${periode_annee ?? soum.periode_annee}) — relisez la nouvelle version avant de le traiter.`
+    : `${prest?.prenoms ?? ''} ${prest?.nom ?? ''} a mis à jour « ${soum.titre} » — relisez la nouvelle version avant de le traiter.`
 
   if (soum.status === 'soumis' && soum.manager_id) {
     await admin.from('notifications').insert({ user_id: soum.manager_id, titre: 'Dossier mis à jour', message, lien: '/timesheets' })
