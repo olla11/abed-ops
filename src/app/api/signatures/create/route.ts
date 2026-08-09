@@ -2,6 +2,7 @@ import { NextRequest, NextResponse, after } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { sendEmail } from '@/lib/resend'
 import { signExternalSignerToken } from '@/lib/external-signer-token'
+import { convertOfficeToPdf, isOfficeConvertible } from '@/lib/office-to-pdf'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_URL ?? 'https://myabed.app'
 
@@ -143,14 +144,52 @@ export async function POST(req: NextRequest) {
   // Upload file if provided
   let fichier_url: string | null = null
   if (fichier && fichier.size > 0) {
+    // Le circuit entier (aperçu, zones de signature, tampon incrusté) ne
+    // sait travailler que sur un PDF — tout format qu'on ne sait pas
+    // convertir doit être rejeté ici plutôt que de produire un document
+    // illisible plus loin dans le circuit.
+    const ext = fichier.name.toLowerCase().split('.').pop()
+    if (!ext || !['pdf', 'docx', 'xlsx', 'xls'].includes(ext)) {
+      return NextResponse.json({
+        error: `Format "${fichier.name}" non pris en charge. Utilisez un PDF, un Word (.docx) ou un Excel (.xls/.xlsx).`,
+      }, { status: 400 })
+    }
+
     // Create bucket if it doesn't exist
     await admin.storage.createBucket('documents', { public: false }).catch(() => {})
 
-    const path = `${user.id}/${Date.now()}_${fichier.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
-    const arrayBuffer = await fichier.arrayBuffer()
+    let uploadName = fichier.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+    let contentType = fichier.type || 'application/pdf'
+    let bytes: ArrayBuffer | Buffer = await fichier.arrayBuffer()
+
+    // Un document Word/Excel est accepté mais tout le circuit (aperçu, zones
+    // de signature, tampon incrusté) ne sait travailler que sur un PDF — on
+    // le convertit donc une fois pour toutes à l'envoi plutôt que de porter
+    // ce cas particulier dans chaque écran de consultation/signature.
+    if (isOfficeConvertible(fichier.name)) {
+      let converted: Buffer | null
+      try {
+        converted = await convertOfficeToPdf(Buffer.from(bytes), fichier.name, titre)
+      } catch (convErr) {
+        console.error('[Signatures] Office->PDF conversion error:', convErr)
+        return NextResponse.json({
+          error: `Impossible de convertir "${fichier.name}" en PDF. Le fichier est peut-être corrompu ou dans un format non pris en charge — réessayez avec un PDF.`,
+        }, { status: 400 })
+      }
+      if (!converted) {
+        return NextResponse.json({
+          error: `Le format de "${fichier.name}" n'est pas pris en charge pour la signature. Utilisez un PDF, un .docx ou un .xlsx/.xls.`,
+        }, { status: 400 })
+      }
+      bytes = converted
+      contentType = 'application/pdf'
+      uploadName = uploadName.replace(/\.(docx|xlsx|xls)$/i, '') + '.pdf'
+    }
+
+    const path = `${user.id}/${Date.now()}_${uploadName}`
     const { error: uploadErr } = await admin.storage
       .from('documents')
-      .upload(path, arrayBuffer, { contentType: fichier.type || 'application/pdf', upsert: false })
+      .upload(path, bytes, { contentType, upsert: false })
 
     if (uploadErr) {
       console.error('[Signatures] Upload error:', uploadErr.message)

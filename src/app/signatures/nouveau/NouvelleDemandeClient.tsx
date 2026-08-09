@@ -424,12 +424,13 @@ export default function NouvelleDemandeClient({ userId, profiles }: Props) {
             <input
               ref={fileRef}
               type="file"
-              accept=".pdf,.doc,.docx,.xls,.xlsx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              accept=".pdf,.docx,.xls,.xlsx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
               onChange={e => setFichier(e.target.files?.[0] ?? null)}
               style={{ display: 'none' }}
             />
             <p style={{ fontSize: 11, color: 'var(--abed-muted)', marginTop: 6 }}>
-              PDF, Word (.doc/.docx) ou Excel (.xls/.xlsx). L&apos;aperçu et les zones de signature ne sont disponibles que pour un PDF.
+              PDF, Word (.docx) ou Excel (.xls/.xlsx) — un Word/Excel est automatiquement converti en PDF à l&apos;envoi.
+              L&apos;aperçu et les zones de signature ci-dessous ne sont disponibles que pour un PDF déjà choisi (le fichier converti en aura un dès l&apos;envoi). Le format .doc (ancien Word) n&apos;est pas pris en charge — enregistrez-le en .docx.
             </p>
           </div>
 

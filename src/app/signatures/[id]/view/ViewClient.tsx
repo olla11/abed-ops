@@ -68,7 +68,7 @@ function SignatureBlock({ name, date, hash, small }: { name: string; date: strin
   )
 }
 
-export default function ViewClient({ titre, docUrl, signataires }: { titre: string; docUrl: string | null; signataires: Signataire[] }) {
+export default function ViewClient({ titre, docUrl, isPdf, signataires }: { titre: string; docUrl: string | null; isPdf: boolean; signataires: Signataire[] }) {
   const router = useRouter()
   const signedSigs = signataires.filter(s => s.signe && s.sig_x != null && s.sig_y != null)
   const [policeChargee, setPoliceChargee] = useState(false)
@@ -99,6 +99,14 @@ export default function ViewClient({ titre, docUrl, signataires }: { titre: stri
             {!docUrl ? (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#9ca3af', fontSize: 14 }}>
                 Aucun fichier joint
+              </div>
+            ) : !isPdf ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center', justifyContent: 'center', height: '100%', color: '#e5e7eb', fontSize: 14, textAlign: 'center', padding: 32 }}>
+                <span>📄 L&apos;aperçu n&apos;est pas disponible pour ce document (ancien format Word/Excel non converti).</span>
+                <a href={docUrl} target="_blank" rel="noopener noreferrer"
+                  style={{ padding: '8px 18px', borderRadius: 6, fontSize: 13, fontWeight: 700, background: '#4b5563', color: '#e5e7eb', border: 'none', textDecoration: 'none' }}>
+                  📥 Télécharger pour le consulter
+                </a>
               </div>
             ) : (
               <div style={{ position: 'relative', width: '100%', height: '100%' }}>

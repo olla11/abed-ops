@@ -63,6 +63,7 @@ module.exports = withNextIntl({
     '/api/aga/reindex': ['./knowledge/**'],
     '/api/signatures/*/sign': ['./public/fonts/**'],
     '/api/tdrs/*/pdf': ['./node_modules/@sparticuz/chromium/bin/**'],
+    '/api/signatures/create': ['./node_modules/@sparticuz/chromium/bin/**'],
   },
   async headers() {
     return [
