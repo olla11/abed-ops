@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase-server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { revalidateTag } from 'next/cache'
 import { sendEmail } from '@/lib/resend'
+import { autoSkipConge } from '@/lib/circuit-vacancy'
 
 function countWorkingDays(start: string, end: string): number {
   let count = 0
@@ -72,6 +73,11 @@ export async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   revalidateTag('conges')
+
+  // Si le responsable N1 assigné n'a plus de compte actif (et qu'aucun RH/DE
+  // ne peut prendre le relais), fait sauter automatiquement l'étape plutôt
+  // que de bloquer la demande de congé.
+  await autoSkipConge(service, data.id).catch(e => console.error('[autoSkipConge]:', e))
 
   await service.from('notifications').insert({
     user_id: profile.manager_id,

@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase-server'
 import { createAdminClient } from '@/lib/supabase-server'
 import { notifyMissionUser, notifyMissionByRole } from '@/lib/mission-notify'
 import { estAAF } from '@/lib/roles'
+import { autoSkipReconciliationOM } from '@/lib/circuit-vacancy'
 
 // POST /api/missions/[id]/valider-reconciliation-aaf
 // body: { action: 'valider' | 'rejeter', commentaire?: string }
@@ -72,6 +73,8 @@ export async function POST(
     titre: `Réconciliation à valider — Mission ${mission.reference ?? id}`,
     message: `La réconciliation de la mission « ${mission.objet} » a été validée par l'AAF et est soumise pour validation finale CAF.`,
   })
+
+  await autoSkipReconciliationOM(admin, id).catch(e => console.error('[autoSkipReconciliationOM]:', e))
 
   return NextResponse.json({ ok: true, status: 'reconciliation_caf' })
 }

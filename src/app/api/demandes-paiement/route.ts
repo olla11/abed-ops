@@ -4,6 +4,7 @@ import { sendEmail } from '@/lib/resend'
 import { rateLimit } from '@/lib/rate-limit'
 import { validate, s } from '@/lib/validate'
 import { z } from 'zod'
+import { autoSkipDemandePaiement } from '@/lib/circuit-vacancy'
 
 const DemandeSchema = z.object({
   nom_complet:      z.string().min(1).max(200),
@@ -84,6 +85,10 @@ export async function POST(req: NextRequest) {
   }).select().single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+
+  // Si aucun compte AAF (ni CAF, qui en hérite les droits) n'est actif,
+  // fait sauter automatiquement l'étape plutôt que de bloquer la demande.
+  await autoSkipDemandePaiement(admin, data.id).catch(e => console.error('[autoSkipDemandePaiement]:', e))
 
   // Marquer la soumission associée comme "demande soumise" pour masquer la bannière
   if (soumission_id) {

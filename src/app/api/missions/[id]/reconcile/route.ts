@@ -3,6 +3,7 @@ import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { createMomoDebit } from '@/lib/fedapay'
 import { sendEmail } from '@/lib/resend'
 import { notifyMissionUser, notifyMissionByRole } from '@/lib/mission-notify'
+import { autoSkipReconciliationOM } from '@/lib/circuit-vacancy'
 
 export async function POST(
   req: NextRequest,
@@ -195,6 +196,10 @@ export async function POST(
     titre: `Réconciliation à valider — Mission ${mission.reference ?? id}`,
     message: `La réconciliation de la mission « ${mission.objet} » est soumise pour validation AAF. Mode financement : ${modeLabelFr(mode_financement)}.`,
   })
+
+  // Si aucun compte AAF (ni CAF, qui en hérite les droits) n'est actif,
+  // fait sauter automatiquement l'étape plutôt que de bloquer la réconciliation.
+  await autoSkipReconciliationOM(admin, id).catch(e => console.error('[autoSkipReconciliationOM]:', e))
 
   return NextResponse.json({
     ok: true,

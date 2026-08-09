@@ -3,6 +3,7 @@ import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { sendEmail } from '@/lib/resend'
 import { accordGenre } from '@/lib/genre'
 import { estAAF } from '@/lib/roles'
+import { autoSkipDemandePaiement } from '@/lib/circuit-vacancy'
 
 // action: valider | rejeter | refuser
 // etape déduite du rôle: aaf → valide_aaf, caf → valide_caf, de → autorise
@@ -80,6 +81,10 @@ export async function POST(
 
   const { error } = await supabase.from('demandes_paiement').update(update).eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+
+  // Si le nouveau statut attend un rôle qui n'a plus personne d'actif, fait
+  // sauter automatiquement l'étape suivante plutôt que de bloquer la demande.
+  await autoSkipDemandePaiement(admin, id).catch(e => console.error('[autoSkipDemandePaiement]:', e))
 
   const demandeur = demande.demandeur as any
 

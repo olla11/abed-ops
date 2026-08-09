@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase-server'
+import { createClient, createAdminClient } from '@/lib/supabase-server'
+import { autoSkipRapportAllocation } from '@/lib/circuit-vacancy'
 
 export async function GET() {
   const supabase = await createClient()
@@ -59,6 +60,11 @@ export async function POST(req: NextRequest) {
     message: `Un rapport mensuel attend votre validation technique.`,
     lien: '/timesheets',
   })
+
+  // Si le responsable assigné n'a plus de compte actif, fait sauter
+  // automatiquement l'étape plutôt que de bloquer le rapport.
+  const admin = createAdminClient()
+  await autoSkipRapportAllocation(admin, data.id).catch(e => console.error('[autoSkipRapportAllocation]:', e))
 
   return NextResponse.json({ ok: true, id: data.id })
 }

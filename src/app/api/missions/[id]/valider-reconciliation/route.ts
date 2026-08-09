@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { createAdminClient } from '@/lib/supabase-server'
 import { notifyMissionUser, notifyMissionByRole } from '@/lib/mission-notify'
+import { autoSkipReconciliationOM } from '@/lib/circuit-vacancy'
 
 // POST /api/missions/[id]/valider-reconciliation
 // body: { action: 'valider' | 'rejeter', commentaire?: string }
@@ -84,6 +85,8 @@ export async function POST(
     titre: `Réconciliation à autoriser — Mission ${mission.reference ?? id}`,
     message: `La réconciliation de la mission « ${mission.objet} » a été validée par la CAF et attend votre autorisation finale.`,
   })
+
+  await autoSkipReconciliationOM(admin, id).catch(e => console.error('[autoSkipReconciliationOM]:', e))
 
   return NextResponse.json({ ok: true, status: 'reconciliation_de' })
 }

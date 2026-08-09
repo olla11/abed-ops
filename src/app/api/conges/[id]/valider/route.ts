@@ -5,6 +5,7 @@ import { revalidateTag } from 'next/cache'
 import { sendEmail } from '@/lib/resend'
 import { accordGenre } from '@/lib/genre'
 import { estRH } from '@/lib/roles'
+import { autoSkipConge } from '@/lib/circuit-vacancy'
 
 type RouteContext = { params: Promise<{ id: string }> }
 
@@ -144,6 +145,10 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
   const { data: updated, error } = await service.from('conges').update(updates).eq('id', id).select('*, type_conge:types_conge(nom)').single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   revalidateTag('conges')
+
+  // Si le nouveau statut attend un rôle qui n'a plus personne d'actif, fait
+  // sauter automatiquement l'étape suivante plutôt que de bloquer le congé.
+  await autoSkipConge(service, id).catch(e => console.error('[autoSkipConge]:', e))
 
   // Notification + email à l'employé — après la réponse, en parallèle
   after(async () => {

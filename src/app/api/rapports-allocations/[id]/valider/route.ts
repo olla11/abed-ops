@@ -3,6 +3,7 @@ import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { sendEmail } from '@/lib/resend'
 import { accordGenre } from '@/lib/genre'
 import { estAAF } from '@/lib/roles'
+import { autoSkipRapportAllocation } from '@/lib/circuit-vacancy'
 
 export async function POST(
   req: NextRequest,
@@ -95,6 +96,10 @@ export async function POST(
 
   const { error } = await supabase.from('rapports_allocations').update(update).eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+
+  // Si le nouveau statut attend un rôle qui n'a plus personne d'actif, fait
+  // sauter automatiquement l'étape suivante plutôt que de bloquer le rapport.
+  await autoSkipRapportAllocation(admin, id).catch(e => console.error('[autoSkipRapportAllocation]:', e))
 
   const prest = rapport.prestataire as any
   const manager = rapport.manager as any
