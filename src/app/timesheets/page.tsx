@@ -3,7 +3,9 @@ import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import AppHeader from '@/components/AppHeader'
 import RolePreviewBanner from '@/components/RolePreviewBanner'
+import ImpersonationBanner from '@/components/ImpersonationBanner'
 import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
+import { getImpersonationInfo } from '@/lib/impersonation'
 import TimesheetsClient from '@/components/TimesheetsClient'
 import { estRH, estAAF as roleEstAAF } from '@/lib/roles'
 
@@ -20,6 +22,7 @@ export default async function TimesheetsPage() {
   const realRole = profile?.role ?? 'missionnaire'
   const role = await getEffectiveRole(realRole)
   const previewRole = await getRolePreview()
+  const impersonation = await getImpersonationInfo()
   const typeEmploi = profile?.type_emploi ?? null
 
   const estManager = ['manager', 'caf', 'admin', 'de', 'dp', 'aaf'].includes(role)
@@ -70,6 +73,7 @@ export default async function TimesheetsPage() {
         avatarUrl={profile?.avatar_url ?? null}
       />
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}
+      {impersonation && <ImpersonationBanner adminNom={impersonation.adminNom} adminPrenoms={impersonation.adminPrenoms} targetNom={impersonation.targetNom} targetPrenoms={impersonation.targetPrenoms} targetRole={impersonation.targetRole} />}
       <TimesheetsClient
         role={role}
         typeEmploi={typeEmploi}

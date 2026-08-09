@@ -3,7 +3,9 @@ import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import AppHeader from '@/components/AppHeader'
 import RolePreviewBanner from '@/components/RolePreviewBanner'
+import ImpersonationBanner from '@/components/ImpersonationBanner'
 import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
+import { getImpersonationInfo } from '@/lib/impersonation'
 import RessourcesClient from './RessourcesClient'
 import { estRH } from '@/lib/roles'
 
@@ -32,6 +34,7 @@ export default async function RessourcesPage() {
   const realRole = profile?.role ?? 'missionnaire'
   const role = await getEffectiveRole(realRole)
   const previewRole = await getRolePreview()
+  const impersonation = await getImpersonationInfo()
   const isManager = (estRH(realRole) || realRole === 'admin') && !previewRole
 
   const admin = createAdminClient()
@@ -54,6 +57,7 @@ export default async function RessourcesPage() {
         avatarUrl={profile?.avatar_url ?? null}
       />
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}
+      {impersonation && <ImpersonationBanner adminNom={impersonation.adminNom} adminPrenoms={impersonation.adminPrenoms} targetNom={impersonation.targetNom} targetPrenoms={impersonation.targetPrenoms} targetRole={impersonation.targetRole} />}
       <RessourcesClient ressources={(ressources ?? []) as Ressource[]} isManager={isManager} />
     </>
   )

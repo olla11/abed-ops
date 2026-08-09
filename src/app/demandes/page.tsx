@@ -3,7 +3,9 @@ import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import AppHeader from '@/components/AppHeader'
 import RolePreviewBanner from '@/components/RolePreviewBanner'
+import ImpersonationBanner from '@/components/ImpersonationBanner'
 import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
+import { getImpersonationInfo } from '@/lib/impersonation'
 import DemandesClient from '@/components/DemandesClient'
 import { estRH } from '@/lib/roles'
 
@@ -20,6 +22,7 @@ export default async function DemandesPage() {
   const realRole = profile?.role ?? 'missionnaire'
   const role = await getEffectiveRole(realRole)
   const previewRole = await getRolePreview()
+  const impersonation = await getImpersonationInfo()
 
   return (
     <>
@@ -32,6 +35,7 @@ export default async function DemandesPage() {
         avatarUrl={profile?.avatar_url ?? null}
       />
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}
+      {impersonation && <ImpersonationBanner adminNom={impersonation.adminNom} adminPrenoms={impersonation.adminPrenoms} targetNom={impersonation.targetNom} targetPrenoms={impersonation.targetPrenoms} targetRole={impersonation.targetRole} />}
       <div className="page-container" style={{ display: 'grid', gap: 28 }}>
       <DemandesClient
         role={role}

@@ -3,7 +3,9 @@ import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import AppHeader from '@/components/AppHeader'
 import RolePreviewBanner from '@/components/RolePreviewBanner'
+import ImpersonationBanner from '@/components/ImpersonationBanner'
 import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
+import { getImpersonationInfo } from '@/lib/impersonation'
 import { getCachedProfile, getCachedTypesConge } from '@/lib/cache'
 import MesCongesClient from './MesCongesClient'
 import { estRH } from '@/lib/roles'
@@ -17,6 +19,7 @@ export default async function MesCongesPage() {
   const realRole = profile?.role ?? 'missionnaire'
   const role = await getEffectiveRole(realRole)
   const previewRole = await getRolePreview()
+  const impersonation = await getImpersonationInfo()
 
   const [conges, typesConge, soldes] = await Promise.all([
     supabase.from('conges')
@@ -44,6 +47,7 @@ export default async function MesCongesPage() {
         avatarUrl={profile?.avatar_url ?? null}
       />
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}
+      {impersonation && <ImpersonationBanner adminNom={impersonation.adminNom} adminPrenoms={impersonation.adminPrenoms} targetNom={impersonation.targetNom} targetPrenoms={impersonation.targetPrenoms} targetRole={impersonation.targetRole} />}
       <MesCongesClient
           conges={conges}
           typesConge={typesConge}

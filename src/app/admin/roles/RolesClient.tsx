@@ -85,15 +85,29 @@ const ROLES = [
   },
 ]
 
+interface ImpersonationTarget {
+  id: string
+  nom: string
+  prenoms: string
+  role: string
+}
+
 export default function RolesClient({
   currentPreview,
   roleCounts,
+  isSuperadmin,
+  impersonationTargets,
 }: {
   currentPreview: string | null
   roleCounts: Record<string, number>
+  isSuperadmin: boolean
+  impersonationTargets: ImpersonationTarget[]
 }) {
   const router = useRouter()
   const [loading, setLoading] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const [impersonating, setImpersonating] = useState<string | null>(null)
+  const [impersonateError, setImpersonateError] = useState<string | null>(null)
 
   async function simulate(role: string) {
     setLoading(role)
@@ -106,6 +120,30 @@ export default function RolesClient({
     router.push('/dashboard')
     router.refresh()
   }
+
+  async function impersonate(targetId: string) {
+    setImpersonating(targetId)
+    setImpersonateError(null)
+    const res = await fetch('/api/admin/impersonate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ targetId }),
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      setImpersonateError(data.error ?? 'Échec de la connexion')
+      setImpersonating(null)
+      return
+    }
+    router.push('/dashboard')
+    router.refresh()
+  }
+
+  const filteredTargets = impersonationTargets.filter(t => {
+    if (!search.trim()) return true
+    const q = search.toLowerCase()
+    return `${t.prenoms} ${t.nom}`.toLowerCase().includes(q) || t.role.toLowerCase().includes(q)
+  })
 
   return (
     <div className="page-container">
@@ -130,6 +168,68 @@ export default function RolesClient({
           }}>
             Quitter la simulation
           </button>
+        </div>
+      )}
+
+      {isSuperadmin && (
+        <div className="card" style={{ marginBottom: 28, padding: 20 }}>
+          <h3 style={{ margin: '0 0 6px', fontSize: 16, color: '#dc2626' }}>Se connecter en tant que</h3>
+          <p style={{ fontSize: 13, color: 'var(--abed-muted)', margin: '0 0 14px', lineHeight: 1.5 }}>
+            Contrairement à la simulation ci-dessous (qui ne change que l&apos;affichage), cette option ouvre une
+            vraie session sous l&apos;identité de la personne choisie : vous verrez exactement les données
+            auxquelles elle a droit. Réservé au superadmin. Une bannière rouge permet de revenir à votre compte.
+          </p>
+
+          {impersonateError && (
+            <div style={{
+              background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b',
+              borderRadius: 8, padding: '8px 12px', marginBottom: 12, fontSize: 13,
+            }}>
+              {impersonateError}
+            </div>
+          )}
+
+          <input
+            type="text"
+            placeholder="Rechercher un nom ou un rôle..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{
+              width: '100%', padding: '8px 12px', borderRadius: 8, marginBottom: 14,
+              border: '1px solid var(--abed-border)', fontSize: 13,
+            }}
+          />
+
+          <div style={{ maxHeight: 320, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {filteredTargets.length === 0 && (
+              <p style={{ fontSize: 13, color: 'var(--abed-muted)' }}>Aucun utilisateur trouvé.</p>
+            )}
+            {filteredTargets.map(t => (
+              <div key={t.id} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '8px 12px', borderRadius: 8, border: '1px solid var(--abed-border)',
+              }}>
+                <div>
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>{t.prenoms} {t.nom}</span>
+                  <span style={{ fontSize: 12, color: 'var(--abed-muted)', marginLeft: 8 }}>
+                    {ROLES.find(r => r.key === t.role)?.label ?? t.role}
+                  </span>
+                </div>
+                <button
+                  onClick={() => impersonate(t.id)}
+                  disabled={impersonating !== null}
+                  style={{
+                    padding: '5px 12px', borderRadius: 6, fontSize: 12, fontWeight: 600,
+                    border: '1px solid #dc2626', background: 'white', color: '#dc2626',
+                    cursor: impersonating !== null ? 'default' : 'pointer',
+                    opacity: impersonating === t.id ? 0.6 : 1,
+                  }}
+                >
+                  {impersonating === t.id ? 'Connexion...' : 'Se connecter en tant que'}
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

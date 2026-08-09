@@ -3,7 +3,9 @@ import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import AppHeader from '@/components/AppHeader'
 import RolePreviewBanner from '@/components/RolePreviewBanner'
+import ImpersonationBanner from '@/components/ImpersonationBanner'
 import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
+import { getImpersonationInfo } from '@/lib/impersonation'
 import ProfileEditForm from '@/components/ProfileEditForm'
 import ProfileAssetForm from '@/components/ProfileAssetForm'
 import NotificationTopicsForm from '@/components/NotificationTopicsForm'
@@ -23,6 +25,7 @@ export default async function ProfilePage() {
   const realRole = profile?.role ?? 'missionnaire'
   const role = await getEffectiveRole(realRole)
   const previewRole = await getRolePreview()
+  const impersonation = await getImpersonationInfo()
   const canUpload = ['de', 'dp', 'caf', 'admin', 'administrateur'].includes(role)
 
   return (
@@ -36,6 +39,7 @@ export default async function ProfilePage() {
         avatarUrl={profile?.avatar_url ?? null}
       />
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}
+      {impersonation && <ImpersonationBanner adminNom={impersonation.adminNom} adminPrenoms={impersonation.adminPrenoms} targetNom={impersonation.targetNom} targetPrenoms={impersonation.targetPrenoms} targetRole={impersonation.targetRole} />}
       <div className="page-container" style={{ maxWidth: 760 }}>
         <h2 style={{ color: 'var(--abed-green)', marginBottom: 24 }}>Mon profil</h2>
 

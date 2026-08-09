@@ -4,7 +4,9 @@ import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import AppHeader from '@/components/AppHeader'
 import RolePreviewBanner from '@/components/RolePreviewBanner'
+import ImpersonationBanner from '@/components/ImpersonationBanner'
 import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
+import { getImpersonationInfo } from '@/lib/impersonation'
 import OverviewOperations from '@/components/OverviewOperations'
 import { estRH } from '@/lib/roles'
 
@@ -19,6 +21,7 @@ export default async function OverviewPage() {
   const realRole = profile?.role ?? ''
   const role = await getEffectiveRole(realRole)
   const previewRole = await getRolePreview()
+  const impersonation = await getImpersonationInfo()
   if (!['aaf','caf','de','dp','admin','administrateur','superadmin'].includes(role)) redirect('/timesheets')
 
   return (
@@ -32,6 +35,7 @@ export default async function OverviewPage() {
         avatarUrl={profile?.avatar_url ?? null}
       />
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}
+      {impersonation && <ImpersonationBanner adminNom={impersonation.adminNom} adminPrenoms={impersonation.adminPrenoms} targetNom={impersonation.targetNom} targetPrenoms={impersonation.targetPrenoms} targetRole={impersonation.targetRole} />}
       <div className="page-container" style={{ display: 'grid', gap: 28 }}>
 
       <div>

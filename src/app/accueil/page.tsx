@@ -2,8 +2,10 @@ export const dynamic = 'force-dynamic'
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
+import { getImpersonationInfo } from '@/lib/impersonation'
 import AppHeader from '@/components/AppHeader'
 import RolePreviewBanner from '@/components/RolePreviewBanner'
+import ImpersonationBanner from '@/components/ImpersonationBanner'
 import AccueilClient from '@/components/AccueilClient'
 import { estRH } from '@/lib/roles'
 
@@ -20,6 +22,7 @@ export default async function AccueilPage() {
   const realRole = profile?.role ?? 'missionnaire'
   const role = await getEffectiveRole(realRole)
   const previewRole = await getRolePreview()
+  const impersonation = await getImpersonationInfo()
 
   // Compteurs personnalisés selon le rôle
   const [
@@ -52,6 +55,7 @@ export default async function AccueilPage() {
         avatarUrl={profile?.avatar_url ?? null}
       />
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}
+      {impersonation && <ImpersonationBanner adminNom={impersonation.adminNom} adminPrenoms={impersonation.adminPrenoms} targetNom={impersonation.targetNom} targetPrenoms={impersonation.targetPrenoms} targetRole={impersonation.targetRole} />}
       <AccueilClient
         prenom={profile?.prenoms ?? ''}
         role={role}

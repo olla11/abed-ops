@@ -2,8 +2,10 @@ export const dynamic = 'force-dynamic'
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
+import { getImpersonationInfo } from '@/lib/impersonation'
 import AppHeader from '@/components/AppHeader'
 import RolePreviewBanner from '@/components/RolePreviewBanner'
+import ImpersonationBanner from '@/components/ImpersonationBanner'
 import ProjetDetailClient from '@/components/ProjetDetailClient'
 import ProjetsSidebar from '@/components/ProjetsSidebar'
 import { estRH } from '@/lib/roles'
@@ -20,6 +22,7 @@ export default async function ProjetDetailPage({ params }: { params: Promise<{ i
   const realRole = profile?.role ?? 'missionnaire'
   const role = await getEffectiveRole(realRole)
   const previewRole = await getRolePreview()
+  const impersonation = await getImpersonationInfo()
 
   const { data: projet } = await supabase
     .from('projets_internes')
@@ -85,6 +88,7 @@ export default async function ProjetDetailPage({ params }: { params: Promise<{ i
         avatarUrl={profile?.avatar_url ?? null}
       />
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}
+      {impersonation && <ImpersonationBanner adminNom={impersonation.adminNom} adminPrenoms={impersonation.adminPrenoms} targetNom={impersonation.targetNom} targetPrenoms={impersonation.targetPrenoms} targetRole={impersonation.targetRole} />}
       <div style={{ display: 'flex' }}>
         <div className="projets-sidebar"><ProjetsSidebar /></div>
         <div className="projets-main" style={{ minWidth: 0 }}>

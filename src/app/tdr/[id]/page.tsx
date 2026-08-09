@@ -3,7 +3,9 @@ import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import AppHeader from '@/components/AppHeader'
 import RolePreviewBanner from '@/components/RolePreviewBanner'
+import ImpersonationBanner from '@/components/ImpersonationBanner'
 import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
+import { getImpersonationInfo } from '@/lib/impersonation'
 import TdrDetailClient from './TdrDetailClient'
 import { estRH } from '@/lib/roles'
 
@@ -22,6 +24,7 @@ export default async function TdrDetailPage({ params }: { params: Promise<{ id: 
   const realRole = profile?.role ?? 'missionnaire'
   const role = await getEffectiveRole(realRole)
   const previewRole = await getRolePreview()
+  const impersonation = await getImpersonationInfo()
 
   const { data: tdr } = await supabase
     .from('tdrs')
@@ -77,6 +80,7 @@ export default async function TdrDetailPage({ params }: { params: Promise<{ id: 
         avatarUrl={profile?.avatar_url ?? null}
       />
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}
+      {impersonation && <ImpersonationBanner adminNom={impersonation.adminNom} adminPrenoms={impersonation.adminPrenoms} targetNom={impersonation.targetNom} targetPrenoms={impersonation.targetPrenoms} targetRole={impersonation.targetRole} />}
       <TdrDetailClient tdr={tdr as any} myId={user.id} myRole={realRole} allProfiles={allProfiles ?? []} />
     </>
   )
