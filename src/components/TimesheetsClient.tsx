@@ -21,6 +21,7 @@ type Tab = {
 
 type Props = {
   role: string
+  userId: string
   typeEmploi: string | null
   managerId: string | null
   hasManager: boolean
@@ -34,7 +35,7 @@ type Props = {
 }
 
 export default function TimesheetsClient({
-  role, typeEmploi, managerId, hasManager,
+  role, userId, typeEmploi, managerId, hasManager,
   countTimesheetsAValider, countRapportsAValider, countTimesheetsCAF,
   countRapportsAAF, countRapportsCAF, countRapportsDE,
 }: Props) {
@@ -217,9 +218,9 @@ export default function TimesheetsClient({
           {activeTab === 'mon_rapport' && <RapportAllocationForm typeEmploi={typeEmploi} />}
           {activeTab === 'mon_solde' && <SoldeCredit />}
           {activeTab === 'caf_timesheets' && <ValidationCAF />}
-          {activeTab === 'aaf_rapports' && <ValidationRapportsAAF role="aaf" />}
-          {activeTab === 'caf_rapports' && <ValidationRapportsAAF role="caf" />}
-          {activeTab === 'de_rapports' && <ValidationRapportsAAF role={role} />}
+          {activeTab === 'aaf_rapports' && <ValidationRapportsAAF role="aaf" userId={userId} />}
+          {activeTab === 'caf_rapports' && <ValidationRapportsAAF role="caf" userId={userId} />}
+          {activeTab === 'de_rapports' && <ValidationRapportsAAF role={role} userId={userId} />}
           {activeTab === 'validation_tech' && <ValidationManager />}
         </div>
       </div>

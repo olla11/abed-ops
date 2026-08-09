@@ -18,7 +18,7 @@ export default async function AAFRapportsAllocationsPage() {
         Rapports mensuels validés techniquement, en attente de la fixation du montant d&apos;allocation
         (étape AAF), avant transmission à la CAF.
       </p>
-      <ValidationRapportsAAF role={profile?.role ?? ''} />
+      <ValidationRapportsAAF role={profile?.role ?? ''} userId={user.id} />
     </div>
   )
 }

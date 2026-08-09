@@ -6,6 +6,7 @@ type Rapport = {
   id: string; periode_mois: number; periode_annee: number
   rapport_texte: string; montant_allocation: number | null; status: string
   commentaire_manager: string | null
+  prestataire_id: string
   prestataire: { nom: string; prenoms: string; type_emploi: string | null } | null
 }
 
@@ -13,7 +14,7 @@ const STATUS_FOR_AAF = ['valide_tech']
 const STATUS_FOR_CAF = ['traite_aaf']
 const STATUS_FOR_DE = ['valide_caf']
 
-export default function ValidationRapportsAAF({ role }: { role: string }) {
+export default function ValidationRapportsAAF({ role, userId }: { role: string; userId?: string }) {
   const [rapports, setRapports] = useState<Rapport[]>([])
   const [loading, setLoading] = useState(true)
   const [commentMap, setCommentMap] = useState<Record<string, string>>({})
@@ -62,7 +63,11 @@ export default function ValidationRapportsAAF({ role }: { role: string }) {
     setSubmitting(null); load()
   }
 
-  const aTraiter = rapports.filter(canAct)
+  // Personne ne traite son propre dossier, même si son rôle correspondrait
+  // techniquement à l'étape courante (ex : l'AAF qui soumet son propre
+  // rapport ne peut pas se fixer lui-même son montant d'allocation) — il
+  // revient alors naturellement au CAF, qui hérite des droits AAF.
+  const aTraiter = rapports.filter(r => r.prestataire_id !== userId && canAct(r))
   if (loading || aTraiter.length === 0) return null
 
   return (

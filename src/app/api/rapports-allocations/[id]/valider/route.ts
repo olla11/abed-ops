@@ -55,6 +55,11 @@ export async function POST(
       update = { status: 'rejete_manager', commentaire_manager: commentaire }
     }
   } else if ((estAAF(role) || role === 'admin') && rapport.status === 'valide_tech') {
+    // L'AAF ne peut pas fixer lui-même le montant de son propre rapport —
+    // ça revient naturellement à la CAF, qui hérite des droits AAF.
+    if (rapport.prestataire_id === user.id) {
+      return NextResponse.json({ error: 'Vous ne pouvez pas traiter votre propre rapport. La CAF s\'en chargera.' }, { status: 403 })
+    }
     if (action === 'valider') {
       if (!montant_allocation || +montant_allocation <= 0)
         return NextResponse.json({ error: 'Montant requis' }, { status: 400 })

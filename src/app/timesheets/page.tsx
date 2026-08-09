@@ -77,6 +77,7 @@ export default async function TimesheetsPage() {
       {impersonation && <ImpersonationBanner adminNom={impersonation.adminNom} adminPrenoms={impersonation.adminPrenoms} targetNom={impersonation.targetNom} targetPrenoms={impersonation.targetPrenoms} targetRole={impersonation.targetRole} />}
       <TimesheetsClient
         role={role}
+        userId={user.id}
         typeEmploi={typeEmploi}
         managerId={profile?.manager_id ?? null}
         hasManager={!!profile?.manager_id}
