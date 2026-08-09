@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation'
 
 const TABS = [
   { href: '/aaf', label: 'Tableau de bord', exact: true },
+  { href: '/overview', label: "Vue d'ensemble", exact: true },
   { href: '/aaf/demandes-paiement', label: 'Demandes de paiement' },
   { href: '/aaf/rapports-allocations', label: "Rapports d'allocation" },
   { href: '/aaf/reconciliations', label: 'Réconciliations OM' },

@@ -31,7 +31,6 @@ export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, s
   const showOverview = OVERVIEW_ROLES.includes(userRole ?? '')
   const estRapport = RAPPORT_TYPES.includes(typeEmploi ?? '')
   const [dossierOpen, setDossierOpen] = useState(false)
-  const [aafOpen, setAafOpen] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const mobileRef = useRef<HTMLDivElement>(null)
 
@@ -149,46 +148,13 @@ export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, s
             )}
           </div>
 
-          {/* AAF (dropdown) — visible pour AAF et CAF (le CAF hérite des droits AAF) */}
+          {/* AAF — lien simple vers le tableau de bord ; le sous-menu se fait
+              via la barre d'onglets alignée dans la section /aaf elle-même
+              (AAFNav), pas via un menu déroulant qui la recouvrirait. */}
           {showAAF && (
-            <div
-              style={{ position: 'relative', display: 'flex', alignItems: 'stretch' }}
-              onMouseEnter={() => setAafOpen(true)}
-              onMouseLeave={() => setAafOpen(false)}
-            >
-              <button style={tabStyle(!!aafActive)}>
-                AAF <span style={{ fontSize: 9, marginLeft: 4, opacity: 0.7 }}>▼</span>
-              </button>
-              {aafOpen && (
-                <div style={{
-                  position: 'absolute', top: '100%', left: 0, zIndex: 200,
-                  background: 'white', border: '1px solid var(--abed-border)',
-                  borderRadius: '0 0 10px 10px', minWidth: 230,
-                  boxShadow: '0 8px 24px rgba(0,0,0,.10)',
-                }}>
-                  {aafTabs.map(s => {
-                    const active = isActive(s.match)
-                    return (
-                      <Link key={s.href} href={s.href}
-                        style={{
-                          display: 'block', padding: '11px 18px', fontSize: 13,
-                          fontWeight: active ? 700 : 400,
-                          color: active ? 'var(--abed-green)' : '#374151',
-                          background: active ? '#f0fdf4' : 'white',
-                          textDecoration: 'none',
-                          borderBottom: '1px solid #f3f4f6',
-                          transition: 'background .1s',
-                        }}
-                        onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = '#f9fafb' }}
-                        onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'white' }}
-                      >
-                        {s.label}
-                      </Link>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
+            <Link href="/aaf" style={tabStyle(!!aafActive)}>
+              AAF
+            </Link>
           )}
 
           {/* Autres onglets */}
@@ -250,26 +216,17 @@ export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, s
 
           {/* AAF */}
           {showAAF && (
-            <>
-              <div style={{ padding: '8px 16px 4px', fontSize: 11, fontWeight: 700, color: 'var(--abed-muted)', textTransform: 'uppercase', letterSpacing: '.05em', borderTop: '1px solid var(--abed-border)', marginTop: 4 }}>
-                AAF
-              </div>
-              {aafTabs.map(s => {
-                const active = isActive(s.match)
-                return (
-                  <Link key={s.href} href={s.href} style={{
-                    display: 'block', padding: '12px 24px', fontSize: 14,
-                    fontWeight: active ? 700 : 400,
-                    color: active ? 'var(--abed-green)' : '#374151',
-                    background: active ? '#f0fdf4' : 'white',
-                    textDecoration: 'none',
-                    borderBottom: '1px solid #f9fafb',
-                  }}>
-                    {s.label}
-                  </Link>
-                )
-              })}
-            </>
+            <Link href="/aaf" style={{
+              display: 'block', padding: '12px 24px', fontSize: 14,
+              fontWeight: aafActive ? 700 : 400,
+              color: aafActive ? 'var(--abed-green)' : '#374151',
+              background: aafActive ? '#f0fdf4' : 'white',
+              textDecoration: 'none',
+              borderBottom: '1px solid #f9fafb',
+              borderTop: '1px solid var(--abed-border)',
+            }}>
+              AAF
+            </Link>
           )}
 
           {/* Autres onglets */}
