@@ -35,7 +35,7 @@ function estMonTour(tdr: TdrLite, myId: string): boolean {
 
 export default function TdrListClient({ tdrs, myId }: { tdrs: TdrLite[]; myId: string }) {
   const router = useRouter()
-  const [tab, setTab] = useState<'mes' | 'signer' | 'actifs'>('mes')
+  const [tab, setTab] = useState<'mes' | 'signer' | 'actifs' | 'archives'>('mes')
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
 
@@ -44,9 +44,13 @@ export default function TdrListClient({ tdrs, myId }: { tdrs: TdrLite[]; myId: s
 
   const mesTdrs = tdrs.filter(t => t.initiateur_id === myId || t.collaborateurs.some(c => c.profile_id === myId))
   const aSignerTdrs = tdrs.filter(t => estMonTour(t, myId))
-  const actifsTdrs = tdrs.filter(t => t.statut === 'actif' || t.statut === 'cloture')
+  const actifsTdrs = tdrs.filter(t => (t.statut === 'actif' || t.statut === 'cloture') && !t.archive_le)
+  // Archivés automatiquement (TDR clôturés de l'année civile précédente, le
+  // 31 janvier) — retirés de "Tous les TDR actifs" mais toujours consultables
+  // ici, avec la même règle de visibilité (RLS) que les autres onglets.
+  const archivesTdrs = tdrs.filter(t => !!t.archive_le)
 
-  const byTab = tab === 'mes' ? mesTdrs : tab === 'signer' ? aSignerTdrs : actifsTdrs
+  const byTab = tab === 'mes' ? mesTdrs : tab === 'signer' ? aSignerTdrs : tab === 'archives' ? archivesTdrs : actifsTdrs
 
   const items = search.trim()
     ? byTab.filter(t => t.titre_activite.toLowerCase().includes(search.trim().toLowerCase()) || (t.numero ?? '').toLowerCase().includes(search.trim().toLowerCase()))
@@ -59,6 +63,7 @@ export default function TdrListClient({ tdrs, myId }: { tdrs: TdrLite[]; myId: s
     { key: 'mes' as const, label: 'Mes TDR', count: mesTdrs.length },
     { key: 'signer' as const, label: 'À signer', count: aSignerTdrs.length },
     { key: 'actifs' as const, label: 'Tous les TDR actifs', count: actifsTdrs.length },
+    { key: 'archives' as const, label: 'Archives', count: archivesTdrs.length },
   ]
 
   return (

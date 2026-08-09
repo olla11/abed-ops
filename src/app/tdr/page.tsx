@@ -20,6 +20,7 @@ export type TdrLite = {
   initiateur: { id: string; nom: string; prenoms: string } | null
   created_at: string
   updated_at: string
+  archive_le: string | null
   signataires: { role: string; profile_id: string | null; statut: string }[]
   collaborateurs: { profile_id: string }[]
 }
@@ -41,10 +42,11 @@ export default async function TdrPage() {
   const impersonation = await getImpersonationInfo()
 
   // RLS (tdrs_select / can_access_tdr) filtre déjà : initiateur, collaborateur,
-  // signataire, admin/rh, ou TDR actif/clôturé (visible de tous).
+  // signataire, ou rôle à vision globale (de/aaf/caf/dp/administrateur/admin) —
+  // les autres rôles ne reçoivent ici que les TDR où ils sont impliqués.
   const { data: tdrs, error } = await supabase
     .from('tdrs')
-    .select(`id, numero, titre_activite, projet, periode, statut, initiateur_id, created_at, updated_at,
+    .select(`id, numero, titre_activite, projet, periode, statut, initiateur_id, created_at, updated_at, archive_le,
       initiateur:profiles!tdrs_initiateur_id_fkey(id, nom, prenoms),
       signataires:tdr_signataires(role, profile_id, statut),
       collaborateurs:tdr_collaborateurs(profile_id)
