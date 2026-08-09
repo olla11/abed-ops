@@ -42,7 +42,7 @@ async function openFile(path: string) {
 
 type Onglet = { key: string; icon: LucideIcon; label: string; desc: string; count: number; color?: string; items: Demande[]; actif: boolean }
 
-export default function TraitementDemandes({ role, userId }: { role: string; userId: string }) {
+export default function TraitementDemandes({ role, userId, hideMesDemandes }: { role: string; userId: string; hideMesDemandes?: boolean }) {
   const [demandes, setDemandes] = useState<Demande[]>([])
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -95,11 +95,16 @@ export default function TraitementDemandes({ role, userId }: { role: string; use
   const enCours = autres.filter(d => !canAct(d) && !STATUTS_TERMINAUX.includes(d.status))
   const cloturees = autres.filter(d => !canAct(d) && STATUTS_TERMINAUX.includes(d.status))
 
+  // "Mes demandes" est masqué dans le menu AAF (/aaf/demandes-paiement) :
+  // c'est une information personnelle, pas un traitement — elle ne vit plus
+  // que dans "Mon espace" (/demandes).
   const onglets: Onglet[] = [
     { key: 'a_traiter', icon: Clock, label: 'À traiter', desc: 'Votre action requise',
       count: aTraiter.length, color: aTraiter.length > 0 ? '#b45309' : undefined, items: aTraiter, actif: true },
-    { key: 'mes_demandes', icon: User, label: 'Mes demandes', desc: 'Vos soumissions personnelles',
-      count: mesDemandes.length, color: mesDemandes.length > 0 ? '#166534' : undefined, items: mesDemandes, actif: false },
+    ...(hideMesDemandes ? [] : [
+      { key: 'mes_demandes', icon: User, label: 'Mes demandes', desc: 'Vos soumissions personnelles',
+        count: mesDemandes.length, color: mesDemandes.length > 0 ? '#166534' : undefined, items: mesDemandes, actif: false },
+    ]),
     { key: 'en_cours', icon: Users, label: 'En cours ailleurs', desc: "Chez d'autres traiteurs",
       count: enCours.length, color: enCours.length > 0 ? '#1e40af' : undefined, items: enCours, actif: false },
     { key: 'cloturees', icon: CheckCircle2, label: 'Clôturées', desc: 'Statut définitif',
