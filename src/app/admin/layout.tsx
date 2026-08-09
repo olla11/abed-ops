@@ -2,6 +2,10 @@ import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import AppHeader from '@/components/AppHeader'
 import AdminNav from './AdminNav'
+import RolePreviewBanner from '@/components/RolePreviewBanner'
+import ImpersonationBanner from '@/components/ImpersonationBanner'
+import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
+import { getImpersonationInfo } from '@/lib/impersonation'
 import { estRH, estAAF } from '@/lib/roles'
 
 export const dynamic = 'force-dynamic'
@@ -16,6 +20,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   if (!profile || !['admin', 'rh', 'caf', 'superadmin'].includes(profile.role)) redirect('/dashboard')
 
+  const realRole = profile.role
+  const role = await getEffectiveRole(realRole)
+  const previewRole = await getRolePreview()
+  const impersonation = await getImpersonationInfo()
+
   const { count: pendingCount } = await supabase
     .from('profiles')
     .select('id', { count: 'exact', head: true })
@@ -25,15 +34,17 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <>
       <AppHeader
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
-        userRole={profile?.role}
+        userRole={role}
         typeEmploi={profile.type_emploi}
-        showAdmin={['admin', 'superadmin'].includes(profile.role)}
-        showRH={estRH(profile.role)}
-        showAAF={estAAF(profile.role)}
+        showAdmin={['admin', 'superadmin'].includes(realRole) && !previewRole}
+        showRH={estRH(role)}
+        showAAF={estAAF(role)}
         avatarUrl={profile?.avatar_url ?? null}
       />
+      {previewRole && <RolePreviewBanner previewRole={previewRole} />}
+      {impersonation && <ImpersonationBanner adminNom={impersonation.adminNom} adminPrenoms={impersonation.adminPrenoms} targetNom={impersonation.targetNom} targetPrenoms={impersonation.targetPrenoms} targetRole={impersonation.targetRole} />}
       <div className="page-container">
-        <AdminNav role={profile.role} pendingCount={pendingCount ?? 0} />
+        <AdminNav role={role} pendingCount={pendingCount ?? 0} />
         {children}
       </div>
     </>
