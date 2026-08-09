@@ -124,3 +124,8 @@ export const ROLES_QUI_ATTRIBUENT: AccessRole[] = ['admin', 'rh', 'caf']
 // reste vrai partout sans dupliquer 'caf' dans chaque liste de rôles.
 export const estAAF = (r?: string | null) => r === 'aaf' || r === 'caf'
 export const estRH = (r?: string | null) => r === 'rh' || r === 'caf'
+
+// Contrairement à estAAF/estRH (chevauchement dans les deux sens), le menu
+// CAF Pro est exclusif au rôle 'caf' lui-même — personne d'autre n'hérite
+// des étapes de validation propres à la CAF.
+export const estCAF = (r?: string | null) => r === 'caf'

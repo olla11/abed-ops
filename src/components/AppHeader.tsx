@@ -7,6 +7,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import UserAvatar from './UserAvatar'
 import AgaWidget from './AgaWidget'
 import NotificationBell from './NotificationBell'
+import { estAAF as roleEstAAF, estRH as roleEstRH, estCAF as roleEstCAF } from '@/lib/roles'
 
 type Props = {
   userName?: string
@@ -15,22 +16,33 @@ type Props = {
   showAdmin?: boolean
   showRH?: boolean
   showAAF?: boolean
+  showCAF?: boolean
   avatarUrl?: string | null
 }
 
-// Vue d'ensemble reste un onglet principal pour ces rôles-là — pour AAF/CAF,
-// elle est transposée en premier sous-menu du nouveau menu "AAF" (voir
-// aafTabs ci-dessous) plutôt que dupliquée aux deux endroits.
-const OVERVIEW_ROLES = ['de','dp','admin','administrateur','superadmin']
+// Vue d'ensemble reste un onglet principal pour la CAF (elle garde son accès
+// direct) et pour de/dp/admin — pour AAF (seul), elle est transposée en
+// premier sous-menu du menu "AAF" (voir aafTabs ci-dessous) plutôt que
+// dupliquée aux deux endroits.
+const OVERVIEW_ROLES = ['de','dp','caf','admin','administrateur','superadmin']
 const RAPPORT_TYPES = ['benevole','stagiaire_n1','stagiaire_n2','cdd','cdi']
 
-export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, showRH, showAAF, avatarUrl }: Props) {
+export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, showRH, showAAF, showCAF, avatarUrl }: Props) {
   const pathname = usePathname()
   const locale = useLocale()
   const t = useTranslations('nav')
   const showOverview = OVERVIEW_ROLES.includes(userRole ?? '')
   const estRapport = RAPPORT_TYPES.includes(typeEmploi ?? '')
+  // Repli calculé directement depuis le rôle effectif si l'appelant n'a pas
+  // fourni la prop explicitement — évite la classe de bug déjà rencontrée
+  // avec showAAF (des pages qui oubliaient de la passer perdaient le menu).
+  const effectiveShowAAF = showAAF ?? roleEstAAF(userRole)
+  const effectiveShowRH = showRH ?? roleEstRH(userRole)
+  // Le menu CAF (déroulant CAF Pro / AAF / RH) remplace les onglets AAF et RH
+  // séparés pour la CAF — exclusif à ce rôle, pas de repli par défaut ailleurs.
+  const effectiveShowCAF = showCAF ?? roleEstCAF(userRole)
   const [dossierOpen, setDossierOpen] = useState(false)
+  const [cafOpen, setCafOpen] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const mobileRef = useRef<HTMLDivElement>(null)
 
@@ -53,13 +65,24 @@ export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, s
     { href: '/aaf/reconciliations', label: 'Valider les réconciliations OM', match: ['/aaf/reconciliations'] },
   ]
 
+  // Menu CAF : regroupe l'espace de traitement propre à la CAF (CAF Pro) et
+  // les deux menus déjà accessibles par héritage (AAF, RH) — un seul point
+  // d'entrée au lieu de 3 onglets séparés. Vue d'ensemble reste HORS de ce
+  // menu, en onglet principal indépendant (cf. OVERVIEW_ROLES).
+  const cafTabs = [
+    { href: '/caf', label: 'CAF Pro', match: ['/caf'] },
+    { href: '/aaf', label: 'AAF', match: ['/aaf'] },
+    { href: '/rh', label: 'RH', match: ['/rh'] },
+  ]
+
   const mainTabs = [
     { href: '/statut', label: t('status'), match: ['/statut'] },
     { href: '/projets', label: t('projects'), match: ['/projets'] },
     { href: '/tdr', label: t('tdr'), match: ['/tdr'] },
     { href: '/ressources', label: t('resources'), match: ['/ressources'] },
     ...(showOverview ? [{ href: '/overview', label: t('overview'), match: ['/overview'] }] : []),
-    ...(showRH ? [{ href: '/rh', label: t('rh'), match: ['/rh'] }] : []),
+    // RH : masqué ici quand le menu CAF est actif, il y figure déjà en sous-entrée.
+    ...(effectiveShowRH && !effectiveShowCAF ? [{ href: '/rh', label: t('rh'), match: ['/rh'] }] : []),
     ...(showAdmin ? [{ href: '/admin', label: t('admin'), match: ['/admin'] }] : []),
   ]
 
@@ -68,7 +91,8 @@ export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, s
   }
 
   const dossierActive = subTabs.some(s => isActive(s.match))
-  const aafActive = showAAF && (isActive(['/aaf']) || aafTabs.some(s => isActive(s.match)))
+  const aafActive = effectiveShowAAF && (isActive(['/aaf']) || aafTabs.some(s => isActive(s.match)))
+  const cafActive = effectiveShowCAF && cafTabs.some(s => isActive(s.match))
 
   // Close mobile menu on route change
   useEffect(() => { setMobileOpen(false) }, [pathname])
@@ -148,10 +172,53 @@ export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, s
             )}
           </div>
 
-          {/* AAF — lien simple vers le tableau de bord ; le sous-menu se fait
-              via la barre d'onglets alignée dans la section /aaf elle-même
-              (AAFNav), pas via un menu déroulant qui la recouvrirait. */}
-          {showAAF && (
+          {/* CAF — menu déroulant regroupant CAF Pro / AAF / RH (rôle CAF
+              uniquement). Contrairement à l'ancien essai sur AAF, ce menu ne
+              duplique pas les onglets d'une barre alignée : chaque entrée
+              pointe vers une section différente, qui a sa propre barre. */}
+          {effectiveShowCAF ? (
+            <div
+              style={{ position: 'relative', display: 'flex', alignItems: 'stretch' }}
+              onMouseEnter={() => setCafOpen(true)}
+              onMouseLeave={() => setCafOpen(false)}
+            >
+              <button style={tabStyle(!!cafActive)}>
+                CAF <span style={{ fontSize: 9, marginLeft: 4, opacity: 0.7 }}>▼</span>
+              </button>
+              {cafOpen && (
+                <div style={{
+                  position: 'absolute', top: '100%', left: 0, zIndex: 200,
+                  background: 'white', border: '1px solid var(--abed-border)',
+                  borderRadius: '0 0 10px 10px', minWidth: 200,
+                  boxShadow: '0 8px 24px rgba(0,0,0,.10)',
+                }}>
+                  {cafTabs.map(s => {
+                    const active = isActive(s.match)
+                    return (
+                      <Link key={s.href} href={s.href}
+                        style={{
+                          display: 'block', padding: '11px 18px', fontSize: 13,
+                          fontWeight: active ? 700 : 400,
+                          color: active ? 'var(--abed-green)' : '#374151',
+                          background: active ? '#f0fdf4' : 'white',
+                          textDecoration: 'none',
+                          borderBottom: '1px solid #f3f4f6',
+                          transition: 'background .1s',
+                        }}
+                        onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = '#f9fafb' }}
+                        onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'white' }}
+                      >
+                        {s.label}
+                      </Link>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          ) : effectiveShowAAF && (
+            // AAF — lien simple vers le tableau de bord ; le sous-menu se fait
+            // via la barre d'onglets alignée dans la section /aaf elle-même
+            // (AAFNav), pas via un menu déroulant qui la recouvrirait.
             <Link href="/aaf" style={tabStyle(!!aafActive)}>
               AAF
             </Link>
@@ -214,8 +281,29 @@ export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, s
             )
           })}
 
-          {/* AAF */}
-          {showAAF && (
+          {/* CAF (CAF Pro / AAF / RH) ou AAF seul */}
+          {effectiveShowCAF ? (
+            <>
+              <div style={{ padding: '8px 16px 4px', fontSize: 11, fontWeight: 700, color: 'var(--abed-muted)', textTransform: 'uppercase', letterSpacing: '.05em', borderTop: '1px solid var(--abed-border)' }}>
+                CAF
+              </div>
+              {cafTabs.map(s => {
+                const active = isActive(s.match)
+                return (
+                  <Link key={s.href} href={s.href} style={{
+                    display: 'block', padding: '12px 24px', fontSize: 14,
+                    fontWeight: active ? 700 : 400,
+                    color: active ? 'var(--abed-green)' : '#374151',
+                    background: active ? '#f0fdf4' : 'white',
+                    textDecoration: 'none',
+                    borderBottom: '1px solid #f9fafb',
+                  }}>
+                    {s.label}
+                  </Link>
+                )
+              })}
+            </>
+          ) : effectiveShowAAF && (
             <Link href="/aaf" style={{
               display: 'block', padding: '12px 24px', fontSize: 14,
               fontWeight: aafActive ? 700 : 400,

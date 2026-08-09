@@ -6,7 +6,6 @@ export const dynamic = 'force-dynamic'
 
 const STATUT_LABEL: Record<string, { label: string; color: string; bg: string; border: string }> = {
   reconciliation_aaf: { label: 'À valider (AAF)', color: '#92660b', bg: '#fffbeb', border: '#fde68a' },
-  reconciliation_caf: { label: 'À valider (CAF)', color: '#1e40af', bg: '#eff6ff', border: '#bfdbfe' },
 }
 
 export default async function AAFReconciliationsPage() {
@@ -17,15 +16,15 @@ export default async function AAFReconciliationsPage() {
   const { data: missions } = await supabase
     .from('missions')
     .select('id, reference, objet, lieu, date_depart, date_retour, status, missionnaire:profiles!missions_missionnaire_id_fkey(nom, prenoms)')
-    .in('status', ['reconciliation_aaf', 'reconciliation_caf'])
+    .eq('status', 'reconciliation_aaf')
     .order('date_retour', { ascending: true })
 
   return (
     <div>
       <h2 style={{ color: 'var(--abed-green)', margin: '0 0 6px' }}>Réconciliations d&apos;ordres de mission</h2>
       <p style={{ fontSize: 13, color: 'var(--abed-muted)', margin: '0 0 20px' }}>
-        Réconciliations soumises par les missionnaires, en attente de votre validation (étape AAF ou CAF
-        selon votre rôle), avant transmission à l&apos;étape suivante.
+        Réconciliations soumises par les missionnaires, en attente de votre validation (étape AAF),
+        avant transmission à la CAF.
       </p>
 
       {(!missions || missions.length === 0) ? (

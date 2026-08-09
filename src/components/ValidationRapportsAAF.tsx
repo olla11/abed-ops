@@ -15,7 +15,9 @@ const STATUS_FOR_AAF = ['valide_tech']
 const STATUS_FOR_CAF = ['traite_aaf']
 const STATUS_FOR_DE = ['valide_caf']
 
-export default function ValidationRapportsAAF({ role, userId }: { role: string; userId?: string }) {
+type Stage = 'aaf' | 'caf' | 'de' | 'manager'
+
+export default function ValidationRapportsAAF({ role, userId, stage }: { role: string; userId?: string; stage?: Stage }) {
   const [rapports, setRapports] = useState<Rapport[]>([])
   const [loading, setLoading] = useState(true)
   const [commentMap, setCommentMap] = useState<Record<string, string>>({})
@@ -40,6 +42,13 @@ export default function ValidationRapportsAAF({ role, userId }: { role: string; 
     const isCAFStage = role === 'caf' && STATUS_FOR_CAF.includes(r.status)
     const isDEStage = ['de', 'administrateur'].includes(role) && STATUS_FOR_DE.includes(r.status)
     const isManagerStage = role === 'manager' && r.status === 'soumis'
+    // Quand `stage` est fourni (menus AAF / CAF Pro dédiés), on restreint "à
+    // traiter" à cette seule étape — la CAF garde un écran dédié à sa propre
+    // étape plutôt que de la voir mélangée avec l'étape AAF qu'elle hérite.
+    if (stage === 'aaf') return isAAFStage
+    if (stage === 'caf') return isCAFStage
+    if (stage === 'de') return isDEStage
+    if (stage === 'manager') return isManagerStage
     return isAAFStage || isCAFStage || isDEStage || isManagerStage
   }
 

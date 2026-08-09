@@ -17,7 +17,7 @@ export default async function AAFDemandesPaiementPage() {
       <p style={{ fontSize: 13, color: 'var(--abed-muted)', margin: '0 0 20px' }}>
         Demandes en attente de votre validation (étape AAF), avant transmission à la CAF.
       </p>
-      <TraitementDemandes role={profile?.role ?? ''} userId={user.id} hideMesDemandes />
+      <TraitementDemandes role={profile?.role ?? ''} userId={user.id} hideMesDemandes stage="aaf" />
     </div>
   )
 }

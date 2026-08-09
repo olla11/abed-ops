@@ -42,7 +42,9 @@ async function openFile(path: string) {
 
 type Onglet = { key: string; icon: LucideIcon; label: string; desc: string; count: number; color?: string; items: Demande[]; actif: boolean }
 
-export default function TraitementDemandes({ role, userId, hideMesDemandes }: { role: string; userId: string; hideMesDemandes?: boolean }) {
+type Stage = 'aaf' | 'caf' | 'de'
+
+export default function TraitementDemandes({ role, userId, hideMesDemandes, stage }: { role: string; userId: string; hideMesDemandes?: boolean; stage?: Stage }) {
   const [demandes, setDemandes] = useState<Demande[]>([])
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -80,7 +82,16 @@ export default function TraitementDemandes({ role, userId, hideMesDemandes }: { 
   // technique aux deux étapes). Brancher d'abord sur le statut plutôt que sur le
   // rôle : sinon "admin" — présent aux deux étapes — retournait toujours le
   // résultat de la première condition testée, quel que soit le statut réel.
+  //
+  // Quand `stage` est fourni (menus AAF / CAF Pro dédiés), on restreint "à
+  // traiter" à cette seule étape — même si le rôle CAF hérite aussi des
+  // droits AAF, la CAF garde son propre écran pour son étape distincte plutôt
+  // que de tout voir mélangé dans le menu AAF (et inversement, aucune
+  // ambiguïté possible ici puisque chaque page passe une étape précise).
   function canAct(d: Demande) {
+    if (stage === 'aaf') return d.status === 'soumis' && (estAAF(role) || role === 'admin')
+    if (stage === 'caf') return d.status === 'valide_aaf' && role === 'caf'
+    if (stage === 'de') return d.status === 'valide_caf' && (role === 'de' || role === 'admin')
     if (d.status === 'soumis') return estAAF(role) || role === 'admin'
     if (d.status === 'valide_aaf') return role === 'caf'
     if (d.status === 'valide_caf') return role === 'de' || role === 'admin'

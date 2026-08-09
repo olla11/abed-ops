@@ -44,14 +44,16 @@ export default function TimesheetsClient({
   const estPrestataire = ['prestataire_direct', 'prestataire_credit'].includes(typeEmploi ?? '')
   const estSalarie = ['cdd', 'cdi'].includes(typeEmploi ?? '')
   const estManager = ['manager', 'caf', 'admin', 'de', 'dp', 'aaf'].includes(role)
-  const estCAF = ['caf', 'admin'].includes(role)
   // Autorisation finale réservée au DE (+ administrateur pour l'auto-soumission de/dp) — le DP n'autorise plus.
   const estDE = ['de', 'administrateur'].includes(role)
   // Les étapes AAF et CAF des rapports d'allocation sont désormais traitées
-  // depuis le menu AAF dédié (/aaf/rapports-allocations, qui couvre les deux
-  // étapes) — "Mon espace" ne les affiche plus pour AAF/CAF, seulement pour
-  // l'admin en secours technique.
+  // depuis le menu AAF dédié (/aaf/rapports-allocations) et le menu CAF Pro
+  // (/caf/rapports-allocations) — "Mon espace" ne les affiche plus pour
+  // AAF/CAF, seulement pour l'admin en secours technique.
   const showRapportsAllocationDansMonEspace = role === 'admin'
+  // Idem pour la validation financière des timesheets (étape CAF exclusive,
+  // sans équivalent AAF) : désormais dans le menu CAF Pro (/caf/timesheets).
+  const showTimesheetsCAFDansMonEspace = role === 'admin'
 
   // Construire les onglets selon les droits
   const tabs: Tab[] = []
@@ -71,8 +73,9 @@ export default function TimesheetsClient({
     tabs.push({ key: 'mon_rapport', icon: FileBarChart2, label: 'Mon rapport mensuel', desc: estSalarie ? 'Fiche de paie' : 'Rapport d\'allocation' })
   }
 
-  // Validation CAF financière (priorité haute)
-  if (estCAF) {
+  // Validation CAF financière (priorité haute) — admin en secours technique
+  // uniquement ; la CAF elle-même la traite depuis /caf/timesheets.
+  if (showTimesheetsCAFDansMonEspace) {
     tabs.push({
       key: 'caf_timesheets', icon: CreditCard, label: 'Timesheets & paiements',
       desc: 'Validation financière + paiements',

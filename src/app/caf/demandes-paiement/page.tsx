@@ -1,10 +1,10 @@
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
-import ValidationRapportsAAF from '@/components/ValidationRapportsAAF'
+import TraitementDemandes from '@/components/TraitementDemandes'
 
 export const dynamic = 'force-dynamic'
 
-export default async function AAFRapportsAllocationsPage() {
+export default async function CAFDemandesPaiementPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -13,12 +13,11 @@ export default async function AAFRapportsAllocationsPage() {
 
   return (
     <div>
-      <h2 style={{ color: 'var(--abed-green)', margin: '0 0 6px' }}>Rapports d&apos;allocation</h2>
+      <h2 style={{ color: 'var(--abed-green)', margin: '0 0 6px' }}>Demandes de paiement</h2>
       <p style={{ fontSize: 13, color: 'var(--abed-muted)', margin: '0 0 20px' }}>
-        Rapports mensuels validés techniquement, en attente de la fixation du montant d&apos;allocation
-        (étape AAF), avant transmission à la CAF.
+        Demandes validées par l&apos;AAF, en attente de votre validation (étape CAF), avant autorisation du DE.
       </p>
-      <ValidationRapportsAAF role={profile?.role ?? ''} userId={user.id} stage="aaf" />
+      <TraitementDemandes role={profile?.role ?? ''} userId={user.id} hideMesDemandes stage="caf" />
     </div>
   )
 }
