@@ -8,6 +8,7 @@ import ImpersonationBanner from '@/components/ImpersonationBanner'
 import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
 import { getImpersonationInfo } from '@/lib/impersonation'
 import OverviewOperations from '@/components/OverviewOperations'
+import AAFNav from '@/app/aaf/AAFNav'
 import { estRH, estAAF } from '@/lib/roles'
 
 export default async function OverviewPage() {
@@ -24,6 +25,12 @@ export default async function OverviewPage() {
   const impersonation = await getImpersonationInfo()
   if (!['aaf','caf','de','dp','admin','administrateur','superadmin'].includes(role)) redirect('/timesheets')
 
+  // AAF/CAF (et admin, en secours) accèdent à Vue d'ensemble depuis le menu
+  // AAF — cette page est hors de /aaf/*, donc sans la barre d'onglets alignée
+  // (AAFNav) par défaut : on la réaffiche ici pour ne pas la faire disparaître
+  // en cours de navigation.
+  const showAAFNav = estAAF(role) || ['admin', 'superadmin'].includes(role)
+
   return (
     <>
       <AppHeader
@@ -38,6 +45,8 @@ export default async function OverviewPage() {
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}
       {impersonation && <ImpersonationBanner adminNom={impersonation.adminNom} adminPrenoms={impersonation.adminPrenoms} targetNom={impersonation.targetNom} targetPrenoms={impersonation.targetPrenoms} targetRole={impersonation.targetRole} />}
       <div className="page-container" style={{ display: 'grid', gap: 28 }}>
+
+      {showAAFNav && <AAFNav />}
 
       <div>
         <h1 style={{ color: 'var(--abed-green)', marginBottom: 4 }}>Vue d'ensemble des opérations</h1>
