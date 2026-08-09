@@ -25,11 +25,13 @@ export default async function OverviewPage() {
   const impersonation = await getImpersonationInfo()
   if (!['aaf','caf','de','dp','admin','administrateur','superadmin'].includes(role)) redirect('/timesheets')
 
-  // AAF/CAF (et admin, en secours) accèdent à Vue d'ensemble depuis le menu
-  // AAF — cette page est hors de /aaf/*, donc sans la barre d'onglets alignée
-  // (AAFNav) par défaut : on la réaffiche ici pour ne pas la faire disparaître
-  // en cours de navigation.
-  const showAAFNav = estAAF(role) || ['admin', 'superadmin'].includes(role)
+  // L'AAF (seul) accède à Vue d'ensemble depuis le menu AAF — cette page est
+  // hors de /aaf/*, donc sans la barre d'onglets alignée (AAFNav) par défaut :
+  // on la réaffiche ici pour ne pas la faire disparaître en cours de
+  // navigation. La CAF, elle, a désormais son propre menu CAF Pro distinct
+  // (voir AppHeader) — lui montrer la barre AAF ici serait trompeur, comme
+  // si ces onglets étaient un sous-menu de Vue d'ensemble.
+  const showAAFNav = role === 'aaf' || ['admin', 'superadmin'].includes(role)
 
   return (
     <>
