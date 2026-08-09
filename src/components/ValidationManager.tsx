@@ -8,6 +8,7 @@ type Soumission = {
   periode_mois: number; periode_annee: number
   heures_declarees: number
   fichier_timesheet_url: string | null; fichier_livrable_url: string | null
+  corrige_le: string | null
   prestataire: { prenoms: string; nom: string } | null
 }
 
@@ -15,6 +16,7 @@ type RapportManager = {
   id: string; status: string
   periode_mois: number; periode_annee: number
   rapport_texte: string; fichier_rapport_url: string | null
+  corrige_le: string | null
   prestataire: { prenoms: string; nom: string; type_emploi: string | null } | null
 }
 
@@ -48,13 +50,13 @@ export default function ValidationManager() {
     const [{ data }, { data: raps }, tauxRes] = await Promise.all([
       supabase
         .from('soumissions')
-        .select('id,titre,status,periode_mois,periode_annee,heures_declarees,fichier_timesheet_url,fichier_livrable_url,prestataire:profiles!soumissions_prestataire_id_fkey(prenoms,nom)')
+        .select('id,titre,status,periode_mois,periode_annee,heures_declarees,fichier_timesheet_url,fichier_livrable_url,corrige_le,prestataire:profiles!soumissions_prestataire_id_fkey(prenoms,nom)')
         .eq('manager_id', user.id)
         .eq('status', 'soumis')
         .order('created_at', { ascending: false }),
       supabase
         .from('rapports_allocations')
-        .select('id,status,periode_mois,periode_annee,rapport_texte,fichier_rapport_url,prestataire:profiles!rapports_allocations_prestataire_id_fkey(prenoms,nom,type_emploi)')
+        .select('id,status,periode_mois,periode_annee,rapport_texte,fichier_rapport_url,corrige_le,prestataire:profiles!rapports_allocations_prestataire_id_fkey(prenoms,nom,type_emploi)')
         .eq('manager_id', user.id)
         .eq('status', 'soumis')
         .order('created_at', { ascending: false }),
@@ -150,6 +152,16 @@ export default function ValidationManager() {
 
           return (
             <div key={s.id} style={{ borderBottom: '1px solid var(--abed-border)', padding: '14px 0' }}>
+              {s.corrige_le && (
+                <div style={{
+                  background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 6,
+                  padding: '6px 10px', marginBottom: 8, fontSize: 12, color: '#92660b', fontWeight: 600,
+                }}>
+                  ⚠️ Mis à jour par {s.prestataire?.prenoms} {s.prestataire?.nom} le{' '}
+                  {new Date(s.corrige_le).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                  {' '}— relisez avant de traiter.
+                </div>
+              )}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
                 onClick={() => setExpanded(isOpen ? null : s.id)}>
                 <div>
@@ -262,6 +274,16 @@ export default function ValidationManager() {
           const estSalarie = ['cdd','cdi'].includes(p?.type_emploi ?? '')
           return (
             <div key={r.id} style={{ borderBottom: '1px solid var(--abed-border)', padding: '14px 0' }}>
+              {r.corrige_le && (
+                <div style={{
+                  background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 6,
+                  padding: '6px 10px', marginBottom: 8, fontSize: 12, color: '#92660b', fontWeight: 600,
+                }}>
+                  ⚠️ Mis à jour par {r.prestataire?.prenoms} {r.prestataire?.nom} le{' '}
+                  {new Date(r.corrige_le).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                  {' '}— relisez avant de traiter.
+                </div>
+              )}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
                 onClick={() => setExpandedRap(isOpen ? null : r.id)}>
                 <div>

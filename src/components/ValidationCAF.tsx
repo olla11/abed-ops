@@ -9,6 +9,7 @@ type Soumission = {
   heures_retenues: number; justification_heures: string | null
   montant_caf: number | null; paye: boolean
   fichier_facture_url: string | null; fichier_timesheet_url: string | null; fichier_livrable_url: string | null
+  corrige_le: string | null
   prestataire: { id: string; prenoms: string; nom: string; type_emploi: string | null } | null
 }
 
@@ -52,7 +53,7 @@ export default function ValidationCAF() {
         .in('cle', ['taux_horaire_direct_fcfa', 'taux_horaire_credit_fcfa']),
       supabase
         .from('soumissions')
-        .select('id,titre,status,periode_mois,periode_annee,heures_retenues,justification_heures,montant_caf,paye,fichier_facture_url,fichier_timesheet_url,fichier_livrable_url,prestataire:profiles!soumissions_prestataire_id_fkey(id,prenoms,nom,type_emploi)')
+        .select('id,titre,status,periode_mois,periode_annee,heures_retenues,justification_heures,montant_caf,paye,fichier_facture_url,fichier_timesheet_url,fichier_livrable_url,corrige_le,prestataire:profiles!soumissions_prestataire_id_fkey(id,prenoms,nom,type_emploi)')
         .in('status', ['valide_tech', 'valide_caf'])
         .order('created_at', { ascending: false }),
     ])
@@ -171,6 +172,16 @@ export default function ValidationCAF() {
           const typeLabel = s.prestataire?.type_emploi === 'prestataire_credit' ? 'Crédit' : 'Direct'
           return (
             <div key={s.id} style={{ borderBottom: '1px solid var(--abed-border)', padding: '14px 0' }}>
+              {s.corrige_le && (
+                <div style={{
+                  background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 6,
+                  padding: '6px 10px', marginBottom: 8, fontSize: 12, color: '#92660b', fontWeight: 600,
+                }}>
+                  ⚠️ Mis à jour par {s.prestataire?.prenoms} {s.prestataire?.nom} le{' '}
+                  {new Date(s.corrige_le).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                  {' '}— relisez avant de traiter.
+                </div>
+              )}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
                 onClick={() => setExpanded(isOpen ? null : s.id)}>
                 <div>

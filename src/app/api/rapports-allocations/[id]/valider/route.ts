@@ -99,6 +99,10 @@ export async function POST(
     return NextResponse.json({ error: 'Action non autorisée pour ce statut' }, { status: 400 })
   }
 
+  // Toute action réelle sur le dossier efface le bandeau "mis à jour" —
+  // celui qui agit vient forcément de voir la dernière version.
+  update.corrige_le = null
+
   const { error } = await supabase.from('rapports_allocations').update(update).eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 

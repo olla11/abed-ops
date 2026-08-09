@@ -50,6 +50,7 @@ export async function POST(
       caf_valide_par: user.id,
       caf_valide_le: new Date().toISOString(),
       commentaire_caf: null,
+      corrige_le: null,
     }).eq('id', id)
 
     await supabase.from('notifications').insert({
@@ -66,6 +67,7 @@ export async function POST(
     await supabase.from('soumissions').update({
       status: newStatus,
       commentaire_caf,
+      corrige_le: null,
     }).eq('id', id)
 
     await supabase.from('notifications').insert({

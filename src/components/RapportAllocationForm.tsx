@@ -22,6 +22,9 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
 }
 
 const REJETE = ['rejete_manager','rejete_aaf','rejete_caf','refuse_de']
+// Encore modifiable en place (sans repasser par la case départ) tant que le
+// montant n'est pas définitivement autorisé.
+const MODIFIABLE = ['soumis', 'valide_tech', 'traite_aaf', 'valide_caf']
 
 async function uploadWordFile(file: File): Promise<string> {
   const fd = new FormData()
@@ -44,8 +47,12 @@ export default function RapportAllocationForm({ typeEmploi }: { typeEmploi?: str
   const [loading, setLoading] = useState(false)
   const [history, setHistory] = useState<Rapport[]>([])
   const [resoumission, setResoumission] = useState<{ id: string; texte: string; fichier: File | null } | null>(null)
+  const [correction, setCorrection] = useState<{ id: string; texte: string; fichier: File | null } | null>(null)
+  const [deleting, setDeleting] = useState<string | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const reFileRef = useRef<HTMLInputElement>(null)
+  const corrFileRef = useRef<HTMLInputElement>(null)
 
   async function loadHistory() {
     const res = await fetch('/api/rapports-allocations')
@@ -109,6 +116,39 @@ export default function RapportAllocationForm({ typeEmploi }: { typeEmploi?: str
     } catch (e: any) {
       setMsg('Erreur : ' + e.message)
     } finally { setLoading(false) }
+  }
+
+  async function corriger() {
+    if (!correction) return
+    if (!correction.texte.trim()) { setMsg('Le résumé des activités est obligatoire.'); return }
+    const ferr = validateFile(correction.fichier)
+    if (ferr) { setMsg(ferr); return }
+    setLoading(true); setMsg('Mise à jour en cours…')
+    try {
+      const fichier_url = await uploadWordFile(correction.fichier!)
+      const res = await fetch(`/api/rapports-allocations/${correction.id}/corriger`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rapport_texte: correction.texte, fichier_rapport_url: fichier_url }),
+      })
+      const json = await res.json()
+      if (!res.ok) { setMsg('Erreur : ' + json.error); return }
+      setMsg('✓ Rapport mis à jour.')
+      setCorrection(null)
+      loadHistory()
+    } catch (e: any) {
+      setMsg('Erreur : ' + e.message)
+    } finally { setLoading(false) }
+  }
+
+  async function supprimer(id: string) {
+    setDeleting(id)
+    const res = await fetch(`/api/rapports-allocations/${id}/supprimer`, { method: 'POST' })
+    const json = await res.json()
+    setDeleting(null); setConfirmDelete(null)
+    if (!res.ok) { setMsg('Erreur : ' + json.error); return }
+    setMsg('✓ Rapport supprimé.')
+    loadHistory()
   }
 
   const toCorrect = history.filter(r => REJETE.includes(r.status))
@@ -224,19 +264,73 @@ export default function RapportAllocationForm({ typeEmploi }: { typeEmploi?: str
           <h3 style={{ marginBottom: 12 }}>Mes rapports</h3>
           {others.map(r => {
             const st = STATUS_LABEL[r.status] ?? { label: r.status, color: '#374151' }
+            const isCorrecting = correction?.id === r.id
+            const peutModifier = MODIFIABLE.includes(r.status)
             return (
-              <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                borderBottom: '1px solid var(--abed-border)', padding: '10px 0', flexWrap: 'wrap', gap: 8 }}>
-                <div>
-                  <strong>{r.periode_mois}/{r.periode_annee}</strong>
-                  {r.montant_allocation != null && (
-                    <span style={{ fontSize: 12, color: '#166534', marginLeft: 10, fontWeight: 600 }}>
-                      {estSalarie ? 'Salaire net : ' : ''}{r.montant_allocation.toLocaleString('fr-FR')} FCFA
-                    </span>
-                  )}
+              <div key={r.id} style={{ borderBottom: '1px solid var(--abed-border)', padding: '10px 0' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                  <div>
+                    <strong>{r.periode_mois}/{r.periode_annee}</strong>
+                    {r.montant_allocation != null && (
+                      <span style={{ fontSize: 12, color: '#166534', marginLeft: 10, fontWeight: 600 }}>
+                        {estSalarie ? 'Salaire net : ' : ''}{r.montant_allocation.toLocaleString('fr-FR')} FCFA
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 999,
+                      background: st.color + '22', color: st.color }}>{st.label}</span>
+                    {peutModifier && !isCorrecting && confirmDelete !== r.id && (
+                      <>
+                        <button className="btn secondary" style={{ fontSize: 11, padding: '4px 10px' }}
+                          onClick={() => setCorrection({ id: r.id, texte: r.rapport_texte ?? '', fichier: null })}>
+                          Corriger
+                        </button>
+                        <button className="btn danger" style={{ fontSize: 11, padding: '4px 10px' }}
+                          onClick={() => setConfirmDelete(r.id)}>
+                          Supprimer
+                        </button>
+                      </>
+                    )}
+                    {confirmDelete === r.id && (
+                      <>
+                        <span style={{ fontSize: 11, color: '#991b1b' }}>Confirmer ?</span>
+                        <button className="btn danger" style={{ fontSize: 11, padding: '4px 10px' }}
+                          disabled={deleting === r.id} onClick={() => supprimer(r.id)}>
+                          {deleting === r.id ? '⏳' : 'Oui, supprimer'}
+                        </button>
+                        <button className="btn secondary" style={{ fontSize: 11, padding: '4px 10px' }}
+                          onClick={() => setConfirmDelete(null)}>
+                          Annuler
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
-                <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 999,
-                  background: st.color + '22', color: st.color }}>{st.label}</span>
+                {isCorrecting && (
+                  <div style={{ marginTop: 12, display: 'grid', gap: 10 }}>
+                    <div className="field">
+                      <label className="label">Résumé corrigé *</label>
+                      <textarea className="input" rows={5}
+                        value={correction.texte}
+                        onChange={e => setCorrection(s => s ? { ...s, texte: e.target.value } : null)} />
+                    </div>
+                    <div className="field">
+                      <label className="label">
+                        Nouveau document Word *
+                        <span style={{ fontSize: 11, fontWeight: 400, color: '#991b1b', marginLeft: 6 }}>obligatoire</span>
+                      </label>
+                      <input ref={corrFileRef} className="input" type="file" accept=".doc,.docx"
+                        onChange={e => setCorrection(s => s ? { ...s, fichier: e.target.files?.[0] ?? null } : null)} />
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button className="btn" onClick={corriger} disabled={loading}>
+                        {loading ? '⏳…' : '✓ Enregistrer la correction'}
+                      </button>
+                      <button className="btn secondary" onClick={() => setCorrection(null)}>Annuler</button>
+                    </div>
+                  </div>
+                )}
               </div>
             )
           })}

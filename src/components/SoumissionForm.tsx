@@ -1,5 +1,5 @@
 'use client'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, Fragment } from 'react'
 import { createClient } from '@/lib/supabase-client'
 import DemandePaiementForm from './DemandePaiementForm'
 
@@ -23,6 +23,9 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
 }
 
 const CORRECTABLE = ['corrections_tech', 'corrections_caf', 'rejete_tech', 'rejete_caf']
+// Encore modifiable/supprimable en place (sans repasser par la case départ)
+// tant que la CAF n'a pas fixé le montant.
+const MODIFIABLE = ['soumis', 'valide_tech']
 
 async function uploadFile(file: File, slot: string): Promise<string> {
   const fd = new FormData()
@@ -58,6 +61,11 @@ export default function SoumissionForm({ managerId, typeEmploi }: { managerId: s
   const [history, setHistory] = useState<Soumission[]>([])
   const [resubmitting, setResubmitting] = useState<string | null>(null)
   const [reFiles, setReFiles] = useState<Record<string, { ts?: File; liv?: File; fac?: File }>>({})
+  const [correcting, setCorrecting] = useState<string | null>(null)
+  const [corrFiles, setCorrFiles] = useState<Record<string, { ts?: File; liv?: File; fac?: File }>>({})
+  const [correctingSubmitting, setCorrectingSubmitting] = useState<string | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState<string | null>(null)
   const [demandeForSoum, setDemandeForSoum] = useState<Soumission | null>(null)
   const [solde, setSolde] = useState<{
     entries: any[]; paiements: any[]
@@ -145,6 +153,41 @@ export default function SoumissionForm({ managerId, typeEmploi }: { managerId: s
     } catch (e: any) {
       alert('Erreur : ' + e.message)
     } finally { setResubmitting(null) }
+  }
+
+  async function corriger(soumId: string) {
+    const rf = corrFiles[soumId] ?? {}
+    if (!rf.ts && !rf.liv && !rf.fac) { setMsg('Choisissez au moins un fichier à remplacer.'); return }
+    setCorrectingSubmitting(soumId)
+    try {
+      const uploads: Record<string, string> = {}
+      if (rf.ts) uploads.fichier_timesheet_url = await uploadFile(rf.ts, 'timesheet')
+      if (rf.liv) uploads.fichier_livrable_url = await uploadFile(rf.liv, 'livrable')
+      if (rf.fac) uploads.fichier_facture_url = await uploadFile(rf.fac, 'facture')
+      const res = await fetch(`/api/timesheets/${soumId}/corriger`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(uploads),
+      })
+      const json = await res.json()
+      if (!res.ok) { setMsg('Erreur : ' + json.error); return }
+      setMsg('✓ Dossier mis à jour.')
+      setCorrFiles(r => { const c = { ...r }; delete c[soumId]; return c })
+      setCorrecting(null)
+      loadHistory()
+    } catch (e: any) {
+      setMsg('Erreur : ' + e.message)
+    } finally { setCorrectingSubmitting(null) }
+  }
+
+  async function supprimer(soumId: string) {
+    setDeleting(soumId)
+    const res = await fetch(`/api/timesheets/${soumId}/supprimer`, { method: 'POST' })
+    const json = await res.json()
+    setDeleting(null); setConfirmDelete(null)
+    if (!res.ok) { setMsg('Erreur : ' + json.error); return }
+    setMsg('✓ Dossier supprimé.')
+    loadHistory()
   }
 
   const msgBg = msg.startsWith('✓') ? '#dcfce7' : msg.startsWith('Erreur') ? '#fee2e2' : '#e0f2fe'
@@ -453,29 +496,91 @@ export default function SoumissionForm({ managerId, typeEmploi }: { managerId: s
         <div className="card">
           <h3 style={{ marginBottom: 16 }}>Mes soumissions</h3>
           <div className="table-wrap">
-            <table style={{ minWidth: 600 }}>
+            <table style={{ minWidth: 700 }}>
               <thead>
-                <tr><th>Titre</th><th>Période</th><th>H décl.</th><th>H ret.</th><th>Montant</th><th>Statut</th></tr>
+                <tr><th>Titre</th><th>Période</th><th>H décl.</th><th>H ret.</th><th>Montant</th><th>Statut</th><th></th></tr>
               </thead>
               <tbody>
                 {others.map(s => {
                   const st = STATUS_LABEL[s.status] ?? { label: s.status, color: '#374151' }
+                  const peutModifier = MODIFIABLE.includes(s.status)
+                  const isCorrecting = correcting === s.id
+                  const cf = corrFiles[s.id] ?? {}
                   return (
-                    <tr key={s.id}>
-                      <td style={{ fontWeight: 500 }}>{s.titre}</td>
-                      <td style={{ fontSize: 12 }}>{s.periode_mois}/{s.periode_annee}</td>
-                      <td style={{ fontSize: 12 }}>{s.heures_declarees} h</td>
-                      <td style={{ fontSize: 12 }}>{s.heures_retenues != null ? `${s.heures_retenues} h` : '—'}</td>
-                      <td style={{ fontSize: 12 }}>
-                        {s.montant_caf != null ? `${s.montant_caf.toLocaleString('fr-FR')} F` : '—'}
-                      </td>
-                      <td>
-                        <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 999,
-                          fontSize: 11, fontWeight: 600, background: st.color + '22', color: st.color }}>
-                          {st.label}
-                        </span>
-                      </td>
-                    </tr>
+                    <Fragment key={s.id}>
+                      <tr>
+                        <td style={{ fontWeight: 500 }}>{s.titre}</td>
+                        <td style={{ fontSize: 12 }}>{s.periode_mois}/{s.periode_annee}</td>
+                        <td style={{ fontSize: 12 }}>{s.heures_declarees} h</td>
+                        <td style={{ fontSize: 12 }}>{s.heures_retenues != null ? `${s.heures_retenues} h` : '—'}</td>
+                        <td style={{ fontSize: 12 }}>
+                          {s.montant_caf != null ? `${s.montant_caf.toLocaleString('fr-FR')} F` : '—'}
+                        </td>
+                        <td>
+                          <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 999,
+                            fontSize: 11, fontWeight: 600, background: st.color + '22', color: st.color }}>
+                            {st.label}
+                          </span>
+                        </td>
+                        <td>
+                          {peutModifier && confirmDelete !== s.id && (
+                            <div style={{ display: 'flex', gap: 6, whiteSpace: 'nowrap' }}>
+                              <button className="btn secondary" style={{ fontSize: 11, padding: '3px 8px' }}
+                                onClick={() => setCorrecting(isCorrecting ? null : s.id)}>
+                                {isCorrecting ? 'Fermer' : 'Corriger'}
+                              </button>
+                              <button className="btn danger" style={{ fontSize: 11, padding: '3px 8px' }}
+                                onClick={() => setConfirmDelete(s.id)}>
+                                Supprimer
+                              </button>
+                            </div>
+                          )}
+                          {peutModifier && confirmDelete === s.id && (
+                            <div style={{ display: 'flex', gap: 6, alignItems: 'center', whiteSpace: 'nowrap' }}>
+                              <span style={{ fontSize: 11, color: '#991b1b' }}>Confirmer ?</span>
+                              <button className="btn danger" style={{ fontSize: 11, padding: '3px 8px' }}
+                                disabled={deleting === s.id} onClick={() => supprimer(s.id)}>
+                                {deleting === s.id ? '⏳' : 'Oui'}
+                              </button>
+                              <button className="btn secondary" style={{ fontSize: 11, padding: '3px 8px' }}
+                                onClick={() => setConfirmDelete(null)}>
+                                Non
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                      {isCorrecting && (
+                        <tr>
+                          <td colSpan={7} style={{ background: '#f9fafb', padding: 14 }}>
+                            <p style={{ fontSize: 12, color: 'var(--abed-muted)', marginBottom: 8 }}>
+                              Téléversez uniquement les fichiers à remplacer :
+                            </p>
+                            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 10 }}>
+                              <div>
+                                <label style={{ fontSize: 11, fontWeight: 600 }}>📊 Timesheet Excel</label>
+                                <input type="file" accept=".xlsx,.xls,.csv" style={{ display: 'block', fontSize: 11, marginTop: 4 }}
+                                  onChange={e => setCorrFiles(r => ({ ...r, [s.id]: { ...r[s.id], ts: e.target.files?.[0] } }))} />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: 11, fontWeight: 600 }}>📄 Livrable</label>
+                                <input type="file" accept=".pdf,.doc,.docx" style={{ display: 'block', fontSize: 11, marginTop: 4 }}
+                                  onChange={e => setCorrFiles(r => ({ ...r, [s.id]: { ...r[s.id], liv: e.target.files?.[0] } }))} />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: 11, fontWeight: 600 }}>🧾 Facture</label>
+                                <input type="file" accept=".pdf" style={{ display: 'block', fontSize: 11, marginTop: 4 }}
+                                  onChange={e => setCorrFiles(r => ({ ...r, [s.id]: { ...r[s.id], fac: e.target.files?.[0] } }))} />
+                              </div>
+                            </div>
+                            <button className="btn" style={{ fontSize: 12 }}
+                              disabled={correctingSubmitting === s.id} onClick={() => corriger(s.id)}>
+                              {correctingSubmitting === s.id ? '⏳ Mise à jour…' : '✓ Enregistrer la correction'}
+                            </button>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
                   )
                 })}
               </tbody>

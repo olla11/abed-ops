@@ -129,6 +129,7 @@ export async function POST(
       valide_par: user.id,
       valide_le: new Date().toISOString(),
       commentaire_manager: null,
+      corrige_le: null,
     }).eq('id', id)
 
     // Récupérer le profil du prestataire (email + type_emploi)
@@ -182,6 +183,7 @@ export async function POST(
     await supabase.from('soumissions').update({
       status: newStatus,
       commentaire_manager,
+      corrige_le: null,
     }).eq('id', id)
 
     await admin.from('notifications').insert({

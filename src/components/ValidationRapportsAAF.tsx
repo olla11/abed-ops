@@ -7,6 +7,7 @@ type Rapport = {
   rapport_texte: string; montant_allocation: number | null; status: string
   commentaire_manager: string | null
   prestataire_id: string
+  corrige_le: string | null
   prestataire: { nom: string; prenoms: string; type_emploi: string | null } | null
 }
 
@@ -83,6 +84,16 @@ export default function ValidationRapportsAAF({ role, userId }: { role: string; 
         const mois = new Date(r.periode_annee, r.periode_mois - 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
         return (
           <div key={r.id} style={{ borderBottom: '1px solid var(--abed-border)', padding: '12px 0' }}>
+            {r.corrige_le && (
+              <div style={{
+                background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 6,
+                padding: '6px 10px', marginBottom: 8, fontSize: 12, color: '#92660b', fontWeight: 600,
+              }}>
+                ⚠️ Mis à jour par {r.prestataire?.prenoms} {r.prestataire?.nom} le{' '}
+                {new Date(r.corrige_le).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                {' '}— relisez la nouvelle version avant de traiter.
+              </div>
+            )}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
               onClick={() => setExpanded(isOpen ? null : r.id)}>
               <div>
