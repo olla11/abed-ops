@@ -35,13 +35,6 @@ export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, s
   const [mobileOpen, setMobileOpen] = useState(false)
   const mobileRef = useRef<HTMLDivElement>(null)
 
-  const aafTabs = [
-    { href: '/overview', label: "Vue d'ensemble", match: ['/overview'] },
-    { href: '/aaf/demandes-paiement', label: 'Demandes de paiement', match: ['/aaf/demandes-paiement'] },
-    { href: '/aaf/rapports-allocations', label: "Rapports d'allocation", match: ['/aaf/rapports-allocations'] },
-    { href: '/aaf/reconciliations', label: 'Réconciliations OM', match: ['/aaf/reconciliations'] },
-  ]
-
   const subTabs = [
     { href: '/dashboard', label: t('missions'), match: ['/dashboard', '/missions'] },
     { href: '/timesheets', label: estRapport ? t('monthlyReport') : t('timesheets'), match: ['/timesheets'] },
@@ -49,6 +42,16 @@ export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, s
     { href: '/conges', label: t('leaves'), match: ['/conges'] },
     { href: '/signatures', label: t('signatures'), match: ['/signatures'] },
     { href: '/mes-contrats', label: t('contracts'), match: ['/mes-contrats'] },
+  ]
+
+  // Appellations volontairement différentes de "Mon espace" (verbe d'action en
+  // tête) : ce menu sert à traiter les dossiers d'autrui, pas à consulter les
+  // siens — la distinction doit se voir dans le libellé, pas seulement dans le lien.
+  const aafTabs = [
+    { href: '/overview', label: "Vue d'ensemble", match: ['/overview'] },
+    { href: '/aaf/demandes-paiement', label: 'Traiter les demandes de paiement', match: ['/aaf/demandes-paiement'] },
+    { href: '/aaf/rapports-allocations', label: "Traiter les rapports d'allocation", match: ['/aaf/rapports-allocations'] },
+    { href: '/aaf/reconciliations', label: 'Valider les réconciliations OM', match: ['/aaf/reconciliations'] },
   ]
 
   const mainTabs = [

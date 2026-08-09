@@ -13,6 +13,7 @@ type Demande = {
   id: string; numero: string | null; nom_complet: string; objet: string; montant: number
   departement: string; status: string; created_at: string; urgence: string
   commentaire_aaf: string | null; commentaire_caf: string | null; commentaire_de: string | null
+  demandeur_id: string
 }
 
 const STATUS_LABEL: Record<string, { label: string; color: string }> = {
@@ -26,8 +27,11 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
   refuse_de:    { label: '✗ Refusé (DE)',    color: '#991b1b' },
 }
 
-// Seuls AAF, CAF et DE ont une action sur le circuit des demandes de paiement.
-const isTraiteur = (r: string) => ['aaf', 'caf', 'de', 'admin'].includes(r)
+// Seul le DE (+ admin) traite encore ce circuit depuis "Mon espace" : AAF et
+// CAF ont désormais leur propre menu dédié (/aaf/demandes-paiement) pour tout
+// ce qui concerne le traitement des dossiers d'autrui — "Mon espace" ne leur
+// montre plus que leurs propres demandes, comme n'importe quel employé.
+const isTraiteur = (r: string) => ['de', 'admin'].includes(r)
 
 export default function DemandesClient({ role, userId, userEmail, userName }: {
   role: string; userId: string; userEmail: string; userName: string
@@ -40,7 +44,9 @@ export default function DemandesClient({ role, userId, userEmail, userName }: {
   async function load() {
     const res = await fetch('/api/demandes-paiement')
     const json = await res.json()
-    if (!isTraiteur(role)) setMesDemandes(json.data ?? [])
+    // L'API renvoie tout le circuit pour AAF/CAF (dont ils ont besoin sur
+    // /aaf/demandes-paiement) — ici on ne garde que les demandes personnelles.
+    if (!isTraiteur(role)) setMesDemandes((json.data ?? []).filter((d: Demande) => d.demandeur_id === userId))
     setLoading(false)
   }
 
@@ -70,7 +76,7 @@ export default function DemandesClient({ role, userId, userEmail, userName }: {
         </button>
       </div>
 
-      {/* Vue traitement pour AAF/CAF/DE/Admin */}
+      {/* Vue traitement pour DE/Admin (AAF/CAF : voir /aaf/demandes-paiement) */}
       {isTraiteur(role) && <TraitementDemandes role={role} userId={userId} />}
 
       {/* Mes demandes pour tous */}

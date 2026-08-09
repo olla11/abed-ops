@@ -26,8 +26,11 @@ export default async function Dashboard() {
   const impersonation = await getImpersonationInfo()
   const isManager = ['admin', 'rh', 'caf', 'de', 'dp', 'administrateur'].includes(role)
   const isSignataire = ['caf', 'de', 'dp', 'admin', 'administrateur'].includes(role)
-  const isAAF = estAAF(role)
-  const canValidateReconc = ['caf', 'admin'].includes(role)
+  // AAF et CAF traitent désormais les réconciliations depuis leur menu AAF
+  // dédié (/aaf/reconciliations) — le tableau de bord personnel ne montre
+  // plus cet onglet de traitement pour eux, seulement pour l'admin.
+  const showReconciliationTabs = role === 'admin'
+  const canValidateReconc = role === 'admin'
   const canAutoriserDE = ['de', 'admin'].includes(role)
 
   const { data: missions } = await supabase
@@ -65,7 +68,7 @@ export default async function Dashboard() {
       <div className="page-container">
 
       <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: (isSignataire || isAAF) ? 4 : 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: (isSignataire || showReconciliationTabs) ? 4 : 16 }}>
           <div>
             <h3 style={{ margin: 0 }}>Ordres de mission</h3>
             {isSignataire && (
@@ -73,7 +76,7 @@ export default async function Dashboard() {
                 Gérez vos missions et signez celles qui vous sont soumises.
               </p>
             )}
-            {isAAF && (
+            {showReconciliationTabs && (
               <p style={{ fontSize: 13, color: 'var(--abed-muted)', margin: '3px 0 0' }}>
                 Gérez vos missions et validez les réconciliations qui vous sont soumises.
               </p>
@@ -85,7 +88,7 @@ export default async function Dashboard() {
           missions={(missions ?? []) as any}
           isManager={isManager}
           isSignataire={isSignataire}
-          isAAF={isAAF}
+          isAAF={showReconciliationTabs}
           canValidateReconc={canValidateReconc}
           canAutoriserDE={canAutoriserDE}
           userId={user.id}

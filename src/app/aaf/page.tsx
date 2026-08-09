@@ -24,7 +24,7 @@ export default async function AAFDashboardPage() {
   const [{ count: demandesCount }, { count: rapportsCount }, { count: reconciliationsCount }] = await Promise.all([
     supabase.from('demandes_paiement').select('id', { count: 'exact', head: true }).eq('status', 'soumis'),
     supabase.from('rapports_allocations').select('id', { count: 'exact', head: true }).eq('status', 'valide_tech'),
-    supabase.from('missions').select('id', { count: 'exact', head: true }).eq('status', 'reconciliation_aaf'),
+    supabase.from('missions').select('id', { count: 'exact', head: true }).in('status', ['reconciliation_aaf', 'reconciliation_caf']),
   ])
 
   return (
