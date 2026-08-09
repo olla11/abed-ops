@@ -7,7 +7,7 @@ import AppHeader from '@/components/AppHeader'
 import RolePreviewBanner from '@/components/RolePreviewBanner'
 import ImpersonationBanner from '@/components/ImpersonationBanner'
 import AccueilClient from '@/components/AccueilClient'
-import { estRH } from '@/lib/roles'
+import { estRH, estAAF } from '@/lib/roles'
 
 export default async function AccueilPage() {
   const supabase = await createClient()
@@ -52,6 +52,7 @@ export default async function AccueilPage() {
         typeEmploi={profile?.type_emploi}
         showAdmin={['admin', 'superadmin'].includes(realRole) && !previewRole}
         showRH={estRH(role)}
+        showAAF={estAAF(role)}
         avatarUrl={profile?.avatar_url ?? null}
       />
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}

@@ -9,7 +9,7 @@ import { getImpersonationInfo } from '@/lib/impersonation'
 import ProfileEditForm from '@/components/ProfileEditForm'
 import ProfileAssetForm from '@/components/ProfileAssetForm'
 import NotificationTopicsForm from '@/components/NotificationTopicsForm'
-import { estRH } from '@/lib/roles'
+import { estRH, estAAF } from '@/lib/roles'
 
 export default async function ProfilePage() {
   const supabase = await createClient()
@@ -36,6 +36,7 @@ export default async function ProfilePage() {
         typeEmploi={profile?.type_emploi}
         showAdmin={['admin', 'superadmin'].includes(realRole) && !previewRole}
         showRH={estRH(role)}
+        showAAF={estAAF(role)}
         avatarUrl={profile?.avatar_url ?? null}
       />
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}

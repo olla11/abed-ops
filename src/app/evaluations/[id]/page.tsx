@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import AppHeader from '@/components/AppHeader'
 import EvaluationForm from './EvaluationForm'
-import { estRH } from '@/lib/roles'
+import { estRH, estAAF } from '@/lib/roles'
 
 export const dynamic = 'force-dynamic'
 
@@ -49,6 +49,7 @@ export default async function EvaluationPage({ params }: { params: Promise<{ id:
         userRole={role}
         typeEmploi={profile?.type_emploi}
         showRH={estRH(role)}
+        showAAF={estAAF(role)}
         showAdmin={['admin', 'superadmin'].includes(role)}
         avatarUrl={profile?.avatar_url}
       />

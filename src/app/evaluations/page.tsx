@@ -4,7 +4,7 @@ import { createClient as createServiceClient } from '@supabase/supabase-js'
 import Link from 'next/link'
 import AppHeader from '@/components/AppHeader'
 import EvaluationsListClient from './EvaluationsListClient'
-import { estRH } from '@/lib/roles'
+import { estRH, estAAF } from '@/lib/roles'
 
 export const dynamic = 'force-dynamic'
 
@@ -43,6 +43,7 @@ export default async function MesEvaluationsPage() {
     .order('declenchee_le', { ascending: false })
 
   const showRH = estRH(profile?.role)
+  const showAAF = estAAF(profile?.role)
   const showAdmin = ['admin', 'superadmin'].includes(profile?.role ?? '')
   const showOverview = ['aaf', 'caf', 'de', 'dp', 'admin', 'administrateur'].includes(profile?.role ?? '')
 
@@ -53,6 +54,7 @@ export default async function MesEvaluationsPage() {
         userRole={profile?.role}
         typeEmploi={(profile as any)?.type_emploi}
         showRH={showRH}
+        showAAF={showAAF}
         showAdmin={showAdmin}
         avatarUrl={profile?.avatar_url}
       />

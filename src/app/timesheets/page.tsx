@@ -70,6 +70,7 @@ export default async function TimesheetsPage() {
         typeEmploi={typeEmploi}
         showAdmin={['admin', 'superadmin'].includes(realRole) && !previewRole}
         showRH={estRH(role)}
+        showAAF={roleEstAAF(role)}
         avatarUrl={profile?.avatar_url ?? null}
       />
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}

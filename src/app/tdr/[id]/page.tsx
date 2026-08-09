@@ -7,7 +7,7 @@ import ImpersonationBanner from '@/components/ImpersonationBanner'
 import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
 import { getImpersonationInfo } from '@/lib/impersonation'
 import TdrDetailClient from './TdrDetailClient'
-import { estRH } from '@/lib/roles'
+import { estRH, estAAF } from '@/lib/roles'
 
 export default async function TdrDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -77,6 +77,7 @@ export default async function TdrDetailPage({ params }: { params: Promise<{ id: 
         typeEmploi={profile?.type_emploi}
         showAdmin={['admin', 'superadmin'].includes(realRole) && !previewRole}
         showRH={estRH(role)}
+        showAAF={estAAF(role)}
         avatarUrl={profile?.avatar_url ?? null}
       />
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}

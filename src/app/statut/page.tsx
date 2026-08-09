@@ -7,7 +7,7 @@ import ImpersonationBanner from '@/components/ImpersonationBanner'
 import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
 import { getImpersonationInfo } from '@/lib/impersonation'
 import StatutPersonnel from '@/components/StatutPersonnel'
-import { estRH } from '@/lib/roles'
+import { estRH, estAAF } from '@/lib/roles'
 
 export default async function StatutPage() {
   const supabase = await createClient()
@@ -32,6 +32,7 @@ export default async function StatutPage() {
         typeEmploi={profile?.type_emploi}
         showAdmin={['admin', 'superadmin'].includes(realRole) && !previewRole}
         showRH={estRH(role)}
+        showAAF={estAAF(role)}
         avatarUrl={profile?.avatar_url ?? null}
       />
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}

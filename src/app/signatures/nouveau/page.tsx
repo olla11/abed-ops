@@ -9,7 +9,7 @@ import { getImpersonationInfo } from '@/lib/impersonation'
 import { getCachedProfilesForSignatures } from '@/lib/cache'
 import type { ProfileOption } from '../page'
 import NouvelleDemandeClient from './NouvelleDemandeClient'
-import { estRH } from '@/lib/roles'
+import { estRH, estAAF } from '@/lib/roles'
 
 export default async function NouvelleDemandePage() {
   const supabase = await createClient()
@@ -37,6 +37,7 @@ export default async function NouvelleDemandePage() {
         typeEmploi={profile?.type_emploi}
         showAdmin={['admin', 'superadmin'].includes(realRole) && !previewRole}
         showRH={estRH(role)}
+        showAAF={estAAF(role)}
         avatarUrl={profile?.avatar_url ?? null}
       />
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}

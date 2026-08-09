@@ -7,7 +7,7 @@ import AppHeader from '@/components/AppHeader'
 import RolePreviewBanner from '@/components/RolePreviewBanner'
 import ImpersonationBanner from '@/components/ImpersonationBanner'
 import ProjetsSidebar from '@/components/ProjetsSidebar'
-import { estRH } from '@/lib/roles'
+import { estRH, estAAF } from '@/lib/roles'
 
 export default async function ProjetsPage() {
   const supabase = await createClient()
@@ -30,6 +30,7 @@ export default async function ProjetsPage() {
         typeEmploi={profile?.type_emploi}
         showAdmin={['admin', 'superadmin'].includes(realRole) && !previewRole}
         showRH={estRH(role)}
+        showAAF={estAAF(role)}
         avatarUrl={profile?.avatar_url ?? null}
       />
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}

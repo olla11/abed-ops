@@ -8,7 +8,7 @@ import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
 import { getImpersonationInfo } from '@/lib/impersonation'
 import { getCachedProfilesForSignatures } from '@/lib/cache'
 import SignaturesClient from './SignaturesClient'
-import { estRH } from '@/lib/roles'
+import { estRH, estAAF } from '@/lib/roles'
 
 export type SignataireRow = {
   profile_id: string | null
@@ -120,6 +120,7 @@ export default async function SignaturesPage() {
         typeEmploi={profile?.type_emploi}
         showAdmin={['admin', 'superadmin'].includes(realRole) && !previewRole}
         showRH={estRH(role)}
+        showAAF={estAAF(role)}
         avatarUrl={profile?.avatar_url ?? null}
       />
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}
