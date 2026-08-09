@@ -48,7 +48,7 @@ export default async function OverviewPage() {
       {impersonation && <ImpersonationBanner adminNom={impersonation.adminNom} adminPrenoms={impersonation.adminPrenoms} targetNom={impersonation.targetNom} targetPrenoms={impersonation.targetPrenoms} targetRole={impersonation.targetRole} />}
       <div className="page-container" style={{ display: 'grid', gap: 28 }}>
 
-      {showAAFNav && <AAFNav />}
+      {showAAFNav && <AAFNav role={role} />}
 
       <div>
         <h1 style={{ color: 'var(--abed-green)', marginBottom: 4 }}>Vue d'ensemble des opérations</h1>
