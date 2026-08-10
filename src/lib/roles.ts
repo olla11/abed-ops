@@ -108,12 +108,12 @@ export const CAN = {
   signerOM: (r: AccessRole) => r === 'caf' || r === 'de' || r === 'dp',
   validerTimesheet: (r: AccessRole) => r === 'manager' || r === 'caf' || r === 'admin',
   validerPaiement: (r: AccessRole) => r === 'caf' || r === 'de' || r === 'dp' || r === 'admin',
-  attribuerTitre: (r: AccessRole) => r === 'admin' || r === 'rh' || r === 'caf',
+  attribuerTitre: (r: AccessRole) => r === 'admin' || r === 'rh',
   voirToutesMissions: (r: AccessRole) => ['caf', 'de', 'dp', 'admin'].includes(r),
 }
 
-// Qui peut attribuer un titre (décision : Admin, RH, CAF)
-export const ROLES_QUI_ATTRIBUENT: AccessRole[] = ['admin', 'rh', 'caf']
+// Qui peut attribuer un titre (décision : Admin, RH — retiré de la CAF)
+export const ROLES_QUI_ATTRIBUENT: AccessRole[] = ['admin', 'rh']
 
 // --- Hiérarchie CAF ↔ AAF / RH ---
 // Le/la CAF est le/la responsable hiérarchique de l'AAF et des RH : il/elle

@@ -97,7 +97,10 @@ export default function UserAvatar({ userName, userRole, avatarUrl }: Props) {
               ...(['caf', 'admin'].includes(userRole ?? '') ? [{ href: '/parametres', label: 'Paramètres', icon: <Settings size={15} /> }] : []),
               { href: '/profile', label: tc('profile'), icon: <User size={15} /> },
               { href: '/a-propos', label: 'À propos', icon: <Info size={15} /> },
-              ...(userRole === 'admin' ? [{ href: '/admin', label: 'Administration', icon: <Wrench size={15} /> }] : []),
+              // CAF n'a pas d'onglet "Admin" dans la barre principale (réservé à
+              // admin/superadmin) — son accès à l'administration (comptes,
+              // inscriptions, actions par lot) passe uniquement par ici.
+              ...(['admin', 'caf'].includes(userRole ?? '') ? [{ href: '/admin', label: 'Administration', icon: <Wrench size={15} /> }] : []),
             ] as { href: string; label: string; icon: React.ReactNode }[]).map(item => (
               <Link key={item.href} href={item.href} onClick={() => setOpen(false)} style={{
                 display: 'flex', alignItems: 'center', gap: 10,

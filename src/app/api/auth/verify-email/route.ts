@@ -112,7 +112,8 @@ export async function GET(req: NextRequest) {
     .select('nom, prenoms, email')
     .single()
 
-  // Notifie chaque admin/RH (in-app + email) qu'un nouveau compte attend l'activation
+  // Notifie admin/superadmin/CAF (in-app + email) qu'un nouveau compte attend
+  // l'activation — RH et AAF ne gèrent plus l'activation des comptes.
   if (updated) {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://myabed.vercel.app'
     const nomComplet = `${updated.prenoms ?? ''} ${updated.nom ?? ''}`.trim() || updated.email || 'Nouvel utilisateur'
@@ -121,7 +122,7 @@ export async function GET(req: NextRequest) {
     const { data: admins } = await admin
       .from('profiles')
       .select('id, email, prenoms')
-      .in('role', ['admin', 'rh', 'caf'])
+      .in('role', ['admin', 'superadmin', 'caf'])
       .eq('archived', false)
 
     for (const a of admins ?? []) {

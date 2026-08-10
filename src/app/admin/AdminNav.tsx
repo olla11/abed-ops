@@ -5,13 +5,15 @@ import { Users, Shield, Tag, Zap, HardDrive, UserPlus, ScrollText, BarChart3 } f
 import { useTranslations } from 'next-intl'
 import type { LucideIcon } from 'lucide-react'
 
-type Tab = { href: string; labelKey: string; Icon: LucideIcon; adminOnly?: boolean; superadminOnly?: boolean }
+type Tab = { href: string; labelKey: string; Icon: LucideIcon; adminOnly?: boolean; superadminOnly?: boolean; hiddenForCaf?: boolean }
 
 const TABS: Tab[] = [
   { href: '/admin/comptes',       labelKey: 'accounts',      Icon: Users },
   { href: '/admin/inscriptions',  labelKey: 'inscriptions',  Icon: UserPlus },
-  { href: '/admin/roles',         labelKey: 'roles',         Icon: Shield },
-  { href: '/admin/titres',        labelKey: 'titles',        Icon: Tag },
+  // Rôles et Titres restent réservés à admin/superadmin — la CAF ne garde que
+  // Comptes, Inscriptions et Actions par lot dans son menu Administration.
+  { href: '/admin/roles',         labelKey: 'roles',         Icon: Shield, hiddenForCaf: true },
+  { href: '/admin/titres',        labelKey: 'titles',        Icon: Tag, hiddenForCaf: true },
   { href: '/admin/actions',       labelKey: 'batchActions',  Icon: Zap },
   { href: '/admin/stockage',      labelKey: 'storage',       Icon: HardDrive, adminOnly: true },
   { href: '/admin/journal',       labelKey: 'journal',       Icon: ScrollText, superadminOnly: true },
@@ -21,7 +23,11 @@ const TABS: Tab[] = [
 export default function AdminNav({ role, pendingCount }: { role: string; pendingCount?: number }) {
   const path = usePathname()
   const ta = useTranslations('admin')
-  const tabs = TABS.filter(t => (!t.adminOnly || ['admin', 'superadmin'].includes(role)) && (!t.superadminOnly || role === 'superadmin'))
+  const tabs = TABS.filter(t =>
+    (!t.adminOnly || ['admin', 'superadmin'].includes(role))
+    && (!t.superadminOnly || role === 'superadmin')
+    && (!t.hiddenForCaf || role !== 'caf')
+  )
 
   return (
     <div style={{ marginBottom: 28 }}>
