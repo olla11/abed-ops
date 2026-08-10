@@ -11,10 +11,13 @@ export default function TitresPrincipauxAlert() {
   const [err, setErr] = useState('')
 
   async function load() {
-    const res = await fetch('/api/admin/titres-principaux')
+    const res = await fetch('/api/admin/titres-principaux', { cache: 'no-store' })
     if (res.ok) {
       const data = await res.json()
       setDoublons(data.doublons ?? [])
+    } else {
+      const j = await res.json().catch(() => ({}))
+      console.error('[TitresPrincipauxAlert] chargement échoué:', j.error)
     }
   }
 

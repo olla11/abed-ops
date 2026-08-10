@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase-server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { revalidateTag } from 'next/cache'
 
+export const dynamic = 'force-dynamic'
+
 const TITRES_UNIQUES = [
   'directeur_executif', 'directeur_programmes', 'caf', 'rh', 'aaf',
   'president_ca', 'secretaire_general_ca', 'tresorier_ca',
