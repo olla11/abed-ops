@@ -4,6 +4,7 @@ import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { unstable_cache } from 'next/cache'
 import { getCachedProfile } from '@/lib/cache'
 import ComptesTableClient from './ComptesTableClient'
+import TitresPrincipauxAlert from './TitresPrincipauxAlert'
 
 // Inclut les archivés pour l'admin
 const getAllUsers = unstable_cache(
@@ -38,6 +39,7 @@ export default async function ComptesPage() {
 
   return (
     <div className="page-container" style={{ display: 'grid', gap: 24 }}>
+      {isAdmin && <TitresPrincipauxAlert />}
       <div className="card">
         <h3 style={{ marginBottom: 4, fontSize: 15 }}>Tous les comptes ({users?.length ?? 0})</h3>
         {canManage && (
