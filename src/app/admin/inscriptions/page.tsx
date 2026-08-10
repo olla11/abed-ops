@@ -1,7 +1,6 @@
 export const dynamic = 'force-dynamic'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase-server'
-import { estRH } from '@/lib/roles'
 import InscriptionsClient from './InscriptionsClient'
 
 export default async function InscriptionsPage() {
@@ -9,8 +8,9 @@ export default async function InscriptionsPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
+  // RH n'active plus de comptes (retiré des notifications et de l'accès admin).
   const { data: me } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  if (!me || !(estRH(me.role) || ['admin', 'superadmin'].includes(me.role))) redirect('/accueil')
+  if (!me || !['admin', 'caf', 'superadmin'].includes(me.role)) redirect('/accueil')
 
   const { data: pending } = await supabase
     .from('profiles')

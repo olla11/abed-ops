@@ -18,7 +18,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const { data: profile } = await supabase
     .from('profiles').select('role, nom, prenoms, avatar_url, type_emploi').eq('id', user.id).single()
 
-  if (!profile || !['admin', 'rh', 'caf', 'superadmin'].includes(profile.role)) redirect('/dashboard')
+  // RH n'a plus d'accès à l'administration (ni notification, ni entrée de
+  // menu) — verrouillé ici aussi pour empêcher l'accès direct par URL.
+  if (!profile || !['admin', 'caf', 'superadmin'].includes(profile.role)) redirect('/dashboard')
 
   const realRole = profile.role
   const role = await getEffectiveRole(realRole)

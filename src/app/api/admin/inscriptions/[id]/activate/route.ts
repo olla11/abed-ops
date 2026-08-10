@@ -6,7 +6,6 @@ import { revalidateTag } from 'next/cache'
 import { z } from 'zod'
 import { validate } from '@/lib/validate'
 import { genererMatricule } from '@/lib/rh-derive'
-import { estRH } from '@/lib/roles'
 
 const ActivateSchema = z.object({
   role:       z.string().min(1, 'Rôle requis').max(50),
@@ -23,7 +22,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const { data: actor } = await supabase
     .from('profiles').select('role').eq('id', user.id).single()
-  if (!actor || !(estRH(actor.role) || ['admin', 'superadmin'].includes(actor.role))) {
+  // RH n'active plus de comptes (retiré des notifications et de l'accès admin).
+  if (!actor || !['admin', 'caf', 'superadmin'].includes(actor.role)) {
     return NextResponse.json({ error: 'acces refuse' }, { status: 403 })
   }
 
