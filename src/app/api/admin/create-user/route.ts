@@ -49,6 +49,12 @@ export async function POST(req: NextRequest) {
     ifu, grade_indice, adresse, date_naissance, lieu_naissance, nationalite,
     role, type_emploi } = v.data
 
+  // Seul admin/superadmin peut créer un compte directement au niveau
+  // admin/superadmin — CAF ne peut attribuer que des rôles opérationnels.
+  if (!['admin', 'superadmin'].includes(profile.role) && ['admin', 'superadmin'].includes(role ?? '')) {
+    return NextResponse.json({ error: 'Seul un administrateur peut attribuer ce rôle' }, { status: 403 })
+  }
+
   const admin = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!

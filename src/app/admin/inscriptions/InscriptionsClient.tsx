@@ -43,9 +43,13 @@ const sel: React.CSSProperties = {
   fontSize: 13, background: 'white', width: '100%',
 }
 
-function InscriptionRow({ p, managers }: { p: Pending; managers: Manager[] }) {
+function InscriptionRow({ p, managers, adminRole }: { p: Pending; managers: Manager[]; adminRole: string }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
+  // CAF (seul rôle non-admin à activer des comptes) ne peut pas attribuer
+  // le rôle admin — l'API le refuserait de toute façon, mais autant ne pas
+  // le proposer dans la liste.
+  const roles = ['admin', 'superadmin'].includes(adminRole) ? ROLES : ROLES.filter(r => r.value !== 'admin')
   const [role, setRole] = useState('missionnaire')
   const [typeEmploi, setTypeEmploi] = useState('cdd')
   const [managerId, setManagerId] = useState('')
@@ -108,7 +112,7 @@ function InscriptionRow({ p, managers }: { p: Pending; managers: Manager[] }) {
                 Rôle <span style={{ color: '#ef4444' }}>*</span>
               </label>
               <select style={sel} value={role} onChange={e => setRole(e.target.value)}>
-                {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                {roles.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
               </select>
             </div>
             <div>
@@ -153,7 +157,7 @@ function InscriptionRow({ p, managers }: { p: Pending; managers: Manager[] }) {
 }
 
 export default function InscriptionsClient({
-  pending, managers,
+  pending, managers, adminRole,
 }: {
   pending: Pending[]; managers: Manager[]; adminRole: string
 }) {
@@ -183,7 +187,7 @@ export default function InscriptionsClient({
       ) : (
         <div>
           {pending.map(p => (
-            <InscriptionRow key={p.id} p={p} managers={managers} />
+            <InscriptionRow key={p.id} p={p} managers={managers} adminRole={adminRole} />
           ))}
         </div>
       )}

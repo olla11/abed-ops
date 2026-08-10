@@ -32,6 +32,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if ('error' in v) return v.error
   const { role, type_emploi, manager_id } = v.data
 
+  // Seul admin/superadmin peut activer un compte directement au niveau
+  // admin/superadmin — CAF ne peut attribuer que des rôles opérationnels.
+  if (!['admin', 'superadmin'].includes(actor.role) && ['admin', 'superadmin'].includes(role)) {
+    return NextResponse.json({ error: 'Seul un administrateur peut attribuer ce rôle' }, { status: 403 })
+  }
+
   const admin = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
