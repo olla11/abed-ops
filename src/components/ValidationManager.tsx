@@ -20,6 +20,13 @@ type RapportManager = {
   prestataire: { prenoms: string; nom: string; type_emploi: string | null } | null
 }
 
+const STATUS_LABEL_RAPPORT: Record<string, string> = {
+  valide_tech: 'Validé — attente AAF', traite_aaf: 'Traité AAF — att. CAF',
+  valide_caf: 'Validé CAF — att. DE', autorise: '✓ Autorisé',
+  rejete_manager: '✗ Rejeté par vous', rejete_aaf: '✗ Rejeté (AAF)',
+  rejete_caf: '✗ Rejeté (CAF)', refuse_de: '✗ Refusé (DE)',
+}
+
 async function openFile(path: string) {
   const res = await fetch(`/api/storage/signed-url?bucket=timesheets&path=${encodeURIComponent(path)}`)
   const json = await res.json()
@@ -31,9 +38,11 @@ export default function ValidationManager() {
   const supabase = createClient()
   const [items, setItems] = useState<Soumission[]>([])
   const [rapports, setRapports] = useState<RapportManager[]>([])
+  const [rapportsHistorique, setRapportsHistorique] = useState<RapportManager[]>([])
   const [loading, setLoading] = useState(true)
   const [pageItems, setPageItems] = useState(1)
   const [pageRapports, setPageRapports] = useState(1)
+  const [expandedHist, setExpandedHist] = useState<string | null>(null)
   const [taux, setTaux] = useState(1500)
   const [expanded, setExpanded] = useState<string | null>(null)
   const [expandedRap, setExpandedRap] = useState<string | null>(null)
@@ -47,7 +56,7 @@ export default function ValidationManager() {
   async function load() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const [{ data }, { data: raps }, tauxRes] = await Promise.all([
+    const [{ data }, { data: raps }, { data: rapsHist }, tauxRes] = await Promise.all([
       supabase
         .from('soumissions')
         .select('id,titre,status,periode_mois,periode_annee,heures_declarees,fichier_timesheet_url,fichier_livrable_url,corrige_le,prestataire:profiles!soumissions_prestataire_id_fkey(prenoms,nom)')
@@ -60,10 +69,20 @@ export default function ValidationManager() {
         .eq('manager_id', user.id)
         .eq('status', 'soumis')
         .order('created_at', { ascending: false }),
+      // Déjà traités par vous — le montant et le document restent
+      // consultables ici même après validation technique.
+      supabase
+        .from('rapports_allocations')
+        .select('id,status,periode_mois,periode_annee,rapport_texte,fichier_rapport_url,corrige_le,prestataire:profiles!rapports_allocations_prestataire_id_fkey(prenoms,nom,type_emploi)')
+        .eq('manager_id', user.id)
+        .neq('status', 'soumis')
+        .order('created_at', { ascending: false })
+        .limit(50),
       fetch('/api/config/taux').then(r => r.json()),
     ])
     setItems((data as any) ?? [])
     setRapports((raps as any) ?? [])
+    setRapportsHistorique((rapsHist as any) ?? [])
     if (tauxRes.taux) setTaux(tauxRes.taux)
     setLoading(false)
   }
@@ -338,6 +357,49 @@ export default function ValidationManager() {
         })}
         <Pagination page={pageRapports} total={rapports.length} onChange={setPageRapports} />
       </div>
+
+      {rapportsHistorique.length > 0 && (
+        <div className="card" style={{ borderLeft: '4px solid #9ca3af' }}>
+          <h3 style={{ marginBottom: 4 }}>🗂 Historique — rapports mensuels ({rapportsHistorique.length})</h3>
+          <p style={{ fontSize: 12, color: 'var(--abed-muted)', marginBottom: 16 }}>
+            Rapports déjà validés ou rejetés par vous — le document reste consultable ici.
+          </p>
+          {rapportsHistorique.map(r => {
+            const isOpen = expandedHist === r.id
+            const p = r.prestataire
+            return (
+              <div key={r.id} style={{ borderBottom: '1px solid var(--abed-border)', padding: '10px 0' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+                  onClick={() => setExpandedHist(isOpen ? null : r.id)}>
+                  <div>
+                    <strong>{p?.prenoms} {p?.nom}</strong>
+                    <span style={{ fontSize: 12, color: 'var(--abed-muted)', marginLeft: 10 }}>
+                      {r.periode_mois}/{r.periode_annee}
+                    </span>
+                  </div>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: '#6b7280' }}>
+                    {STATUS_LABEL_RAPPORT[r.status] ?? r.status}
+                  </span>
+                </div>
+                {isOpen && (
+                  <div style={{ marginTop: 10, display: 'grid', gap: 10 }}>
+                    <div style={{ background: '#f9fafb', borderRadius: 8, padding: '10px 14px',
+                      fontSize: 13, color: '#374151', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+                      {r.rapport_texte}
+                    </div>
+                    {r.fichier_rapport_url && (
+                      <button className="btn secondary" style={{ fontSize: 12, alignSelf: 'flex-start' }}
+                        onClick={() => openFile(r.fichier_rapport_url!)}>
+                        📝 Télécharger document Word
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

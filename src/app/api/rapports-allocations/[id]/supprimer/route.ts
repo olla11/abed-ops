@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
 
-// Un rapport autorisé ne se supprime plus (paiement déjà en cours) — tout le
-// reste (en attente à n'importe quelle étape, ou rejeté) peut être retiré
-// par son auteur.
-const SUPPRIMABLE_SAUF = ['autorise']
+// Supprimable seulement avant toute validation technique ('soumis'), ou si
+// rejeté (donc jamais validé) — dès que le responsable direct a validé, le
+// dossier est figé comme pour la correction.
+const REJETE = ['rejete_manager', 'rejete_aaf', 'rejete_caf', 'refuse_de']
+const SUPPRIMABLE = ['soumis', ...REJETE]
 
 export async function POST(
   _req: NextRequest,
@@ -25,32 +26,21 @@ export async function POST(
   if (!rapport || rapport.prestataire_id !== user.id) {
     return NextResponse.json({ error: 'Rapport introuvable' }, { status: 404 })
   }
-  if (SUPPRIMABLE_SAUF.includes(rapport.status)) {
-    return NextResponse.json({ error: 'Ce rapport est déjà autorisé et ne peut plus être supprimé.' }, { status: 400 })
+  if (!SUPPRIMABLE.includes(rapport.status)) {
+    return NextResponse.json({ error: 'Ce rapport ne peut plus être supprimé à ce stade.' }, { status: 400 })
   }
 
   const prest = rapport.prestataire as any
   const mois = new Date(rapport.periode_annee, rapport.periode_mois - 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
   const message = `${prest?.prenoms ?? ''} ${prest?.nom ?? ''} a supprimé son rapport de ${mois}.`
 
-  // Prévenir qui détenait le dossier avant suppression, selon son statut.
+  // Seul un rapport 'soumis' a encore un détenteur actif (le responsable
+  // direct) à prévenir — un rapport rejeté est déjà revenu à son auteur,
+  // personne d'autre n'a de dossier en cours à ce sujet.
   if (rapport.status === 'soumis' && rapport.manager_id) {
     await admin.from('notifications').insert({
       user_id: rapport.manager_id, titre: 'Rapport supprimé', message, lien: '/timesheets',
     })
-  } else {
-    const rolesParStatut: Record<string, string[]> = {
-      valide_tech: ['aaf', 'caf'],
-      traite_aaf: ['caf'],
-      valide_caf: ['de', 'dp', 'administrateur'].includes(prest?.role ?? '') ? ['administrateur'] : ['de'],
-    }
-    const roles = rolesParStatut[rapport.status]
-    if (roles) {
-      const { data: destinataires } = await admin.from('profiles').select('id').in('role', roles).eq('archived', false)
-      await Promise.allSettled((destinataires ?? []).map(d =>
-        admin.from('notifications').insert({ user_id: d.id, titre: 'Rapport supprimé', message, lien: '/aaf/rapports-allocations' })
-      ))
-    }
   }
 
   const { error } = await admin.from('rapports_allocations').delete().eq('id', id)

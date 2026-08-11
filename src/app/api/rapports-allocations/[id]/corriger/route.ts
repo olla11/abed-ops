@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
 
-// Statuts "en cours" où le soumissionnaire peut encore corriger son rapport
-// sans repasser par la case départ — un rejet a déjà son propre circuit de
-// re-soumission (qui repart de 'soumis'), et un rapport autorisé ne se
-// modifie plus (paiement déjà en cours).
-const CORRIGEABLE = ['soumis', 'valide_tech', 'traite_aaf', 'valide_caf']
+// Le soumissionnaire ne peut corriger son rapport qu'avant toute validation
+// technique — dès que le responsable direct l'a validé, le dossier est figé
+// (un rejet a son propre circuit de re-soumission qui repart de 'soumis').
+const CORRIGEABLE = ['soumis']
 
 export async function POST(
   req: NextRequest,
@@ -53,24 +52,12 @@ export async function POST(
     ? `${prest?.prenoms ?? ''} ${prest?.nom ?? ''} a mis à jour son rapport (désormais ${mois}) — relisez la nouvelle version avant de le traiter.`
     : `${prest?.prenoms ?? ''} ${prest?.nom ?? ''} a mis à jour son rapport de ${mois} — relisez la nouvelle version avant de le traiter.`
 
-  // Prévenir qui détient actuellement le dossier, selon son statut courant.
-  if (rapport.status === 'soumis' && rapport.manager_id) {
+  // Seul le statut 'soumis' est corrigeable désormais : le responsable
+  // direct assigné est donc toujours le seul détenteur actuel du dossier.
+  if (rapport.manager_id) {
     await admin.from('notifications').insert({
       user_id: rapport.manager_id, titre: 'Rapport mis à jour', message, lien: '/timesheets',
     })
-  } else {
-    const rolesParStatut: Record<string, string[]> = {
-      valide_tech: ['aaf', 'caf'],
-      traite_aaf: ['caf'],
-      valide_caf: ['de', 'dp', 'administrateur'].includes(prest?.role ?? '') ? ['administrateur'] : ['de'],
-    }
-    const roles = rolesParStatut[rapport.status]
-    if (roles) {
-      const { data: destinataires } = await admin.from('profiles').select('id').in('role', roles).eq('archived', false)
-      await Promise.allSettled((destinataires ?? []).map(d =>
-        admin.from('notifications').insert({ user_id: d.id, titre: 'Rapport mis à jour', message, lien: '/aaf/rapports-allocations' })
-      ))
-    }
   }
 
   return NextResponse.json({ ok: true })

@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { estAAF } from '@/lib/roles'
 import { getNiveauFonction } from '@/lib/bareme'
+import PiecesJointesList from '@/components/PiecesJointesList'
 
 type Rapport = {
   id: string; periode_mois: number; periode_annee: number
@@ -9,6 +10,7 @@ type Rapport = {
   commentaire_manager: string | null
   prestataire_id: string
   corrige_le: string | null
+  fichier_rapport_url: string | null
   prestataire: { nom: string; prenoms: string; type_emploi: string | null; titre: string | null; role: string | null } | null
 }
 
@@ -18,6 +20,13 @@ const STATUS_FOR_AAF = ['valide_tech']
 const STATUS_FOR_CAF = ['traite_aaf']
 const STATUS_FOR_DE = ['valide_caf']
 const TYPES_NON_SALARIES = ['benevole', 'stagiaire_n1', 'stagiaire_n2']
+const REJETE_STATUSES = ['rejete_manager', 'rejete_aaf', 'rejete_caf', 'refuse_de']
+const STATUS_LABEL: Record<string, string> = {
+  soumis: 'En attente responsable', valide_tech: 'Validé — attente AAF',
+  traite_aaf: 'Traité AAF — att. CAF', valide_caf: 'Validé CAF — att. DE',
+  autorise: '✓ Autorisé', rejete_manager: '✗ Rejeté (responsable)',
+  rejete_aaf: '✗ Rejeté (AAF)', rejete_caf: '✗ Rejeté (CAF)', refuse_de: '✗ Refusé (DE)',
+}
 
 type Stage = 'aaf' | 'caf' | 'de' | 'manager'
 
@@ -130,9 +139,28 @@ export default function ValidationRapportsAAF({ role, userId, stage }: { role: s
   // rapport ne peut pas se fixer lui-même son montant d'allocation) — il
   // revient alors naturellement au CAF, qui hérite des droits AAF.
   const aTraiter = rapports.filter(r => r.prestataire_id !== userId && canAct(r))
-  if (loading || aTraiter.length === 0) return null
+
+  // Historique : dossiers déjà sortis de l'étape propre à ce rôle (ou
+  // rejetés). Sans ça, une fois traité un dossier disparaît purement et
+  // simplement de l'écran — y compris son document, qui doit rester
+  // consultable même après autorisation finale.
+  const effectiveStage: Stage | null = stage
+    ?? (['de', 'administrateur'].includes(role) ? 'de' : role === 'caf' ? 'caf' : estAAF(role) ? 'aaf' : null)
+  function estHistorique(r: Rapport) {
+    if (aTraiter.includes(r)) return false
+    if (REJETE_STATUSES.includes(r.status)) return true
+    if (effectiveStage === 'aaf') return ['traite_aaf', 'valide_caf', 'autorise'].includes(r.status)
+    if (effectiveStage === 'caf') return ['valide_caf', 'autorise'].includes(r.status)
+    if (effectiveStage === 'de') return r.status === 'autorise'
+    return false
+  }
+  const historique = rapports.filter(estHistorique)
+
+  if (loading || (aTraiter.length === 0 && historique.length === 0)) return null
 
   return (
+    <>
+    {aTraiter.length > 0 && (
     <div className="card" style={{ borderLeft: '4px solid #6d28d9' }}>
       <h3 style={{ marginBottom: 4 }}>📋 Rapports d'allocations à traiter ({aTraiter.length})</h3>
       <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: 12 }}>
@@ -180,6 +208,9 @@ export default function ValidationRapportsAAF({ role, userId, stage }: { role: s
                     Manager : {r.commentaire_manager}
                   </p>
                 )}
+                {r.fichier_rapport_url && (
+                  <PiecesJointesList pieces={[{ path: r.fichier_rapport_url, nom: 'Document Word' }]} />
+                )}
                 {STATUS_FOR_AAF.includes(r.status) && (
                   <div className="field" style={{ marginBottom: 0 }}>
                     <label className="label">
@@ -217,5 +248,51 @@ export default function ValidationRapportsAAF({ role, userId, stage }: { role: s
         )
       })}
     </div>
+    )}
+
+    {historique.length > 0 && (
+      <div className="card" style={{ borderLeft: '4px solid #9ca3af', marginTop: aTraiter.length > 0 ? 16 : 0 }}>
+        <h3 style={{ marginBottom: 4 }}>🗂 Historique ({historique.length})</h3>
+        <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: 12 }}>
+          Dossiers déjà traités à votre étape — montant et document restent consultables.
+        </p>
+        {historique
+          .sort((a, b) => (b.periode_annee - a.periode_annee) || (b.periode_mois - a.periode_mois))
+          .map(r => {
+            const isOpen = expanded === `hist_${r.id}`
+            const mois = new Date(r.periode_annee, r.periode_mois - 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+            return (
+              <div key={r.id} style={{ borderBottom: '1px solid var(--abed-border)', padding: '10px 0' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+                  onClick={() => setExpanded(isOpen ? null : `hist_${r.id}`)}>
+                  <div>
+                    <strong>{r.prestataire?.prenoms} {r.prestataire?.nom}</strong>
+                    <span style={{ fontSize: 12, color: 'var(--abed-muted)', marginLeft: 8 }}>
+                      {mois}
+                      {r.montant_allocation != null && (
+                        <strong style={{ color: 'var(--abed-green)', marginLeft: 8 }}>
+                          {r.montant_allocation.toLocaleString('fr-FR')} FCFA
+                        </strong>
+                      )}
+                    </span>
+                  </div>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: '#6b7280' }}>{STATUS_LABEL[r.status] ?? r.status}</span>
+                </div>
+                {isOpen && (
+                  <div style={{ marginTop: 10 }}>
+                    <div style={{ background: '#f9fafb', borderRadius: 6, padding: 10 }}>
+                      <p style={{ fontSize: 13, whiteSpace: 'pre-wrap' }}>{r.rapport_texte}</p>
+                    </div>
+                    {r.fichier_rapport_url && (
+                      <PiecesJointesList pieces={[{ path: r.fichier_rapport_url, nom: 'Document Word' }]} />
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+      </div>
+    )}
+    </>
   )
 }

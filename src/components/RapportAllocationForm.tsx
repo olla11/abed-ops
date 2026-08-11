@@ -1,12 +1,14 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase-client'
+import PiecesJointesList from '@/components/PiecesJointesList'
 
 type Rapport = {
   id: string; periode_mois: number; periode_annee: number
   rapport_texte: string; montant_allocation: number | null; status: string
   commentaire_manager: string | null; commentaire_aaf: string | null
   commentaire_caf: string | null; commentaire_de: string | null
+  fichier_rapport_url: string | null
 }
 
 const STATUS_LABEL: Record<string, { label: string; color: string }> = {
@@ -22,9 +24,10 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
 }
 
 const REJETE = ['rejete_manager','rejete_aaf','rejete_caf','refuse_de']
-// Encore modifiable en place (sans repasser par la case départ) tant que le
-// montant n'est pas définitivement autorisé.
-const MODIFIABLE = ['soumis', 'valide_tech', 'traite_aaf', 'valide_caf']
+// Modifiable/supprimable uniquement avant toute validation — dès que le
+// responsable technique a validé, le dossier est figé (seul un rejet rouvre
+// la re-soumission, via un circuit distinct).
+const MODIFIABLE = ['soumis']
 
 async function uploadWordFile(file: File): Promise<string> {
   const fd = new FormData()
@@ -46,8 +49,8 @@ export default function RapportAllocationForm({ typeEmploi }: { typeEmploi?: str
   const [msg, setMsg] = useState('')
   const [loading, setLoading] = useState(false)
   const [history, setHistory] = useState<Rapport[]>([])
-  const [resoumission, setResoumission] = useState<{ id: string; texte: string; fichier: File | null } | null>(null)
-  const [correction, setCorrection] = useState<{ id: string; texte: string; fichier: File | null; mois: number; annee: number } | null>(null)
+  const [resoumission, setResoumission] = useState<{ id: string; texte: string; fichier: File | null; fichierExistant: string | null } | null>(null)
+  const [correction, setCorrection] = useState<{ id: string; texte: string; fichier: File | null; fichierExistant: string | null; mois: number; annee: number } | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -62,8 +65,11 @@ export default function RapportAllocationForm({ typeEmploi }: { typeEmploi?: str
 
   useEffect(() => { loadHistory() }, [])
 
-  function validateFile(f: File | null): string | null {
-    if (!f) return 'Le document Word est obligatoire.'
+  // `existant` : URL du document déjà en ligne lors d'une correction/re-
+  // soumission — dans ce cas, ne rien choisir de nouveau est valide (on
+  // garde l'ancien document au lieu d'en exiger un nouveau).
+  function validateFile(f: File | null, existant?: string | null): string | null {
+    if (!f) return existant ? null : 'Le document Word est obligatoire.'
     const name = f.name.toLowerCase()
     if (!name.endsWith('.doc') && !name.endsWith('.docx'))
       return 'Seuls les fichiers Word (.doc ou .docx) sont acceptés.'
@@ -98,11 +104,11 @@ export default function RapportAllocationForm({ typeEmploi }: { typeEmploi?: str
   async function resoumettre() {
     if (!resoumission) return
     if (!resoumission.texte.trim()) { setMsg('Le résumé des activités est obligatoire.'); return }
-    const ferr = validateFile(resoumission.fichier)
+    const ferr = validateFile(resoumission.fichier, resoumission.fichierExistant)
     if (ferr) { setMsg(ferr); return }
     setLoading(true); setMsg('Resoumission en cours…')
     try {
-      const fichier_url = await uploadWordFile(resoumission.fichier!)
+      const fichier_url = resoumission.fichier ? await uploadWordFile(resoumission.fichier) : resoumission.fichierExistant!
       const res = await fetch(`/api/rapports-allocations/${resoumission.id}/resoumettre`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -121,11 +127,11 @@ export default function RapportAllocationForm({ typeEmploi }: { typeEmploi?: str
   async function corriger() {
     if (!correction) return
     if (!correction.texte.trim()) { setMsg('Le résumé des activités est obligatoire.'); return }
-    const ferr = validateFile(correction.fichier)
+    const ferr = validateFile(correction.fichier, correction.fichierExistant)
     if (ferr) { setMsg(ferr); return }
     setLoading(true); setMsg('Mise à jour en cours…')
     try {
-      const fichier_url = await uploadWordFile(correction.fichier!)
+      const fichier_url = correction.fichier ? await uploadWordFile(correction.fichier) : correction.fichierExistant!
       const res = await fetch(`/api/rapports-allocations/${correction.id}/corriger`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -222,7 +228,7 @@ export default function RapportAllocationForm({ typeEmploi }: { typeEmploi?: str
               </div>
               {!isEditing && (
                 <button className="btn secondary" style={{ fontSize: 12 }}
-                  onClick={() => setResoumission({ id: r.id, texte: r.rapport_texte ?? '', fichier: null })}>
+                  onClick={() => setResoumission({ id: r.id, texte: r.rapport_texte ?? '', fichier: null, fichierExistant: r.fichier_rapport_url })}>
                   Corriger et re-soumettre
                 </button>
               )}
@@ -233,6 +239,9 @@ export default function RapportAllocationForm({ typeEmploi }: { typeEmploi?: str
                 Motif : {comment}
               </p>
             )}
+            {!isEditing && r.fichier_rapport_url && (
+              <PiecesJointesList pieces={[{ path: r.fichier_rapport_url, nom: 'Document Word' }]} />
+            )}
             {isEditing && (
               <div style={{ marginTop: 12, display: 'grid', gap: 10 }}>
                 <div className="field">
@@ -242,12 +251,15 @@ export default function RapportAllocationForm({ typeEmploi }: { typeEmploi?: str
                     onChange={e => setResoumission(s => s ? { ...s, texte: e.target.value } : null)} />
                 </div>
                 <div className="field">
-                  <label className="label">
-                    Nouveau document Word *
-                    <span style={{ fontSize: 11, fontWeight: 400, color: '#991b1b', marginLeft: 6 }}>obligatoire</span>
-                  </label>
-                  <input ref={reFileRef} className="input" type="file" accept=".doc,.docx"
+                  <label className="label">Document Word</label>
+                  {resoumission.fichierExistant && !resoumission.fichier && (
+                    <PiecesJointesList pieces={[{ path: resoumission.fichierExistant, nom: 'Document actuel' }]} />
+                  )}
+                  <input ref={reFileRef} className="input" type="file" accept=".doc,.docx" style={{ marginTop: 8 }}
                     onChange={e => setResoumission(s => s ? { ...s, fichier: e.target.files?.[0] ?? null } : null)} />
+                  <span style={{ fontSize: 11, color: 'var(--abed-muted)', marginTop: 4, display: 'block' }}>
+                    Laissez vide pour garder le document actuel, ou choisissez-en un nouveau pour le remplacer.
+                  </span>
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button className="btn" onClick={resoumettre} disabled={loading}>
@@ -286,7 +298,7 @@ export default function RapportAllocationForm({ typeEmploi }: { typeEmploi?: str
                     {peutModifier && !isCorrecting && confirmDelete !== r.id && (
                       <>
                         <button className="btn secondary" style={{ fontSize: 11, padding: '4px 10px' }}
-                          onClick={() => setCorrection({ id: r.id, texte: r.rapport_texte ?? '', fichier: null, mois: r.periode_mois, annee: r.periode_annee })}>
+                          onClick={() => setCorrection({ id: r.id, texte: r.rapport_texte ?? '', fichier: null, fichierExistant: r.fichier_rapport_url, mois: r.periode_mois, annee: r.periode_annee })}>
                           Corriger
                         </button>
                         <button className="btn danger" style={{ fontSize: 11, padding: '4px 10px' }}
@@ -310,6 +322,9 @@ export default function RapportAllocationForm({ typeEmploi }: { typeEmploi?: str
                     )}
                   </div>
                 </div>
+                {!isCorrecting && r.fichier_rapport_url && (
+                  <PiecesJointesList pieces={[{ path: r.fichier_rapport_url, nom: 'Document Word' }]} />
+                )}
                 {isCorrecting && (
                   <div style={{ marginTop: 12, display: 'grid', gap: 10 }}>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -331,12 +346,15 @@ export default function RapportAllocationForm({ typeEmploi }: { typeEmploi?: str
                         onChange={e => setCorrection(s => s ? { ...s, texte: e.target.value } : null)} />
                     </div>
                     <div className="field">
-                      <label className="label">
-                        Nouveau document Word *
-                        <span style={{ fontSize: 11, fontWeight: 400, color: '#991b1b', marginLeft: 6 }}>obligatoire</span>
-                      </label>
-                      <input ref={corrFileRef} className="input" type="file" accept=".doc,.docx"
+                      <label className="label">Document Word</label>
+                      {correction.fichierExistant && !correction.fichier && (
+                        <PiecesJointesList pieces={[{ path: correction.fichierExistant, nom: 'Document actuel' }]} />
+                      )}
+                      <input ref={corrFileRef} className="input" type="file" accept=".doc,.docx" style={{ marginTop: 8 }}
                         onChange={e => setCorrection(s => s ? { ...s, fichier: e.target.files?.[0] ?? null } : null)} />
+                      <span style={{ fontSize: 11, color: 'var(--abed-muted)', marginTop: 4, display: 'block' }}>
+                        Laissez vide pour garder le document actuel, ou choisissez-en un nouveau pour le remplacer.
+                      </span>
                     </div>
                     <div style={{ display: 'flex', gap: 8 }}>
                       <button className="btn" onClick={corriger} disabled={loading}>
