@@ -71,7 +71,15 @@ export async function POST(
       if (!commentaire?.trim()) return NextResponse.json({ error: 'Commentaire requis' }, { status: 400 })
       update = { status: 'rejete_aaf', aaf_id: user.id, aaf_le: now, commentaire_aaf: commentaire }
     }
-  } else if (role === 'caf' && rapport.status === 'traite_aaf') {
+  } else if ((role === 'caf' || role === 'admin') && rapport.status === 'traite_aaf') {
+    // La CAF ne peut pas valider elle-même son propre rapport (déjà fixé par
+    // un·e collègue AAF/CAF à l'étape précédente) — ça reviendrait à
+    // s'auto-approuver son propre montant. Un·e autre CAF (ou l'admin, ajouté
+    // ici en secours pour ne pas bloquer un dossier si une seule CAF est
+    // active) doit s'en charger.
+    if (rapport.prestataire_id === user.id) {
+      return NextResponse.json({ error: 'Vous ne pouvez pas valider votre propre rapport. Un·e autre CAF (ou l\'admin) s\'en chargera.' }, { status: 403 })
+    }
     if (action === 'valider') {
       // Si le soumetteur est lui-même un directeur (DE/DP), son supérieur hiérarchique (Président du CA) doit autoriser.
       // L'autorisation finale normale revient exclusivement au DE (le DP ne fait que la validation technique de premier niveau).
