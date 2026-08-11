@@ -23,15 +23,23 @@ export default async function CAFDashboardPage() {
 
   const [
     { count: demandesCount },
-    { count: rapportsCount },
+    { count: rapportsTraiteAafCount },
     { count: reconciliationsCount },
     { count: timesheetsCount },
+    // Rapports soumis par l'AAF lui-même, encore à l'étape "montant à
+    // fixer" — il ne peut pas les traiter, ils reviennent directement à la
+    // CAF plutôt que de rester coincés dans le tableau de bord AAF.
+    { count: rapportsAuteurAafCount },
   ] = await Promise.all([
     supabase.from('demandes_paiement').select('id', { count: 'exact', head: true }).eq('status', 'valide_aaf'),
     supabase.from('rapports_allocations').select('id', { count: 'exact', head: true }).eq('status', 'traite_aaf'),
     supabase.from('missions').select('id', { count: 'exact', head: true }).eq('status', 'reconciliation_caf'),
     supabase.from('soumissions').select('id', { count: 'exact', head: true }).eq('status', 'valide_tech'),
+    supabase.from('rapports_allocations')
+      .select('id, prestataire:profiles!rapports_allocations_prestataire_id_fkey!inner(role)', { count: 'exact', head: true })
+      .eq('status', 'valide_tech').eq('prestataire.role', 'aaf'),
   ])
+  const rapportsCount = (rapportsTraiteAafCount ?? 0) + (rapportsAuteurAafCount ?? 0)
 
   return (
     <div>

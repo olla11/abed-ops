@@ -23,7 +23,12 @@ export default async function AAFDashboardPage() {
 
   const [{ count: demandesCount }, { count: rapportsCount }, { count: reconciliationsCount }] = await Promise.all([
     supabase.from('demandes_paiement').select('id', { count: 'exact', head: true }).eq('status', 'soumis'),
-    supabase.from('rapports_allocations').select('id', { count: 'exact', head: true }).eq('status', 'valide_tech'),
+    // Exclut les rapports soumis par l'AAF lui-même : il ne peut jamais les
+    // traiter (bloqué côté serveur), ils apparaissent directement dans le
+    // tableau de bord CAF Pro à la place.
+    supabase.from('rapports_allocations')
+      .select('id, prestataire:profiles!rapports_allocations_prestataire_id_fkey!inner(role)', { count: 'exact', head: true })
+      .eq('status', 'valide_tech').neq('prestataire.role', 'aaf'),
     supabase.from('missions').select('id', { count: 'exact', head: true }).eq('status', 'reconciliation_aaf'),
   ])
 

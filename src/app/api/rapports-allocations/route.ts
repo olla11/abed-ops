@@ -13,7 +13,7 @@ export async function GET() {
 
   let query = supabase
     .from('rapports_allocations')
-    .select('*, prestataire:profiles!rapports_allocations_prestataire_id_fkey(nom,prenoms,email,type_emploi,titre)')
+    .select('*, prestataire:profiles!rapports_allocations_prestataire_id_fkey(nom,prenoms,email,type_emploi,titre,role)')
     .order('created_at', { ascending: false })
 
   if (!isTraiteur) query = query.eq('prestataire_id', user.id)

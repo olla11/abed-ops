@@ -9,7 +9,7 @@ type Rapport = {
   commentaire_manager: string | null
   prestataire_id: string
   corrige_le: string | null
-  prestataire: { nom: string; prenoms: string; type_emploi: string | null; titre: string | null } | null
+  prestataire: { nom: string; prenoms: string; type_emploi: string | null; titre: string | null; role: string | null } | null
 }
 
 type AllocationBareme = { type_emploi: string; niveau_fonction: string | null; montant_mensuel: number }
@@ -77,12 +77,21 @@ export default function ValidationRapportsAAF({ role, userId, stage }: { role: s
     })
   }, [rapports, baremes])
 
+  // Un rapport soumis par l'AAF lui-même ne pourra jamais être traité par
+  // "l'AAF" (bloqué côté serveur) — dans une équipe à AAF unique, ça revient
+  // donc toujours à la CAF. Plutôt que de le laisser trainer dans l'écran
+  // "AAF" où personne ne peut agir dessus, on le fait apparaître directement
+  // dans l'écran CAF Pro, dès l'étape de fixation du montant.
+  function estRapportAuteurAAF(r: Rapport) {
+    return r.prestataire?.role === 'aaf' && STATUS_FOR_AAF.includes(r.status)
+  }
+
   function canAct(r: Rapport) {
     // Le/la CAF hérite des droits de l'AAF : distinct des `if`/`return` en
     // chaîne d'origine, sinon un rôle qui correspond à plusieurs étapes
     // (caf = étape AAF + étape CAF) ne testerait jamais que la première.
-    const isAAFStage = (estAAF(role) || role === 'admin') && STATUS_FOR_AAF.includes(r.status)
-    const isCAFStage = role === 'caf' && STATUS_FOR_CAF.includes(r.status)
+    const isAAFStage = (estAAF(role) || role === 'admin') && STATUS_FOR_AAF.includes(r.status) && !estRapportAuteurAAF(r)
+    const isCAFStage = role === 'caf' && (STATUS_FOR_CAF.includes(r.status) || estRapportAuteurAAF(r))
     const isDEStage = ['de', 'administrateur'].includes(role) && STATUS_FOR_DE.includes(r.status)
     const isManagerStage = role === 'manager' && r.status === 'soumis'
     // Quand `stage` est fourni (menus AAF / CAF Pro dédiés), on restreint "à
