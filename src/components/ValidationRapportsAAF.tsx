@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { estAAF } from '@/lib/roles'
+import { getNiveauFonction } from '@/lib/bareme'
 
 type Rapport = {
   id: string; periode_mois: number; periode_annee: number
@@ -8,17 +9,39 @@ type Rapport = {
   commentaire_manager: string | null
   prestataire_id: string
   corrige_le: string | null
-  prestataire: { nom: string; prenoms: string; type_emploi: string | null } | null
+  prestataire: { nom: string; prenoms: string; type_emploi: string | null; titre: string | null } | null
 }
+
+type AllocationBareme = { type_emploi: string; niveau_fonction: string | null; montant_mensuel: number }
 
 const STATUS_FOR_AAF = ['valide_tech']
 const STATUS_FOR_CAF = ['traite_aaf']
 const STATUS_FOR_DE = ['valide_caf']
+const TYPES_NON_SALARIES = ['benevole', 'stagiaire_n1', 'stagiaire_n2']
 
 type Stage = 'aaf' | 'caf' | 'de' | 'manager'
 
+// Montant suggéré par le barème pour un bénévole/stagiaire (Sénior/Medium/
+// Junior ne s'appliquent pas ici, seulement le type d'emploi et, pour les
+// bénévoles, le niveau de fonction déduit du titre). Reste modifiable par
+// l'AAF — certains niveaux de bénévolat n'ont pas de ligne dans le barème,
+// auquel cas aucune suggestion n'est proposée et la saisie reste manuelle.
+function suggestionBareme(r: Rapport, baremes: AllocationBareme[]): number | null {
+  const type = r.prestataire?.type_emploi ?? ''
+  if (!TYPES_NON_SALARIES.includes(type)) return null
+  if (type === 'benevole') {
+    const niveau = getNiveauFonction(r.prestataire?.titre)
+    if (!niveau) return null
+    const row = baremes.find(b => b.type_emploi === 'benevole' && b.niveau_fonction === niveau)
+    return row ? row.montant_mensuel : null
+  }
+  const row = baremes.find(b => b.type_emploi === type && b.niveau_fonction === null)
+  return row ? row.montant_mensuel : null
+}
+
 export default function ValidationRapportsAAF({ role, userId, stage }: { role: string; userId?: string; stage?: Stage }) {
   const [rapports, setRapports] = useState<Rapport[]>([])
+  const [baremes, setBaremes] = useState<AllocationBareme[]>([])
   const [loading, setLoading] = useState(true)
   const [commentMap, setCommentMap] = useState<Record<string, string>>({})
   const [montantMap, setMontantMap] = useState<Record<string, string>>({})
@@ -32,7 +55,27 @@ export default function ValidationRapportsAAF({ role, userId, stage }: { role: s
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load()
+    fetch('/api/admin/baremes/allocations').then(r => r.json()).then(j => setBaremes(j.data ?? [])).catch(() => {})
+  }, [])
+
+  // Pré-remplit le montant suggéré par le barème pour les rapports
+  // bénévole/stagiaire à l'étape AAF, sans jamais écraser une valeur déjà
+  // saisie/modifiée par l'utilisateur.
+  useEffect(() => {
+    if (!rapports.length || !baremes.length) return
+    setMontantMap(prev => {
+      let changed = false
+      const next = { ...prev }
+      for (const r of rapports) {
+        if (!STATUS_FOR_AAF.includes(r.status) || next[r.id] !== undefined) continue
+        const suggestion = suggestionBareme(r, baremes)
+        if (suggestion != null) { next[r.id] = String(suggestion); changed = true }
+      }
+      return changed ? next : prev
+    })
+  }, [rapports, baremes])
 
   function canAct(r: Rapport) {
     // Le/la CAF hérite des droits de l'AAF : distinct des `if`/`return` en
@@ -136,6 +179,11 @@ export default function ValidationRapportsAAF({ role, userId, stage }: { role: s
                     <input className="input" type="number" min={0} style={{ maxWidth: 200 }}
                       value={montantMap[r.id] ?? ''}
                       onChange={e => setMontantMap(m => ({ ...m, [r.id]: e.target.value }))} />
+                    {suggestionBareme(r, baremes) != null && (
+                      <p style={{ fontSize: 11, color: 'var(--abed-muted)', margin: '4px 0 0' }}>
+                        Suggéré par le barème — modifiable si nécessaire.
+                      </p>
+                    )}
                   </div>
                 )}
                 <div className="field" style={{ marginBottom: 0 }}>
