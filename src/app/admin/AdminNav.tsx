@@ -1,7 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Users, Shield, Tag, Zap, HardDrive, UserPlus, ScrollText, BarChart3 } from 'lucide-react'
+import { Users, Shield, Tag, Zap, HardDrive, UserPlus, ScrollText, BarChart3, Coins } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { LucideIcon } from 'lucide-react'
 
@@ -14,6 +14,9 @@ const TABS: Tab[] = [
   // Comptes, Inscriptions et Actions par lot dans son menu Administration.
   { href: '/admin/roles',         labelKey: 'roles',         Icon: Shield, hiddenForCaf: true },
   { href: '/admin/titres',        labelKey: 'titles',        Icon: Tag, hiddenForCaf: true },
+  // Barèmes : c'est justement le CAF qui fixe les prix — visible pour lui,
+  // pas seulement admin/superadmin.
+  { href: '/admin/baremes',       labelKey: 'baremes',       Icon: Coins },
   { href: '/admin/actions',       labelKey: 'batchActions',  Icon: Zap },
   { href: '/admin/stockage',      labelKey: 'storage',       Icon: HardDrive, adminOnly: true },
   { href: '/admin/journal',       labelKey: 'journal',       Icon: ScrollText, superadminOnly: true },

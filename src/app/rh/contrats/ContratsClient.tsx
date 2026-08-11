@@ -149,6 +149,9 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
   const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const [tauxCaf, setTauxCaf] = useState<{ direct: number; credit: number } | null>(null)
+  const [grilles, setGrilles] = useState<{ grade: string; echelon: string; salaire_brut: number; prime_diverses: number }[]>([])
+  const [gradeChoisi, setGradeChoisi] = useState('')
+  const [echelonChoisi, setEchelonChoisi] = useState('')
   const [draftRestoredAt, setDraftRestoredAt] = useState<number | null>(null)
 
   const anyModalOpen = showNew || !!editTarget || !!renewTarget || !!resilierTarget || !!commentTarget || !!wfTarget
@@ -171,6 +174,9 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
 
   useEffect(() => {
     fetch('/api/config/taux').then(r => r.json()).then(d => setTauxCaf({ direct: d.taux_direct, credit: d.taux_credit })).catch(() => {})
+  }, [])
+  useEffect(() => {
+    fetch('/api/admin/baremes/salaires').then(r => r.json()).then(j => setGrilles(j.data ?? [])).catch(() => {})
   }, [])
   useEffect(() => {
     fetch('/api/config/listes?type=directions').then(r => r.json()).then(j => setDirections(j.data ?? [])).catch(() => {})
@@ -463,6 +469,33 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
         </div>
       ) : (
         <div style={{ marginBottom: 12 }}>
+          {categorie !== 'Offre de stage' && grilles.length > 0 && (
+            <div className="grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 8 }}>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Grade (grille salariale)</label>
+                <select value={gradeChoisi} onChange={e => { setGradeChoisi(e.target.value); setEchelonChoisi('') }} style={inputStyle}>
+                  <option value="">— Saisie libre —</option>
+                  {[...new Set(grilles.map(g => g.grade))].map(g => <option key={g} value={g}>{g}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Échelon</label>
+                <select value={echelonChoisi} disabled={!gradeChoisi} onChange={e => {
+                  setEchelonChoisi(e.target.value)
+                  const g = grilles.find(x => x.grade === gradeChoisi && x.echelon === e.target.value)
+                  if (g) setForm((f: any) => ({ ...f, salaire_brut: g.salaire_brut }))
+                }} style={inputStyle}>
+                  <option value="">— Choisir —</option>
+                  {grilles.filter(g => g.grade === gradeChoisi).map(g => <option key={g.echelon} value={g.echelon}>{g.echelon}</option>)}
+                </select>
+              </div>
+              {gradeChoisi && echelonChoisi && (
+                <p style={{ fontSize: 11, color: 'var(--abed-muted)', gridColumn: '1 / -1', margin: 0 }}>
+                  Prime diverses associée à {gradeChoisi} {echelonChoisi} : {(grilles.find(g => g.grade === gradeChoisi && g.echelon === echelonChoisi)?.prime_diverses ?? 0).toLocaleString('fr-FR')} FCFA/mois (à ajouter manuellement si elle doit apparaître séparément).
+                </p>
+              )}
+            </div>
+          )}
           <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>
             {categorie === 'Offre de stage' ? 'Allocation mensuelle (FCFA)' : 'Salaire brut (FCFA)'}
           </label>
