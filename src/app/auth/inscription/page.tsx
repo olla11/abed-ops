@@ -36,6 +36,9 @@ const COUNTRY_CODES = [
   { code: '+234', country: 'NG', label: '🇳🇬 +234', validate: (v: string) => /^[789]\d{9}$/.test(v.replace(/\s/g, '')), hint: '10 chiffres' },
   { code: '+226', country: 'BF', label: '🇧🇫 +226', validate: (v: string) => /^[267]\d{7}$/.test(v.replace(/\s/g, '')), hint: '8 chiffres' },
   { code: '+227', country: 'NE', label: '🇳🇪 +227', validate: (v: string) => /^[89]\d{7}$/.test(v.replace(/\s/g, '')),  hint: '8 chiffres' },
+  { code: '+237', country: 'CM', label: '🇨🇲 +237', validate: (v: string) => /^6\d{8}$/.test(v.replace(/\s/g, '')),   hint: '6XX XXX XXX (9 chiffres)' },
+  { code: '+235', country: 'TD', label: '🇹🇩 +235', validate: (v: string) => /^[679]\d{7}$/.test(v.replace(/\s/g, '')), hint: '8 chiffres' },
+  { code: '+261', country: 'MG', label: '🇲🇬 +261', validate: (v: string) => /^3\d{8}$/.test(v.replace(/\s/g, '')),   hint: '3X XX XXX XX (9 chiffres)' },
 ]
 
 function isValidPhone(dialCode: string, local: string) {
