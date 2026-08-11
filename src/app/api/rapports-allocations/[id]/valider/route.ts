@@ -147,7 +147,11 @@ export async function POST(
 
     if (nextRoles) {
       const { data: nextUsers } = await admin.from('profiles').select('id, email, prenoms, nom').in('role', nextRoles)
-      for (const u of nextUsers ?? []) {
+      // L'auteur du rapport ne peut jamais traiter son propre dossier (voir le
+      // blocage plus haut) — le notifier "à traiter" ne ferait que l'induire
+      // en erreur sur qui s'en occupe réellement (ex: un AAF croyant que son
+      // propre rapport lui revient, alors qu'il revient à la CAF).
+      for (const u of (nextUsers ?? []).filter(u => u.id !== rapport.prestataire_id)) {
         tasks.push(admin.from('notifications').insert({
           user_id: u.id,
           titre: `Rapport mensuel à traiter`,
