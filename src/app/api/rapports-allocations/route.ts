@@ -2,10 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { autoSkipRapportAllocation } from '@/lib/circuit-vacancy'
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
+
+  // `mine=1` : utilisé par la page personnelle "Mon rapport mensuel" — force
+  // le filtre sur son propre dossier quel que soit le rôle. Sans ça, un
+  // compte qui a aussi un rôle de traiteur (admin/caf/aaf/de/dp/manager) se
+  // voyait renvoyer TOUS les rapports (ou ceux de ses subordonnés en tant
+  // que manager) sur son propre écran personnel au lieu des siens seuls.
+  const onlyMine = new URL(req.url).searchParams.get('mine') === '1'
 
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
   const role = profile?.role ?? ''
@@ -16,7 +23,7 @@ export async function GET() {
     .select('*, prestataire:profiles!rapports_allocations_prestataire_id_fkey(nom,prenoms,email,type_emploi,titre,role)')
     .order('created_at', { ascending: false })
 
-  if (!isTraiteur) query = query.eq('prestataire_id', user.id)
+  if (onlyMine || !isTraiteur) query = query.eq('prestataire_id', user.id)
   else if (role === 'manager') query = query.eq('manager_id', user.id)
 
   const { data, error } = await query

@@ -58,7 +58,7 @@ export default function RapportAllocationForm({ typeEmploi }: { typeEmploi?: str
   const corrFileRef = useRef<HTMLInputElement>(null)
 
   async function loadHistory() {
-    const res = await fetch('/api/rapports-allocations')
+    const res = await fetch('/api/rapports-allocations?mine=1')
     const json = await res.json()
     setHistory(json.data ?? [])
   }
