@@ -274,8 +274,8 @@ export default function InscriptionPage() {
           {/* IFU + Grade */}
           <div className="insc-grid-2">
             <div>
-              <label style={lbl}>Numéro IFU <span style={{ color: '#ef4444' }}>*</span></label>
-              <input style={inp(false)} value={form.ifu} onChange={e => set('ifu', e.target.value)} required placeholder="Ex: 1234567890123" />
+              <label style={lbl}>Numéro IFU</label>
+              <input style={inp(false)} value={form.ifu} onChange={e => set('ifu', e.target.value)} placeholder="Facultatif — Ex: 1234567890123" />
             </div>
             <div>
               <label style={lbl}>Grade / Indice</label>
