@@ -10,10 +10,11 @@ type Tab = { href: string; labelKey: string; Icon: LucideIcon; adminOnly?: boole
 const TABS: Tab[] = [
   { href: '/admin/comptes',       labelKey: 'accounts',      Icon: Users },
   { href: '/admin/inscriptions',  labelKey: 'inscriptions',  Icon: UserPlus },
-  // Rôles et Titres restent réservés à admin/superadmin — la CAF ne garde que
-  // Comptes, Inscriptions et Actions par lot dans son menu Administration.
+  // Rôles reste réservé à admin/superadmin. Titres est visible pour la CAF
+  // aussi : c'est elle qui fixe l'ancienneté (donc le taux du barème) même
+  // si elle ne peut pas changer le titre/poste lui-même (voir GestionTitres).
   { href: '/admin/roles',         labelKey: 'roles',         Icon: Shield, hiddenForCaf: true },
-  { href: '/admin/titres',        labelKey: 'titles',        Icon: Tag, hiddenForCaf: true },
+  { href: '/admin/titres',        labelKey: 'titles',        Icon: Tag },
   { href: '/admin/actions',       labelKey: 'batchActions',  Icon: Zap },
   { href: '/admin/stockage',      labelKey: 'storage',       Icon: HardDrive, adminOnly: true },
   { href: '/admin/journal',       labelKey: 'journal',       Icon: ScrollText, superadminOnly: true },

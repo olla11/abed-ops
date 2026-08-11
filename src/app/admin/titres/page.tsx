@@ -9,13 +9,18 @@ export default async function TitresPage() {
   if (!user) redirect('/login')
 
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  // Réservé à admin/superadmin — retiré du menu Administration de la CAF.
-  if (!['admin', 'superadmin'].includes(profile?.role ?? '')) redirect('/admin/comptes')
+  // Admin/superadmin : attribution complète (titre, type, ancienneté).
+  // CAF : accès en lecture seule au titre/type — seule l'ancienneté (qui
+  // fixe le taux du barème) lui est ouverte, c'est elle qui fixe les prix.
+  if (!['admin', 'superadmin', 'caf'].includes(profile?.role ?? '')) redirect('/admin/comptes')
+  const restreintCaf = profile?.role === 'caf'
 
   return (
     <div className="card page-container">
-      <h3 style={{ marginBottom: 16, fontSize: 15 }}>Attribuer un titre / rôle</h3>
-      <GestionTitres />
+      <h3 style={{ marginBottom: 16, fontSize: 15 }}>
+        {restreintCaf ? 'Ancienneté du personnel' : 'Attribuer un titre / rôle'}
+      </h3>
+      <GestionTitres restreintCaf={restreintCaf} />
     </div>
   )
 }

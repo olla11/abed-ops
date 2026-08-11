@@ -11,7 +11,7 @@ function requiertSeniorite(titre: string | null) {
   return !!niveau && NIVEAUX_AVEC_SENIORITE.includes(niveau)
 }
 
-export default function GestionTitres() {
+export default function GestionTitres({ restreintCaf = false }: { restreintCaf?: boolean }) {
   const supabase = createClient()
   const [profils, setProfils] = useState<Profil[]>([])
   const [msg, setMsg] = useState('')
@@ -39,10 +39,11 @@ export default function GestionTitres() {
 
   return (
     <div className="card">
-      <h3 style={{ marginBottom: 6 }}>Attribution des titres &amp; accès</h3>
+      <h3 style={{ marginBottom: 6 }}>{restreintCaf ? 'Ancienneté du personnel' : 'Attribution des titres & accès'}</h3>
       <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: 16 }}>
-        Choisissez le titre (poste) et le type d'emploi. Le changement de rôle/accès système se fait depuis Comptes (réservé au superadmin).
-        Pour les postes concernés (Représentant Pays, Programme Lead, Responsable Communication, Chargé de Projet), l'ancienneté est requise pour que le barème de rémunération s'applique correctement lors de la validation des timesheets.
+        {restreintCaf
+          ? "Le titre et le type d'emploi sont fixés par la RH/l'admin et affichés ici à titre indicatif. Pour les postes concernés (Représentant Pays, Programme Lead, Responsable Communication, Chargé de Projet), fixez l'ancienneté afin que le barème de rémunération applique le bon taux lors de la validation des timesheets."
+          : "Choisissez le titre (poste) et le type d'emploi. Le changement de rôle/accès système se fait depuis Comptes (réservé au superadmin). Pour les postes concernés (Représentant Pays, Programme Lead, Responsable Communication, Chargé de Projet), l'ancienneté est requise pour que le barème de rémunération s'applique correctement lors de la validation des timesheets."}
       </p>
       {msg && <p style={{ fontSize: 13, marginBottom: 12, color: msg.startsWith('Erreur') ? '#991b1b' : '#166534' }}>{msg}</p>}
       <div className="table-wrap">
@@ -63,18 +64,26 @@ export default function GestionTitres() {
                 <br /><span style={{ fontSize: 12, color: 'var(--abed-muted)' }}>{p.email}</span>
               </td>
               <td>
-                <select className="select" defaultValue={p.type_emploi ?? ''}
-                  onChange={e => attribuer(p.id, (p.titre as Titre) ?? 'assistant_admin', e.target.value as TypeEmploi, (p.seniorite as Seniorite) ?? '')}>
-                  <option value="">—</option>
-                  {TYPES_EMPLOI.map(t => <option key={t} value={t}>{TYPE_EMPLOI_LABELS[t]}</option>)}
-                </select>
+                {restreintCaf ? (
+                  <span style={{ fontSize: 13 }}>{p.type_emploi ? TYPE_EMPLOI_LABELS[p.type_emploi as TypeEmploi] : '—'}</span>
+                ) : (
+                  <select className="select" defaultValue={p.type_emploi ?? ''}
+                    onChange={e => attribuer(p.id, (p.titre as Titre) ?? 'assistant_admin', e.target.value as TypeEmploi, (p.seniorite as Seniorite) ?? '')}>
+                    <option value="">—</option>
+                    {TYPES_EMPLOI.map(t => <option key={t} value={t}>{TYPE_EMPLOI_LABELS[t]}</option>)}
+                  </select>
+                )}
               </td>
               <td>
-                <select className="select" defaultValue={p.titre ?? ''}
-                  onChange={e => attribuer(p.id, e.target.value as Titre, (p.type_emploi as TypeEmploi) ?? '', (p.seniorite as Seniorite) ?? '')}>
-                  <option value="">—</option>
-                  {TITRES.map(t => <option key={t} value={t}>{TITRE_LABELS[t]}</option>)}
-                </select>
+                {restreintCaf ? (
+                  <span style={{ fontSize: 13 }}>{p.titre ? TITRE_LABELS[p.titre as Titre] : '—'}</span>
+                ) : (
+                  <select className="select" defaultValue={p.titre ?? ''}
+                    onChange={e => attribuer(p.id, e.target.value as Titre, (p.type_emploi as TypeEmploi) ?? '', (p.seniorite as Seniorite) ?? '')}>
+                    <option value="">—</option>
+                    {TITRES.map(t => <option key={t} value={t}>{TITRE_LABELS[t]}</option>)}
+                  </select>
+                )}
               </td>
               <td>
                 {requiertSeniorite(p.titre) ? (
