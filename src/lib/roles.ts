@@ -24,6 +24,7 @@ export const TITRES = [
   'directeur_executif',
   'directeur_programmes',
   'directeur_principal',
+  'representant_pays',
   'programme_lead',
   'charge_projet',
   'agent_projet',
@@ -49,6 +50,7 @@ export const TITRE_LABELS: Record<Titre, string> = {
   directeur_executif: 'Directeur Exécutif',
   directeur_programmes: 'Directeur des Programmes',
   directeur_principal: 'Directeur principal',
+  representant_pays: 'Représentant Pays',
   programme_lead: 'Programme Lead / Manager',
   charge_projet: 'Chargé de Projet / opérations',
   agent_projet: 'Agent de projet / superviseur',
@@ -84,6 +86,7 @@ export const TITRE_TO_ACCESS: Record<Titre, AccessRole> = {
   caf: 'caf',
   rh: 'rh',
   directeur_principal: 'manager',
+  representant_pays: 'manager',
   programme_lead: 'manager',
   charge_projet: 'manager',     // peut superviser des agents/prestataires
   agent_projet: 'missionnaire',
