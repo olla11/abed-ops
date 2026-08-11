@@ -323,8 +323,7 @@
     "employmentType": "Type emploi",
     "function": "Fonction",
     "inscriptions": "Inscriptions",
-    "analytics": "Analytics",
-    "baremes": "Barèmes"
+    "analytics": "Analytics"
   },
   "auth": {
     "changePassword": "Changer mon mot de passe",

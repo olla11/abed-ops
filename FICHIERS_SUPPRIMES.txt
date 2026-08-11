@@ -1,0 +1,4 @@
+DELETED (remove these on GitHub manually):
+src/app/admin/baremes/page.tsx
+src/app/admin/baremes/BaremesClient.tsx
+src/components/GestionCAF.tsx

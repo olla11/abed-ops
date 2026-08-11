@@ -323,8 +323,7 @@
     "employmentType": "Employment type",
     "function": "Function",
     "inscriptions": "Registrations",
-    "analytics": "Analytics",
-    "baremes": "Pay scales"
+    "analytics": "Analytics"
   },
   "auth": {
     "changePassword": "Change password",

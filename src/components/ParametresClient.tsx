@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import FormulaireEditor from '@/components/FormulaireEditor'
+import { HonorairesSection, PaliersSection, SalairesSection, AllocationsSection } from '@/components/BaremesSections'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -150,74 +151,18 @@ function ListeSection({ listKey, label, icon, fields }: { listKey: string; label
   )
 }
 
-// ─── Sous-composant : Taux horaires ─────────────────────────────────────────
-
-function TauxSection() {
-  const [tauxDirect, setTauxDirect] = useState('')
-  const [tauxCredit, setTauxCredit] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [msg, setMsg] = useState('')
-
-  useEffect(() => {
-    fetch('/api/config/taux').then(r => r.json()).then(j => {
-      setTauxDirect(String(j.taux_direct ?? ''))
-      setTauxCredit(String(j.taux_credit ?? ''))
-    })
-  }, [])
-
-  async function save() {
-    if (!tauxDirect || !tauxCredit) { setMsg('Les deux taux sont requis'); return }
-    setSaving(true); setMsg('')
-    const r = await fetch('/api/config/taux', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ taux_direct: +tauxDirect, taux_credit: +tauxCredit }),
-    })
-    const j = await r.json()
-    setSaving(false)
-    setMsg(r.ok ? '✓ Enregistré' : 'Erreur : ' + j.error)
-    setTimeout(() => setMsg(''), 3000)
-  }
-
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-      {[
-        { key: 'direct', label: 'Prestataire direct', val: tauxDirect, set: setTauxDirect, color: '#166534', bg: '#dcfce7' },
-        { key: 'credit', label: 'Prestataire à crédit', val: tauxCredit, set: setTauxCredit, color: '#1e40af', bg: '#dbeafe' },
-      ].map(t => (
-        <div key={t.key} style={{ background: t.bg, borderRadius: 12, padding: '20px 24px', border: `1px solid ${t.color}22` }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: t.color, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t.label}</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <input type="number" min={0} step={50} value={t.val}
-              onChange={e => t.set(e.target.value)}
-              style={{ flex: 1, border: `1px solid ${t.color}44`, borderRadius: 8, padding: '10px 14px', fontSize: 20, fontWeight: 800, color: t.color, background: 'white', outline: 'none', maxWidth: 160 }} />
-            <span style={{ fontSize: 13, color: t.color, fontWeight: 600 }}>FCFA/h</span>
-          </div>
-        </div>
-      ))}
-      <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 10, alignItems: 'center' }}>
-        <button onClick={save} disabled={saving}
-          style={{ background: 'var(--abed-green)', color: 'white', border: 'none', borderRadius: 8, padding: '10px 24px', fontSize: 14, fontWeight: 600, cursor: saving ? 'default' : 'pointer' }}>
-          {saving ? '⏳ Enregistrement…' : '💾 Enregistrer les taux'}
-        </button>
-        {msg && <span style={{ fontSize: 13, fontWeight: 600, color: msg.startsWith('✓') ? '#166534' : '#991b1b' }}>{msg}</span>}
-      </div>
-    </div>
-  )
-}
-
 // ─── Composant principal ─────────────────────────────────────────────────────
 
-type Tab = 'taux' | 'listes' | 'formulaire'
+type Tab = 'baremes' | 'listes' | 'formulaire'
 
 const TABS: { key: Tab; label: string; icon: string; desc: string }[] = [
-  { key: 'taux',       label: 'Taux horaires',   icon: '💰', desc: 'Taux de facturation par type de prestataire' },
+  { key: 'baremes',    label: 'Barèmes & rémunération', icon: '💰', desc: 'Honoraires, primes, salaires et allocations selon la politique de rémunération' },
   { key: 'listes',     label: 'Listes',           icon: '📋', desc: 'Départements, codes budgétaires, projets, natures' },
   { key: 'formulaire', label: 'Formulaire',       icon: '📝', desc: 'Structure du formulaire de demande de paiement' },
 ]
 
 export default function ParametresClient() {
-  const [tab, setTab] = useState<Tab>('taux')
+  const [tab, setTab] = useState<Tab>('baremes')
   const active = TABS.find(t => t.key === tab)!
 
   return (
@@ -264,12 +209,16 @@ export default function ParametresClient() {
 
         <div style={{ padding: '24px 28px' }}>
 
-          {tab === 'taux' && (
+          {tab === 'baremes' && (
             <div>
               <p style={{ fontSize: 13, color: '#374151', marginBottom: 20, lineHeight: 1.6 }}>
-                Ces taux sont utilisés par la CAF pour calculer automatiquement le montant à payer lors de la validation des timesheets prestataires.
+                Politique de rémunération du personnel d'appui (adoptée par le CA le 31 juillet 2026) — réservée au CAF.
+                Ces valeurs alimentent automatiquement le calcul du montant à payer lors de la validation des timesheets et la création des contrats.
               </p>
-              <TauxSection />
+              <HonorairesSection />
+              <PaliersSection />
+              <SalairesSection />
+              <AllocationsSection />
             </div>
           )}
 
