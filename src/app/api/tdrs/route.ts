@@ -4,6 +4,7 @@ import { rateLimit } from '@/lib/rate-limit'
 import { validate, s } from '@/lib/validate'
 import { z } from 'zod'
 import { CHAPITRES_DEFAUT } from '@/lib/tdr'
+import { getTitulaireOfficiel } from '@/lib/titre-principal'
 
 const TdrSchema = z.object({
   titre_activite: z.string().min(1, 'Titre requis').max(300, 'Titre trop long'),
@@ -63,9 +64,11 @@ export async function POST(req: NextRequest) {
 
   // Signataires systématiques : initiateur, CAF, DE (le responsable technique
   // est ajouté à l'envoi en signature, car c'est l'initiateur qui le choisit).
-  const [{ data: caf }, { data: de }] = await Promise.all([
-    admin.from('profiles').select('id').eq('role', 'caf').limit(1).maybeSingle(),
-    admin.from('profiles').select('id').eq('role', 'de').limit(1).maybeSingle(),
+  // getTitulaireOfficiel privilégie le principal désigné s'il y a doublon
+  // (CAF ou DE porté par plusieurs comptes) plutôt qu'un choix arbitraire.
+  const [caf, de] = await Promise.all([
+    getTitulaireOfficiel(admin, 'caf'),
+    getTitulaireOfficiel(admin, 'de'),
   ])
 
   const { error: sigErr } = await admin.from('tdr_signataires').insert([

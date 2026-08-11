@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { sendEmail } from '@/lib/resend'
+import { getTitulaireOfficiel } from '@/lib/titre-principal'
 
 // ── Templates email ──────────────────────────────────────────────────────────
 
@@ -146,9 +147,8 @@ export async function POST(
       lien: '/timesheets',
     })
 
-    // Notification in-app à un CAF
-    const { data: caf } = await admin
-      .from('profiles').select('id').eq('role', 'caf').limit(1).single()
+    // Notification in-app au CAF principal (s'il y a doublon, sinon l'unique CAF)
+    const caf = await getTitulaireOfficiel(admin, 'caf')
     if (caf) {
       await admin.from('notifications').insert({
         user_id: caf.id,
