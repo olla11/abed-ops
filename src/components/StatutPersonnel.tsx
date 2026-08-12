@@ -25,6 +25,7 @@ const STATUS_META: Record<string, { label: string; color: string; icon: string }
   traite_aaf:      { label: 'Traité par AAF',           color: '#6d28d9', icon: '✓' },
   valide_aaf:      { label: 'Validé par AAF',           color: '#6d28d9', icon: '✓' },
   valide_caf:      { label: 'Validé par CAF',           color: '#0f766e', icon: '✓' },
+  autorise_de:     { label: 'Autorisé par le DE',       color: '#166534', icon: '✅' },
   autorise:        { label: 'Autorisé ✓',               color: '#166534', icon: '✅' },
   signe:           { label: 'Signé',                    color: '#166534', icon: '✅' },
   cloture:         { label: 'Clôturé',                  color: '#374151', icon: '✅' },
@@ -42,14 +43,14 @@ const STATUS_META: Record<string, { label: string; color: string; icon: string }
 
 // Étapes du circuit selon le type
 const CIRCUIT: Record<string, string[]> = {
-  timesheet: ['soumis', 'valide_tech', 'valide_caf'],
+  timesheet: ['soumis', 'valide_tech', 'valide_caf', 'autorise_de'],
   rapport:   ['soumis', 'valide_tech', 'traite_aaf', 'valide_caf', 'autorise'],
   om:        ['soumis', 'signe', 'cloture'],
   demande:   ['soumis', 'valide_aaf', 'valide_caf', 'autorise'],
 }
 
 const FINAL_NEGATIVE = ['rejete_tech','rejete_caf','rejete_aaf','rejete_manager','refuse_caf','refuse_de','annule','corrections_tech','corrections_caf']
-const FINAL_POSITIVE = ['autorise','signe','cloture','valide_caf']
+const FINAL_POSITIVE = ['autorise','autorise_de','signe','cloture']
 
 function ProgressBar({ type, status }: { type: string; status: string }) {
   const steps = CIRCUIT[type] ?? []

@@ -19,12 +19,18 @@ export async function POST(
 
   const { data: soum } = await supabase
     .from('soumissions')
-    .select('id, prestataire_id, titre, montant_caf, heures_retenues, periode_mois, periode_annee, paye, prestataire:profiles!soumissions_prestataire_id_fkey(nom, prenoms, email)')
+    .select('id, prestataire_id, titre, status, montant_caf, heures_retenues, periode_mois, periode_annee, paye, prestataire:profiles!soumissions_prestataire_id_fkey(nom, prenoms, email)')
     .eq('id', id).single()
 
   if (!soum) return NextResponse.json({ error: 'introuvable' }, { status: 404 })
   if (soum.status === 'paye' || soum.paye) return NextResponse.json({ error: 'Déjà payé' }, { status: 400 })
   if (!soum.montant_caf) return NextResponse.json({ error: 'Dossier non validé CAF' }, { status: 400 })
+  // Le paiement n'est possible qu'après autorisation finale du DE — sans ce
+  // verrou côté serveur, l'UI seule ne suffit pas à empêcher un paiement
+  // avant autorisation (ex : appel direct à cette route).
+  if (soum.status !== 'autorise_de') {
+    return NextResponse.json({ error: "Ce dossier n'est pas encore autorisé par le DE." }, { status: 400 })
+  }
 
   const { error } = await supabase.from('soumissions').update({
     paye: true,

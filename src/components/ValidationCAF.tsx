@@ -15,7 +15,8 @@ type Soumission = {
 }
 
 const STATUS_LABEL_TIMESHEET: Record<string, string> = {
-  valide_caf: '✓ Validé CAF', rejete_caf: '✗ Rejeté (CAF)', corrections_caf: 'Correction demandée (CAF)',
+  valide_caf: 'Validé CAF — att. DE', autorise_de: '✓ Autorisé DE', refuse_de: '✗ Refusé (DE)',
+  rejete_caf: '✗ Rejeté (CAF)', corrections_caf: 'Correction demandée (CAF)',
 }
 
 type PrestataireCredit = {
@@ -37,6 +38,7 @@ export default function ValidationCAF() {
   const [itemsHistorique, setItemsHistorique] = useState<Soumission[]>([])
   const [directs, setDirects] = useState<Soumission[]>([])
   const [credits, setCredits] = useState<PrestataireCredit[]>([])
+  const [enAttenteDE, setEnAttenteDE] = useState<Soumission[]>([])
 
   const [tauxDirect, setTauxDirect] = useState(1500)
   const [tauxCredit, setTauxCredit] = useState(1500)
@@ -65,14 +67,14 @@ export default function ValidationCAF() {
       supabase
         .from('soumissions')
         .select('id,titre,status,periode_mois,periode_annee,heures_retenues,justification_heures,montant_caf,paye,fichier_facture_url,fichier_timesheet_url,fichier_livrable_url,corrige_le,prestataire:profiles!soumissions_prestataire_id_fkey(id,prenoms,nom,titre,seniorite,type_emploi)')
-        .in('status', ['valide_tech', 'valide_caf'])
+        .in('status', ['valide_tech', 'valide_caf', 'autorise_de'])
         .order('created_at', { ascending: false }),
-      // Déjà traités et clos par la CAF (payé ou rejeté) — reste consultable
-      // au lieu de disparaître une fois le dossier soldé.
+      // Déjà traités et clos (payé, rejeté par la CAF ou refusé par le DE) —
+      // reste consultable au lieu de disparaître une fois le dossier soldé.
       supabase
         .from('soumissions')
         .select('id,titre,status,periode_mois,periode_annee,heures_retenues,justification_heures,montant_caf,paye,fichier_facture_url,fichier_timesheet_url,fichier_livrable_url,corrige_le,prestataire:profiles!soumissions_prestataire_id_fkey(id,prenoms,nom,titre,seniorite,type_emploi)')
-        .or('status.eq.rejete_caf,status.eq.corrections_caf,and(status.eq.valide_caf,paye.eq.true)')
+        .or('status.eq.rejete_caf,status.eq.corrections_caf,status.eq.refuse_de,and(status.eq.autorise_de,paye.eq.true)')
         .order('created_at', { ascending: false })
         .limit(50),
       fetch('/api/admin/baremes/honoraires').then(r => r.json()).catch(() => ({ data: [] })),
@@ -93,12 +95,16 @@ export default function ValidationCAF() {
     // À valider techniquement → CAF
     setItems(all.filter(s => s.status === 'valide_tech'))
 
-    // Préstataires directs : validés CAF et non payés
-    setDirects(all.filter(s => s.status === 'valide_caf' && !s.paye
+    // Validés CAF, en attente d'autorisation DE — pas encore payables,
+    // affiché en lecture seule pour que la CAF sache où ça en est.
+    setEnAttenteDE(all.filter(s => s.status === 'valide_caf'))
+
+    // Préstataires directs : autorisés par le DE et non payés
+    setDirects(all.filter(s => s.status === 'autorise_de' && !s.paye
       && (s.prestataire?.type_emploi === 'prestataire_direct' || s.prestataire?.type_emploi === 'cdd')))
 
-    // Préstataires à crédit : agréger le solde
-    const creditItems = all.filter(s => s.status === 'valide_caf'
+    // Préstataires à crédit : agréger le solde (uniquement le déjà autorisé DE)
+    const creditItems = all.filter(s => s.status === 'autorise_de'
       && s.prestataire?.type_emploi === 'prestataire_credit')
 
     // Charger les paiements déjà effectués
@@ -280,6 +286,29 @@ export default function ValidationCAF() {
         })}
         <Pagination page={pageItems} total={items.length} onChange={setPageItems} />
       </div>
+
+      {enAttenteDE.length > 0 && (
+        <div className="card" style={{ borderLeft: '4px solid #b45309' }}>
+          <h3 style={{ marginBottom: 4 }}>⏳ En attente d'autorisation DE ({enAttenteDE.length})</h3>
+          <p style={{ fontSize: 12, color: 'var(--abed-muted)', marginBottom: 16 }}>
+            Validés par vous, en attente de l'autorisation finale du DE avant de pouvoir être payés.
+          </p>
+          {enAttenteDE.map(s => (
+            <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              borderBottom: '1px solid var(--abed-border)', padding: '10px 0', flexWrap: 'wrap', gap: 8 }}>
+              <div>
+                <strong>{s.prestataire?.prenoms} {s.prestataire?.nom}</strong>
+                <span style={{ fontSize: 12, color: 'var(--abed-muted)', marginLeft: 8 }}>
+                  {s.titre} — {s.periode_mois}/{s.periode_annee}
+                </span>
+              </div>
+              <strong style={{ color: '#b45309', fontSize: 13 }}>
+                {(s.montant_caf ?? 0).toLocaleString('fr-FR')} FCFA
+              </strong>
+            </div>
+          ))}
+        </div>
+      )}
 
       {itemsHistorique.length > 0 && (
         <div className="card" style={{ borderLeft: '4px solid #9ca3af' }}>

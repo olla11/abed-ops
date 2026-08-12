@@ -23,7 +23,7 @@ const STATUS_COLOR: Record<string, string> = {
   valide_aaf: '#6d28d9', valide_caf: '#0f766e', signe: '#166534',
   corrections_tech: '#9a3412', corrections_caf: '#9a3412',
   // clos positifs
-  autorise: '#166534', cloture: '#374151',
+  autorise: '#166534', autorise_de: '#166534', cloture: '#374151',
   // clos négatifs
   rejete_tech: '#991b1b', rejete_caf: '#991b1b', rejete_aaf: '#991b1b',
   rejete_manager: '#991b1b', rejete_caf2: '#991b1b',
@@ -43,6 +43,7 @@ function statusLabel(status: string): string {
   const m: Record<string, string> = {
     soumis: 'Soumis', valide_tech: 'Validé tech.', traite_aaf: 'Traité AAF',
     valide_aaf: 'Validé AAF', valide_caf: 'Validé CAF', autorise: '✓ Autorisé',
+    autorise_de: '✓ Autorisé (DE)',
     signe: 'Signé', cloture: 'Clôturé', annule: 'Annulé',
     corrections_tech: '⚠ Corrections', corrections_caf: '⚠ Corr. CAF',
     rejete_tech: '✗ Rejeté (mgr)', rejete_caf: '✗ Rejeté (CAF)',
@@ -65,9 +66,10 @@ const PENDING_FOR_ROLE: Record<string, { type: string; status: string }[]> = {
     { type: 'om',        status: 'soumis' },
   ],
   de: [
-    { type: 'rapport',  status: 'valide_caf' },
-    { type: 'demande',  status: 'valide_caf' },
-    { type: 'om',       status: 'soumis' },
+    { type: 'timesheet', status: 'valide_caf' },
+    { type: 'rapport',   status: 'valide_caf' },
+    { type: 'demande',   status: 'valide_caf' },
+    { type: 'om',        status: 'soumis' },
   ],
 }
 

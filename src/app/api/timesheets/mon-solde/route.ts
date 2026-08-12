@@ -11,7 +11,7 @@ export async function GET() {
       .from('soumissions')
       .select('id, titre, periode_mois, periode_annee, heures_retenues, montant_caf, status, paye, created_at')
       .eq('prestataire_id', user.id)
-      .in('status', ['valide_tech', 'valide_caf'])
+      .in('status', ['valide_tech', 'valide_caf', 'autorise_de'])
       .order('periode_annee', { ascending: false })
       .order('periode_mois', { ascending: false }),
     supabase
@@ -32,8 +32,11 @@ export async function GET() {
     paye: s.paye ?? false,
   }))
 
-  const totalHeures = entries.filter(e => e.status === 'valide_caf').reduce((s, e) => s + e.heures, 0)
-  const totalMontant = entries.filter(e => e.status === 'valide_caf').reduce((s, e) => s + e.montant, 0)
+  // 'valide_caf' (en attente DE) et 'autorise_de' (autorisé, payable) comptent
+  // tous deux comme "validé" du point de vue du prestataire — la distinction
+  // n'est qu'une étape administrative interne.
+  const totalHeures = entries.filter(e => ['valide_caf', 'autorise_de'].includes(e.status)).reduce((s, e) => s + e.heures, 0)
+  const totalMontant = entries.filter(e => ['valide_caf', 'autorise_de'].includes(e.status)).reduce((s, e) => s + e.montant, 0)
   const totalPaye = (paiements ?? []).reduce((s: number, p: any) => s + Number(p.montant), 0)
 
   return NextResponse.json({

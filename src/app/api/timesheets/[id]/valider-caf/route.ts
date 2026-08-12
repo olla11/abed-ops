@@ -76,10 +76,22 @@ export async function POST(
 
     await supabase.from('notifications').insert({
       user_id: soum.prestataire_id,
-      titre: 'Timesheet validé par la CAF ✓',
-      message: `${soum.titre} : ${heures} h × ${tauxFinal.toLocaleString('fr-FR')} F${detailPrime} = ${montant_caf.toLocaleString('fr-FR')} FCFA.`,
+      titre: 'Timesheet validé par la CAF — en attente du DE',
+      message: `${soum.titre} : ${heures} h × ${tauxFinal.toLocaleString('fr-FR')} F${detailPrime} = ${montant_caf.toLocaleString('fr-FR')} FCFA. En attente d'autorisation finale avant paiement.`,
       lien: '/timesheets',
     })
+
+    // Le paiement n'est possible qu'après autorisation DE — le prévenir
+    // maintenant plutôt que de laisser le dossier attendre sans notification.
+    const { data: deUsers } = await supabase.from('profiles').select('id').in('role', ['de', 'administrateur']).eq('archived', false)
+    await Promise.allSettled((deUsers ?? []).map(d =>
+      supabase.from('notifications').insert({
+        user_id: d.id,
+        titre: 'Timesheet à autoriser',
+        message: `${soum.titre} — ${montant_caf.toLocaleString('fr-FR')} FCFA (validé CAF).`,
+        lien: '/timesheets',
+      })
+    ))
   } else {
     if (!commentaire_caf?.trim()) {
       return NextResponse.json({ error: 'Un commentaire est obligatoire.' }, { status: 400 })

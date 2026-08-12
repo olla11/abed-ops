@@ -7,11 +7,13 @@ function chezQui(type: string, status: string): string {
     const m: Record<string, string> = {
       soumis: 'Manager (attente validation)',
       valide_tech: 'CAF (attente validation financière)',
-      valide_caf: 'Clôturé (en attente paiement)',
+      valide_caf: 'DE (attente autorisation)',
+      autorise_de: 'Clôturé (en attente paiement)',
       corrections_tech: 'Prestataire (corrections)',
       corrections_caf: 'Prestataire (corrections CAF)',
       rejete_tech: 'Rejeté par le manager',
       rejete_caf: 'Rejeté par la CAF',
+      refuse_de: 'Refusé — DE',
     }
     return m[status] ?? status
   }
@@ -56,7 +58,7 @@ function chezQui(type: string, status: string): string {
 }
 
 function isClos(type: string, status: string): boolean {
-  if (type === 'timesheet') return ['valide_caf','rejete_tech','rejete_caf'].includes(status)
+  if (type === 'timesheet') return ['autorise_de','rejete_tech','rejete_caf','refuse_de'].includes(status)
   if (type === 'rapport')   return ['autorise','rejete_manager','rejete_aaf','rejete_caf','refuse_de'].includes(status)
   if (type === 'om')        return ['cloture','annule'].includes(status)
   if (type === 'demande')   return ['autorise','rejete_aaf','rejete_caf','refuse_caf','refuse_de'].includes(status)

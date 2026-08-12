@@ -41,6 +41,7 @@ export default async function TimesheetsPage() {
     { count: countRapportsAAF },
     { count: countRapportsCAF },
     { count: countRapportsDE },
+    { count: countTimesheetsDE },
   ] = await Promise.all([
     estManager
       ? supabase.from('soumissions').select('*', { count: 'exact', head: true }).eq('status', 'soumis').eq('manager_id', user.id)
@@ -59,6 +60,9 @@ export default async function TimesheetsPage() {
       : Promise.resolve({ count: 0 }),
     estDE
       ? supabase.from('rapports_allocations').select('*', { count: 'exact', head: true }).eq('status', 'valide_caf')
+      : Promise.resolve({ count: 0 }),
+    estDE
+      ? supabase.from('soumissions').select('*', { count: 'exact', head: true }).eq('status', 'valide_caf')
       : Promise.resolve({ count: 0 }),
   ])
 
@@ -87,6 +91,7 @@ export default async function TimesheetsPage() {
         countRapportsAAF={countRapportsAAF ?? 0}
         countRapportsCAF={countRapportsCAF ?? 0}
         countRapportsDE={countRapportsDE ?? 0}
+        countTimesheetsDE={countTimesheetsDE ?? 0}
       />
     </>
   )

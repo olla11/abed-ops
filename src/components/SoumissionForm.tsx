@@ -15,11 +15,13 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
   soumis:              { label: 'En attente manager',           color: '#92660b' },
   valide_tech:         { label: '✓ Validé — demande de paiement requise', color: '#1e40af' },
   demande_soumise:     { label: 'Demande de paiement soumise',  color: '#6d28d9' },
-  valide_caf:          { label: 'Validé ✓',                    color: '#166534' },
+  valide_caf:          { label: 'Validé CAF — attente DE',      color: '#0f766e' },
+  autorise_de:         { label: '✓ Autorisé — paiement en cours', color: '#166534' },
   corrections_tech:    { label: '⚠ Corrections demandées',      color: '#9a3412' },
   corrections_caf:     { label: '⚠ Corrections CAF',            color: '#9a3412' },
   rejete_tech:         { label: '✗ Rejeté (manager)',            color: '#991b1b' },
   rejete_caf:          { label: '✗ Rejeté (CAF)',                color: '#991b1b' },
+  refuse_de:           { label: '✗ Refusé (DE)',                 color: '#991b1b' },
 }
 
 const CORRECTABLE = ['corrections_tech', 'corrections_caf', 'rejete_tech', 'rejete_caf']
@@ -265,7 +267,7 @@ export default function SoumissionForm({ managerId, typeEmploi }: { managerId: s
               </div>
               <div>
                 {solde.entries.map((e: any) => {
-                  const estValide = e.status === 'valide_caf'
+                  const estValide = ['valide_caf', 'autorise_de'].includes(e.status)
                   const isPaye = e.paye
                   return (
                     <div key={e.id} style={{

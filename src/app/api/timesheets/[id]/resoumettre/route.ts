@@ -18,7 +18,7 @@ export async function POST(
   if (!soum) return NextResponse.json({ error: 'introuvable' }, { status: 404 })
   if (soum.prestataire_id !== user.id) return NextResponse.json({ error: 'acces refuse' }, { status: 403 })
 
-  const correctableStatuses = ['corrections_tech', 'corrections_caf', 'rejete_tech', 'rejete_caf']
+  const correctableStatuses = ['corrections_tech', 'corrections_caf', 'rejete_tech', 'rejete_caf', 'refuse_de']
   if (!correctableStatuses.includes(soum.status)) {
     return NextResponse.json({ error: 'Ce dossier ne peut pas être resoumis.' }, { status: 400 })
   }

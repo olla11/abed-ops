@@ -97,7 +97,7 @@ export default function SoldeCredit() {
             background: tab === t ? 'var(--abed-green)' : 'white',
             color: tab === t ? 'white' : '#374151',
           }}>
-            {t === 'heures' ? `Timesheets validés (${data.entries.filter(e => e.status === 'valide_caf').length})` : `Versements reçus (${data.paiements.length})`}
+            {t === 'heures' ? `Timesheets validés (${data.entries.filter(e => ['valide_caf', 'autorise_de'].includes(e.status)).length})` : `Versements reçus (${data.paiements.length})`}
           </button>
         ))}
       </div>
@@ -105,7 +105,7 @@ export default function SoldeCredit() {
       {/* Tableau timesheets */}
       {tab === 'heures' && (
         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          {data.entries.filter(e => e.status === 'valide_caf').length === 0 ? (
+          {data.entries.filter(e => ['valide_caf', 'autorise_de'].includes(e.status)).length === 0 ? (
             <p style={{ padding: '24px', color: '#9ca3af', textAlign: 'center', fontSize: 14 }}>
               Aucun timesheet validé par la CAF pour le moment.
             </p>
@@ -119,7 +119,7 @@ export default function SoldeCredit() {
                 </tr>
               </thead>
               <tbody>
-                {data.entries.filter(e => e.status === 'valide_caf').map(e => (
+                {data.entries.filter(e => ['valide_caf', 'autorise_de'].includes(e.status)).map(e => (
                   <tr key={e.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
                     <td style={{ padding: '10px 16px', fontSize: 13, color: '#6b7280', whiteSpace: 'nowrap' }}>
                       {MOIS[(e.mois ?? 1) - 1]} {e.annee}

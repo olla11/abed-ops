@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
 
-// Un dossier déjà validé par la CAF (montant fixé, éventuellement en cours de
-// paiement) ne se supprime plus. Tout le reste (en attente à n'importe quelle
-// étape antérieure, ou rejeté) peut être retiré par son auteur.
-const SUPPRIMABLE_SAUF = ['valide_caf', 'demande_soumise']
+// Un dossier déjà validé par la CAF (montant fixé) ou autorisé par le DE ne
+// se supprime plus. Tout le reste (en attente à n'importe quelle étape
+// antérieure, ou rejeté) peut être retiré par son auteur.
+const SUPPRIMABLE_SAUF = ['valide_caf', 'autorise_de', 'demande_soumise']
 
 export async function POST(
   _req: NextRequest,

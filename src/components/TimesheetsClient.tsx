@@ -8,6 +8,7 @@ const ValidationManager = dynamic(() => import('@/components/ValidationManager')
 const ValidationCAF = dynamic(() => import('@/components/ValidationCAF'), { ssr: false })
 const RapportAllocationForm = dynamic(() => import('@/components/RapportAllocationForm'), { ssr: false })
 const ValidationRapportsAAF = dynamic(() => import('@/components/ValidationRapportsAAF'), { ssr: false })
+const ValidationTimesheetsDE = dynamic(() => import('@/components/ValidationTimesheetsDE'), { ssr: false })
 const SoldeCredit = dynamic(() => import('@/components/SoldeCredit'), { ssr: false })
 
 type Tab = {
@@ -32,12 +33,13 @@ type Props = {
   countRapportsAAF: number
   countRapportsCAF: number
   countRapportsDE: number
+  countTimesheetsDE: number
 }
 
 export default function TimesheetsClient({
   role, userId, typeEmploi, managerId, hasManager,
   countTimesheetsAValider, countRapportsAValider, countTimesheetsCAF,
-  countRapportsAAF, countRapportsCAF, countRapportsDE,
+  countRapportsAAF, countRapportsCAF, countRapportsDE, countTimesheetsDE,
 }: Props) {
 
   const estRapportMensuel = ['benevole', 'stagiaire_n1', 'stagiaire_n2', 'cdd', 'cdi'].includes(typeEmploi ?? '')
@@ -98,6 +100,15 @@ export default function TimesheetsClient({
       key: 'caf_rapports', icon: BarChart3, label: 'Rapports d\'allocation',
       desc: 'Validation des allocations',
       count: countRapportsCAF, color: countRapportsCAF > 0 ? '#6d28d9' : undefined,
+    })
+  }
+
+  // Timesheets à autoriser DE — étape finale avant que la CAF puisse payer.
+  if (estDE) {
+    tabs.push({
+      key: 'de_timesheets', icon: ShieldCheck, label: 'Timesheets à autoriser',
+      desc: 'Autorisation finale DE',
+      count: countTimesheetsDE, color: countTimesheetsDE > 0 ? '#065f46' : undefined,
     })
   }
 
@@ -223,6 +234,7 @@ export default function TimesheetsClient({
           {activeTab === 'caf_timesheets' && <ValidationCAF />}
           {activeTab === 'aaf_rapports' && <ValidationRapportsAAF role="aaf" userId={userId} />}
           {activeTab === 'caf_rapports' && <ValidationRapportsAAF role="caf" userId={userId} />}
+          {activeTab === 'de_timesheets' && <ValidationTimesheetsDE userId={userId} />}
           {activeTab === 'de_rapports' && <ValidationRapportsAAF role={role} userId={userId} />}
           {activeTab === 'validation_tech' && <ValidationManager />}
         </div>
