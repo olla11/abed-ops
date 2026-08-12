@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import Pagination, { paginate } from '@/components/Pagination'
 import { createClient } from '@/lib/supabase-client'
+import { calculerHonoraire, type BaremeHonoraireRow, type PaliersCommunication } from '@/lib/bareme'
 
 type Soumission = {
   id: string; titre: string; status: string
@@ -10,7 +11,11 @@ type Soumission = {
   montant_caf: number | null; paye: boolean
   fichier_facture_url: string | null; fichier_timesheet_url: string | null; fichier_livrable_url: string | null
   corrige_le: string | null
-  prestataire: { id: string; prenoms: string; nom: string; type_emploi: string | null } | null
+  prestataire: { id: string; prenoms: string; nom: string; titre: string | null; seniorite: string | null; type_emploi: string | null } | null
+}
+
+const STATUS_LABEL_TIMESHEET: Record<string, string> = {
+  valide_caf: '✓ Validé CAF', rejete_caf: '✗ Rejeté (CAF)', corrections_caf: 'Correction demandée (CAF)',
 }
 
 type PrestataireCredit = {
@@ -29,14 +34,20 @@ export default function ValidationCAF() {
   const supabase = createClient()
 
   const [items, setItems] = useState<Soumission[]>([])
+  const [itemsHistorique, setItemsHistorique] = useState<Soumission[]>([])
   const [directs, setDirects] = useState<Soumission[]>([])
   const [credits, setCredits] = useState<PrestataireCredit[]>([])
 
   const [tauxDirect, setTauxDirect] = useState(1500)
   const [tauxCredit, setTauxCredit] = useState(1500)
+  const [baremes, setBaremes] = useState<BaremeHonoraireRow[]>([])
+  const [paliers, setPaliers] = useState<PaliersCommunication>({
+    palier1_borne_max: 100, palier1_montant: 15000, palier2_borne_max: 200, palier2_montant: 25000, palier3_montant: 35000,
+  })
 
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState<string | null>(null)
+  const [expandedHist, setExpandedHist] = useState<string | null>(null)
   const [pageItems, setPageItems] = useState(1)
   const [pageDirects, setPageDirects] = useState(1)
   const [pageCredits, setPageCredits] = useState(1)
@@ -48,14 +59,24 @@ export default function ValidationCAF() {
   const [payingCredit, setPayingCredit] = useState<string | null>(null)
 
   async function load() {
-    const [{ data: tauxData }, { data: valides }] = await Promise.all([
+    const [{ data: tauxData }, { data: valides }, { data: hist }, baremesRes, paliersRes] = await Promise.all([
       supabase.from('parametres').select('cle, valeur')
         .in('cle', ['taux_horaire_direct_fcfa', 'taux_horaire_credit_fcfa']),
       supabase
         .from('soumissions')
-        .select('id,titre,status,periode_mois,periode_annee,heures_retenues,justification_heures,montant_caf,paye,fichier_facture_url,fichier_timesheet_url,fichier_livrable_url,corrige_le,prestataire:profiles!soumissions_prestataire_id_fkey(id,prenoms,nom,type_emploi)')
+        .select('id,titre,status,periode_mois,periode_annee,heures_retenues,justification_heures,montant_caf,paye,fichier_facture_url,fichier_timesheet_url,fichier_livrable_url,corrige_le,prestataire:profiles!soumissions_prestataire_id_fkey(id,prenoms,nom,titre,seniorite,type_emploi)')
         .in('status', ['valide_tech', 'valide_caf'])
         .order('created_at', { ascending: false }),
+      // Déjà traités et clos par la CAF (payé ou rejeté) — reste consultable
+      // au lieu de disparaître une fois le dossier soldé.
+      supabase
+        .from('soumissions')
+        .select('id,titre,status,periode_mois,periode_annee,heures_retenues,justification_heures,montant_caf,paye,fichier_facture_url,fichier_timesheet_url,fichier_livrable_url,corrige_le,prestataire:profiles!soumissions_prestataire_id_fkey(id,prenoms,nom,titre,seniorite,type_emploi)')
+        .or('status.eq.rejete_caf,status.eq.corrections_caf,and(status.eq.valide_caf,paye.eq.true)')
+        .order('created_at', { ascending: false })
+        .limit(50),
+      fetch('/api/admin/baremes/honoraires').then(r => r.json()).catch(() => ({ data: [] })),
+      fetch('/api/admin/baremes/paliers').then(r => r.json()).catch(() => null),
     ])
 
     const tauxMap = Object.fromEntries((tauxData ?? []).map((r: any) => [r.cle, Number(r.valeur)]))
@@ -63,6 +84,9 @@ export default function ValidationCAF() {
     const tc = tauxMap['taux_horaire_credit_fcfa'] ?? 1500
     setTauxDirect(td)
     setTauxCredit(tc)
+    setBaremes((baremesRes?.data as any) ?? [])
+    if (paliersRes) setPaliers(paliersRes)
+    setItemsHistorique((hist as any) ?? [])
 
     const all = (valides as any[]) ?? []
 
@@ -167,8 +191,11 @@ export default function ValidationCAF() {
         {items.length === 0 && <p style={{ color: 'var(--abed-muted)', fontSize: 14 }}>Aucun dossier en attente.</p>}
         {paginate(items, pageItems).map(s => {
           const isOpen = expanded === s.id
-          const taux = s.prestataire?.type_emploi === 'prestataire_credit' ? tauxCredit : tauxDirect
-          const montant = Math.round((s.heures_retenues ?? 0) * taux)
+          const calc = calculerHonoraire({
+            titre: s.prestataire?.titre, seniorite: s.prestataire?.seniorite, typeEmploi: s.prestataire?.type_emploi,
+            heures: s.heures_retenues ?? 0, baremes, paliers, fallbackDirect: tauxDirect, fallbackCredit: tauxCredit,
+          })
+          const { taux, montant } = calc
           const typeLabel = s.prestataire?.type_emploi === 'prestataire_credit' ? 'Crédit' : 'Direct'
           return (
             <div key={s.id} style={{ borderBottom: '1px solid var(--abed-border)', padding: '14px 0' }}>
@@ -205,8 +232,13 @@ export default function ValidationCAF() {
                 <div style={{ marginTop: 16, display: 'grid', gap: 14 }}>
                   <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: 12 }}>
                     <p style={{ fontSize: 13, fontWeight: 600 }}>
-                      Montant : {montant.toLocaleString('fr-FR')} FCFA ({s.heures_retenues} h × {taux.toLocaleString('fr-FR')} F)
+                      Montant : {montant.toLocaleString('fr-FR')} FCFA ({s.heures_retenues} h × {taux.toLocaleString('fr-FR')} F{calc.detailPrime})
                     </p>
+                    {calc.source === 'flat' && (
+                      <p style={{ fontSize: 11, color: '#b45309', marginTop: 4 }}>
+                        ⚠ Titre non classé dans le barème — taux de repli utilisé.
+                      </p>
+                    )}
                     {s.justification_heures && (
                       <p style={{ fontSize: 12, color: 'var(--abed-muted)', marginTop: 4, fontStyle: 'italic' }}>
                         Justification manager : {s.justification_heures}
@@ -248,6 +280,49 @@ export default function ValidationCAF() {
         })}
         <Pagination page={pageItems} total={items.length} onChange={setPageItems} />
       </div>
+
+      {itemsHistorique.length > 0 && (
+        <div className="card" style={{ borderLeft: '4px solid #9ca3af' }}>
+          <h3 style={{ marginBottom: 4 }}>🗂 Historique — timesheets ({itemsHistorique.length})</h3>
+          <p style={{ fontSize: 12, color: 'var(--abed-muted)', marginBottom: 16 }}>
+            Dossiers déjà payés ou rejetés — documents et montant restent consultables ici.
+          </p>
+          {itemsHistorique.map(s => {
+            const isOpen = expandedHist === s.id
+            return (
+              <div key={s.id} style={{ borderBottom: '1px solid var(--abed-border)', padding: '10px 0' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+                  onClick={() => setExpandedHist(isOpen ? null : s.id)}>
+                  <div>
+                    <strong>{s.titre}</strong>
+                    <span style={{ fontSize: 12, color: 'var(--abed-muted)', marginLeft: 10 }}>
+                      {s.prestataire?.prenoms} {s.prestataire?.nom} — {s.periode_mois}/{s.periode_annee}
+                      {s.montant_caf != null && (
+                        <strong style={{ color: 'var(--abed-green)', marginLeft: 8 }}>
+                          {s.montant_caf.toLocaleString('fr-FR')} FCFA
+                        </strong>
+                      )}
+                    </span>
+                  </div>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: '#6b7280' }}>
+                    {s.paye ? '✓ Payé' : (STATUS_LABEL_TIMESHEET[s.status] ?? s.status)}
+                  </span>
+                </div>
+                {isOpen && (
+                  <div style={{ marginTop: 10, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                    {s.fichier_facture_url && <button className="btn secondary" style={{ fontSize: 12 }}
+                      onClick={() => openFile(s.fichier_facture_url!)}>🧾 Facture</button>}
+                    {s.fichier_timesheet_url && <button className="btn secondary" style={{ fontSize: 12 }}
+                      onClick={() => openFile(s.fichier_timesheet_url!)}>📊 Timesheet</button>}
+                    {s.fichier_livrable_url && <button className="btn secondary" style={{ fontSize: 12 }}
+                      onClick={() => openFile(s.fichier_livrable_url!)}>📄 Livrable</button>}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       {/* ── Paiements Directs ── */}
       {directs.length > 0 && (

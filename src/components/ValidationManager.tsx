@@ -2,14 +2,21 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase-client'
 import Pagination, { paginate } from '@/components/Pagination'
+import { calculerHonoraire, type BaremeHonoraireRow, type PaliersCommunication } from '@/lib/bareme'
 
 type Soumission = {
   id: string; titre: string; status: string
   periode_mois: number; periode_annee: number
-  heures_declarees: number
+  heures_declarees: number; heures_retenues: number | null; montant_caf: number | null
   fichier_timesheet_url: string | null; fichier_livrable_url: string | null
   corrige_le: string | null
-  prestataire: { prenoms: string; nom: string } | null
+  prestataire: { prenoms: string; nom: string; titre: string | null; seniorite: string | null; type_emploi: string | null } | null
+}
+
+const STATUS_LABEL_TIMESHEET: Record<string, string> = {
+  valide_tech: 'Validé par vous — att. CAF', valide_caf: '✓ Validé CAF',
+  rejete_tech: '✗ Rejeté par vous', corrections_tech: 'Correction demandée par vous',
+  corrections_caf: 'Correction demandée (CAF)', rejete_caf: '✗ Rejeté (CAF)',
 }
 
 type RapportManager = {
@@ -37,13 +44,20 @@ async function openFile(path: string) {
 export default function ValidationManager() {
   const supabase = createClient()
   const [items, setItems] = useState<Soumission[]>([])
+  const [itemsHistorique, setItemsHistorique] = useState<Soumission[]>([])
   const [rapports, setRapports] = useState<RapportManager[]>([])
   const [rapportsHistorique, setRapportsHistorique] = useState<RapportManager[]>([])
   const [loading, setLoading] = useState(true)
   const [pageItems, setPageItems] = useState(1)
   const [pageRapports, setPageRapports] = useState(1)
   const [expandedHist, setExpandedHist] = useState<string | null>(null)
-  const [taux, setTaux] = useState(1500)
+  const [expandedHistTs, setExpandedHistTs] = useState<string | null>(null)
+  const [tauxDirect, setTauxDirect] = useState(1500)
+  const [tauxCredit, setTauxCredit] = useState(1500)
+  const [baremes, setBaremes] = useState<BaremeHonoraireRow[]>([])
+  const [paliers, setPaliers] = useState<PaliersCommunication>({
+    palier1_borne_max: 100, palier1_montant: 15000, palier2_borne_max: 200, palier2_montant: 25000, palier3_montant: 35000,
+  })
   const [expanded, setExpanded] = useState<string | null>(null)
   const [expandedRap, setExpandedRap] = useState<string | null>(null)
   const [heuresMap, setHeuresMap] = useState<Record<string, number | ''>>({})
@@ -56,13 +70,22 @@ export default function ValidationManager() {
   async function load() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const [{ data }, { data: raps }, { data: rapsHist }, tauxRes] = await Promise.all([
+    const [{ data }, { data: itemsHist }, { data: raps }, { data: rapsHist }, tauxRes, baremesRes, paliersRes] = await Promise.all([
       supabase
         .from('soumissions')
-        .select('id,titre,status,periode_mois,periode_annee,heures_declarees,fichier_timesheet_url,fichier_livrable_url,corrige_le,prestataire:profiles!soumissions_prestataire_id_fkey(prenoms,nom)')
+        .select('id,titre,status,periode_mois,periode_annee,heures_declarees,heures_retenues,montant_caf,fichier_timesheet_url,fichier_livrable_url,corrige_le,prestataire:profiles!soumissions_prestataire_id_fkey(prenoms,nom,titre,seniorite,type_emploi)')
         .eq('manager_id', user.id)
         .eq('status', 'soumis')
         .order('created_at', { ascending: false }),
+      // Déjà traités par vous — le taux/montant définitif et les documents
+      // restent consultables ici même après validation technique.
+      supabase
+        .from('soumissions')
+        .select('id,titre,status,periode_mois,periode_annee,heures_declarees,heures_retenues,montant_caf,fichier_timesheet_url,fichier_livrable_url,corrige_le,prestataire:profiles!soumissions_prestataire_id_fkey(prenoms,nom,titre,seniorite,type_emploi)')
+        .eq('manager_id', user.id)
+        .neq('status', 'soumis')
+        .order('created_at', { ascending: false })
+        .limit(50),
       supabase
         .from('rapports_allocations')
         .select('id,status,periode_mois,periode_annee,rapport_texte,fichier_rapport_url,corrige_le,prestataire:profiles!rapports_allocations_prestataire_id_fkey(prenoms,nom,type_emploi)')
@@ -79,11 +102,17 @@ export default function ValidationManager() {
         .order('created_at', { ascending: false })
         .limit(50),
       fetch('/api/config/taux').then(r => r.json()),
+      fetch('/api/admin/baremes/honoraires').then(r => r.json()).catch(() => ({ data: [] })),
+      fetch('/api/admin/baremes/paliers').then(r => r.json()).catch(() => null),
     ])
     setItems((data as any) ?? [])
+    setItemsHistorique((itemsHist as any) ?? [])
     setRapports((raps as any) ?? [])
     setRapportsHistorique((rapsHist as any) ?? [])
-    if (tauxRes.taux) setTaux(tauxRes.taux)
+    if (tauxRes.taux_direct) setTauxDirect(tauxRes.taux_direct)
+    if (tauxRes.taux_credit) setTauxCredit(tauxRes.taux_credit)
+    setBaremes((baremesRes?.data as any) ?? [])
+    if (paliersRes) setPaliers(paliersRes)
     setLoading(false)
   }
 
@@ -157,7 +186,8 @@ export default function ValidationManager() {
       <div className="card">
         <h3 style={{ marginBottom: 4 }}>Timesheets à valider ({items.length})</h3>
         <p style={{ fontSize: 12, color: 'var(--abed-muted)', marginBottom: 16 }}>
-          Vérifiez le timesheet Excel et le livrable. Taux en vigueur : <strong>{taux.toLocaleString('fr-FR')} FCFA/h</strong>.
+          Vérifiez le timesheet Excel et le livrable. Le taux affiché ci-dessous est calculé selon le
+          barème de rémunération (niveau de fonction + ancienneté du prestataire).
         </p>
 
         {items.length === 0 && (
@@ -167,7 +197,11 @@ export default function ValidationManager() {
         {paginate(items, pageItems).map(s => {
           const isOpen = expanded === s.id
           const h = heuresMap[s.id]
-          const montantEstimé = h ? Math.round(+h * taux).toLocaleString('fr-FR') : '—'
+          const calc = calculerHonoraire({
+            titre: s.prestataire?.titre, seniorite: s.prestataire?.seniorite, typeEmploi: s.prestataire?.type_emploi,
+            heures: h ? +h : 0, baremes, paliers, fallbackDirect: tauxDirect, fallbackCredit: tauxCredit,
+          })
+          const montantEstimé = h ? calc.montant.toLocaleString('fr-FR') : '—'
 
           return (
             <div key={s.id} style={{ borderBottom: '1px solid var(--abed-border)', padding: '14px 0' }}>
@@ -225,8 +259,13 @@ export default function ValidationManager() {
                         }} />
                     </div>
                     <span style={{ fontSize: 13, color: 'var(--abed-muted)' }}>
-                      → <strong>{montantEstimé} FCFA</strong> (× {taux.toLocaleString('fr-FR')} F/h)
+                      → <strong>{montantEstimé} FCFA</strong> (× {calc.taux.toLocaleString('fr-FR')} F/h{calc.prime > 0 ? ` + ${calc.prime.toLocaleString('fr-FR')} F prime` : ''})
                     </span>
+                    {calc.source === 'flat' && (
+                      <span style={{ fontSize: 11, color: '#b45309' }}>
+                        ⚠ Titre non classé dans le barème — taux de repli utilisé.
+                      </span>
+                    )}
                   </div>
 
                   {needsJustif === s.id && (
@@ -275,6 +314,55 @@ export default function ValidationManager() {
         })}
         <Pagination page={pageItems} total={items.length} onChange={setPageItems} />
       </div>
+
+      {itemsHistorique.length > 0 && (
+        <div className="card" style={{ borderLeft: '4px solid #9ca3af' }}>
+          <h3 style={{ marginBottom: 4 }}>🗂 Historique — timesheets ({itemsHistorique.length})</h3>
+          <p style={{ fontSize: 12, color: 'var(--abed-muted)', marginBottom: 16 }}>
+            Timesheets déjà traités par vous — documents et montant restent consultables ici.
+          </p>
+          {itemsHistorique.map(s => {
+            const isOpen = expandedHistTs === s.id
+            return (
+              <div key={s.id} style={{ borderBottom: '1px solid var(--abed-border)', padding: '10px 0' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+                  onClick={() => setExpandedHistTs(isOpen ? null : s.id)}>
+                  <div>
+                    <strong>{s.titre}</strong>
+                    <span style={{ fontSize: 12, color: 'var(--abed-muted)', marginLeft: 10 }}>
+                      {s.prestataire?.prenoms} {s.prestataire?.nom} — {s.periode_mois}/{s.periode_annee}
+                      {s.montant_caf != null && (
+                        <strong style={{ color: 'var(--abed-green)', marginLeft: 8 }}>
+                          {s.montant_caf.toLocaleString('fr-FR')} FCFA
+                        </strong>
+                      )}
+                    </span>
+                  </div>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: '#6b7280' }}>
+                    {STATUS_LABEL_TIMESHEET[s.status] ?? s.status}
+                  </span>
+                </div>
+                {isOpen && (
+                  <div style={{ marginTop: 10, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                    {s.fichier_timesheet_url && (
+                      <button className="btn secondary" style={{ fontSize: 12 }}
+                        onClick={() => openFile(s.fichier_timesheet_url!)}>
+                        📊 Télécharger Timesheet Excel
+                      </button>
+                    )}
+                    {s.fichier_livrable_url && (
+                      <button className="btn secondary" style={{ fontSize: 12 }}
+                        onClick={() => openFile(s.fichier_livrable_url!)}>
+                        📄 Télécharger Livrable PDF
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       {/* ── Rapports mensuels ── */}
       <div className="card">

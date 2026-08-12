@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
-import { getNiveauFonction, NIVEAUX_AVEC_SENIORITE } from '@/lib/bareme'
+import { calculerHonoraire, type BaremeHonoraireRow, type PaliersCommunication } from '@/lib/bareme'
 
 export async function POST(
   req: NextRequest,
@@ -34,55 +34,36 @@ export async function POST(
   if (action === 'valider') {
     const prestataire = soum.prestataire as any
     const heures = soum.heures_retenues ?? 0
-    const niveauFonction = getNiveauFonction(prestataire?.titre)
 
-    let taux: number | null = null
-    let prime = 0
-    let detailPrime = ''
-
-    if (niveauFonction) {
-      // Barème par niveau de fonction (Politique de rémunération PG N° 002-25) —
-      // avec ancienneté pour Programme Lead/Manager et Chargé de Projet.
-      const seniorite = NIVEAUX_AVEC_SENIORITE.includes(niveauFonction) ? (prestataire?.seniorite ?? null) : null
-      let query = supabase.from('bareme_honoraires').select('*').eq('niveau_fonction', niveauFonction)
-      query = seniorite ? query.eq('seniorite', seniorite) : query.is('seniorite', null)
-      const { data: bareme } = await query.maybeSingle()
-
-      if (bareme) {
-        taux = Number(bareme.montant_heure)
-        if (bareme.prime_communication_type === 'fixe') {
-          prime = Number(bareme.prime_communication_fixe ?? 0)
-          detailPrime = ` + prime communication ${prime.toLocaleString('fr-FR')} F`
-        } else if (bareme.prime_communication_type === 'paliers_heures') {
-          const { data: paliersRows } = await supabase
-            .from('parametres').select('cle, valeur')
-            .in('cle', ['prime_comm_palier1_borne_max', 'prime_comm_palier1_montant', 'prime_comm_palier2_borne_max', 'prime_comm_palier2_montant', 'prime_comm_palier3_montant'])
-          const pm = Object.fromEntries((paliersRows ?? []).map(r => [r.cle, Number(r.valeur)]))
-          const b1 = pm['prime_comm_palier1_borne_max'] ?? 100
-          const b2 = pm['prime_comm_palier2_borne_max'] ?? 200
-          prime = heures <= b1 ? (pm['prime_comm_palier1_montant'] ?? 15000)
-            : heures <= b2 ? (pm['prime_comm_palier2_montant'] ?? 25000)
-            : (pm['prime_comm_palier3_montant'] ?? 35000)
-          detailPrime = ` + prime communication ${prime.toLocaleString('fr-FR')} F (${heures}h)`
-        }
-      }
+    // Barème complet + paliers + repli plat direct/crédit — même logique
+    // que l'aperçu affiché au manager et à la CAF avant validation
+    // (ValidationManager/ValidationCAF), via la fonction pure partagée
+    // calculerHonoraire, pour ne jamais diverger entre l'aperçu et le
+    // montant réellement enregistré.
+    const [{ data: baremes }, { data: paliersRows }, { data: tauxRows }] = await Promise.all([
+      supabase.from('bareme_honoraires').select('*'),
+      supabase.from('parametres').select('cle, valeur')
+        .in('cle', ['prime_comm_palier1_borne_max', 'prime_comm_palier1_montant', 'prime_comm_palier2_borne_max', 'prime_comm_palier2_montant', 'prime_comm_palier3_montant']),
+      supabase.from('parametres').select('cle, valeur')
+        .in('cle', ['taux_horaire_direct_fcfa', 'taux_horaire_credit_fcfa', 'taux_horaire_fcfa']),
+    ])
+    const pm = Object.fromEntries((paliersRows ?? []).map(r => [r.cle, Number(r.valeur)]))
+    const paliers: PaliersCommunication = {
+      palier1_borne_max: pm['prime_comm_palier1_borne_max'] ?? 100,
+      palier1_montant: pm['prime_comm_palier1_montant'] ?? 15000,
+      palier2_borne_max: pm['prime_comm_palier2_borne_max'] ?? 200,
+      palier2_montant: pm['prime_comm_palier2_montant'] ?? 25000,
+      palier3_montant: pm['prime_comm_palier3_montant'] ?? 35000,
     }
+    const tm = Object.fromEntries((tauxRows ?? []).map((r: any) => [r.cle, Number(r.valeur)]))
+    const fallbackDirect = tm['taux_horaire_direct_fcfa'] ?? tm['taux_horaire_fcfa'] ?? 1500
+    const fallbackCredit = tm['taux_horaire_credit_fcfa'] ?? tm['taux_horaire_fcfa'] ?? 1500
 
-    // Repli sur les anciens taux plats (direct/crédit) si le titre du
-    // prestataire n'est pas classé dans le barème par niveau de fonction.
-    if (taux == null) {
-      const typeEmploi = prestataire?.type_emploi ?? 'prestataire_direct'
-      const clesTaux = typeEmploi === 'prestataire_credit'
-        ? ['taux_horaire_credit_fcfa', 'taux_horaire_fcfa']
-        : ['taux_horaire_direct_fcfa', 'taux_horaire_fcfa']
-      const { data: tauxRows } = await supabase
-        .from('parametres').select('cle, valeur').in('cle', clesTaux)
-      const tauxMap = Object.fromEntries((tauxRows ?? []).map((r: any) => [r.cle, Number(r.valeur)]))
-      taux = tauxMap[clesTaux[0]] ?? tauxMap[clesTaux[1]] ?? 1500
-    }
-    const tauxFinal: number = taux ?? 1500
+    const { taux: tauxFinal, montant: montant_caf, detailPrime } = calculerHonoraire({
+      titre: prestataire?.titre, seniorite: prestataire?.seniorite, typeEmploi: prestataire?.type_emploi,
+      heures, baremes: (baremes ?? []) as BaremeHonoraireRow[], paliers, fallbackDirect, fallbackCredit,
+    })
 
-    const montant_caf = Math.round(heures * tauxFinal) + Math.round(prime)
     await supabase.from('soumissions').update({
       status: 'valide_caf',
       montant_caf,

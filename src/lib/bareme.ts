@@ -56,3 +56,67 @@ export function getNiveauFonction(titre: string | null | undefined): NiveauFonct
   if (!titre) return null
   return TITRE_VERS_NIVEAU_FONCTION[titre as Titre] ?? null
 }
+
+// ─── Calcul du taux/prime honoraires ──────────────────────────────────────
+// Fonction pure partagée entre le calcul serveur (valider-caf, qui fixe le
+// montant réel) et les aperçus côté client (manager, CAF) — pour ne jamais
+// avoir deux implémentations qui divergent silencieusement, comme c'était
+// le cas quand l'aperçu manager/CAF affichait encore l'ancien taux plat
+// pendant que le calcul final utilisait déjà le barème.
+
+export type BaremeHonoraireRow = {
+  niveau_fonction: NiveauFonctionHonoraire
+  seniorite: Seniorite | null
+  montant_heure: number | string
+  prime_communication_type: string
+  prime_communication_fixe: number | string | null
+}
+
+export type PaliersCommunication = {
+  palier1_borne_max: number; palier1_montant: number
+  palier2_borne_max: number; palier2_montant: number
+  palier3_montant: number
+}
+
+export function calculerHonoraire(opts: {
+  titre: string | null | undefined
+  seniorite: string | null | undefined
+  typeEmploi: string | null | undefined
+  heures: number
+  baremes: BaremeHonoraireRow[]
+  paliers: PaliersCommunication
+  fallbackDirect: number
+  fallbackCredit: number
+}): { taux: number; prime: number; montant: number; detailPrime: string; source: 'bareme' | 'flat' } {
+  const { titre, seniorite, typeEmploi, heures, baremes, paliers, fallbackDirect, fallbackCredit } = opts
+  const niveau = getNiveauFonction(titre)
+  let taux: number | null = null
+  let prime = 0
+  let detailPrime = ''
+  let source: 'bareme' | 'flat' = 'flat'
+
+  if (niveau) {
+    const s = NIVEAUX_AVEC_SENIORITE.includes(niveau) ? (seniorite ?? null) : null
+    const row = baremes.find(b => b.niveau_fonction === niveau && (s ? b.seniorite === s : b.seniorite == null))
+    if (row) {
+      taux = Number(row.montant_heure)
+      source = 'bareme'
+      if (row.prime_communication_type === 'fixe') {
+        prime = Number(row.prime_communication_fixe ?? 0)
+        detailPrime = ` + prime communication ${prime.toLocaleString('fr-FR')} F`
+      } else if (row.prime_communication_type === 'paliers_heures') {
+        prime = heures <= paliers.palier1_borne_max ? paliers.palier1_montant
+          : heures <= paliers.palier2_borne_max ? paliers.palier2_montant
+          : paliers.palier3_montant
+        detailPrime = ` + prime communication ${prime.toLocaleString('fr-FR')} F (${heures}h)`
+      }
+    }
+  }
+
+  if (taux == null) {
+    taux = typeEmploi === 'prestataire_credit' ? fallbackCredit : fallbackDirect
+  }
+
+  const montant = Math.round(heures * taux) + Math.round(prime)
+  return { taux, prime, montant, detailPrime, source }
+}
