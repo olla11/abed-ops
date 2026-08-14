@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, Paperclip, Upload } from 'lucide-react'
+import { Plus, Trash2, Paperclip, Upload, FileText } from 'lucide-react'
 import { EXECUTION_STATUT_LABELS } from '@/lib/tdr'
 import type { Tdr } from './TdrDetailClient'
 
@@ -391,7 +391,15 @@ export default function TdrExecutionFinanciere({ tdr, myId, myRole, myTitre, onC
 
       {/* Réconciliation */}
       <div style={{ paddingTop: 14, borderTop: '1px solid #f3f4f6' }}>
-        <h4 style={{ fontSize: 13, marginBottom: 10 }}>Réconciliation</h4>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+          <h4 style={{ fontSize: 13, margin: 0 }}>Réconciliation</h4>
+          {tdr.statut === 'cloture' && (
+            <a href={`/api/tdrs/${tdr.id}/reconciliation-pdf`} target="_blank" rel="noopener"
+              style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: 'var(--abed-green)', textDecoration: 'none' }}>
+              <FileText size={14} /> Rapport PDF
+            </a>
+          )}
+        </div>
 
         {tdr.statut === 'actif' && isAAF && (
           <div>

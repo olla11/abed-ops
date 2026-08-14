@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { chapitresValides } from '@/lib/tdr'
 import { sanitizeChapitres } from '@/lib/tdr-sanitize'
-import { notifyTdr } from '@/lib/tdr-notify'
+import { notifierClotureAvecRapport } from '@/lib/tdr-notify'
 import { sendEmail } from '@/lib/resend'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_URL ?? 'https://myabed.app'
@@ -90,11 +90,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { error } = await admin.from('tdrs').update(update).eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  await notifyTdr(id, {
-    titre: 'TdR clôturé',
-    message: `Le TdR « ${tdr.titre_activite} » (${tdr.numero}) a été clôturé.`,
-    excludeId: user.id,
-  }).catch(console.error)
+  await notifierClotureAvecRapport(id, user.id).catch(console.error)
 
   return NextResponse.json({ ok: true, statut: 'cloture' })
 }
