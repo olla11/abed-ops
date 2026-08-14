@@ -27,6 +27,9 @@ export default function TdrExecutionFinanciere({ tdr, myId, myRole, myTitre, onC
   const isCAF = myRole === 'caf' || ['admin', 'superadmin'].includes(myRole)
   const isResponsable = tdr.initiateur_id === myId || ['admin', 'superadmin'].includes(myRole)
   const estTresoriere = myTitre === 'tresorier_ca' || ['admin', 'superadmin'].includes(myRole)
+  // Archive ZIP complète : réservée à AAF/CAF/DE uniquement, sans exception
+  // admin/superadmin ni accès pour le responsable.
+  const peutTelechargerArchive = ['aaf', 'caf', 'de'].includes(myRole)
 
   // Une fois clôturé, plus rien n'est modifiable pour personne — sauf
   // réouverture exceptionnelle autorisée par la trésorière générale du
@@ -399,10 +402,12 @@ export default function TdrExecutionFinanciere({ tdr, myId, myRole, myTitre, onC
                 style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: 'var(--abed-green)', textDecoration: 'none' }}>
                 <FileText size={14} /> Rapport PDF
               </a>
-              <a href={`/api/tdrs/${tdr.id}/archive-zip`}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: '#2f5496', textDecoration: 'none' }}>
-                <Download size={14} /> Archive complète (.zip)
-              </a>
+              {peutTelechargerArchive && (
+                <a href={`/api/tdrs/${tdr.id}/archive-zip`}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: '#2f5496', textDecoration: 'none' }}>
+                  <Download size={14} /> Archive complète (.zip)
+                </a>
+              )}
             </div>
           )}
         </div>

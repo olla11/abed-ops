@@ -42,8 +42,11 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     .eq('id', id).single()
   if (!tdr) return NextResponse.json({ error: 'TdR introuvable' }, { status: 404 })
 
-  const accesAutorise = ['aaf', 'caf', 'de', 'admin', 'superadmin'].includes(role) || (tdr as any).initiateur_id === user.id
-  if (!accesAutorise) return NextResponse.json({ error: 'accès refusé' }, { status: 403 })
+  // Archive complète : réservée à AAF/CAF/DE uniquement — pas d'exception
+  // admin/superadmin, pas d'accès pour le responsable du TdR.
+  if (!['aaf', 'caf', 'de'].includes(role)) {
+    return NextResponse.json({ error: 'accès réservé à l\'AAF, au CAF et au DE' }, { status: 403 })
+  }
   if ((tdr as any).statut !== 'cloture') {
     return NextResponse.json({ error: "L'archive complète n'est disponible qu'une fois le TdR clôturé." }, { status: 409 })
   }
