@@ -517,7 +517,7 @@ export default function TdrExecutionFinanciere({ tdr, myId, myRole, myTitre, onC
         {tdr.statut === 'cloture' && (
           <div style={{ marginTop: 4 }}>
             <div style={{ fontSize: 12.5, color: 'var(--abed-muted)', marginBottom: 10 }}>
-              Clôturé{tdr.reconciliation_responsable_signe_le ? ` le ${new Date(tdr.reconciliation_responsable_signe_le).toLocaleDateString('fr-FR')}` : ''} après signature du responsable. Plus rien n&apos;est modifiable, sauf réouverture exceptionnelle autorisée par la trésorière générale du conseil d&apos;administration.
+              {`Clôturé${tdr.reconciliation_responsable_signe_le ? ` le ${new Date(tdr.reconciliation_responsable_signe_le).toLocaleDateString('fr-FR')}` : ''} après signature du responsable. Plus rien n'est modifiable, sauf réouverture exceptionnelle autorisée par la trésorière générale du conseil d'administration.`}
             </div>
 
             {erreurReouverture && <div style={{ color: '#c0392b', fontSize: 12, marginBottom: 10 }}>{erreurReouverture}</div>}
