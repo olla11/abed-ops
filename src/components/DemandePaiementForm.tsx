@@ -169,7 +169,7 @@ export default function DemandePaiementForm({ onClose, prefill, soumissionId }: 
           onChange={e => set(f.key, e.target.value)} />
         {f.key === 'justification' && (
           <p style={{ fontSize: 11, color: 'var(--abed-muted)', marginTop: 4 }}>
-            Mettez la référence du TDR autorisé, de l&apos;Ordre de mission autorisé, ou la référence de la fiche d&apos;expression de besoin ou la référence du contrat, ou de la convention ou de l&apos;offre.
+            Mettez la référence du TdR autorisé, de l&apos;Ordre de mission autorisé, ou la référence de la fiche d&apos;expression de besoin ou la référence du contrat, ou de la convention ou de l&apos;offre.
           </p>
         )}
       </div>

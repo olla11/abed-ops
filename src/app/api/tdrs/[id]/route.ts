@@ -24,7 +24,7 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
     .eq('id', id)
     .single()
 
-  if (error) return NextResponse.json({ error: 'TDR introuvable' }, { status: 404 })
+  if (error) return NextResponse.json({ error: 'TdR introuvable' }, { status: 404 })
   return NextResponse.json({ data })
 }
 
@@ -35,7 +35,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
 
   const { data: tdr } = await supabase.from('tdrs').select('statut, initiateur_id, titre_activite, chapitres').eq('id', id).single()
-  if (!tdr) return NextResponse.json({ error: 'TDR introuvable' }, { status: 404 })
+  if (!tdr) return NextResponse.json({ error: 'TdR introuvable' }, { status: 404 })
 
   // Le contenu (chapitres) est modifiable par toute personne impliquée sur le
   // TDR — initiateur, collaborateur en révision, ou n'importe quel signataire
@@ -69,7 +69,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (body?.chapitres !== undefined) {
     if (!canEditChapitres) return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     if (!chapitresValides(body.chapitres)) {
-      return NextResponse.json({ error: 'Les 8 chapitres du TDR sont obligatoires' }, { status: 400 })
+      return NextResponse.json({ error: 'Les 8 chapitres du TdR sont obligatoires' }, { status: 400 })
     }
     const nouveaux = sanitizeChapitres(body.chapitres)
     const anciens = tdr.chapitres as Chapitre[]
@@ -92,8 +92,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       const { data: profil } = await supabase.from('profiles').select('nom, prenoms').eq('id', user.id).single()
       const auteurNom = profil ? `${profil.prenoms} ${profil.nom}` : 'Quelqu\'un'
       await notifyTdr(id, {
-        titre: `✏️ Modifications sur le TDR « ${escapeHtml(tdr.titre_activite)} »`,
-        message: `${escapeHtml(auteurNom)} a modifié le contenu du TDR — chapitre${chapitresChanges.length > 1 ? 's' : ''} : ${chapitresChanges.map(escapeHtml).join(', ')}.`,
+        titre: `✏️ Modifications sur le TdR « ${escapeHtml(tdr.titre_activite)} »`,
+        message: `${escapeHtml(auteurNom)} a modifié le contenu du TdR — chapitre${chapitresChanges.length > 1 ? 's' : ''} : ${chapitresChanges.map(escapeHtml).join(', ')}.`,
         excludeId: user.id,
       }).catch(e => console.error('[notifyTdr modification]:', e))
     })
@@ -109,10 +109,10 @@ export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id:
   if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
 
   const { data: tdr } = await supabase.from('tdrs').select('statut, initiateur_id').eq('id', id).single()
-  if (!tdr) return NextResponse.json({ error: 'TDR introuvable' }, { status: 404 })
+  if (!tdr) return NextResponse.json({ error: 'TdR introuvable' }, { status: 404 })
   if (tdr.initiateur_id !== user.id) return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
   if (tdr.statut !== 'brouillon') {
-    return NextResponse.json({ error: 'Seul un TDR en brouillon peut être supprimé' }, { status: 409 })
+    return NextResponse.json({ error: 'Seul un TdR en brouillon peut être supprimé' }, { status: 409 })
   }
 
   const { error } = await supabase.from('tdrs').delete().eq('id', id)

@@ -63,9 +63,9 @@ export default function TdrListClient({ tdrs, myId, myRole }: { tdrs: TdrLite[];
   const safePage = Math.min(page, totalPages)
 
   const TABS = [
-    { key: 'mes' as const, label: 'Mes TDR', count: mesTdrs.length },
+    { key: 'mes' as const, label: 'Mes TdR', count: mesTdrs.length },
     { key: 'signer' as const, label: 'À signer', count: aSignerTdrs.length },
-    { key: 'actifs' as const, label: 'Tous les TDR actifs', count: actifsTdrs.length },
+    { key: 'actifs' as const, label: 'Tous les TdR actifs', count: actifsTdrs.length },
     { key: 'archives' as const, label: 'Archives', count: archivesTdrs.length },
   ]
 
@@ -73,9 +73,9 @@ export default function TdrListClient({ tdrs, myId, myRole }: { tdrs: TdrLite[];
     <div className="page-container">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
         <div>
-          <h2 style={{ color: 'var(--abed-green)', fontSize: 22, margin: 0 }}>Termes de référence (TDR)</h2>
+          <h2 style={{ color: 'var(--abed-green)', fontSize: 22, margin: 0 }}>Termes de référence (TdR)</h2>
           <p style={{ fontSize: 13, color: 'var(--abed-muted)', margin: '4px 0 0' }}>
-            Rédaction, collaboration et signature des TDR de l&apos;organisation.
+            Rédaction, collaboration et signature des TdR de l&apos;organisation.
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -93,7 +93,7 @@ export default function TdrListClient({ tdrs, myId, myRole }: { tdrs: TdrLite[];
             background: 'var(--abed-green)', color: 'white', border: 'none', textDecoration: 'none',
             display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
           }}>
-            <Plus size={15} /> Nouveau TDR
+            <Plus size={15} /> Nouveau TdR
           </Link>
         </div>
       </div>
@@ -127,7 +127,7 @@ export default function TdrListClient({ tdrs, myId, myRole }: { tdrs: TdrLite[];
         <input
           value={search}
           onChange={e => changeSearch(e.target.value)}
-          placeholder="Rechercher un TDR (titre, numéro)..."
+          placeholder="Rechercher un TdR (titre, numéro)..."
           style={{ width: '100%', padding: '9px 12px 9px 34px', borderRadius: 8, fontSize: 14, border: '1px solid var(--abed-border)', outline: 'none', boxSizing: 'border-box' }}
         />
       </div>
@@ -135,7 +135,7 @@ export default function TdrListClient({ tdrs, myId, myRole }: { tdrs: TdrLite[];
       {items.length === 0 ? (
         <div style={{ background: 'white', border: '1px solid var(--abed-border)', borderRadius: 10, padding: '48px 24px', textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>
           <CheckCircle2 size={32} style={{ marginBottom: 10 }} />
-          <div>{search.trim() ? 'Aucun TDR ne correspond à cette recherche.' : 'Aucun TDR ici pour le moment.'}</div>
+          <div>{search.trim() ? 'Aucun TdR ne correspond à cette recherche.' : 'Aucun TdR ici pour le moment.'}</div>
         </div>
       ) : (
         <>
@@ -146,15 +146,17 @@ export default function TdrListClient({ tdrs, myId, myRole }: { tdrs: TdrLite[];
                   <th>N°</th>
                   <th>Activité</th>
                   <th>Projet</th>
-                  <th>Initiateur</th>
+                  <th>Responsable</th>
                   <th>Statut</th>
                 </tr>
               </thead>
               <tbody>
                 {paginate(items, safePage, PAGE_SIZE).map(t => (
-                  <tr key={t.id} style={{ cursor: 'pointer' }} onClick={() => router.push(`/tdr/${t.id}`)}>
+                  <tr key={t.id} style={{ cursor: 'pointer', opacity: t.importe_historique ? 0.55 : 1 }}
+                    title={t.importe_historique ? 'TdR importé du suivi Excel historique (non créé dans le système)' : undefined}
+                    onClick={() => router.push(`/tdr/${t.id}`)}>
                     <td style={{ fontSize: 12, color: 'var(--abed-muted)' }}>{t.numero ?? '—'}</td>
-                    <td style={{ fontWeight: 600, maxWidth: 320 }}>{t.titre_activite}</td>
+                    <td style={{ fontWeight: 600, whiteSpace: 'normal', overflow: 'visible', textOverflow: 'clip', minWidth: 220 }}>{t.titre_activite}</td>
                     <td style={{ fontSize: 13 }}>{t.projet ?? '—'}</td>
                     <td style={{ fontSize: 13 }}>{t.initiateur ? `${t.initiateur.prenoms} ${t.initiateur.nom}` : '—'}</td>
                     <td><StatutBadge statut={t.statut} /></td>

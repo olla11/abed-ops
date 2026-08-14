@@ -86,7 +86,7 @@ export function construireTdrHtml(tdr: any, exclureCles: Set<string> = new Set()
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<title>TDR ${esc(tdr.numero ?? '')} — ${esc(tdr.titre_activite)}</title>
+<title>TdR ${esc(tdr.numero ?? '')} — ${esc(tdr.titre_activite)}</title>
 <style>
   @font-face { font-family: 'BrittanySignature'; src: url('${BRITTANY_SIGNATURE_FONT_DATA_URI}') format('truetype'); font-weight: normal; font-style: normal; }
   * { box-sizing: border-box; }
@@ -165,7 +165,7 @@ export function construireTdrHtml(tdr: any, exclureCles: Set<string> = new Set()
     ${sigBlock('de', signataireParRole('de'))}
   </div>
 
-  <div class="footer">ABED ONG · Parakou, Bénin · Système de gestion des TDR</div>
+  <div class="footer">ABED ONG · Parakou, Bénin · Système de gestion des TdR</div>
 </body>
 </html>`
 }

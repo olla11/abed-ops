@@ -29,9 +29,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { data: tdr } = await admin.from('tdrs')
     .select('id, numero, titre_activite, statut, initiateur_id, budget_total_valide, montant_depense')
     .eq('id', id).single()
-  if (!tdr) return NextResponse.json({ error: 'TDR introuvable' }, { status: 404 })
+  if (!tdr) return NextResponse.json({ error: 'TdR introuvable' }, { status: 404 })
   if (tdr.statut !== 'actif') {
-    return NextResponse.json({ error: 'Ce TDR n\'est pas en exécution active.' }, { status: 409 })
+    return NextResponse.json({ error: 'Ce TdR n\'est pas en exécution active.' }, { status: 409 })
   }
 
   const executionStatut = (tdr.montant_depense ?? 0) >= (tdr.budget_total_valide ?? 0) ? 'complete' : 'partielle'
@@ -50,8 +50,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
   const { data: cafUsers } = await admin.from('profiles').select('id, nom, prenoms, email').eq('role', 'caf').eq('archived', false)
-  const titre = 'Rapport de réconciliation TDR à signer'
-  const message = `Le TDR « ${tdr.titre_activite} » (${tdr.numero}) a été réconcilié par l'AAF — en attente de votre signature.`
+  const titre = 'Rapport de réconciliation TdR à signer'
+  const message = `Le TdR « ${tdr.titre_activite} » (${tdr.numero}) a été réconcilié par l'AAF — en attente de votre signature.`
   for (const c of cafUsers ?? []) {
     await admin.from('notifications').insert({ user_id: c.id, titre, message, lien: `/tdr/${id}` })
     if (c.email) {
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           <div style="padding:24px 28px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
             <p>Bonjour <strong>${c.prenoms}</strong>,</p>
             <p style="color:#374151;">${message}</p>
-            <a href="${APP_URL}/tdr/${id}" style="display:inline-block;background:#16a34a;color:white;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:700;font-size:14px;">Voir le TDR →</a>
+            <a href="${APP_URL}/tdr/${id}" style="display:inline-block;background:#16a34a;color:white;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:700;font-size:14px;">Voir le TdR →</a>
           </div>
         </div>`,
       }).catch(console.error)

@@ -380,7 +380,7 @@ export default function TdrExecutionFinanciere({ tdr, myId, myRole, onChange }: 
               <>
                 {erreurReconciliation && <div style={{ color: '#c0392b', fontSize: 12, marginBottom: 10 }}>{erreurReconciliation}</div>}
                 <p style={{ fontSize: 12.5, color: 'var(--abed-muted)', marginBottom: 10 }}>
-                  Utilisez « Ajuster et clôturer » en haut de page pour signer et clôturer ce TDR, ou refusez le rapport ci-dessous.
+                  Utilisez « Ajuster et clôturer » en haut de page pour signer et clôturer ce TdR, ou refusez le rapport ci-dessous.
                 </p>
                 <button onClick={() => setShowRefusResponsable(v => !v)}
                   style={{ padding: '9px 18px', borderRadius: 8, fontSize: 13, fontWeight: 700, background: 'white', color: '#dc2626', border: '1px solid #dc2626', cursor: 'pointer' }}>
@@ -398,7 +398,7 @@ export default function TdrExecutionFinanciere({ tdr, myId, myRole, onChange }: 
                 )}
               </>
             ) : (
-              <p style={{ fontSize: 12.5, color: 'var(--abed-muted)' }}>En attente de la signature du responsable du TDR.</p>
+              <p style={{ fontSize: 12.5, color: 'var(--abed-muted)' }}>En attente de la signature du responsable du TdR.</p>
             )}
           </div>
         )}

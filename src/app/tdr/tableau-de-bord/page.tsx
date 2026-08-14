@@ -43,7 +43,7 @@ function GroupeTable({ titre, lignes }: { titre: string; lignes: Ligne[] }) {
         <thead>
           <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--abed-border)', color: 'var(--abed-muted)' }}>
             <th style={{ padding: '6px 8px' }}>—</th>
-            <th style={{ padding: '6px 8px', textAlign: 'right' }}>Nb TDR</th>
+            <th style={{ padding: '6px 8px', textAlign: 'right' }}>Nb TdR</th>
             <th style={{ padding: '6px 8px', textAlign: 'right' }}>Budget</th>
             <th style={{ padding: '6px 8px', textAlign: 'right' }}>Dépensé</th>
             <th style={{ padding: '6px 8px', textAlign: 'right' }}>Solde</th>
@@ -159,12 +159,12 @@ export default async function TdrTableauDeBordPage() {
 
       <div className="page-container">
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
-          <a href="/tdr" style={{ fontSize: 13, color: 'var(--abed-muted)', textDecoration: 'none' }}>← Tous les TDR</a>
+          <a href="/tdr" style={{ fontSize: 13, color: 'var(--abed-muted)', textDecoration: 'none' }}>← Tous les TdR</a>
         </div>
-        <h2 style={{ color: 'var(--abed-green)', margin: '0 0 18px' }}>Tableau de bord — Suivi financier des TDR</h2>
+        <h2 style={{ color: 'var(--abed-green)', margin: '0 0 18px' }}>Tableau de bord — Suivi financier des TdR</h2>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 200px), 1fr))', gap: 14, marginBottom: 20 }}>
-          <StatCard label="TDR au total" value={String(global.nb)} color="#374151" />
+          <StatCard label="TdR au total" value={String(global.nb)} color="#374151" />
           <StatCard label="Budget approuvé" value={fmt(global.budget)} color="#2563eb" />
           <StatCard label="Dépensé" value={fmt(global.depense)} color="#b45309" />
           <StatCard label="Solde disponible" value={fmt(global.solde)} color="#16a34a" />

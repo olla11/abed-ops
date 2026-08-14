@@ -23,7 +23,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     .eq('id', id)
     .single()
 
-  if (error || !tdr) return NextResponse.json({ error: 'TDR introuvable ou accès refusé' }, { status: 404 })
+  if (error || !tdr) return NextResponse.json({ error: 'TdR introuvable ou accès refusé' }, { status: 404 })
 
   const pdfBuffer = await genererTdrPdf(tdr, exclureCles)
   return new NextResponse(new Uint8Array(pdfBuffer), {

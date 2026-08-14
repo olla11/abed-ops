@@ -16,11 +16,11 @@ export async function POST(_: NextRequest, { params }: { params: Promise<{ id: s
   if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
 
   const { data: tdr } = await supabase.from('tdrs').select('*').eq('id', id).single()
-  if (!tdr) return NextResponse.json({ error: 'TDR introuvable' }, { status: 404 })
+  if (!tdr) return NextResponse.json({ error: 'TdR introuvable' }, { status: 404 })
 
   const roleAttendu = STATUT_TOUR[tdr.statut as TdrStatut]
   if (!roleAttendu) {
-    return NextResponse.json({ error: "Ce TDR n'attend pas de signature actuellement" }, { status: 409 })
+    return NextResponse.json({ error: "Ce TdR n'attend pas de signature actuellement" }, { status: 409 })
   }
 
   const admin = createAdminClient()
@@ -28,7 +28,7 @@ export async function POST(_: NextRequest, { params }: { params: Promise<{ id: s
     .select('*').eq('tdr_id', id).eq('role', roleAttendu).single()
 
   if (!signataire || signataire.profile_id !== user.id) {
-    return NextResponse.json({ error: "Ce n'est pas votre tour de signer ce TDR" }, { status: 403 })
+    return NextResponse.json({ error: "Ce n'est pas votre tour de signer ce TdR" }, { status: 403 })
   }
 
   await admin.from('tdr_signataires')
@@ -43,8 +43,8 @@ export async function POST(_: NextRequest, { params }: { params: Promise<{ id: s
 
   if (prochainStatut === 'actif') {
     await notifyTdr(id, {
-      titre: 'TDR validé et actif',
-      message: `Le TDR « ${tdr.titre_activite} » (${tdr.numero}) est désormais actif et téléchargeable par tous.`,
+      titre: 'TdR validé et actif',
+      message: `Le TdR « ${tdr.titre_activite} » (${tdr.numero}) est désormais actif et téléchargeable par tous.`,
       excludeId: user.id,
     }).catch(console.error)
 
@@ -58,10 +58,10 @@ export async function POST(_: NextRequest, { params }: { params: Promise<{ id: s
       .select('profile_id').eq('tdr_id', id).eq('role', prochainRole).single()
 
     await notifyTdr(id, {
-      titre: 'TDR — validation suivante',
-      message: `Le TDR « ${tdr.titre_activite} » (${tdr.numero}) a avancé à l'étape suivante de validation.`,
+      titre: 'TdR — validation suivante',
+      message: `Le TdR « ${tdr.titre_activite} » (${tdr.numero}) a avancé à l'étape suivante de validation.`,
       actionPourId: prochainSignataire?.profile_id ?? undefined,
-      messageAction: `Le TDR « ${tdr.titre_activite} » (${tdr.numero}) attend votre validation.`,
+      messageAction: `Le TdR « ${tdr.titre_activite} » (${tdr.numero}) attend votre validation.`,
       excludeId: user.id,
     }).catch(console.error)
   }

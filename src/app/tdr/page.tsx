@@ -21,6 +21,7 @@ export type TdrLite = {
   created_at: string
   updated_at: string
   archive_le: string | null
+  importe_historique: boolean
   signataires: { role: string; profile_id: string | null; statut: string }[]
   collaborateurs: { profile_id: string }[]
 }
@@ -44,16 +45,30 @@ export default async function TdrPage() {
   // RLS (tdrs_select / can_access_tdr) filtre déjà : initiateur, collaborateur,
   // signataire, ou rôle à vision globale (de/aaf/caf/dp/administrateur/admin) —
   // les autres rôles ne reçoivent ici que les TDR où ils sont impliqués.
+  // Tri par plus récent d'abord ; numero en tie-break pour les TDR importés en
+  // lot (même created_at à la microseconde près pour tout le lot).
   const { data: tdrs, error } = await supabase
     .from('tdrs')
-    .select(`id, numero, titre_activite, projet, periode, statut, initiateur_id, created_at, updated_at, archive_le,
+    .select(`id, numero, titre_activite, projet, periode, statut, initiateur_id, created_at, updated_at, archive_le, importe_historique,
       initiateur:profiles!tdrs_initiateur_id_fkey(id, nom, prenoms),
       signataires:tdr_signataires(role, profile_id, statut),
       collaborateurs:tdr_collaborateurs(profile_id)
     `)
     .order('created_at', { ascending: false })
+    .order('numero', { ascending: false })
 
   if (error) console.error('[tdr/page] fetch error:', error)
+
+  // Le RLS de `profiles` masque les autres personnes pour un rôle sans vision
+  // globale : le nom du responsable (initiateur) ressort alors `null` du
+  // embed ci-dessus. On le complète depuis l'annuaire (contourne cette
+  // restriction pour l'essentiel : nom/prénoms), comme sur la fiche TDR.
+  const idsInitiateurs = [...new Set((tdrs ?? []).filter(t => !t.initiateur && t.initiateur_id).map(t => t.initiateur_id))]
+  if (idsInitiateurs.length > 0) {
+    const { data: annuaire } = await supabase.from('profiles_annuaire').select('id, nom, prenoms').in('id', idsInitiateurs)
+    const parId = new Map((annuaire ?? []).map(p => [p.id, p]))
+    for (const t of tdrs ?? []) if (!t.initiateur && t.initiateur_id) (t as any).initiateur = parId.get(t.initiateur_id) ?? null
+  }
 
   return (
     <>

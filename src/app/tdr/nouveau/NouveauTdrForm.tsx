@@ -45,11 +45,11 @@ export default function NouveauTdrForm() {
       </div>
       {err && <div style={{ color: '#c0392b', fontSize: 13, marginBottom: 14, padding: '8px 12px', background: '#fee2e2', borderRadius: 8 }}>{err}</div>}
       <p style={{ fontSize: 12, color: 'var(--abed-muted)', marginBottom: 16 }}>
-        Le TDR sera créé avec les 8 chapitres standards à compléter (Contexte, Objectifs, Résultats,
+        Le TdR sera créé avec les 8 chapitres standards à compléter (Contexte, Objectifs, Résultats,
         Méthodologie, Chronogramme, Acteurs, Communication, Budget). Le CAF et le Directeur Exécutif
         sont automatiquement ajoutés comme signataires.
       </p>
-      <button className="btn" disabled={saving}>{saving ? 'Création…' : 'Créer le TDR'}</button>
+      <button className="btn" disabled={saving}>{saving ? 'Création…' : 'Créer le TdR'}</button>
     </form>
   )
 }

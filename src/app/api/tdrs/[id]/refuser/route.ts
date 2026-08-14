@@ -14,11 +14,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!commentaire) return NextResponse.json({ error: 'Un motif de refus est requis' }, { status: 400 })
 
   const { data: tdr } = await supabase.from('tdrs').select('*').eq('id', id).single()
-  if (!tdr) return NextResponse.json({ error: 'TDR introuvable' }, { status: 404 })
+  if (!tdr) return NextResponse.json({ error: 'TdR introuvable' }, { status: 404 })
 
   const roleAttendu = STATUT_TOUR[tdr.statut as TdrStatut]
   if (!roleAttendu) {
-    return NextResponse.json({ error: "Ce TDR n'attend pas de signature actuellement" }, { status: 409 })
+    return NextResponse.json({ error: "Ce TdR n'attend pas de signature actuellement" }, { status: 409 })
   }
 
   const admin = createAdminClient()
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     .select('*').eq('tdr_id', id).eq('role', roleAttendu).single()
 
   if (!signataire || signataire.profile_id !== user.id) {
-    return NextResponse.json({ error: "Ce n'est pas votre tour sur ce TDR" }, { status: 403 })
+    return NextResponse.json({ error: "Ce n'est pas votre tour sur ce TdR" }, { status: 403 })
   }
 
   await admin.from('tdr_signataires')
@@ -43,10 +43,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (upErr) return NextResponse.json({ error: upErr.message }, { status: 500 })
 
   await notifyTdr(id, {
-    titre: 'TDR refusé — révision nécessaire',
-    message: `Le TDR « ${tdr.titre_activite} » a été refusé. Motif : ${commentaire}`,
+    titre: 'TdR refusé — révision nécessaire',
+    message: `Le TdR « ${tdr.titre_activite} » a été refusé. Motif : ${commentaire}`,
     actionPourId: tdr.initiateur_id,
-    messageAction: `Votre TDR « ${tdr.titre_activite} » a été refusé. Motif : ${commentaire}`,
+    messageAction: `Votre TdR « ${tdr.titre_activite} » a été refusé. Motif : ${commentaire}`,
     excludeId: user.id,
   }).catch(console.error)
 

@@ -65,7 +65,7 @@ export async function notifyTdr(tdrId: string, opts: {
               <p style="margin:0 0 12px;">Bonjour <strong>${p.prenoms}</strong>,</p>
               <p style="margin:0 0 20px;color:#374151;">${message}</p>
               <a href="${APP_URL}/tdr/${tdrId}" style="display:inline-block;background:#16a34a;color:white;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:700;font-size:14px;">
-                Voir le TDR →
+                Voir le TdR →
               </a>
             </div>
           </div>
@@ -112,8 +112,8 @@ export async function ouvrirSuiviFinancierTdr(tdrId: string) {
     console.error('[ouvrirSuiviFinancierTdr] échec génération PDF:', e)
   }
 
-  const titre = `TDR N° ${tdr.numero} autorisé pour exécution financière`
-  const message = `Le TDR « ${tdr.titre_activite} » (${tdr.numero}) est autorisé pour exécution financière. Le dossier de suivi financier est désormais ouvert chez l'AAF (enregistrement des factures), jusqu'à la réconciliation finale.`
+  const titre = `TdR N° ${tdr.numero} autorisé pour exécution financière`
+  const message = `Le TdR « ${tdr.titre_activite} » (${tdr.numero}) est autorisé pour exécution financière. Le dossier de suivi financier est désormais ouvert chez l'AAF (enregistrement des factures), jusqu'à la réconciliation finale.`
 
   for (const p of destinataires.values()) {
     await admin.from('notifications').insert({
@@ -132,7 +132,7 @@ export async function ouvrirSuiviFinancierTdr(tdrId: string) {
               <p style="margin:0 0 12px;">Bonjour <strong>${p.prenoms}</strong>,</p>
               <p style="margin:0 0 20px;color:#374151;">${message}</p>
               <a href="${APP_URL}/tdr/${tdrId}" style="display:inline-block;background:#16a34a;color:white;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:700;font-size:14px;">
-                Voir le TDR →
+                Voir le TdR →
               </a>
             </div>
           </div>

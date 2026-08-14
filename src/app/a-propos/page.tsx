@@ -8,7 +8,7 @@ import { estAAF } from '@/lib/roles'
 
 const FONCTIONNALITES = [
   'Ordres de mission & réconciliation',
-  'Termes de référence (TDR) & signatures électroniques',
+  'Termes de référence (TdR) & signatures électroniques',
   'Timesheets & congés',
   'Contrats & évaluations RH',
   'Demandes de paiement & rapports d’allocation',

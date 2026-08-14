@@ -9,7 +9,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
 
   const { data: tdr } = await supabase.from('tdrs').select('initiateur_id, titre_activite').eq('id', id).single()
-  if (!tdr) return NextResponse.json({ error: 'TDR introuvable' }, { status: 404 })
+  if (!tdr) return NextResponse.json({ error: 'TdR introuvable' }, { status: 404 })
   // Tout le monde dans le circuit de signature (initiateur + signataires)
   // peut ajouter un collaborateur à tout moment, pas seulement l'initiateur.
   const { data: monSignataire } = await supabase
@@ -33,8 +33,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   await notifyTdr(id, {
-    titre: 'Invitation à collaborer sur un TDR',
-    message: `Vous avez été ajouté au TDR « ${tdr.titre_activite} » en tant que collaborateur (${permission === 'revision' ? 'révision' : 'lecture'}).`,
+    titre: 'Invitation à collaborer sur un TdR',
+    message: `Vous avez été ajouté au TdR « ${tdr.titre_activite} » en tant que collaborateur (${permission === 'revision' ? 'révision' : 'lecture'}).`,
     actionPourId: profileId,
     excludeId: user.id,
   }).catch(console.error)
@@ -49,7 +49,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
 
   const { data: tdr } = await supabase.from('tdrs').select('initiateur_id').eq('id', id).single()
-  if (!tdr) return NextResponse.json({ error: 'TDR introuvable' }, { status: 404 })
+  if (!tdr) return NextResponse.json({ error: 'TdR introuvable' }, { status: 404 })
   const { data: monSignataire } = await supabase
     .from('tdr_signataires').select('id').eq('tdr_id', id).eq('profile_id', user.id).limit(1)
   if (tdr.initiateur_id !== user.id && !(monSignataire?.length)) {

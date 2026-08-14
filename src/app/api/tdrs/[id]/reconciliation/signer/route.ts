@@ -26,9 +26,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { data: tdr } = await admin.from('tdrs')
     .select('id, numero, titre_activite, statut, initiateur_id')
     .eq('id', id).single()
-  if (!tdr) return NextResponse.json({ error: 'TDR introuvable' }, { status: 404 })
+  if (!tdr) return NextResponse.json({ error: 'TdR introuvable' }, { status: 404 })
   if (tdr.statut !== 'reconciliation_caf') {
-    return NextResponse.json({ error: "Ce TDR n'attend pas la signature du CAF" }, { status: 409 })
+    return NextResponse.json({ error: "Ce TdR n'attend pas la signature du CAF" }, { status: 409 })
   }
 
   if (action === 'refuser') {
@@ -45,8 +45,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
     const { data: aafUsers } = await admin.from('profiles').select('id, nom, prenoms, email').eq('role', 'aaf').eq('archived', false)
-    const titre = 'Rapport de réconciliation TDR refusé'
-    const message = `Le CAF a refusé le rapport de réconciliation du TDR « ${tdr.titre_activite} » (${tdr.numero}). Motif : ${commentaire}`
+    const titre = 'Rapport de réconciliation TdR refusé'
+    const message = `Le CAF a refusé le rapport de réconciliation du TdR « ${tdr.titre_activite} » (${tdr.numero}). Motif : ${commentaire}`
     for (const p of aafUsers ?? []) {
       await admin.from('notifications').insert({ user_id: p.id, titre, message, lien: `/tdr/${id}` })
       if (p.email) {
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             <div style="padding:24px 28px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
               <p>Bonjour <strong>${p.prenoms}</strong>,</p>
               <p style="color:#374151;">${message}</p>
-              <a href="${APP_URL}/tdr/${id}" style="display:inline-block;background:#dc2626;color:white;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:700;font-size:14px;">Voir le TDR →</a>
+              <a href="${APP_URL}/tdr/${id}" style="display:inline-block;background:#dc2626;color:white;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:700;font-size:14px;">Voir le TdR →</a>
             </div>
           </div>`,
         }).catch(console.error)
@@ -81,8 +81,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const { data: responsable } = await admin.from('profiles').select('id, nom, prenoms, email').eq('id', tdr.initiateur_id).single()
   if (responsable) {
-    const titre = 'Rapport de réconciliation TDR à signer'
-    const message = `Le rapport de réconciliation du TDR « ${tdr.titre_activite} » (${tdr.numero}) a été signé par le CAF — en attente de votre signature pour clôturer le TDR.`
+    const titre = 'Rapport de réconciliation TdR à signer'
+    const message = `Le rapport de réconciliation du TdR « ${tdr.titre_activite} » (${tdr.numero}) a été signé par le CAF — en attente de votre signature pour clôturer le TdR.`
     await admin.from('notifications').insert({ user_id: responsable.id, titre, message, lien: `/tdr/${id}` })
     if (responsable.email) {
       await sendEmail({
@@ -93,7 +93,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           <div style="padding:24px 28px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
             <p>Bonjour <strong>${responsable.prenoms}</strong>,</p>
             <p style="color:#374151;">${message}</p>
-            <a href="${APP_URL}/tdr/${id}" style="display:inline-block;background:#16a34a;color:white;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:700;font-size:14px;">Voir le TDR →</a>
+            <a href="${APP_URL}/tdr/${id}" style="display:inline-block;background:#16a34a;color:white;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:700;font-size:14px;">Voir le TdR →</a>
           </div>
         </div>`,
       }).catch(console.error)

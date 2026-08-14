@@ -93,7 +93,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const auteurNom = auteur ? `${auteur.prenoms} ${auteur.nom}` : 'Quelqu\'un'
     const citation = texteCite ? ` (sur « ${escapeHtml(texteCite)} »)` : ''
     await notifyTdr(id, {
-      titre: `💬 Nouveau commentaire sur le TDR « ${escapeHtml(tdr.titre_activite)} »`,
+      titre: `💬 Nouveau commentaire sur le TdR « ${escapeHtml(tdr.titre_activite)} »`,
       message: `${escapeHtml(auteurNom)} a commenté le chapitre « ${escapeHtml(chapitreTitre)} »${citation} :<br><br>« ${escapeHtml(contenu)} »`,
       excludeId: user.id,
     }).catch(e => console.error('[notifyTdr commentaire]:', e))

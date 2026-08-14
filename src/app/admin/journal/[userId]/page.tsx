@@ -134,7 +134,7 @@ export default async function JournalUserPage({ params }: { params: Promise<{ us
             rows={(contrats ?? []).map(c => ({ type: c.type_contrat, statut: c.statut }))} />
           <SectionCard title="Demandes de paiement" count={nbPaiements ?? 0} cols={['objet', 'statut']}
             rows={(paiements ?? []).map(p => ({ objet: p.objet ?? '—', statut: p.statut }))} />
-          <SectionCard title="TDR initiés" count={nbTdrs ?? 0} cols={['titre', 'statut']}
+          <SectionCard title="TdR initiés" count={nbTdrs ?? 0} cols={['titre', 'statut']}
             rows={(tdrs ?? []).map(t => ({ titre: t.titre_activite ?? t.numero ?? '—', statut: t.statut }))} />
         </div>
       </div>

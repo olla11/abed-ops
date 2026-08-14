@@ -35,7 +35,7 @@ export default async function NouveauTdrPage() {
       <div className="page-container" style={{ maxWidth: 640 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
           <a href="/tdr" style={{ fontSize: 13, color: 'var(--abed-muted)', textDecoration: 'none' }}>← Retour</a>
-          <h2 style={{ margin: 0, color: 'var(--abed-green)' }}>Nouveau TDR</h2>
+          <h2 style={{ margin: 0, color: 'var(--abed-green)' }}>Nouveau TdR</h2>
         </div>
         <div className="card">
           <NouveauTdrForm />

@@ -17,7 +17,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
 
   const { data: tdr } = await supabase.from('tdrs').select('*').eq('id', id).single()
-  if (!tdr) return NextResponse.json({ error: 'TDR introuvable' }, { status: 404 })
+  if (!tdr) return NextResponse.json({ error: 'TdR introuvable' }, { status: 404 })
   if (tdr.initiateur_id !== user.id) return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
 
   const body = await req.json().catch(() => null)
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!nouveauProfil) return NextResponse.json({ error: 'Personne introuvable' }, { status: 404 })
 
   if (tdr.responsable_technique_id === responsableTechniqueId) {
-    return NextResponse.json({ error: 'Cette personne est déjà responsable technique de ce TDR' }, { status: 409 })
+    return NextResponse.json({ error: 'Cette personne est déjà responsable technique de ce TdR' }, { status: 409 })
   }
 
   // En brouillon, aucune validation n'est en cours : on se contente de
@@ -61,10 +61,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   await notifyTdr(id, {
-    titre: dejaEnCircuit ? 'TDR — nouveau responsable technique assigné' : 'TDR — responsable technique modifié',
-    message: `${nouveauProfil.prenoms} ${nouveauProfil.nom} a été assigné(e) comme responsable technique du TDR « ${tdr.titre_activite} »${dejaEnCircuit ? ' — la validation technique est à reconfirmer' : ''}.`,
+    titre: dejaEnCircuit ? 'TdR — nouveau responsable technique assigné' : 'TdR — responsable technique modifié',
+    message: `${nouveauProfil.prenoms} ${nouveauProfil.nom} a été assigné(e) comme responsable technique du TdR « ${tdr.titre_activite} »${dejaEnCircuit ? ' — la validation technique est à reconfirmer' : ''}.`,
     actionPourId: dejaEnCircuit ? responsableTechniqueId : undefined,
-    messageAction: `Le TDR « ${tdr.titre_activite} » vous a été transmis pour validation technique.`,
+    messageAction: `Le TdR « ${tdr.titre_activite} » vous a été transmis pour validation technique.`,
     excludeId: user.id,
   }).catch(console.error)
 

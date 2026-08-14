@@ -635,7 +635,7 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
       <div className="tdr-layout">
       <div style={{ minWidth: 0, flex: 1 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
-        <a href="/tdr" style={{ fontSize: 13, color: 'var(--abed-muted)', textDecoration: 'none' }}>← Tous les TDR</a>
+        <a href="/tdr" style={{ fontSize: 13, color: 'var(--abed-muted)', textDecoration: 'none' }}>← Tous les TdR</a>
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap', marginBottom: 18 }}>
@@ -941,7 +941,7 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
           <div style={{ background: 'white', borderRadius: 14, padding: 28, width: '100%', maxWidth: 420 }}>
             <h3 style={{ marginBottom: 16, fontSize: 16 }}>Transmettre pour signature</h3>
             <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: 14 }}>
-              Choisissez le responsable technique qui approuvera ce TDR avant la CAF et le Directeur Exécutif.
+              Choisissez le responsable technique qui approuvera ce TdR avant la CAF et le Directeur Exécutif.
             </p>
             <div style={{ marginBottom: 18 }}>
               <label style={labelStyle}>Responsable technique *</label>
@@ -969,8 +969,8 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
             <h3 style={{ marginBottom: 16, fontSize: 16 }}>Changer le responsable technique</h3>
             <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: 14 }}>
               {tdr.statut === 'en_validation_technique'
-                ? "Réassignez la validation technique à une autre personne — l'actuel responsable technique n'aura plus la main sur ce TDR."
-                : "L'actuel responsable technique a déjà validé ce TDR. Le réassigner remettra la validation technique en attente pour la nouvelle personne, et annulera les visas CAF / Directeur Exécutif déjà obtenus — ils devront être redonnés."}
+                ? "Réassignez la validation technique à une autre personne — l'actuel responsable technique n'aura plus la main sur ce TdR."
+                : "L'actuel responsable technique a déjà validé ce TdR. Le réassigner remettra la validation technique en attente pour la nouvelle personne, et annulera les visas CAF / Directeur Exécutif déjà obtenus — ils devront être redonnés."}
             </p>
             <div style={{ marginBottom: 18 }}>
               <label style={labelStyle}>Nouveau responsable technique *</label>
@@ -994,7 +994,7 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
       {showRefuser && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div style={{ background: 'white', borderRadius: 14, padding: 28, width: '100%', maxWidth: 420 }}>
-            <h3 style={{ marginBottom: 16, fontSize: 16 }}>Refuser ce TDR</h3>
+            <h3 style={{ marginBottom: 16, fontSize: 16 }}>Refuser ce TdR</h3>
             <div style={{ marginBottom: 18 }}>
               <label style={labelStyle}>Motif du refus *</label>
               <textarea className="input" rows={3} value={commentaireRefus} onChange={e => setCommentaireRefus(e.target.value)} style={{ ...inputStyle, resize: 'vertical' }} />
@@ -1014,7 +1014,7 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
       {showCloture && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div style={{ background: 'white', borderRadius: 14, padding: 28, width: '100%', maxWidth: 420 }}>
-            <h3 style={{ marginBottom: 16, fontSize: 16 }}>Ajuster et clôturer le TDR</h3>
+            <h3 style={{ marginBottom: 16, fontSize: 16 }}>Ajuster et clôturer le TdR</h3>
             <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: 14 }}>
               Vous pouvez ajuster le contenu des chapitres ci-contre avant de clôturer. Cette action est définitive.
             </p>
@@ -1087,9 +1087,9 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
       {showSupprimer && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div style={{ background: 'white', borderRadius: 14, padding: 28, width: '100%', maxWidth: 420 }}>
-            <h3 style={{ marginBottom: 12, fontSize: 16 }}>Supprimer ce TDR ?</h3>
+            <h3 style={{ marginBottom: 12, fontSize: 16 }}>Supprimer ce TdR ?</h3>
             <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: 18 }}>
-              Cette action est définitive et supprime tout le contenu, les commentaires et le circuit de signature de ce TDR.
+              Cette action est définitive et supprime tout le contenu, les commentaires et le circuit de signature de ce TdR.
             </p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button onClick={() => setShowSupprimer(false)} style={{ padding: '9px 20px', borderRadius: 8, cursor: 'pointer', background: 'white', border: '1px solid var(--abed-border)', fontSize: 13 }}>Annuler</button>
@@ -1112,7 +1112,7 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
         .tdr-layout { display: flex; gap: 20px; align-items: stretch; }
         /* Desktop : le panneau prend sa place dans la mise en page (le contenu
            principal s'ajuste automatiquement, rien n'est jamais caché derrière).
-           Sa hauteur s'aligne sur celle du contenu du TDR (colonne flex en
+           Sa hauteur s'aligne sur celle du contenu du TdR (colonne flex en
            align-items: stretch par défaut) ; s'il a lui-même plus de contenu
            que cette hauteur, il défile indépendamment de la page. */
         .tdr-panel {

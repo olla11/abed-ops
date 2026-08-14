@@ -10,13 +10,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
 
   const { data: tdr } = await supabase.from('tdrs').select('*').eq('id', id).single()
-  if (!tdr) return NextResponse.json({ error: 'TDR introuvable' }, { status: 404 })
+  if (!tdr) return NextResponse.json({ error: 'TdR introuvable' }, { status: 404 })
   if (tdr.initiateur_id !== user.id) return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
   if (tdr.statut !== 'brouillon') {
-    return NextResponse.json({ error: 'Ce TDR a déjà été transmis pour signature' }, { status: 409 })
+    return NextResponse.json({ error: 'Ce TdR a déjà été transmis pour signature' }, { status: 409 })
   }
   if (!chapitresValides(tdr.chapitres)) {
-    return NextResponse.json({ error: 'Les 8 chapitres du TDR sont obligatoires' }, { status: 400 })
+    return NextResponse.json({ error: 'Les 8 chapitres du TdR sont obligatoires' }, { status: 400 })
   }
 
   const body = await req.json().catch(() => null)
@@ -69,10 +69,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     .eq('tdr_id', id).in('role', ['caf', 'de'])
 
   await notifyTdr(id, {
-    titre: 'TDR transmis pour validation technique',
-    message: `Le TDR « ${tdr.titre_activite} » (${numero}) a été transmis pour validation technique.`,
+    titre: 'TdR transmis pour validation technique',
+    message: `Le TdR « ${tdr.titre_activite} » (${numero}) a été transmis pour validation technique.`,
     actionPourId: responsableTechniqueId,
-    messageAction: `Le TDR « ${tdr.titre_activite} » (${numero}) vous a été transmis pour validation technique.`,
+    messageAction: `Le TdR « ${tdr.titre_activite} » (${numero}) vous a été transmis pour validation technique.`,
     excludeId: user.id,
   }).catch(console.error)
 

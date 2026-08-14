@@ -16,9 +16,9 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
 
   const admin = createAdminClient()
   const { data: tdr } = await admin.from('tdrs').select('id, statut').eq('id', id).single()
-  if (!tdr) return NextResponse.json({ error: 'TDR introuvable' }, { status: 404 })
+  if (!tdr) return NextResponse.json({ error: 'TdR introuvable' }, { status: 404 })
   if (tdr.statut !== 'actif') {
-    return NextResponse.json({ error: "Les factures ne se suppriment que pendant l'exécution active du TDR." }, { status: 409 })
+    return NextResponse.json({ error: "Les factures ne se suppriment que pendant l'exécution active du TdR." }, { status: 409 })
   }
 
   const { error } = await admin.from('tdr_factures').delete().eq('id', factureId).eq('tdr_id', id)
