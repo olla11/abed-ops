@@ -51,6 +51,17 @@ export default async function TdrTableauDeBordPage() {
     for (const t of tdrs) if (!t.initiateur && t.initiateur_id) t.initiateur = parId.get(t.initiateur_id) ?? null
   }
 
+  // Le champ "projet" du TdR est du texte libre (pas une liste déroulante) :
+  // une faute de casse ("CLEE-2I" au lieu de "CLEE-2i") le ferait compter à
+  // tort comme un projet différent dans les regroupements. On recale sur
+  // l'orthographe officielle de la liste des projets/programmes quand un nom
+  // correspond en ignorant la casse.
+  const { data: projetsRef } = await supabase.from('projets_programmes').select('nom')
+  const projetCanonique = new Map((projetsRef ?? []).map(p => [p.nom.toLowerCase(), p.nom]))
+  for (const t of tdrs) {
+    if (t.projet) t.projet = projetCanonique.get(t.projet.trim().toLowerCase()) ?? t.projet.trim()
+  }
+
   const idsTdrs = tdrs.map(t => t.id)
   const { data: facturesData } = idsTdrs.length > 0
     ? await supabase.from('tdr_factures').select('tdr_id, montant, date_facture').in('tdr_id', idsTdrs)

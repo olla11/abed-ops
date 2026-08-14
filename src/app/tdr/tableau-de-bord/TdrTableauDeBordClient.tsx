@@ -1,11 +1,13 @@
 'use client'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   ResponsiveContainer, AreaChart, Area, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip,
 } from 'recharts'
 import { Download, AlertTriangle, Clock, TrendingDown, ListFilter, RotateCcw, FileSpreadsheet } from 'lucide-react'
 import { TDR_STATUT_LABELS } from '@/lib/tdr'
+import { createClient as createBrowserClient } from '@/lib/supabase-client'
 
 export type TdrDashboardRow = {
   id: string
@@ -122,10 +124,25 @@ function moisLabel(cle: string): string {
 }
 
 export default function TdrTableauDeBordClient({ tdrs, factures }: { tdrs: TdrDashboardRow[]; factures: FactureDashboardRow[] }) {
+  const router = useRouter()
   const [filtreProjet, setFiltreProjet] = useState('tous')
   const [filtreStatut, setFiltreStatut] = useState('tous')
   const [filtreResponsable, setFiltreResponsable] = useState('tous')
   const [exporting, setExporting] = useState(false)
+
+  // Rafraîchit automatiquement le tableau de bord (chiffres, graphiques,
+  // alertes) dès qu'un TdR ou une facture change côté serveur — sans
+  // rechargement manuel de page, ni perte des filtres en cours.
+  useEffect(() => {
+    const supabase = createBrowserClient()
+    const channel = supabase
+      .channel('tdr-tableau-de-bord-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tdrs' }, () => router.refresh())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tdr_factures' }, () => router.refresh())
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const projets = useMemo(() => [...new Set(tdrs.map(t => t.projet?.trim() || 'Sans projet'))].sort(), [tdrs])
   const responsables = useMemo(() => {
