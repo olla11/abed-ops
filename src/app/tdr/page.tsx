@@ -45,8 +45,9 @@ export default async function TdrPage() {
   // RLS (tdrs_select / can_access_tdr) filtre déjà : initiateur, collaborateur,
   // signataire, ou rôle à vision globale (de/aaf/caf/dp/administrateur/admin) —
   // les autres rôles ne reçoivent ici que les TDR où ils sont impliqués.
-  // Tri par plus récent d'abord ; numero en tie-break pour les TDR importés en
-  // lot (même created_at à la microseconde près pour tout le lot).
+  // Tri : les TDR créés dans le système d'abord (importe_historique=false),
+  // puis les plus récents en tête dans chaque groupe ; numero en tie-break
+  // pour les TDR importés en lot (même created_at à la microseconde près).
   const { data: tdrs, error } = await supabase
     .from('tdrs')
     .select(`id, numero, titre_activite, projet, periode, statut, initiateur_id, created_at, updated_at, archive_le, importe_historique,
@@ -54,6 +55,7 @@ export default async function TdrPage() {
       signataires:tdr_signataires(role, profile_id, statut),
       collaborateurs:tdr_collaborateurs(profile_id)
     `)
+    .order('importe_historique', { ascending: true })
     .order('created_at', { ascending: false })
     .order('numero', { ascending: false })
 
