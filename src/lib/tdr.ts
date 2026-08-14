@@ -52,15 +52,25 @@ export function chapitresValides(chapitres: unknown): chapitres is Chapitre[] {
   return CHAPITRE_CLES.every(cle => cles.includes(cle))
 }
 
-export type TdrStatut = 'brouillon' | 'en_validation_technique' | 'en_validation_caf' | 'en_autorisation_de' | 'actif' | 'cloture'
+export type TdrStatut =
+  | 'brouillon' | 'en_validation_technique' | 'en_validation_caf' | 'en_autorisation_de'
+  | 'actif' | 'reconciliation_caf' | 'reconciliation_responsable' | 'cloture'
 
 export const TDR_STATUT_LABELS: Record<TdrStatut, string> = {
   brouillon: 'Brouillon',
   en_validation_technique: 'En validation (Responsable technique)',
   en_validation_caf: 'En validation (CAF)',
   en_autorisation_de: "En autorisation (Directeur Exécutif)",
-  actif: 'Actif',
+  actif: 'Actif — suivi financier en cours',
+  reconciliation_caf: 'Réconciliation — en attente signature CAF',
+  reconciliation_responsable: 'Réconciliation — en attente signature du responsable',
   cloture: 'Clôturé',
+}
+
+export type ExecutionStatut = 'complete' | 'partielle'
+export const EXECUTION_STATUT_LABELS: Record<ExecutionStatut, string> = {
+  complete: 'Exécution complète',
+  partielle: 'Exécution partielle',
 }
 
 export type SignataireRole = 'initiateur' | 'responsable_technique' | 'caf' | 'de'
@@ -87,4 +97,19 @@ export const STATUT_TOUR: Partial<Record<TdrStatut, SignataireRole>> = {
   en_validation_technique: 'responsable_technique',
   en_validation_caf: 'caf',
   en_autorisation_de: 'de',
+}
+
+// Budget total approuvé = somme de la dernière colonne ("Coût total") du
+// chapitre "Budget prévisionnel détaillé" — figé au moment où le TDR
+// devient actif (les chapitres ne changent plus après signature).
+export function budgetTotalDepuisChapitres(chapitres: Chapitre[]): number {
+  const chapitre = chapitres.find(c => c.cle === 'budget')
+  if (!chapitre?.tableau) return 0
+  let total = 0
+  for (const ligne of chapitre.tableau.lignes) {
+    const derniere = ligne[ligne.length - 1] ?? ''
+    const n = parseInt(derniere.replace(/[^0-9]/g, ''), 10)
+    if (!isNaN(n)) total += n
+  }
+  return total
 }

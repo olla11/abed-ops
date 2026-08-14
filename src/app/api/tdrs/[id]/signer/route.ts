@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { STATUT_TOUR, TdrStatut } from '@/lib/tdr'
-import { notifyTdr } from '@/lib/tdr-notify'
+import { notifyTdr, ouvrirSuiviFinancierTdr } from '@/lib/tdr-notify'
 
 const PROCHAIN_STATUT: Partial<Record<TdrStatut, TdrStatut>> = {
   en_validation_technique: 'en_validation_caf',
@@ -47,6 +47,11 @@ export async function POST(_: NextRequest, { params }: { params: Promise<{ id: s
       message: `Le TDR « ${tdr.titre_activite} » (${tdr.numero}) est désormais actif et téléchargeable par tous.`,
       excludeId: user.id,
     }).catch(console.error)
+
+    // Fige le budget approuvé (les chapitres ne changent plus après
+    // signature) et ouvre le dossier de suivi financier côté AAF : email
+    // ciblé responsable/CAF/AAF avec le TDR en PDF, + notifications.
+    await ouvrirSuiviFinancierTdr(id).catch(e => console.error('[ouvrirSuiviFinancierTdr]:', e))
   } else {
     const prochainRole = STATUT_TOUR[prochainStatut]!
     const { data: prochainSignataire } = await admin.from('tdr_signataires')

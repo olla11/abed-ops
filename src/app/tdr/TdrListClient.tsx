@@ -15,6 +15,8 @@ const STATUT_COLORS: Record<string, { bg: string; color: string }> = {
   en_validation_caf: { bg: '#fffbeb', color: '#92400e' },
   en_autorisation_de: { bg: '#fffbeb', color: '#92400e' },
   actif: { bg: '#f0fdf4', color: '#16a34a' },
+  reconciliation_caf: { bg: '#eff6ff', color: '#2563eb' },
+  reconciliation_responsable: { bg: '#eff6ff', color: '#2563eb' },
   cloture: { bg: '#f3f4f6', color: '#374151' },
 }
 
@@ -44,7 +46,7 @@ export default function TdrListClient({ tdrs, myId }: { tdrs: TdrLite[]; myId: s
 
   const mesTdrs = tdrs.filter(t => t.initiateur_id === myId || t.collaborateurs.some(c => c.profile_id === myId))
   const aSignerTdrs = tdrs.filter(t => estMonTour(t, myId))
-  const actifsTdrs = tdrs.filter(t => (t.statut === 'actif' || t.statut === 'cloture') && !t.archive_le)
+  const actifsTdrs = tdrs.filter(t => (t.statut === 'actif' || t.statut === 'reconciliation_caf' || t.statut === 'reconciliation_responsable' || t.statut === 'cloture') && !t.archive_le)
   // Archivés automatiquement (TDR clôturés de l'année civile précédente, le
   // 31 janvier) — retirés de "Tous les TDR actifs" mais toujours consultables
   // ici, avec la même règle de visibilité (RLS) que les autres onglets.

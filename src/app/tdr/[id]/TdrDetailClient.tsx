@@ -8,16 +8,17 @@ import RichTextEditor from '@/components/RichTextEditor'
 import { createClient as createBrowserClient } from '@/lib/supabase-client'
 import { SupabaseYjsProvider, couleurPourUser } from '@/lib/yjs-supabase-provider'
 import { amorcerFragmentDepuisHtml } from '@/lib/tdr-collab-seed'
+import TdrExecutionFinanciere from './TdrExecutionFinanciere'
 
 type Commentaire = {
   id: string; chapitre_cle: string; mark_id: string; texte_cite: string | null; contenu: string
   created_at: string; parent_id: string | null; auteur: Profile | null
 }
 
-type Profile = { id: string; nom: string; prenoms: string; civilite?: string | null }
+export type Profile = { id: string; nom: string; prenoms: string; civilite?: string | null }
 type Signataire = { id: string; role: SignataireRole; profile_id: string | null; ordre: number; statut: string; signe_le: string | null; commentaire: string | null; profile: Profile | null }
 type Collaborateur = { id: string; profile_id: string; permission: 'lecture' | 'revision'; profile: Profile | null }
-type Tdr = {
+export type Tdr = {
   id: string; numero: string | null; titre_activite: string; projet: string | null; periode: string | null
   statut: TdrStatut; initiateur_id: string; responsable_technique_id: string | null
   chapitres: Chapitre[]
@@ -30,6 +31,16 @@ type Tdr = {
   updated_at: string
   collaborateurs: Collaborateur[]
   signataires: Signataire[]
+  code_budgetaire: string | null
+  date_debut_prevue: string | null
+  date_fin_prevue: string | null
+  budget_total_valide: number | null
+  montant_depense: number
+  execution_statut: 'complete' | 'partielle' | null
+  rapport_reconciliation_texte: string | null
+  reconciliation_soumis_par: string | null; reconciliation_soumis_le: string | null
+  reconciliation_caf_signe_par: string | null; reconciliation_caf_signe_le: string | null
+  reconciliation_responsable_signe_par: string | null; reconciliation_responsable_signe_le: string | null
 }
 
 const inputStyle: React.CSSProperties = {
@@ -44,6 +55,8 @@ const STATUT_COLORS: Record<string, { bg: string; color: string }> = {
   en_validation_caf: { bg: '#fffbeb', color: '#92400e' },
   en_autorisation_de: { bg: '#fffbeb', color: '#92400e' },
   actif: { bg: '#f0fdf4', color: '#16a34a' },
+  reconciliation_caf: { bg: '#eff6ff', color: '#2563eb' },
+  reconciliation_responsable: { bg: '#eff6ff', color: '#2563eb' },
   cloture: { bg: '#f3f4f6', color: '#374151' },
 }
 
@@ -303,7 +316,10 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
   const roleAttendu = STATUT_TOUR[tdr.statut]
   const monSignataire = tdr.signataires.find(s => s.role === roleAttendu)
   const estMonTour = !!roleAttendu && monSignataire?.profile_id === myId
-  const peutCloturer = tdr.statut === 'actif' && myRole === 'caf'
+  // Étape finale du responsable (= initiateur, distinct du responsable
+  // technique) une fois le rapport de réconciliation signé par l'AAF et le CAF.
+  const peutCloturer = tdr.statut === 'reconciliation_responsable' && isInitiateur
+  const accesSuiviFinancier = ['aaf', 'caf', 'de', 'admin', 'superadmin'].includes(myRole) || isInitiateur
   // Toute personne impliquée sur le TDR (initiateur, collaborateur en
   // révision, ou n'importe quel signataire) peut modifier le contenu à tout
   // moment — même une fois transmis, même quand ce n'est pas son tour. Un
@@ -722,7 +738,7 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
         </div>
       </div>
 
-      {tdr.dernier_refus_commentaire && tdr.statut === 'brouillon' && (
+      {tdr.dernier_refus_commentaire && (tdr.statut === 'brouillon' || tdr.statut === 'actif') && (
         <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '12px 16px', marginBottom: 18, fontSize: 13, color: '#991b1b' }}>
           <strong>Dernier refus :</strong> {tdr.dernier_refus_commentaire}
         </div>
@@ -743,6 +759,10 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
               </div>
             </div>
           </div>
+
+          {accesSuiviFinancier && ['actif', 'reconciliation_caf', 'reconciliation_responsable', 'cloture'].includes(tdr.statut) && (
+            <TdrExecutionFinanciere tdr={tdr} myId={myId} myRole={myRole} onChange={refresh} />
+          )}
 
           <div style={{ display: 'flex', gap: 4, marginBottom: 14, background: '#f9fafb', borderRadius: 10, padding: 4, flexWrap: 'wrap' }}>
             {chapitres.map((c, i) => (
