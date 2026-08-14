@@ -39,10 +39,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   // Le contenu (chapitres) est modifiable par toute personne impliquée sur le
   // TDR — initiateur, collaborateur en révision, ou n'importe quel signataire
-  // (responsable technique/CAF/DE), peu importe le statut du TDR et peu
-  // importe à qui le tour revient actuellement. Seule la méta (titre/projet/
-  // période) reste réservée à l'initiateur/collaborateur-révision en brouillon,
-  // comme avant.
+  // (responsable technique/CAF/DE) — peu importe à qui le tour revient
+  // actuellement, tant que le TDR n'est pas clôturé : une fois clôturé, plus
+  // rien n'est modifiable pour personne (y compris le contenu), sans
+  // exception — contrairement aux données financières, qui peuvent être
+  // corrigées par le CAF seul via une réouverture autorisée. Seule la méta
+  // (titre/projet/période) reste réservée à l'initiateur/collaborateur-
+  // révision en brouillon, comme avant.
   const isInitiateur = tdr.initiateur_id === user.id
   const [{ data: collab }, { data: signataires }] = await Promise.all([
     supabase.from('tdr_collaborateurs').select('permission').eq('tdr_id', id).eq('profile_id', user.id).maybeSingle(),
@@ -52,7 +55,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const estSignataire = (signataires?.length ?? 0) > 0
 
   const canEditMeta = tdr.statut === 'brouillon' && (isInitiateur || estCollabRevision)
-  const canEditChapitres = isInitiateur || estCollabRevision || estSignataire
+  const canEditChapitres = tdr.statut !== 'cloture' && (isInitiateur || estCollabRevision || estSignataire)
 
   if (!canEditMeta && !canEditChapitres) return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
 

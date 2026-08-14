@@ -41,6 +41,10 @@ export type Tdr = {
   reconciliation_soumis_par: string | null; reconciliation_soumis_le: string | null
   reconciliation_caf_signe_par: string | null; reconciliation_caf_signe_le: string | null
   reconciliation_responsable_signe_par: string | null; reconciliation_responsable_signe_le: string | null
+  reouverte: boolean
+  reouverture_demandee_par: string | null; reouverture_demandee_le: string | null; reouverture_motif: string | null
+  reouverture_autorisee_par: string | null; reouverture_autorisee_le: string | null
+  reouverture_refusee_par: string | null; reouverture_refusee_le: string | null; reouverture_refus_motif: string | null
 }
 
 const inputStyle: React.CSSProperties = {
@@ -279,7 +283,7 @@ function CommentRow({ c, myId, onSave, onDelete }: {
   )
 }
 
-export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfiles }: { tdr: Tdr; myId: string; myRole: string; allProfiles: Profile[] }) {
+export default function TdrDetailClient({ tdr: initial, myId, myRole, myTitre, allProfiles }: { tdr: Tdr; myId: string; myRole: string; myTitre: string | null; allProfiles: Profile[] }) {
   const router = useRouter()
   const [tdr, setTdr] = useState(initial)
   const [chapitres, setChapitres] = useState<Chapitre[]>(ordonner(initial.chapitres))
@@ -326,7 +330,11 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
   // collaborateur en simple lecture reste lecture seule.
   const estImplique = isInitiateur || monCollab?.permission === 'revision' || tdr.signataires.some(s => s.profile_id === myId)
   const canEditMeta = tdr.statut === 'brouillon' && (isInitiateur || monCollab?.permission === 'revision')
-  const canEdit = estImplique
+  // Un TdR clôturé n'est plus modifiable par personne — le contenu (chapitres)
+  // reste figé même pour l'initiateur/les signataires. Seules les données
+  // financières (factures, rapport de réconciliation) peuvent être corrigées,
+  // et uniquement par le CAF pendant une réouverture autorisée.
+  const canEdit = estImplique && tdr.statut !== 'cloture'
   // Circuit de signature (initiateur + signataires : responsable technique,
   // CAF, DE) — tout le monde dedans peut gérer les collaborateurs à tout
   // moment, pas seulement l'initiateur.
@@ -761,7 +769,7 @@ export default function TdrDetailClient({ tdr: initial, myId, myRole, allProfile
           </div>
 
           {accesSuiviFinancier && ['actif', 'reconciliation_caf', 'reconciliation_responsable', 'cloture'].includes(tdr.statut) && (
-            <TdrExecutionFinanciere tdr={tdr} myId={myId} myRole={myRole} onChange={refresh} />
+            <TdrExecutionFinanciere tdr={tdr} myId={myId} myRole={myRole} myTitre={myTitre} onChange={refresh} />
           )}
 
           <div style={{ display: 'flex', gap: 4, marginBottom: 14, background: '#f9fafb', borderRadius: 10, padding: 4, flexWrap: 'wrap' }}>

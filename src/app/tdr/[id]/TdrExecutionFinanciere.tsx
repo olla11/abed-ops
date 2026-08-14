@@ -22,10 +22,20 @@ function fmtMontant(n: number | null | undefined) {
   return (n ?? 0).toLocaleString('fr-FR') + ' FCFA'
 }
 
-export default function TdrExecutionFinanciere({ tdr, myId, myRole, onChange }: { tdr: Tdr; myId: string; myRole: string; onChange: () => void | Promise<void> }) {
+export default function TdrExecutionFinanciere({ tdr, myId, myRole, myTitre, onChange }: { tdr: Tdr; myId: string; myRole: string; myTitre: string | null; onChange: () => void | Promise<void> }) {
   const isAAF = myRole === 'aaf' || myRole === 'caf' || ['admin', 'superadmin'].includes(myRole)
   const isCAF = myRole === 'caf' || ['admin', 'superadmin'].includes(myRole)
   const isResponsable = tdr.initiateur_id === myId || ['admin', 'superadmin'].includes(myRole)
+  const estTresoriere = myTitre === 'tresorier_ca' || ['admin', 'superadmin'].includes(myRole)
+
+  // Une fois clôturé, plus rien n'est modifiable pour personne — sauf
+  // réouverture exceptionnelle autorisée par la trésorière générale du
+  // conseil d'administration, sur demande motivée du CAF, et réservée au
+  // CAF seul le temps de la correction.
+  const enReouverture = tdr.statut === 'cloture' && tdr.reouverte
+  const demandeEnAttente = tdr.statut === 'cloture' && !!tdr.reouverture_demandee_par && !tdr.reouverte && !tdr.reouverture_refusee_le
+  const demandeRefusee = tdr.statut === 'cloture' && !!tdr.reouverture_refusee_le && !tdr.reouverte
+  const peutModifierFactures = (isAAF && tdr.statut === 'actif') || (isCAF && enReouverture)
 
   const [factures, setFactures] = useState<Facture[]>([])
   const [loadingFactures, setLoadingFactures] = useState(true)
@@ -171,6 +181,62 @@ export default function TdrExecutionFinanciere({ tdr, myId, myRole, onChange }: 
     else { const j = await res.json().catch(() => ({})); setErreurReconciliation(j.error ?? 'Erreur') }
   }
 
+  // ── Réouverture post-clôture ──
+  const [showDemandeReouverture, setShowDemandeReouverture] = useState(false)
+  const [motifReouverture, setMotifReouverture] = useState('')
+  const [demandantReouverture, setDemandantReouverture] = useState(false)
+  const [erreurReouverture, setErreurReouverture] = useState('')
+
+  async function demanderReouverture() {
+    if (!motifReouverture.trim()) { setErreurReouverture('Le motif de la demande est obligatoire.'); return }
+    setDemandantReouverture(true); setErreurReouverture('')
+    const res = await fetch(`/api/tdrs/${tdr.id}/reouverture/demander`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ motif: motifReouverture.trim() }),
+    })
+    setDemandantReouverture(false)
+    if (res.ok) { setShowDemandeReouverture(false); setMotifReouverture(''); await onChange() }
+    else { const j = await res.json().catch(() => ({})); setErreurReouverture(j.error ?? 'Erreur') }
+  }
+
+  const [showRefusTresoriere, setShowRefusTresoriere] = useState(false)
+  const [commentaireRefusTresoriere, setCommentaireRefusTresoriere] = useState('')
+  const [traitantTresoriere, setTraitantTresoriere] = useState(false)
+
+  async function traiterReouverture(action: 'approuver' | 'refuser') {
+    if (action === 'refuser' && !commentaireRefusTresoriere.trim()) { setErreurReouverture('Un motif de refus est requis.'); return }
+    setTraitantTresoriere(true); setErreurReouverture('')
+    const res = await fetch(`/api/tdrs/${tdr.id}/reouverture/traiter`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, commentaire: commentaireRefusTresoriere.trim() }),
+    })
+    setTraitantTresoriere(false)
+    if (res.ok) { setShowRefusTresoriere(false); setCommentaireRefusTresoriere(''); await onChange() }
+    else { const j = await res.json().catch(() => ({})); setErreurReouverture(j.error ?? 'Erreur') }
+  }
+
+  const [terminantReouverture, setTerminantReouverture] = useState(false)
+  async function terminerReouverture() {
+    if (!window.confirm('Reclôturer ce TdR ? Plus personne ne pourra le modifier après.')) return
+    setTerminantReouverture(true)
+    const res = await fetch(`/api/tdrs/${tdr.id}/reouverture/terminer`, { method: 'POST' })
+    setTerminantReouverture(false)
+    if (res.ok) await onChange()
+  }
+
+  // Rapport de réconciliation corrigé par le CAF pendant une réouverture.
+  const [rapportCorrige, setRapportCorrige] = useState(tdr.rapport_reconciliation_texte ?? '')
+  const [savingRapportCorrige, setSavingRapportCorrige] = useState(false)
+  async function enregistrerRapportCorrige() {
+    setSavingRapportCorrige(true)
+    await fetch(`/api/tdrs/${tdr.id}/execution`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rapport_reconciliation_texte: rapportCorrige.trim() }),
+    })
+    setSavingRapportCorrige(false)
+    await onChange()
+  }
+
   const budgetTotal = tdr.budget_total_valide ?? 0
   const solde = budgetTotal - (tdr.montant_depense ?? 0)
   const pctConso = budgetTotal > 0 ? Math.round(((tdr.montant_depense ?? 0) / budgetTotal) * 1000) / 10 : 0
@@ -256,7 +322,7 @@ export default function TdrExecutionFinanciere({ tdr, myId, myRole, onChange }: 
       <div style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
           <h4 style={{ fontSize: 13, margin: 0 }}>Factures enregistrées</h4>
-          {isAAF && tdr.statut === 'actif' && (
+          {peutModifierFactures && (
             <button onClick={() => setShowAjouterFacture(v => !v)}
               style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700, background: 'var(--abed-green)', color: 'white', border: 'none', cursor: 'pointer' }}>
               <Plus size={14} /> Ajouter une facture
@@ -313,7 +379,7 @@ export default function TdrExecutionFinanciere({ tdr, myId, myRole, onChange }: 
                   <Upload size={14} />
                 </button>
               )}
-              {isAAF && tdr.statut === 'actif' && (
+              {peutModifierFactures && (
                 <button onClick={() => supprimerFacture(f.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', display: 'flex' }}>
                   <Trash2 size={14} />
                 </button>
@@ -350,7 +416,18 @@ export default function TdrExecutionFinanciere({ tdr, myId, myRole, onChange }: 
               Rapport soumis par l&apos;AAF{tdr.reconciliation_soumis_le ? ` le ${new Date(tdr.reconciliation_soumis_le).toLocaleDateString('fr-FR')}` : ''}
               {tdr.execution_statut && ` · ${EXECUTION_STATUT_LABELS[tdr.execution_statut]}`}
             </div>
-            <div style={{ fontSize: 13, whiteSpace: 'pre-wrap' }}>{tdr.rapport_reconciliation_texte}</div>
+            {enReouverture && isCAF ? (
+              <>
+                <textarea className="input" rows={4} style={{ ...inputStyle, resize: 'vertical', marginBottom: 8 }}
+                  value={rapportCorrige} onChange={e => setRapportCorrige(e.target.value)} />
+                <button onClick={enregistrerRapportCorrige} disabled={savingRapportCorrige}
+                  style={{ padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700, background: 'white', color: 'var(--abed-green)', border: '1px solid var(--abed-green)', cursor: 'pointer' }}>
+                  {savingRapportCorrige ? 'Enregistrement…' : 'Enregistrer le rapport corrigé'}
+                </button>
+              </>
+            ) : (
+              <div style={{ fontSize: 13, whiteSpace: 'pre-wrap' }}>{tdr.rapport_reconciliation_texte}</div>
+            )}
           </div>
         )}
 
@@ -419,8 +496,84 @@ export default function TdrExecutionFinanciere({ tdr, myId, myRole, onChange }: 
         )}
 
         {tdr.statut === 'cloture' && (
-          <div style={{ fontSize: 12.5, color: 'var(--abed-muted)' }}>
-            Clôturé{tdr.reconciliation_responsable_signe_le ? ` le ${new Date(tdr.reconciliation_responsable_signe_le).toLocaleDateString('fr-FR')}` : ''} après signature du responsable.
+          <div style={{ marginTop: 4 }}>
+            <div style={{ fontSize: 12.5, color: 'var(--abed-muted)', marginBottom: 10 }}>
+              Clôturé{tdr.reconciliation_responsable_signe_le ? ` le ${new Date(tdr.reconciliation_responsable_signe_le).toLocaleDateString('fr-FR')}` : ''} après signature du responsable. Plus rien n&apos;est modifiable, sauf réouverture exceptionnelle autorisée par la trésorière générale du conseil d&apos;administration.
+            </div>
+
+            {erreurReouverture && <div style={{ color: '#c0392b', fontSize: 12, marginBottom: 10 }}>{erreurReouverture}</div>}
+
+            {demandeRefusee && (
+              <div style={{ background: '#fef2f2', borderRadius: 10, padding: 12, marginBottom: 10, fontSize: 12.5, color: '#991b1b' }}>
+                Demande de réouverture refusée par la trésorière générale{tdr.reouverture_refusee_le ? ` le ${new Date(tdr.reouverture_refusee_le).toLocaleDateString('fr-FR')}` : ''}. Motif : {tdr.reouverture_refus_motif}
+              </div>
+            )}
+
+            {!enReouverture && !demandeEnAttente && isCAF && (
+              <div>
+                <button onClick={() => setShowDemandeReouverture(v => !v)}
+                  style={{ padding: '9px 18px', borderRadius: 8, fontSize: 13, fontWeight: 700, background: 'white', color: '#b45309', border: '1px solid #b45309', cursor: 'pointer' }}>
+                  Demander une réouverture pour correction
+                </button>
+                {showDemandeReouverture && (
+                  <div style={{ marginTop: 10 }}>
+                    <textarea className="input" rows={2} style={{ ...inputStyle, resize: 'vertical', marginBottom: 8 }}
+                      placeholder="Motif de la demande (ex : erreur sur une facture)" value={motifReouverture} onChange={e => setMotifReouverture(e.target.value)} />
+                    <button onClick={demanderReouverture} disabled={demandantReouverture}
+                      style={{ padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700, background: '#b45309', color: 'white', border: 'none', cursor: 'pointer' }}>
+                      {demandantReouverture ? 'Envoi…' : 'Envoyer la demande'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {demandeEnAttente && (
+              <div style={{ background: '#fffbeb', borderRadius: 10, padding: 14 }}>
+                <div style={{ fontSize: 12.5, color: '#92400e', marginBottom: 8 }}>
+                  Demande de réouverture envoyée{tdr.reouverture_demandee_le ? ` le ${new Date(tdr.reouverture_demandee_le).toLocaleDateString('fr-FR')}` : ''}. Motif : {tdr.reouverture_motif}
+                  <br />En attente de validation de la trésorière générale du conseil d&apos;administration.
+                </div>
+                {estTresoriere && (
+                  <div>
+                    <div style={{ display: 'flex', gap: 10 }}>
+                      <button onClick={() => traiterReouverture('approuver')} disabled={traitantTresoriere}
+                        style={{ padding: '9px 18px', borderRadius: 8, fontSize: 13, fontWeight: 700, background: 'var(--abed-green)', color: 'white', border: 'none', cursor: 'pointer' }}>
+                        {traitantTresoriere ? 'Envoi…' : 'Approuver'}
+                      </button>
+                      <button onClick={() => setShowRefusTresoriere(v => !v)}
+                        style={{ padding: '9px 18px', borderRadius: 8, fontSize: 13, fontWeight: 700, background: 'white', color: '#dc2626', border: '1px solid #dc2626', cursor: 'pointer' }}>
+                        Refuser
+                      </button>
+                    </div>
+                    {showRefusTresoriere && (
+                      <div style={{ marginTop: 10 }}>
+                        <textarea className="input" rows={2} style={{ ...inputStyle, resize: 'vertical', marginBottom: 8 }}
+                          placeholder="Motif du refus" value={commentaireRefusTresoriere} onChange={e => setCommentaireRefusTresoriere(e.target.value)} />
+                        <button onClick={() => traiterReouverture('refuser')} disabled={traitantTresoriere}
+                          style={{ padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700, background: '#dc2626', color: 'white', border: 'none', cursor: 'pointer' }}>
+                          Confirmer le refus
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {enReouverture && (
+              <div style={{ background: '#eff6ff', borderRadius: 10, padding: 14 }}>
+                <div style={{ fontSize: 12.5, color: '#1e40af', marginBottom: isCAF ? 10 : 0 }}>
+                  Réouverture autorisée{tdr.reouverture_autorisee_le ? ` le ${new Date(tdr.reouverture_autorisee_le).toLocaleDateString('fr-FR')}` : ''} par la trésorière générale. Le CAF peut corriger les factures et le rapport de réconciliation ci-dessus.
+                </div>
+                {isCAF && (
+                  <button onClick={terminerReouverture} disabled={terminantReouverture}
+                    style={{ padding: '9px 18px', borderRadius: 8, fontSize: 13, fontWeight: 700, background: '#374151', color: 'white', border: 'none', cursor: 'pointer' }}>
+                    {terminantReouverture ? 'Envoi…' : 'Terminer et reclôturer'}
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>

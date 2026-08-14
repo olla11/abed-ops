@@ -17,7 +17,7 @@ export default async function TdrDetailPage({ params }: { params: Promise<{ id: 
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, nom, prenoms, avatar_url, type_emploi')
+    .select('role, titre, nom, prenoms, avatar_url, type_emploi')
     .eq('id', user.id)
     .single()
 
@@ -82,7 +82,7 @@ export default async function TdrDetailPage({ params }: { params: Promise<{ id: 
       />
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}
       {impersonation && <ImpersonationBanner adminNom={impersonation.adminNom} adminPrenoms={impersonation.adminPrenoms} targetNom={impersonation.targetNom} targetPrenoms={impersonation.targetPrenoms} targetRole={impersonation.targetRole} />}
-      <TdrDetailClient tdr={tdr as any} myId={user.id} myRole={realRole} allProfiles={allProfiles ?? []} />
+      <TdrDetailClient tdr={tdr as any} myId={user.id} myRole={realRole} myTitre={profile?.titre ?? null} allProfiles={allProfiles ?? []} />
     </>
   )
 }
