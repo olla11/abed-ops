@@ -68,7 +68,7 @@ export default async function TdrPage() {
       />
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}
       {impersonation && <ImpersonationBanner adminNom={impersonation.adminNom} adminPrenoms={impersonation.adminPrenoms} targetNom={impersonation.targetNom} targetPrenoms={impersonation.targetPrenoms} targetRole={impersonation.targetRole} />}
-      <TdrListClient tdrs={(tdrs ?? []) as any as TdrLite[]} myId={user.id} />
+      <TdrListClient tdrs={(tdrs ?? []) as any as TdrLite[]} myId={user.id} myRole={role} />
     </>
   )
 }

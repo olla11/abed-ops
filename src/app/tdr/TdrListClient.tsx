@@ -2,7 +2,7 @@
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { FileText, Plus, Search, CheckCircle2 } from 'lucide-react'
+import { FileText, Plus, Search, CheckCircle2, BarChart3 } from 'lucide-react'
 import { TDR_STATUT_LABELS, STATUT_TOUR, type TdrStatut } from '@/lib/tdr'
 import Pagination, { paginate } from '@/components/Pagination'
 import type { TdrLite } from './page'
@@ -35,7 +35,8 @@ function estMonTour(tdr: TdrLite, myId: string): boolean {
   return tdr.signataires.some(s => s.role === roleAttendu && s.profile_id === myId)
 }
 
-export default function TdrListClient({ tdrs, myId }: { tdrs: TdrLite[]; myId: string }) {
+export default function TdrListClient({ tdrs, myId, myRole }: { tdrs: TdrLite[]; myId: string; myRole: string }) {
+  const accesSuiviFinancier = ['aaf', 'caf', 'de', 'admin', 'superadmin'].includes(myRole)
   const router = useRouter()
   const [tab, setTab] = useState<'mes' | 'signer' | 'actifs' | 'archives'>('mes')
   const [search, setSearch] = useState('')
@@ -77,13 +78,24 @@ export default function TdrListClient({ tdrs, myId }: { tdrs: TdrLite[]; myId: s
             Rédaction, collaboration et signature des TDR de l&apos;organisation.
           </p>
         </div>
-        <Link href="/tdr/nouveau" style={{
-          padding: '9px 20px', borderRadius: 8, fontSize: 13, fontWeight: 700,
-          background: 'var(--abed-green)', color: 'white', border: 'none', textDecoration: 'none',
-          display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
-        }}>
-          <Plus size={15} /> Nouveau TDR
-        </Link>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {accesSuiviFinancier && (
+            <Link href="/tdr/tableau-de-bord" style={{
+              padding: '9px 18px', borderRadius: 8, fontSize: 13, fontWeight: 600,
+              background: 'white', color: '#374151', border: '1px solid var(--abed-border)', textDecoration: 'none',
+              display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
+            }}>
+              <BarChart3 size={15} /> Tableau de bord
+            </Link>
+          )}
+          <Link href="/tdr/nouveau" style={{
+            padding: '9px 20px', borderRadius: 8, fontSize: 13, fontWeight: 700,
+            background: 'var(--abed-green)', color: 'white', border: 'none', textDecoration: 'none',
+            display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
+          }}>
+            <Plus size={15} /> Nouveau TDR
+          </Link>
+        </div>
       </div>
 
       <div style={{ display: 'flex', gap: 4, margin: '20px 0', background: '#f9fafb', borderRadius: 10, padding: 4, width: 'fit-content', flexWrap: 'wrap' }}>
