@@ -47,6 +47,12 @@ export default function TdrExecutionFinanciere({ tdr, myId, myRole, onChange }: 
   const [codeAutre, setCodeAutre] = useState(codeConnu ? '' : (tdr.code_budgetaire ?? ''))
   const [dateDebut, setDateDebut] = useState(tdr.date_debut_prevue ?? '')
   const [dateFin, setDateFin] = useState(tdr.date_fin_prevue ?? '')
+  // Normalement figé automatiquement à la signature finale du DE (somme du
+  // chapitre budget) — mais reste ajustable par l'AAF pour les TdR
+  // antérieurs à cette automatisation, ou dont le budget a été saisi comme
+  // tableau collé (texte riche) plutôt que le tableau structuré du chapitre,
+  // que le calcul automatique ne sait donc pas lire.
+  const [budgetApprouve, setBudgetApprouve] = useState(tdr.budget_total_valide != null ? String(tdr.budget_total_valide) : '')
   const [savingExecution, setSavingExecution] = useState(false)
 
   async function enregistrerExecution() {
@@ -57,6 +63,7 @@ export default function TdrExecutionFinanciere({ tdr, myId, myRole, onChange }: 
         code_budgetaire: codeChoisi === 'autre' ? codeAutre.trim() : codeChoisi,
         date_debut_prevue: dateDebut || null,
         date_fin_prevue: dateFin || null,
+        budget_total_valide: budgetApprouve.trim() === '' ? null : Number(budgetApprouve),
       }),
     })
     setSavingExecution(false)
@@ -173,7 +180,15 @@ export default function TdrExecutionFinanciere({ tdr, myId, myRole, onChange }: 
       <h3 style={{ fontSize: 15, margin: '0 0 14px' }}>Suivi financier</h3>
 
       {/* Paramètres */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 14 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 14 }}>
+        <div>
+          <label style={labelStyle}>Budget approuvé (FCFA)</label>
+          {isAAF && tdr.statut === 'actif' ? (
+            <input type="number" min={0} style={inputStyle} value={budgetApprouve} onChange={e => setBudgetApprouve(e.target.value)} placeholder="Ex : 416000" />
+          ) : (
+            <div style={{ fontSize: 13, fontWeight: 600 }}>{fmtMontant(tdr.budget_total_valide)}</div>
+          )}
+        </div>
         <div>
           <label style={labelStyle}>Code budgétaire</label>
           {isAAF && tdr.statut === 'actif' ? (
