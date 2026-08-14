@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, Paperclip, Upload, FileText } from 'lucide-react'
+import { Plus, Trash2, Paperclip, Upload, FileText, Download } from 'lucide-react'
 import { EXECUTION_STATUT_LABELS } from '@/lib/tdr'
 import type { Tdr } from './TdrDetailClient'
 
@@ -394,10 +394,16 @@ export default function TdrExecutionFinanciere({ tdr, myId, myRole, myTitre, onC
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
           <h4 style={{ fontSize: 13, margin: 0 }}>Réconciliation</h4>
           {tdr.statut === 'cloture' && (
-            <a href={`/api/tdrs/${tdr.id}/reconciliation-pdf`} target="_blank" rel="noopener"
-              style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: 'var(--abed-green)', textDecoration: 'none' }}>
-              <FileText size={14} /> Rapport PDF
-            </a>
+            <div style={{ display: 'flex', gap: 16 }}>
+              <a href={`/api/tdrs/${tdr.id}/reconciliation-pdf`} target="_blank" rel="noopener"
+                style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: 'var(--abed-green)', textDecoration: 'none' }}>
+                <FileText size={14} /> Rapport PDF
+              </a>
+              <a href={`/api/tdrs/${tdr.id}/archive-zip`}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: '#2f5496', textDecoration: 'none' }}>
+                <Download size={14} /> Archive complète (.zip)
+              </a>
+            </div>
           )}
         </div>
 
