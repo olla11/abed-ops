@@ -2,26 +2,33 @@
 import { useRef, useState } from 'react'
 import { NodeViewWrapper, type NodeViewProps } from '@tiptap/react'
 
-// Vue personnalisée du tampon de signature : data-drag-handle permet de le
-// déplacer n'importe où dans le document (combiné à draggable: true côté
-// schéma — voir tiptap-signature-stamp.ts), et la poignée au coin permet de
-// l'agrandir/réduire à la souris, largeur persistée comme attribut du nœud.
-export default function SignatureStampView({ node, updateAttributes, selected, editor }: NodeViewProps) {
+// Vue personnalisée du tampon de signature :
+// - déplacement : mousedown sur le tampon (hors poignée) puis relâcher
+//   ailleurs dans le texte le déplace à cet endroit — repose sur
+//   posAtCoords + une transaction delete/insert classique (pas le drag HTML5
+//   natif de ProseMirror, qui ne se combine pas de façon fiable à Yjs ici).
+// - redimensionnement : poignée au coin, largeur ET hauteur ajustées
+//   ensemble selon le ratio naturel de l'image pour ne jamais la déformer.
+export default function SignatureStampView({ node, updateAttributes, selected, editor, getPos }: NodeViewProps) {
   const { src, width } = node.attrs as { src: string; width: number | null }
   const imgRef = useRef<HTMLImageElement>(null)
   const [resizing, setResizing] = useState(false)
-  const startRef = useRef({ startX: 0, startWidth: 0 })
+  const [dragging, setDragging] = useState(false)
+  const resizeStartRef = useRef({ startX: 0, startWidth: 0 })
 
   function startResize(e: React.MouseEvent) {
     e.preventDefault()
     e.stopPropagation()
+    // La hauteur n'est jamais fixée explicitement (ni ici ni en CSS) — elle
+    // suit automatiquement le ratio naturel de l'image tant que seule la
+    // largeur est pilotée, donc pas besoin de la calculer à la main ici.
     const w = imgRef.current?.offsetWidth ?? width ?? 160
-    startRef.current = { startX: e.clientX, startWidth: w }
+    resizeStartRef.current = { startX: e.clientX, startWidth: w }
     setResizing(true)
 
     function onMove(ev: MouseEvent) {
-      const delta = ev.clientX - startRef.current.startX
-      const newWidth = Math.max(40, Math.min(600, Math.round(startRef.current.startWidth + delta)))
+      const delta = ev.clientX - resizeStartRef.current.startX
+      const newWidth = Math.max(40, Math.min(600, Math.round(resizeStartRef.current.startWidth + delta)))
       updateAttributes({ width: newWidth })
     }
     function onUp() {
@@ -33,15 +40,44 @@ export default function SignatureStampView({ node, updateAttributes, selected, e
     window.addEventListener('mouseup', onUp)
   }
 
+  function startDrag(e: React.MouseEvent) {
+    if (!editor.isEditable) return
+    e.preventDefault()
+    e.stopPropagation()
+    setDragging(true)
+
+    function onUp(ev: MouseEvent) {
+      setDragging(false)
+      window.removeEventListener('mouseup', onUp)
+
+      const from = getPos()
+      if (typeof from !== 'number') return
+      const view = editor.view
+      const coords = view.posAtCoords({ left: ev.clientX, top: ev.clientY })
+      if (!coords) return
+      const nodeSize = node.nodeSize
+      // Rien à faire si on relâche sur le tampon lui-même.
+      if (coords.pos >= from && coords.pos <= from + nodeSize) return
+
+      const tr = view.state.tr
+      tr.delete(from, from + nodeSize)
+      const dropPos = tr.mapping.map(coords.pos)
+      tr.insert(dropPos, view.state.schema.nodes.signatureStamp.create(node.attrs))
+      view.dispatch(tr)
+    }
+    window.addEventListener('mouseup', onUp)
+  }
+
   return (
     <NodeViewWrapper
       as="span"
-      data-drag-handle
       style={{
         position: 'relative', display: 'inline-block', verticalAlign: 'middle', margin: '0 4px',
         outline: selected ? '2px solid #2563eb' : 'none', outlineOffset: 2, borderRadius: 4,
-        cursor: editor.isEditable ? 'grab' : 'default',
+        cursor: editor.isEditable ? (dragging ? 'grabbing' : 'grab') : 'default',
+        opacity: dragging ? 0.5 : 1,
       }}
+      onMouseDown={startDrag}
     >
       <img ref={imgRef} src={src} alt="Signature" className="doc-signature-stamp"
         style={{ width: width ? `${width}px` : undefined, display: 'block', pointerEvents: 'none' }} draggable={false} />

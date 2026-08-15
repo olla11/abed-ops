@@ -23,7 +23,11 @@ export const SignatureStampNode = Node.create({
   inline: true,
   atom: true,
   selectable: true,
-  draggable: true,
+  // Le déplacement se fait "à la main" (mousedown/mousemove/mouseup dans
+  // SignatureStampView), pas via le drag HTML5 natif de ProseMirror : ce
+  // dernier s'est avéré peu fiable une fois combiné à la synchronisation
+  // Yjs (rien ne se passait au drop).
+  draggable: false,
   addAttributes() {
     return {
       src: {

@@ -7,6 +7,7 @@ import SignatureCaptureModal from '@/components/SignatureCaptureModal'
 import { createClient as createBrowserClient } from '@/lib/supabase-client'
 import { SupabaseYjsProvider, couleurPourUser } from '@/lib/yjs-supabase-provider'
 import { amorcerFragmentDepuisHtml } from '@/lib/tdr-collab-seed'
+import { formatSignatureDisplayName } from '@/lib/signature-name'
 
 type Profile = { id: string; nom: string; prenoms: string }
 type Participant = { id: string; profile_id: string; permission: 'lecture' | 'commentaire' | 'edition'; profile: Profile | null }
@@ -90,6 +91,11 @@ export default function DocumentDetailClient({ document: initial, myId, allProfi
 
   const monNom = isCreateur && document.createur ? `${document.createur.prenoms} ${document.createur.nom}`
     : monParticipant?.profile ? `${monParticipant.profile.prenoms} ${monParticipant.profile.nom}` : 'Moi'
+  // Nom pour la signature manuscrite : même règle que le circuit PDF formel
+  // (un seul prénom, capitalisé, nom de famille en minuscules) — monNom,
+  // lui, reste le nom complet utilisé pour le curseur collaboratif.
+  const monProfilSignature = isCreateur ? document.createur : monParticipant?.profile
+  const monNomSignature = formatSignatureDisplayName(monProfilSignature?.prenoms, monProfilSignature?.nom)
 
   // ── Édition collaborative en temps réel ──
   const ydocRef = useRef<Y.Doc | null>(null)
@@ -185,7 +191,7 @@ export default function DocumentDetailClient({ document: initial, myId, allProfi
   }
 
   async function confirmerSignature(image: string, saveAsDefault: boolean) {
-    editorRef.current?.insertSignatureStamp(image, monNom)
+    editorRef.current?.insertSignatureStamp(image, monNomSignature)
     setShowSignModal(false)
     // Lecture synchrone du HTML juste après l'insertion — le state React
     // contenuHtml, lui, ne sera à jour qu'au prochain rendu (onChange est
@@ -412,7 +418,7 @@ export default function DocumentDetailClient({ document: initial, myId, allProfi
 
       {showSignModal && (
         <SignatureCaptureModal
-          userName={monNom}
+          userName={monNomSignature}
           signatureEnregistree={signatureEnregistree}
           onConfirm={confirmerSignature}
           onClose={() => setShowSignModal(false)}

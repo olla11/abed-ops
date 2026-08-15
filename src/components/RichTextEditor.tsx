@@ -426,7 +426,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, {
         .rte-content ul, .rte-content ol { padding-left: 22px; margin: 0 0 10px; }
         .rte-content [data-comment-id] { background: #fef9c3; border-bottom: 2px solid #eab308; cursor: pointer; }
         .rte-content mark.rte-highlight { border-radius: 2px; padding: 0 1px; }
-        .rte-content .doc-signature-stamp { max-height: 46px; vertical-align: middle; margin: 0 4px; }
+        .rte-content .doc-signature-stamp { display: block; height: auto; }
         .collaboration-cursor__caret { position: relative; margin-left: -1px; margin-right: -1px; border-left: 1px solid; border-right: 1px solid; word-break: normal; pointer-events: none; }
         .collaboration-cursor__label { position: absolute; top: -1.4em; left: -1px; font-size: 11px; font-weight: 700; line-height: 1; user-select: none; white-space: nowrap; border-radius: 4px 4px 4px 0; padding: 2px 6px; color: white; }
       `}</style>
