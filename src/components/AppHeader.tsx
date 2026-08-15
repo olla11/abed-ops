@@ -42,17 +42,30 @@ export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, s
   // séparés pour la CAF — exclusif à ce rôle, pas de repli par défaut ailleurs.
   const effectiveShowCAF = showCAF ?? roleEstCAF(userRole)
   const [dossierOpen, setDossierOpen] = useState(false)
+  const [docSignOpen, setDocSignOpen] = useState(false)
   const [cafOpen, setCafOpen] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const mobileRef = useRef<HTMLDivElement>(null)
 
-  const subTabs = [
-    { href: '/dashboard', label: t('missions'), match: ['/dashboard', '/missions'] },
-    { href: '/timesheets', label: estRapport ? t('monthlyReport') : t('timesheets'), match: ['/timesheets'] },
-    { href: '/demandes', label: t('payments'), match: ['/demandes'] },
-    { href: '/conges', label: t('leaves'), match: ['/conges'] },
-    { href: '/documents', label: t('signatures'), match: ['/documents', '/signatures'] },
-    { href: '/mes-contrats', label: t('contracts'), match: ['/mes-contrats'] },
+  // "Documents" et "Signature directe" étaient un seul lien ambigu (deux
+  // pages différentes derrière le même mot) — désormais un sous-menu "Doc &
+  // Sign" avec une entrée par page, chacune n'affichant plus que la sienne.
+  const docSignTabs = [
+    { href: '/signatures', label: 'Signature directe', match: ['/signatures'] },
+    { href: '/documents', label: 'Documents', match: ['/documents'] },
+  ]
+
+  type SubTab =
+    | { kind: 'link'; href: string; label: string; match: string[] }
+    | { kind: 'group'; label: string; match: string[]; children: typeof docSignTabs }
+
+  const subTabs: SubTab[] = [
+    { kind: 'link', href: '/dashboard', label: t('missions'), match: ['/dashboard', '/missions'] },
+    { kind: 'link', href: '/timesheets', label: estRapport ? t('monthlyReport') : t('timesheets'), match: ['/timesheets'] },
+    { kind: 'link', href: '/demandes', label: t('payments'), match: ['/demandes'] },
+    { kind: 'link', href: '/conges', label: t('leaves'), match: ['/conges'] },
+    { kind: 'group', label: 'Doc & Sign', match: ['/documents', '/signatures'], children: docSignTabs },
+    { kind: 'link', href: '/mes-contrats', label: t('contracts'), match: ['/mes-contrats'] },
   ]
 
   // Appellations volontairement différentes de "Mon espace" (verbe d'action en
@@ -150,6 +163,56 @@ export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, s
               }}>
                 {subTabs.map(s => {
                   const active = isActive(s.match)
+                  if (s.kind === 'group') {
+                    return (
+                      <div key={s.label}
+                        style={{ position: 'relative' }}
+                        onMouseEnter={() => setDocSignOpen(true)}
+                        onMouseLeave={() => setDocSignOpen(false)}
+                      >
+                        <div style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          padding: '11px 18px', fontSize: 13,
+                          fontWeight: active ? 700 : 400,
+                          color: active ? 'var(--abed-green)' : '#374151',
+                          background: active ? '#f0fdf4' : 'white',
+                          borderBottom: '1px solid #f3f4f6',
+                          cursor: 'default',
+                        }}>
+                          {s.label} <span style={{ fontSize: 9, opacity: 0.7 }}>▶</span>
+                        </div>
+                        {docSignOpen && (
+                          <div style={{
+                            position: 'absolute', top: 0, left: '100%', zIndex: 201,
+                            background: 'white', border: '1px solid var(--abed-border)',
+                            borderRadius: 10, minWidth: 190,
+                            boxShadow: '0 8px 24px rgba(0,0,0,.10)',
+                          }}>
+                            {s.children.map(c => {
+                              const childActive = isActive(c.match)
+                              return (
+                                <Link key={c.href} href={c.href}
+                                  style={{
+                                    display: 'block', padding: '11px 18px', fontSize: 13,
+                                    fontWeight: childActive ? 700 : 400,
+                                    color: childActive ? 'var(--abed-green)' : '#374151',
+                                    background: childActive ? '#f0fdf4' : 'white',
+                                    textDecoration: 'none',
+                                    borderBottom: '1px solid #f3f4f6',
+                                    transition: 'background .1s',
+                                  }}
+                                  onMouseEnter={e => { if (!childActive) (e.currentTarget as HTMLElement).style.background = '#f9fafb' }}
+                                  onMouseLeave={e => { if (!childActive) (e.currentTarget as HTMLElement).style.background = 'white' }}
+                                >
+                                  {c.label}
+                                </Link>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  }
                   return (
                     <Link key={s.href} href={s.href}
                       style={{
@@ -267,6 +330,33 @@ export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, s
           </div>
           {subTabs.map(s => {
             const active = isActive(s.match)
+            if (s.kind === 'group') {
+              return (
+                <div key={s.label}>
+                  <div style={{
+                    padding: '10px 24px 4px', fontSize: 12, fontWeight: 700,
+                    color: active ? 'var(--abed-green)' : '#9ca3af',
+                  }}>
+                    {s.label}
+                  </div>
+                  {s.children.map(c => {
+                    const childActive = isActive(c.match)
+                    return (
+                      <Link key={c.href} href={c.href} style={{
+                        display: 'block', padding: '10px 24px 10px 36px', fontSize: 14,
+                        fontWeight: childActive ? 700 : 400,
+                        color: childActive ? 'var(--abed-green)' : '#374151',
+                        background: childActive ? '#f0fdf4' : 'white',
+                        textDecoration: 'none',
+                        borderBottom: '1px solid #f9fafb',
+                      }}>
+                        {c.label}
+                      </Link>
+                    )
+                  })}
+                </div>
+              )
+            }
             return (
               <Link key={s.href} href={s.href} style={{
                 display: 'block', padding: '12px 24px', fontSize: 14,
