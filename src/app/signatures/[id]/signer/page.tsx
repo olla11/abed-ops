@@ -59,7 +59,7 @@ export default async function SignerPage({
   // Get user profile
   const { data: profile } = await admin
     .from('profiles')
-    .select('nom, prenoms')
+    .select('nom, prenoms, signature_sauvegardee_b64')
     .eq('id', user.id)
     .single()
 
@@ -79,6 +79,7 @@ export default async function SignerPage({
       userName={userName}
       contratId={null}
       zoneImposee={zoneImposee}
+      signatureEnregistree={profile?.signature_sauvegardee_b64 ?? null}
     />
   )
 }

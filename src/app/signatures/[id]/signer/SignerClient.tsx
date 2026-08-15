@@ -10,6 +10,118 @@ type Props = {
   userName: string
   contratId?: string | null
   zoneImposee?: { x: number; y: number; page: number } | null
+  signatureEnregistree?: string | null
+}
+
+type SignMode = 'saisir' | 'dessiner' | 'importer' | 'enregistree'
+
+/**
+ * Recadre un canvas transparent sur le contenu réellement dessiné (retire les
+ * marges vides autour du trait), pour que l'image importée dans le tampon ne
+ * laisse pas un grand vide disproportionné.
+ */
+function trimTransparentCanvas(canvas: HTMLCanvasElement): string {
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return canvas.toDataURL('image/png')
+  const { width, height } = canvas
+  const data = ctx.getImageData(0, 0, width, height).data
+  let minX = width, minY = height, maxX = 0, maxY = 0
+  let found = false
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const alpha = data[(y * width + x) * 4 + 3]
+      if (alpha > 10) {
+        found = true
+        if (x < minX) minX = x
+        if (x > maxX) maxX = x
+        if (y < minY) minY = y
+        if (y > maxY) maxY = y
+      }
+    }
+  }
+  if (!found) return canvas.toDataURL('image/png')
+  const pad = 6
+  minX = Math.max(0, minX - pad); minY = Math.max(0, minY - pad)
+  maxX = Math.min(width - 1, maxX + pad); maxY = Math.min(height - 1, maxY + pad)
+  const w = maxX - minX + 1, h = maxY - minY + 1
+  const trimmed = document.createElement('canvas')
+  trimmed.width = w; trimmed.height = h
+  trimmed.getContext('2d')!.drawImage(canvas, minX, minY, w, h, 0, 0, w, h)
+  return trimmed.toDataURL('image/png')
+}
+
+/** Pavé de dessin tactile/souris — trait noir sur fond transparent. */
+function SignatureDrawPad({ onChange }: { onChange: (dataUrl: string | null) => void }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const drawingRef = useRef(false)
+  const hasDrawnRef = useRef(false)
+  const lastRef = useRef({ x: 0, y: 0 })
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const dpr = window.devicePixelRatio || 1
+    const rect = canvas.getBoundingClientRect()
+    canvas.width = rect.width * dpr
+    canvas.height = rect.height * dpr
+    const ctx = canvas.getContext('2d')!
+    ctx.scale(dpr, dpr)
+    ctx.lineWidth = 2.4
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+    ctx.strokeStyle = '#111827'
+  }, [])
+
+  function pos(e: React.MouseEvent | React.TouchEvent) {
+    const rect = canvasRef.current!.getBoundingClientRect()
+    const p = 'touches' in e ? e.touches[0] : e
+    return { x: p.clientX - rect.left, y: p.clientY - rect.top }
+  }
+
+  function start(e: React.MouseEvent | React.TouchEvent) {
+    e.preventDefault()
+    drawingRef.current = true
+    lastRef.current = pos(e)
+  }
+  function move(e: React.MouseEvent | React.TouchEvent) {
+    if (!drawingRef.current) return
+    e.preventDefault()
+    const p = pos(e)
+    const ctx = canvasRef.current!.getContext('2d')!
+    ctx.beginPath()
+    ctx.moveTo(lastRef.current.x, lastRef.current.y)
+    ctx.lineTo(p.x, p.y)
+    ctx.stroke()
+    lastRef.current = p
+    hasDrawnRef.current = true
+  }
+  function end() {
+    if (!drawingRef.current) return
+    drawingRef.current = false
+    if (hasDrawnRef.current && canvasRef.current) onChange(trimTransparentCanvas(canvasRef.current))
+  }
+  function effacer() {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')!
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    hasDrawnRef.current = false
+    onChange(null)
+  }
+
+  return (
+    <div>
+      <canvas
+        ref={canvasRef}
+        onMouseDown={start} onMouseMove={move} onMouseUp={end} onMouseLeave={end}
+        onTouchStart={start} onTouchMove={move} onTouchEnd={end}
+        style={{ width: '100%', height: 160, background: 'repeating-conic-gradient(#f3f4f6 0% 25%, white 0% 50%) 50% / 16px 16px', border: '1px dashed #d1d5db', borderRadius: 8, touchAction: 'none', cursor: 'crosshair' }}
+      />
+      <button type="button" onClick={effacer} style={{ marginTop: 6, fontSize: 11, padding: '3px 10px', borderRadius: 4, cursor: 'pointer', background: 'white', border: '1px solid var(--abed-border)', color: '#6b7280' }}>
+        Effacer
+      </button>
+    </div>
+  )
 }
 
 function shortHash(s: string): string {
@@ -374,8 +486,13 @@ function PdfCanvasViewer({
   )
 }
 
-export default function SignerClient({ demandeId, titre, fichierUrl, userName, contratId, zoneImposee }: Props) {
+export default function SignerClient({ demandeId, titre, fichierUrl, userName, contratId, zoneImposee, signatureEnregistree }: Props) {
   const router = useRouter()
+  const [mode, setMode] = useState<SignMode>('saisir')
+  const [drawnImage, setDrawnImage] = useState<string | null>(null)
+  const [importedImage, setImportedImage] = useState<string | null>(null)
+  const [saveAsDefault, setSaveAsDefault] = useState(false)
+  const [rasterPreview, setRasterPreview] = useState<string | null>(null)
   const [docUrl, setDocUrl] = useState<string | null>(null)
   const [numPages, setNumPages] = useState<number | null>(null)
   const [loadingDoc, setLoadingDoc] = useState(!!fichierUrl)
@@ -554,6 +671,113 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
     return canvas.toDataURL('image/png')
   }
 
+  function loadImage(src: string): Promise<HTMLImageElement> {
+    return new Promise((resolve, reject) => {
+      const img = new Image()
+      img.onload = () => resolve(img)
+      img.onerror = reject
+      img.src = src
+    })
+  }
+
+  /**
+   * Même tampon que captureSignatureImage (crochet bleu, en-tête, date, hash
+   * — mêmes garanties de traçabilité) mais avec une image (dessinée,
+   * importée ou enregistrée) à la place du nom saisi en police manuscrite.
+   */
+  async function captureImageSignatureStamp(rawImage: string): Promise<string> {
+    const SCALE = 3 * sigScale
+    const BH = 80 * SCALE
+    const hookLen = 13 * SCALE
+    const cornerRadius = Math.round(BH * 0.047)
+    const bracketInset = Math.round(BH * 0.165)
+    const bx = 2 * SCALE
+    const textX = bx + hookLen + 8 * SCALE
+    const hashTexte = `${sigHash.slice(0, 12)}...`
+    const dateHashGap = 10 * SCALE
+
+    const img = await loadImage(rawImage)
+    const nameAreaTop = Math.round(BH * 0.18)
+    const nameAreaBottom = Math.round(BH * 0.66)
+    const targetH = nameAreaBottom - nameAreaTop
+    const maxW = 230 * SCALE
+    const imgW = Math.min(maxW, targetH * (img.width / img.height))
+    const imgH = imgW * (img.height / img.width)
+
+    const mesure = document.createElement('canvas').getContext('2d')!
+    mesure.font = `bold ${9 * SCALE}px Arial, sans-serif`
+    const headerW = mesure.measureText('MYABED SIGNED BY:').width
+    mesure.font = `${8 * SCALE}px Arial, sans-serif`
+    const dateW = mesure.measureText(today).width
+    const hashW = mesure.measureText(hashTexte).width
+
+    const contentW = Math.max(headerW, imgW, dateW + dateHashGap + hashW)
+    const BW = Math.max(150 * SCALE, Math.ceil(textX + contentW + 6 * SCALE))
+
+    const canvas = document.createElement('canvas')
+    canvas.width = BW; canvas.height = BH
+    const ctx = canvas.getContext('2d')!
+
+    ctx.strokeStyle = BRACKET_COLOR
+    ctx.lineWidth = 2 * SCALE
+    ctx.lineCap = 'round'
+    ctx.beginPath()
+    ctx.moveTo(bx + hookLen, bracketInset)
+    ctx.lineTo(bx + cornerRadius, bracketInset)
+    ctx.arcTo(bx, bracketInset, bx, bracketInset + cornerRadius, cornerRadius)
+    ctx.lineTo(bx, BH - bracketInset - cornerRadius)
+    ctx.arcTo(bx, BH - bracketInset, bx + cornerRadius, BH - bracketInset, cornerRadius)
+    ctx.lineTo(bx + hookLen, BH - bracketInset)
+    ctx.stroke()
+
+    ctx.fillStyle = '#374151'
+    ctx.font = `bold ${9 * SCALE}px Arial, sans-serif`
+    ctx.fillText('MYABED SIGNED BY:', textX, Math.round(BH * 0.155))
+
+    ctx.drawImage(img, textX, nameAreaTop + (targetH - imgH) / 2, imgW, imgH)
+
+    ctx.strokeStyle = '#d1d5db'
+    ctx.lineWidth = 1 * SCALE
+    ctx.beginPath()
+    ctx.moveTo(textX, Math.round(BH * 0.70))
+    ctx.lineTo(BW - 4 * SCALE, Math.round(BH * 0.70))
+    ctx.stroke()
+
+    ctx.fillStyle = '#6b7280'
+    ctx.font = `${8 * SCALE}px Arial, sans-serif`
+    ctx.fillText(today, textX, Math.round(BH * 0.855))
+    ctx.fillStyle = '#9ca3af'
+    ctx.fillText(hashTexte, textX + dateW + dateHashGap, Math.round(BH * 0.855))
+
+    return canvas.toDataURL('image/png')
+  }
+
+  const rawImageForMode = mode === 'dessiner' ? drawnImage : mode === 'importer' ? importedImage : mode === 'enregistree' ? signatureEnregistree : null
+
+  // Aperçu raster (tampon complet) recalculé à chaque changement de mode ou
+  // d'image source, pour les 3 nouveaux modes — le mode "Saisir" continue à
+  // s'appuyer sur <SignatureBlock> (rendu DOM, pas besoin de raster ici).
+  useEffect(() => {
+    if (mode === 'saisir' || !rawImageForMode) { setRasterPreview(null); return }
+    let cancelled = false
+    captureImageSignatureStamp(rawImageForMode).then(url => { if (!cancelled) setRasterPreview(url) }).catch(() => { if (!cancelled) setRasterPreview(null) })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, rawImageForMode, sigScale])
+
+  function handleImportFile(file: File | null) {
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => setImportedImage(reader.result as string)
+    reader.readAsDataURL(file)
+  }
+
+  async function sauvegarderSignaturePourLaProchaineFois(image: string) {
+    await fetch('/api/profil/signature-enregistree', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image }),
+    }).catch(() => {})
+  }
+
   async function telechargerDocument() {
     const res = await fetch(`/api/signatures/${demandeId}/document`)
     const data = await res.json().catch(() => ({}))
@@ -561,15 +785,24 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
   }
 
   async function confirmSign() {
+    if (mode !== 'saisir' && !rawImageForMode) {
+      setErr(mode === 'dessiner' ? 'Dessinez votre signature avant de continuer.'
+        : mode === 'importer' ? 'Importez une image de votre signature avant de continuer.'
+        : 'Aucune signature enregistrée — dessinez-en une puis cochez « Enregistrer ».')
+      return
+    }
     setLoading(true); setErr(null)
     // Capture the signature as a PNG image from the browser's own rendering
     let sig_image: string
     try {
-      sig_image = await captureSignatureImage()
+      sig_image = mode === 'saisir' ? await captureSignatureImage() : await captureImageSignatureStamp(rawImageForMode!)
     } catch {
       setLoading(false)
       setErr('Erreur lors de la génération de la signature. Réessayez.')
       return
+    }
+    if (saveAsDefault && (mode === 'dessiner' || mode === 'importer') && rawImageForMode) {
+      sauvegarderSignaturePourLaProchaineFois(rawImageForMode)
     }
     const res = await fetch(`/api/signatures/${demandeId}/sign`, {
       method: 'POST',
@@ -593,7 +826,9 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
     else { const d = await res.json().catch(() => ({})); setErr(d.error ?? 'Erreur lors du refus') }
   }
 
-  const sigBlock = policeChargee ? <SignatureBlock name={userName} date={today} hash={sigHash} /> : null
+  const sigBlock = mode === 'saisir'
+    ? (policeChargee ? <SignatureBlock name={userName} date={today} hash={sigHash} /> : null)
+    : (rasterPreview ? <img src={rasterPreview} alt="Signature" style={{ display: 'block', maxWidth: 260 }} /> : null)
 
   if (refused) {
     return (
@@ -623,7 +858,7 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
           <h2 style={{ color: '#166534', marginBottom: 8, fontSize: 20 }}>Document signé avec succès !</h2>
           <p style={{ color: '#374151', fontSize: 14 }}>Vous avez signé <strong>{titre}</strong> le {today}.</p>
           <div style={{ margin: '20px auto', display: 'inline-block' }}>
-            {policeChargee && <SignatureBlock name={userName} date={today} hash={sigHash} />}
+            {sigBlock}
           </div>
           {fichierUrl && (
             <button onClick={telechargerDocument}
@@ -748,10 +983,60 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
         </div>
 
         <div>
+          <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 8, color: '#6b7280' }}>Manière de signer</label>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {([
+              { key: 'saisir', label: '✍️ Saisir' },
+              { key: 'dessiner', label: '🖊️ Dessiner' },
+              { key: 'importer', label: '🖼️ Importer' },
+              { key: 'enregistree', label: '⭐ Enregistrée' },
+            ] as { key: SignMode; label: string }[]).map(t => (
+              <button key={t.key} type="button" onClick={() => setMode(t.key)}
+                style={{
+                  padding: '6px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                  background: mode === t.key ? '#2563eb' : 'white', color: mode === t.key ? 'white' : '#374151',
+                  border: `1px solid ${mode === t.key ? '#2563eb' : '#e5e7eb'}`,
+                }}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {mode === 'dessiner' && (
+            <div style={{ marginTop: 10 }}>
+              <SignatureDrawPad onChange={setDrawnImage} />
+            </div>
+          )}
+
+          {mode === 'importer' && (
+            <div style={{ marginTop: 10 }}>
+              <input type="file" accept="image/*" onChange={e => handleImportFile(e.target.files?.[0] ?? null)}
+                style={{ fontSize: 12.5 }} />
+              <p style={{ fontSize: 11, color: 'var(--abed-muted)', margin: '6px 0 0' }}>
+                Une image avec fond transparent (PNG) donne le meilleur résultat.
+              </p>
+            </div>
+          )}
+
+          {mode === 'enregistree' && !signatureEnregistree && (
+            <p style={{ fontSize: 12, color: 'var(--abed-muted)', marginTop: 10 }}>
+              Aucune signature enregistrée. Dessinez-en une ou importez-en une, puis cochez « Enregistrer pour la prochaine fois ».
+            </p>
+          )}
+
+          {(mode === 'dessiner' || mode === 'importer') && rawImageForMode && (
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#374151', marginTop: 10, cursor: 'pointer' }}>
+              <input type="checkbox" checked={saveAsDefault} onChange={e => setSaveAsDefault(e.target.checked)} />
+              Enregistrer comme signature pour la prochaine fois
+            </label>
+          )}
+        </div>
+
+        <div>
           <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 8, color: '#6b7280' }}>Aperçu de la signature</label>
-          {policeChargee
-            ? <SignatureBlock name={userName} date={today} hash={sigHash} small />
-            : <div style={{ fontSize: 12, color: 'var(--abed-muted)' }}>Chargement...</div>}
+          {mode === 'saisir'
+            ? (policeChargee ? <SignatureBlock name={userName} date={today} hash={sigHash} small /> : <div style={{ fontSize: 12, color: 'var(--abed-muted)' }}>Chargement...</div>)
+            : (rasterPreview ? <img src={rasterPreview} alt="Aperçu de la signature" style={{ maxWidth: 190, display: 'block' }} /> : <div style={{ fontSize: 12, color: 'var(--abed-muted)' }}>Aucun aperçu pour l&apos;instant.</div>)}
         </div>
 
         {/* Page indicator */}

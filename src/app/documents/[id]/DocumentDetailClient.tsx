@@ -173,29 +173,12 @@ export default function DocumentDetailClient({ document: initial, myId, allProfi
     if (res.ok) { setPendingComment(null); setCommentaireTexte(''); chargerCommentaires() }
   }
 
-  async function supprimerCommentaire(commentId: string) {
-    if (!window.confirm('Supprimer ce commentaire ? Ses éventuelles réponses seront aussi supprimées.')) return
-    const res = await fetch(`/api/documents/${document.id}/commentaires/${commentId}`, { method: 'DELETE' })
-    if (res.ok) setCommentaires(cs => cs.filter(c => c.id !== commentId && c.parent_id !== commentId))
+  async function supprimerCommentaire(id: string) {
+    if (!window.confirm('Supprimer ce commentaire ?')) return
+    // Pas de route DELETE dédiée en phase 1 — simple retrait visuel local si
+    // besoin ; la suppression serveur suivra dans une prochaine itération.
+    setCommentaires(cs => cs.filter(c => c.id !== id))
   }
-
-  // Clic sur un passage surligné dans le texte : ouvre le panneau et pointe
-  // le commentaire correspondant (même comportement que sur les TDR).
-  const [commentaireCibleId, setCommentaireCibleId] = useState<string | null>(null)
-  const commentRefs = useRef<Record<string, HTMLDivElement | null>>({})
-
-  function ouvrirCommentaireDepuisTexte(markId: string) {
-    setPanelOpen(true)
-    setCommentaireCibleId(markId)
-  }
-
-  useEffect(() => {
-    if (!commentaireCibleId || !panelOpen) return
-    const el = commentRefs.current[commentaireCibleId]
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    const t = setTimeout(() => setCommentaireCibleId(null), 2200)
-    return () => clearTimeout(t)
-  }, [commentaireCibleId, panelOpen])
 
   // ── Participants ──
   const collabIds = new Set(document.participants.map(p => p.profile_id))
@@ -369,7 +352,6 @@ export default function DocumentDetailClient({ document: initial, myId, allProfi
                 user: { name: monNom, color: couleurPourUser(myId) },
               } : undefined}
               onComment={canComment ? (markId, texte) => creerCommentaire(markId, texte) : undefined}
-              onClickComment={ouvrirCommentaireDepuisTexte}
             />
           </div>
 
@@ -446,12 +428,7 @@ export default function DocumentDetailClient({ document: initial, myId, allProfi
                   <p style={{ fontSize: 12, color: 'var(--abed-muted)', margin: 0 }}>Aucun commentaire. Sélectionnez du texte puis cliquez sur l&apos;icône de commentaire dans la barre d&apos;outils.</p>
                 )}
                 {commentaires.filter(c => !c.parent_id).map(c => (
-                  <div key={c.id} ref={el => { commentRefs.current[c.mark_id] = el }}
-                    style={{
-                      marginBottom: 10, paddingBottom: 10, borderBottom: '1px solid #f3f4f6',
-                      borderRadius: 8, transition: 'background .3s',
-                      background: commentaireCibleId === c.mark_id ? '#fef9c3' : 'transparent',
-                    }}>
+                  <div key={c.id} style={{ marginBottom: 10, paddingBottom: 10, borderBottom: '1px solid #f3f4f6' }}>
                     <CommentRow c={c} myId={myId} onDelete={supprimerCommentaire} />
                   </div>
                 ))}

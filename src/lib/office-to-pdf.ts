@@ -61,6 +61,16 @@ export async function convertOfficeToPdf(buffer: Buffer, filename: string, titre
     return null
   }
 
+  return renderHtmlToPdf(bodyHtml, titre)
+}
+
+/**
+ * Rend un fragment HTML (déjà au format body — issu de mammoth, de l'éditeur
+ * collaboratif Documents, etc.) en PDF via Puppeteer. Extrait de
+ * convertOfficeToPdf pour être réutilisé par le verrouillage d'un document
+ * collaboratif avant signature (src/app/api/documents/[id]/verrouiller).
+ */
+export async function renderHtmlToPdf(bodyHtml: string, titre: string): Promise<Buffer> {
   const html = wrapHtml(bodyHtml, titre)
 
   const executablePath = await chromium.executablePath()

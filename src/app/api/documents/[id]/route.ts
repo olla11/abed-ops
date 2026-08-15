@@ -9,13 +9,28 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
   const { data: document, error } = await supabase
     .from('demandes_signature')
-    .select(`id, titre, description, statut, contenu_html, created_at, updated_at, createur_id,
+    .select(`id, titre, description, statut, contenu_html, fichier_url, created_at, updated_at, createur_id,
       createur:profiles!demandes_signature_createur_id_fkey(id, nom, prenoms),
-      participants:document_participants(id, profile_id, permission, profile:profiles!document_participants_profile_id_fkey(id, nom, prenoms))
+      participants:document_participants(id, profile_id, permission, profile:profiles!document_participants_profile_id_fkey(id, nom, prenoms)),
+      signataires(id, profile_id, email, nom_externe, signe, signe_le, est_observateur, ordre, profile:profiles!signataires_profile_id_fkey(id, nom, prenoms))
     `)
     .eq('id', id).eq('type', 'document_collaboratif').single()
 
   if (error || !document) return NextResponse.json({ error: 'Document introuvable' }, { status: 404 })
+
+  // Voir page.tsx : RLS de `profiles` peut masquer un embed pour un rôle non
+  // privilégié — on complète via l'annuaire, non restreint.
+  const doc = document as unknown as { createur: { id: string } | null; createur_id: string; signataires: { profile_id: string | null; profile: unknown }[] }
+  const ids = new Set<string>()
+  if (doc.createur_id) ids.add(doc.createur_id)
+  for (const s of doc.signataires ?? []) if (s.profile_id) ids.add(s.profile_id)
+  if (ids.size > 0) {
+    const { data: annuaire } = await supabase.from('profiles_annuaire').select('id, nom, prenoms').in('id', [...ids])
+    const parId = new Map((annuaire ?? []).map(p => [p.id, p]))
+    if (!doc.createur && doc.createur_id) (doc as any).createur = parId.get(doc.createur_id) ?? null
+    for (const s of doc.signataires ?? []) if (!s.profile && s.profile_id) (s as any).profile = parId.get(s.profile_id) ?? null
+  }
+
   return NextResponse.json({ data: document })
 }
 
