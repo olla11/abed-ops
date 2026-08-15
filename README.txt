@@ -1,10 +1,16 @@
-9 fichiers modifiés/créés — décompresse et colle par-dessus ton clone local.
+6 fichiers modifiés/créés + 2 fichiers à SUPPRIMER manuellement (n'existent
+plus dans ce zip, il faut les effacer toi-même dans ton clone local) :
 
-IMPORTANT : nouvelle dépendance npm (html-to-docx, pour le téléchargement
-Word). package.json et package-lock.json sont inclus dans ce zip — après
-avoir collé les fichiers, lance :
+  src/lib/docx-fix.ts
+  src/types/html-to-docx.d.ts
 
-  npm install
+IMPORTANT — changement de dépendance npm : après avoir collé les fichiers
+(et supprimé les 2 ci-dessus), lance :
 
-avant de redémarrer/rebuilder le projet, sinon la route de téléchargement
-.docx échouera au démarrage (module introuvable).
+  npm uninstall html-to-docx
+  npm install docx
+
+avant de redémarrer/rebuilder le projet.
+
+Le reste : décompresse et colle par-dessus ton clone local (structure src/
+préservée).

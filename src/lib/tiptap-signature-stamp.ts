@@ -14,22 +14,21 @@ declare module '@tiptap/core' {
 // choisi par le signataire — pas de verrouillage ni de circuit séparé : le
 // tampon fait partie du contenu du document comme n'importe quel autre
 // élément (image), sauvegardé via le PATCH habituel de contenu_html.
-// draggable: true (+ data-drag-handle côté vue) permet de le déplacer à la
-// souris n'importe où dans le document ; la vue React (SignatureStampView)
-// ajoute une poignée de redimensionnement au coin quand il est sélectionné.
+//
+// Déplacement : PAS via un repositionnement dans le flux du document (le
+// drag HTML5 natif de ProseMirror résout la position de dépôt au caractère
+// près — un déplacement horizontal de quelques pixels dans un paragraphe
+// par ailleurs vide retombe donc souvent exactement sur la position de
+// départ, ce qui donnait l'impression que "rien ne bougeait"). Le tampon
+// garde sa position d'ancrage dans le texte, et se décale visuellement à la
+// souris via un simple `transform: translate()` (offset ci-dessous) — un
+// vrai déplacement libre en pixels, découplé du modèle de document.
 export const SignatureStampNode = Node.create({
   name: 'signatureStamp',
   group: 'inline',
   inline: true,
   atom: true,
   selectable: true,
-  // Déplacement via le drag HTML5 natif que ProseMirror sait déjà gérer
-  // pour un nœud draggable+atom (sérialise/replace la slice au drop). La
-  // vue React personnalisée (addNodeView) ne pose PAS l'attribut DOM
-  // `draggable` automatiquement à partir de ce réglage de schéma — il faut
-  // l'ajouter explicitement côté vue (voir SignatureStampView), sans quoi
-  // le navigateur ne déclenche jamais de drag du tout.
-  draggable: true,
   addAttributes() {
     return {
       src: {
@@ -53,7 +52,23 @@ export const SignatureStampNode = Node.create({
           const w = el.style.width || el.getAttribute('width')
           return w ? parseInt(w, 10) : null
         },
-        renderHTML: (attrs: { width?: number | null }) => (attrs.width ? { style: `width: ${attrs.width}px` } : {}),
+        renderHTML: (attrs: { width?: number | null; offset?: { x: number; y: number } }) => {
+          const styles: string[] = []
+          if (attrs.width) styles.push(`width: ${attrs.width}px`)
+          if (attrs.offset && (attrs.offset.x || attrs.offset.y)) styles.push(`transform: translate(${attrs.offset.x}px, ${attrs.offset.y}px)`)
+          return styles.length ? { style: styles.join('; ') } : {}
+        },
+      },
+      // Décalage visuel libre (voir commentaire au-dessus du nœud) — combiné
+      // à `width` dans un seul style rendu, deux attributs distincts ne
+      // pouvant pas fusionner proprement le même attribut HTML `style`.
+      offset: {
+        default: { x: 0, y: 0 },
+        parseHTML: (el: HTMLElement) => {
+          const m = el.style.transform?.match(/translate\(([-\d.]+)px,\s*([-\d.]+)px\)/)
+          return m ? { x: parseFloat(m[1]), y: parseFloat(m[2]) } : { x: 0, y: 0 }
+        },
+        renderHTML: () => ({}),
       },
     }
   },
