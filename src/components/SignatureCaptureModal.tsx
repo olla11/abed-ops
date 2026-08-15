@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { attendrePoliceSignature } from '@/lib/signature-font'
 
 type SignMode = 'saisir' | 'dessiner' | 'importer' | 'enregistree'
+type StampOptions = { bracket: boolean; header: boolean; date: boolean; hash: boolean }
 
 const BRACKET_COLOR = '#2563eb'
 
@@ -132,6 +133,7 @@ export default function SignatureCaptureModal({ userName, signatureEnregistree, 
   const [saveAsDefault, setSaveAsDefault] = useState(false)
   const [policeChargee, setPoliceChargee] = useState(false)
   const [preview, setPreview] = useState<string | null>(null)
+  const [options, setOptions] = useState<StampOptions>({ bracket: true, header: true, date: true, hash: true })
 
   useEffect(() => { attendrePoliceSignature().then(() => setPoliceChargee(true)) }, [])
 
@@ -166,71 +168,91 @@ export default function SignatureCaptureModal({ userName, signatureEnregistree, 
    * dans le même tampon de marque que le circuit de signature PDF formel
    * (crochet bleu, en-tête "MyABED signed by:", séparateur, date + hash) —
    * porté ici depuis SignerClient volontairement dupliqué, pour ne jamais
-   * toucher ce circuit déjà en production.
+   * toucher ce circuit déjà en production. Chaque élément peut être
+   * désactivé (options) : la mise en page se resserre en conséquence plutôt
+   * que de laisser un espace vide à la place de l'élément retiré.
    */
-  async function habillerEnTampon(contentImage: string): Promise<string> {
+  async function habillerEnTampon(contentImage: string, opts: StampOptions): Promise<string> {
     const SCALE = 3
     const BH = 80 * SCALE
     const hookLen = 13 * SCALE
     const cornerRadius = Math.round(BH * 0.047)
     const bracketInset = Math.round(BH * 0.165)
     const bx = 2 * SCALE
-    const textX = bx + hookLen + 8 * SCALE
+    const textX = bx + (opts.bracket ? hookLen + 8 * SCALE : 6 * SCALE)
     const hashTexte = `${sigHash.slice(0, 12)}...`
     const dateHashGap = 10 * SCALE
+    const hasFooter = opts.date || opts.hash
 
     const img = await loadImage(contentImage)
-    const contentAreaTop = Math.round(BH * 0.18)
-    const contentAreaBottom = Math.round(BH * 0.66)
+    const contentAreaTop = Math.round(BH * (opts.header ? 0.18 : 0.08))
+    const contentAreaBottom = Math.round(BH * (hasFooter ? 0.66 : 0.86))
     const targetH = contentAreaBottom - contentAreaTop
     const maxW = 230 * SCALE
     const imgW = Math.min(maxW, targetH * (img.width / img.height))
     const imgH = imgW * (img.height / img.width)
 
     const mesure = document.createElement('canvas').getContext('2d')!
-    mesure.font = `bold ${9 * SCALE}px Arial, sans-serif`
-    const headerW = mesure.measureText('MYABED SIGNED BY:').width
+    let headerW = 0
+    if (opts.header) {
+      mesure.font = `bold ${9 * SCALE}px Arial, sans-serif`
+      headerW = mesure.measureText('MYABED SIGNED BY:').width
+    }
     mesure.font = `${8 * SCALE}px Arial, sans-serif`
-    const dateW = mesure.measureText(today).width
-    const hashW = mesure.measureText(hashTexte).width
+    const dateW = opts.date ? mesure.measureText(today).width : 0
+    const hashW = opts.hash ? mesure.measureText(hashTexte).width : 0
+    const footerW = opts.date && opts.hash ? dateW + dateHashGap + hashW : Math.max(dateW, hashW)
 
-    const contentW = Math.max(headerW, imgW, dateW + dateHashGap + hashW)
+    const contentW = Math.max(headerW, imgW, footerW)
     const BW = Math.max(150 * SCALE, Math.ceil(textX + contentW + 6 * SCALE))
 
     const canvas = document.createElement('canvas')
     canvas.width = BW; canvas.height = BH
     const ctx = canvas.getContext('2d')!
 
-    ctx.strokeStyle = BRACKET_COLOR
-    ctx.lineWidth = 2 * SCALE
-    ctx.lineCap = 'round'
-    ctx.beginPath()
-    ctx.moveTo(bx + hookLen, bracketInset)
-    ctx.lineTo(bx + cornerRadius, bracketInset)
-    ctx.arcTo(bx, bracketInset, bx, bracketInset + cornerRadius, cornerRadius)
-    ctx.lineTo(bx, BH - bracketInset - cornerRadius)
-    ctx.arcTo(bx, BH - bracketInset, bx + cornerRadius, BH - bracketInset, cornerRadius)
-    ctx.lineTo(bx + hookLen, BH - bracketInset)
-    ctx.stroke()
+    if (opts.bracket) {
+      ctx.strokeStyle = BRACKET_COLOR
+      ctx.lineWidth = 2 * SCALE
+      ctx.lineCap = 'round'
+      ctx.beginPath()
+      ctx.moveTo(bx + hookLen, bracketInset)
+      ctx.lineTo(bx + cornerRadius, bracketInset)
+      ctx.arcTo(bx, bracketInset, bx, bracketInset + cornerRadius, cornerRadius)
+      ctx.lineTo(bx, BH - bracketInset - cornerRadius)
+      ctx.arcTo(bx, BH - bracketInset, bx + cornerRadius, BH - bracketInset, cornerRadius)
+      ctx.lineTo(bx + hookLen, BH - bracketInset)
+      ctx.stroke()
+    }
 
-    ctx.fillStyle = '#374151'
-    ctx.font = `bold ${9 * SCALE}px Arial, sans-serif`
-    ctx.fillText('MYABED SIGNED BY:', textX, Math.round(BH * 0.155))
+    if (opts.header) {
+      ctx.fillStyle = '#374151'
+      ctx.font = `bold ${9 * SCALE}px Arial, sans-serif`
+      ctx.fillText('MYABED SIGNED BY:', textX, Math.round(BH * 0.155))
+    }
 
     ctx.drawImage(img, textX, contentAreaTop + (targetH - imgH) / 2, imgW, imgH)
 
-    ctx.strokeStyle = '#d1d5db'
-    ctx.lineWidth = 1 * SCALE
-    ctx.beginPath()
-    ctx.moveTo(textX, Math.round(BH * 0.70))
-    ctx.lineTo(BW - 4 * SCALE, Math.round(BH * 0.70))
-    ctx.stroke()
+    if (hasFooter) {
+      ctx.strokeStyle = '#d1d5db'
+      ctx.lineWidth = 1 * SCALE
+      ctx.beginPath()
+      ctx.moveTo(textX, Math.round(BH * 0.70))
+      ctx.lineTo(BW - 4 * SCALE, Math.round(BH * 0.70))
+      ctx.stroke()
 
-    ctx.fillStyle = '#6b7280'
-    ctx.font = `${8 * SCALE}px Arial, sans-serif`
-    ctx.fillText(today, textX, Math.round(BH * 0.855))
-    ctx.fillStyle = '#9ca3af'
-    ctx.fillText(hashTexte, textX + dateW + dateHashGap, Math.round(BH * 0.855))
+      let fx = textX
+      if (opts.date) {
+        ctx.fillStyle = '#6b7280'
+        ctx.font = `${8 * SCALE}px Arial, sans-serif`
+        ctx.fillText(today, fx, Math.round(BH * 0.855))
+        fx += dateW + dateHashGap
+      }
+      if (opts.hash) {
+        ctx.fillStyle = '#9ca3af'
+        ctx.font = `${8 * SCALE}px Arial, sans-serif`
+        ctx.fillText(hashTexte, fx, Math.round(BH * 0.855))
+      }
+    }
 
     return canvas.toDataURL('image/png')
   }
@@ -238,7 +260,7 @@ export default function SignatureCaptureModal({ userName, signatureEnregistree, 
   async function genererTampon(): Promise<string | null> {
     const content = mode === 'saisir' ? await rendreNomEnImage() : rawImage
     if (!content) return null
-    return habillerEnTampon(content)
+    return habillerEnTampon(content, options)
   }
 
   useEffect(() => {
@@ -248,7 +270,7 @@ export default function SignatureCaptureModal({ userName, signatureEnregistree, 
     genererTampon().then(url => { if (!cancelled) setPreview(url) })
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, policeChargee, rawImage])
+  }, [mode, policeChargee, rawImage, options])
 
   function handleImportFile(file: File | null) {
     if (!file) return
@@ -312,6 +334,23 @@ export default function SignatureCaptureModal({ userName, signatureEnregistree, 
             Enregistrer comme signature pour la prochaine fois
           </label>
         )}
+
+        <div style={{ marginTop: 16 }}>
+          <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 8, color: '#6b7280' }}>Éléments affichés sur la signature</label>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            {([
+              { key: 'bracket', label: 'Crochet bleu' },
+              { key: 'header', label: '« MyABED signed by »' },
+              { key: 'date', label: 'Date' },
+              { key: 'hash', label: 'Hash' },
+            ] as { key: keyof StampOptions; label: string }[]).map(o => (
+              <label key={o.key} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12.5, color: '#374151', cursor: 'pointer' }}>
+                <input type="checkbox" checked={options[o.key]} onChange={e => setOptions(prev => ({ ...prev, [o.key]: e.target.checked }))} />
+                {o.label}
+              </label>
+            ))}
+          </div>
+        </div>
 
         <div style={{ marginTop: 16, marginBottom: 18 }}>
           <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 8, color: '#6b7280' }}>Aperçu</label>
