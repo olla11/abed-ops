@@ -42,7 +42,11 @@ export default function SignatureStampView({ node, updateAttributes, selected, e
 
   function startDrag(e: React.MouseEvent) {
     if (!editor.isEditable) return
-    e.preventDefault()
+    // Pas de preventDefault ici : ProseMirror n'affiche le cadre de
+    // sélection (et donc la poignée/le bouton supprimer) que si le
+    // mousedown lui parvient normalement — un preventDefault précoce lui
+    // fait ignorer l'événement entièrement (voir eventBelongsToView dans
+    // prosemirror-view), ce qui désactivait la sélection au clic.
     const base = offset ?? { x: 0, y: 0 }
     dragStartRef.current = { startX: e.clientX, startY: e.clientY, baseX: base.x, baseY: base.y }
     setDragging(true)
