@@ -59,3 +59,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   return NextResponse.json({ ok: true })
 }
+
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
+
+  const { data: document } = await supabase
+    .from('demandes_signature').select('id, createur_id').eq('id', id).eq('type', 'document_collaboratif').single()
+  if (!document) return NextResponse.json({ error: 'Document introuvable' }, { status: 404 })
+  if (document.createur_id !== user.id) return NextResponse.json({ error: 'Accès réservé au créateur du document' }, { status: 403 })
+
+  const { error } = await supabase.from('demandes_signature').delete().eq('id', id)
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  return NextResponse.json({ ok: true })
+}
