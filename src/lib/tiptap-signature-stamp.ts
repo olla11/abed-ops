@@ -23,11 +23,13 @@ export const SignatureStampNode = Node.create({
   inline: true,
   atom: true,
   selectable: true,
-  // Le déplacement se fait "à la main" (mousedown/mousemove/mouseup dans
-  // SignatureStampView), pas via le drag HTML5 natif de ProseMirror : ce
-  // dernier s'est avéré peu fiable une fois combiné à la synchronisation
-  // Yjs (rien ne se passait au drop).
-  draggable: false,
+  // Déplacement via le drag HTML5 natif que ProseMirror sait déjà gérer
+  // pour un nœud draggable+atom (sérialise/replace la slice au drop). La
+  // vue React personnalisée (addNodeView) ne pose PAS l'attribut DOM
+  // `draggable` automatiquement à partir de ce réglage de schéma — il faut
+  // l'ajouter explicitement côté vue (voir SignatureStampView), sans quoi
+  // le navigateur ne déclenche jamais de drag du tout.
+  draggable: true,
   addAttributes() {
     return {
       src: {
