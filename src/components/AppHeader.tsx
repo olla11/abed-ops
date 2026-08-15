@@ -51,7 +51,7 @@ export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, s
     { href: '/timesheets', label: estRapport ? t('monthlyReport') : t('timesheets'), match: ['/timesheets'] },
     { href: '/demandes', label: t('payments'), match: ['/demandes'] },
     { href: '/conges', label: t('leaves'), match: ['/conges'] },
-    { href: '/signatures', label: t('signatures'), match: ['/signatures'] },
+    { href: '/documents', label: t('signatures'), match: ['/documents', '/signatures'] },
     { href: '/mes-contrats', label: t('contracts'), match: ['/mes-contrats'] },
   ]
 
