@@ -9,6 +9,9 @@ import TableHeader from '@tiptap/extension-table-header'
 import { CommentMark } from './tiptap-comment-mark'
 import { HighlightMark } from './tiptap-highlight-mark'
 import { SignatureStampNode } from './tiptap-signature-stamp'
+import { TextColorMark } from './tiptap-text-color-mark'
+import { FontFamilyMark } from './tiptap-font-family-mark'
+import { LineHeight } from './tiptap-line-height'
 
 // Liste de base des extensions TipTap (hors Collaboration/CollaborationCursor,
 // qui ne changent pas le schéma). Partagée entre l'éditeur et la logique
@@ -20,12 +23,19 @@ export function baseTdrExtensions(disableHistory: boolean) {
     Underline,
     Link.configure({ openOnClick: false, autolink: true }),
     TextAlign.configure({ types: ['paragraph'] }),
-    Table.configure({ resizable: false }),
+    // resizable: redimensionnement des colonnes à la souris (poignée sur la
+    // bordure) — fourni nativement par prosemirror-tables, juste désactivé
+    // avant. Le déplacement de lignes/colonnes par glisser-déposer, lui,
+    // n'existe pas côté prosemirror-tables et resterait un chantier à part.
+    Table.configure({ resizable: true }),
     TableRow,
     TableHeader,
     TableCell,
     CommentMark,
     HighlightMark,
     SignatureStampNode,
+    TextColorMark,
+    FontFamilyMark,
+    LineHeight,
   ]
 }

@@ -290,27 +290,22 @@ export default function DocumentDetailClient({ document: initial, myId, allProfi
             </div>
           )}
 
-          <div className="card">
-            <RichTextEditor
-              ref={editorRef}
-              value={contenuHtml}
-              onChange={html => setContenuHtml(html)}
-              readOnly={!canEdit}
-              collab={collabReady && ydocRef.current && providerRef.current ? {
-                doc: ydocRef.current, fragment: 'contenu', provider: providerRef.current,
-                user: { name: monNom, color: couleurPourUser(myId) },
-              } : undefined}
-              onComment={canComment ? (markId, texte) => creerCommentaire(markId, texte) : undefined}
-              onClickComment={ouvrirCommentaireDepuisTexte}
-              onSign={canSign ? () => setShowSignModal(true) : undefined}
-            />
-          </div>
-
-          {canEdit && (
-            <div style={{ marginTop: 16 }}>
-              <button className="btn" disabled={saving} onClick={() => enregistrer()}>{saving ? 'Enregistrement…' : 'Enregistrer'}</button>
-            </div>
-          )}
+          <RichTextEditor
+            ref={editorRef}
+            value={contenuHtml}
+            onChange={html => setContenuHtml(html)}
+            readOnly={!canEdit}
+            collab={collabReady && ydocRef.current && providerRef.current ? {
+              doc: ydocRef.current, fragment: 'contenu', provider: providerRef.current,
+              user: { name: monNom, color: couleurPourUser(myId) },
+            } : undefined}
+            onComment={canComment ? (markId, texte) => creerCommentaire(markId, texte) : undefined}
+            onClickComment={ouvrirCommentaireDepuisTexte}
+            onSign={canSign ? () => setShowSignModal(true) : undefined}
+            onSave={canEdit ? () => enregistrer() : undefined}
+            saving={saving}
+            onDownload={() => window.open(`/api/documents/${document.id}/pdf`, '_blank')}
+          />
         </div>
 
         {panelOpen && <div className="tdr-panel-backdrop" onClick={() => setPanelOpen(false)} />}

@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState, forwardRef, useImperativeHandle } from 'react'
+import { useEffect, useState, useRef, forwardRef, useImperativeHandle } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import Collaboration from '@tiptap/extension-collaboration'
 import CollaborationCursor from '@tiptap/extension-collaboration-cursor'
@@ -11,6 +11,7 @@ import {
   AlignLeft, AlignCenter, AlignRight, AlignJustify,
   Table as TableIcon, Rows3, Columns3, TableRowsSplit, TableColumnsSplit, Trash2, MessageSquarePlus,
   Undo2, Redo2, CornerDownLeft, Merge, Split, Highlighter, PenLine,
+  Baseline, Type, AlignVerticalSpaceAround, Save, Download, FileText, Eraser,
 } from 'lucide-react'
 
 export type CollabConfig = {
@@ -34,6 +35,11 @@ export type RichTextEditorHandle = {
   getHTML: () => string
 }
 
+// Hauteur approximative d'une page A4 à l'écran (297mm à 96px/pouce) — sert
+// uniquement de repère visuel (bandes + indicateur "Page X / Y") pour un
+// contenu qui reste en flux continu, pas une pagination réelle à l'impression.
+const PAGE_HEIGHT_PX = 1123
+
 function ToolbarButton({ onClick, active, title, children, disabled, label }: { onClick: () => void; active?: boolean; title: string; children: React.ReactNode; disabled?: boolean; label?: string }) {
   return (
     <button type="button" onClick={onClick} title={title} disabled={disabled}
@@ -41,13 +47,85 @@ function ToolbarButton({ onClick, active, title, children, disabled, label }: { 
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
         padding: label ? '0 10px' : 0, width: label ? 'auto' : 30, height: 28, borderRadius: 6, border: 'none', cursor: disabled ? 'not-allowed' : 'pointer',
         background: active ? '#dcfce7' : 'transparent', color: active ? '#16a34a' : '#374151',
-        opacity: disabled ? 0.4 : 1, fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap',
+        opacity: disabled ? 0.4 : 1, fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0,
       }}>
       {children}
       {label && <span>{label}</span>}
     </button>
   )
 }
+
+// Bouton qui déroule un petit panneau (couleurs, police, interligne, menu
+// fichier...) — se ferme au clic en dehors.
+function DropdownButton({ icon, title, label, active, children }: {
+  icon: React.ReactNode; title: string; label?: string; active?: boolean
+  children: (close: () => void) => React.ReactNode
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    function onDoc(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [open])
+
+  return (
+    <div ref={ref} style={{ position: 'relative', flexShrink: 0 }}>
+      <ToolbarButton title={title} label={label} active={active || open} onClick={() => setOpen(o => !o)}>{icon}</ToolbarButton>
+      {open && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, marginTop: 4, background: 'white',
+          border: '1px solid var(--abed-border)', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,.14)',
+          zIndex: 60, padding: 10,
+        }}>
+          {children(() => setOpen(false))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ColorGrid({ colors, onPick, onClear }: { colors: string[]; onPick: (c: string) => void; onClear: () => void }) {
+  return (
+    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', maxWidth: 132 }}>
+      {colors.map(c => (
+        <button key={c} type="button" onClick={() => onPick(c)} title={c}
+          style={{ width: 22, height: 22, borderRadius: '50%', background: c, border: '1px solid rgba(0,0,0,.15)', cursor: 'pointer', padding: 0 }} />
+      ))}
+      <button type="button" onClick={onClear} title="Aucune couleur"
+        style={{ width: 22, height: 22, borderRadius: '50%', background: 'white', border: '1px solid #d1d5db', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+        <Eraser size={11} color="#9ca3af" />
+      </button>
+    </div>
+  )
+}
+
+const menuItemStyle: React.CSSProperties = {
+  display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 6, border: 'none',
+  background: 'transparent', cursor: 'pointer', fontSize: 12.5, color: '#374151', width: '100%', textAlign: 'left', whiteSpace: 'nowrap',
+}
+
+const HIGHLIGHT_COLORS = ['#fde047', '#86efac', '#93c5fd', '#fca5a5', '#d8b4fe', '#fdba74']
+const TEXT_COLORS = ['#111827', '#dc2626', '#2563eb', '#16a34a', '#ca8a04', '#7c3aed', '#db2777']
+const FONTS = [
+  { label: 'Police par défaut', value: '' },
+  { label: 'Arial', value: 'Arial, sans-serif' },
+  { label: 'Georgia', value: 'Georgia, serif' },
+  { label: 'Times New Roman', value: '"Times New Roman", serif' },
+  { label: 'Courier New', value: '"Courier New", monospace' },
+  { label: 'Comic Sans MS', value: '"Comic Sans MS", cursive' },
+]
+const LINE_HEIGHTS = [
+  { label: 'Interligne par défaut', value: '' },
+  { label: 'Simple', value: '1' },
+  { label: '1,15', value: '1.15' },
+  { label: '1,5', value: '1.5' },
+  { label: 'Double', value: '2' },
+]
 
 const RichTextEditor = forwardRef<RichTextEditorHandle, {
   value: string
@@ -57,8 +135,11 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, {
   onComment?: (commentId: string, texteSelectionne: string) => void
   onClickComment?: (commentId: string) => void
   onSign?: () => void
+  onSave?: () => void
+  saving?: boolean
+  onDownload?: () => void
 }>(function RichTextEditor({
-  value, onChange, readOnly, collab, onComment, onClickComment, onSign,
+  value, onChange, readOnly, collab, onComment, onClickComment, onSign, onSave, saving, onDownload,
 }, ref) {
   const [, setTick] = useState(0)
 
@@ -128,6 +209,34 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, {
     },
   }), [editor])
 
+  // Repère "page" — purement visuel (bandes + indicateur), le document reste
+  // un flux continu. Recalculé au scroll, au redimensionnement, et quand le
+  // contenu change de hauteur (ResizeObserver).
+  const contentWrapRef = useRef<HTMLDivElement>(null)
+  const [pageInfo, setPageInfo] = useState({ current: 1, total: 1 })
+
+  useEffect(() => {
+    function update() {
+      const el = contentWrapRef.current
+      if (!el) return
+      const rect = el.getBoundingClientRect()
+      const scrolledIntoContent = Math.max(0, -rect.top)
+      const total = Math.max(1, Math.ceil(el.offsetHeight / PAGE_HEIGHT_PX))
+      const current = Math.min(total, Math.floor(scrolledIntoContent / PAGE_HEIGHT_PX) + 1)
+      setPageInfo({ current, total })
+    }
+    update()
+    window.addEventListener('scroll', update, { passive: true })
+    window.addEventListener('resize', update)
+    const ro = new ResizeObserver(update)
+    if (contentWrapRef.current) ro.observe(contentWrapRef.current)
+    return () => {
+      window.removeEventListener('scroll', update)
+      window.removeEventListener('resize', update)
+      ro.disconnect()
+    }
+  }, [editor])
+
   if (!editor) return null
 
   function ajouterLien() {
@@ -161,74 +270,149 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, {
   }
 
   const selectionVide = editor.state.selection.empty
+  const couleurSurlignageActive = (editor.getAttributes('highlight') as { color?: string })?.color
+
+  const commentSignRow = (onComment || onSign) && (
+    <>
+      {onComment && <ToolbarButton title="Commenter la sélection" label="Commenter" disabled={selectionVide} onClick={ajouterCommentaire}><MessageSquarePlus size={14} /></ToolbarButton>}
+      {onSign && <ToolbarButton title="Apposer ma signature ici" label="Signer" onClick={onSign}><PenLine size={14} /></ToolbarButton>}
+    </>
+  )
 
   return (
-    <div style={{ border: '1px solid var(--abed-border)', borderRadius: 8, overflow: 'hidden' }}>
-      {!readOnly && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 2, padding: '5px 6px', borderBottom: '1px solid var(--abed-border)', background: '#f9fafb', flexWrap: 'wrap' }}>
-          <ToolbarButton title="Annuler (Ctrl+Z)" disabled={!editor.can().undo()} onClick={() => editor.chain().focus().undo().run()}><Undo2 size={14} /></ToolbarButton>
-          <ToolbarButton title="Rétablir (Ctrl+Y)" disabled={!editor.can().redo()} onClick={() => editor.chain().focus().redo().run()}><Redo2 size={14} /></ToolbarButton>
-          <span style={{ width: 1, height: 18, background: '#e5e7eb', margin: '0 4px' }} />
-          <ToolbarButton title="Gras" active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()}><Bold size={14} /></ToolbarButton>
-          <ToolbarButton title="Italique" active={editor.isActive('italic')} onClick={() => editor.chain().focus().toggleItalic().run()}><Italic size={14} /></ToolbarButton>
-          <ToolbarButton title="Souligné" active={editor.isActive('underline')} onClick={() => editor.chain().focus().toggleUnderline().run()}><UnderlineIcon size={14} /></ToolbarButton>
-          <ToolbarButton title="Lien" active={editor.isActive('link')} onClick={ajouterLien}><Link2 size={14} /></ToolbarButton>
-          <ToolbarButton title="Surligner la sélection" label="Surligner" active={editor.isActive('highlight')} onClick={() => editor.chain().focus().toggleHighlight().run()}><Highlighter size={14} /></ToolbarButton>
-          <span style={{ width: 1, height: 18, background: '#e5e7eb', margin: '0 4px' }} />
-          <ToolbarButton title="Liste à puces" active={editor.isActive('bulletList')} onClick={() => editor.chain().focus().toggleBulletList().run()}><List size={14} /></ToolbarButton>
-          <ToolbarButton title="Liste numérotée" active={editor.isActive('orderedList')} onClick={() => editor.chain().focus().toggleOrderedList().run()}><ListOrdered size={14} /></ToolbarButton>
-          <span style={{ width: 1, height: 18, background: '#e5e7eb', margin: '0 4px' }} />
-          <ToolbarButton title="Aligner à gauche" active={editor.isActive({ textAlign: 'left' })} onClick={() => definirAlignement('left')}><AlignLeft size={14} /></ToolbarButton>
-          <ToolbarButton title="Centrer" active={editor.isActive({ textAlign: 'center' })} onClick={() => definirAlignement('center')}><AlignCenter size={14} /></ToolbarButton>
-          <ToolbarButton title="Aligner à droite" active={editor.isActive({ textAlign: 'right' })} onClick={() => definirAlignement('right')}><AlignRight size={14} /></ToolbarButton>
-          <ToolbarButton title="Justifier" active={editor.isActive({ textAlign: 'justify' })} onClick={() => definirAlignement('justify')}><AlignJustify size={14} /></ToolbarButton>
-          <ToolbarButton title="Saut de ligne (Maj+Entrée)" onClick={() => editor.chain().focus().setHardBreak().run()}><CornerDownLeft size={14} /></ToolbarButton>
-          <span style={{ width: 1, height: 18, background: '#e5e7eb', margin: '0 4px' }} />
-          <ToolbarButton title="Insérer un tableau" onClick={() => editor.chain().focus().insertTable({ rows: 2, cols: 3, withHeaderRow: true }).run()}><TableIcon size={14} /></ToolbarButton>
-          {editor.isActive('table') && (
+    <div>
+      {(!readOnly || onComment || onSign || onSave || onDownload) && (
+        <div className="rte-toolbar" style={{
+          position: 'sticky', top: 60, zIndex: 40, display: 'flex', alignItems: 'center', gap: 2,
+          padding: '6px 8px', borderRadius: 10, background: 'white', boxShadow: '0 2px 10px rgba(0,0,0,.08)',
+          border: '1px solid var(--abed-border)', flexWrap: 'wrap', marginBottom: 14,
+        }}>
+          {!readOnly && (
             <>
-              <ToolbarButton title="Ajouter une ligne" onClick={() => editor.chain().focus().addRowAfter().run()}><Rows3 size={14} /></ToolbarButton>
-              <ToolbarButton title="Ajouter une colonne" onClick={() => editor.chain().focus().addColumnAfter().run()}><Columns3 size={14} /></ToolbarButton>
-              <ToolbarButton title="Supprimer la ligne" onClick={() => editor.chain().focus().deleteRow().run()}><TableRowsSplit size={14} /></ToolbarButton>
-              <ToolbarButton title="Supprimer la colonne" onClick={() => editor.chain().focus().deleteColumn().run()}><TableColumnsSplit size={14} /></ToolbarButton>
-              <ToolbarButton title="Fusionner les cellules sélectionnées" disabled={!editor.can().mergeCells()} onClick={() => editor.chain().focus().mergeCells().run()}><Merge size={14} /></ToolbarButton>
-              <ToolbarButton title="Fractionner la cellule" disabled={!editor.can().splitCell()} onClick={() => editor.chain().focus().splitCell().run()}><Split size={14} /></ToolbarButton>
+              <ToolbarButton title="Annuler (Ctrl+Z)" disabled={!editor.can().undo()} onClick={() => editor.chain().focus().undo().run()}><Undo2 size={14} /></ToolbarButton>
+              <ToolbarButton title="Rétablir (Ctrl+Y)" disabled={!editor.can().redo()} onClick={() => editor.chain().focus().redo().run()}><Redo2 size={14} /></ToolbarButton>
               <span style={{ width: 1, height: 18, background: '#e5e7eb', margin: '0 4px' }} />
-              <ToolbarButton title="Supprimer tout le tableau" onClick={supprimerTableau}><Trash2 size={14} /></ToolbarButton>
+              <ToolbarButton title="Gras" active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()}><Bold size={14} /></ToolbarButton>
+              <ToolbarButton title="Italique" active={editor.isActive('italic')} onClick={() => editor.chain().focus().toggleItalic().run()}><Italic size={14} /></ToolbarButton>
+              <ToolbarButton title="Souligné" active={editor.isActive('underline')} onClick={() => editor.chain().focus().toggleUnderline().run()}><UnderlineIcon size={14} /></ToolbarButton>
+              <ToolbarButton title="Lien" active={editor.isActive('link')} onClick={ajouterLien}><Link2 size={14} /></ToolbarButton>
+
+              <DropdownButton icon={<Baseline size={14} color={(editor.getAttributes('textColor') as { color?: string })?.color} />} title="Couleur du texte">
+                {close => (
+                  <ColorGrid colors={TEXT_COLORS}
+                    onPick={c => { editor.chain().focus().setTextColor(c).run(); close() }}
+                    onClear={() => { editor.chain().focus().unsetTextColor().run(); close() }} />
+                )}
+              </DropdownButton>
+              <DropdownButton icon={<Highlighter size={14} />} title="Surligner la sélection" label="Surligner" active={editor.isActive('highlight')}>
+                {close => (
+                  <ColorGrid colors={HIGHLIGHT_COLORS}
+                    onPick={c => { editor.chain().focus().setHighlight(c).run(); close() }}
+                    onClear={() => { editor.chain().focus().unsetHighlight().run(); close() }} />
+                )}
+              </DropdownButton>
+              {couleurSurlignageActive && <span style={{ width: 10, height: 10, borderRadius: '50%', background: couleurSurlignageActive, flexShrink: 0 }} />}
+
+              <span style={{ width: 1, height: 18, background: '#e5e7eb', margin: '0 4px' }} />
+              <DropdownButton icon={<Type size={14} />} title="Police">
+                {close => (
+                  <div style={{ display: 'flex', flexDirection: 'column', minWidth: 170 }}>
+                    {FONTS.map(f => (
+                      <button key={f.value} type="button" style={{ ...menuItemStyle, fontFamily: f.value || undefined }}
+                        onClick={() => { f.value ? editor.chain().focus().setFontFamily(f.value).run() : editor.chain().focus().unsetFontFamily().run(); close() }}>
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </DropdownButton>
+              <DropdownButton icon={<AlignVerticalSpaceAround size={14} />} title="Interligne">
+                {close => (
+                  <div style={{ display: 'flex', flexDirection: 'column', minWidth: 150 }}>
+                    {LINE_HEIGHTS.map(lh => (
+                      <button key={lh.value} type="button" style={menuItemStyle}
+                        onClick={() => { lh.value ? editor.chain().focus().setLineHeight(lh.value).run() : editor.chain().focus().unsetLineHeight().run(); close() }}>
+                        {lh.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </DropdownButton>
+
+              <span style={{ width: 1, height: 18, background: '#e5e7eb', margin: '0 4px' }} />
+              <ToolbarButton title="Liste à puces" active={editor.isActive('bulletList')} onClick={() => editor.chain().focus().toggleBulletList().run()}><List size={14} /></ToolbarButton>
+              <ToolbarButton title="Liste numérotée" active={editor.isActive('orderedList')} onClick={() => editor.chain().focus().toggleOrderedList().run()}><ListOrdered size={14} /></ToolbarButton>
+              <span style={{ width: 1, height: 18, background: '#e5e7eb', margin: '0 4px' }} />
+              <ToolbarButton title="Aligner à gauche" active={editor.isActive({ textAlign: 'left' })} onClick={() => definirAlignement('left')}><AlignLeft size={14} /></ToolbarButton>
+              <ToolbarButton title="Centrer" active={editor.isActive({ textAlign: 'center' })} onClick={() => definirAlignement('center')}><AlignCenter size={14} /></ToolbarButton>
+              <ToolbarButton title="Aligner à droite" active={editor.isActive({ textAlign: 'right' })} onClick={() => definirAlignement('right')}><AlignRight size={14} /></ToolbarButton>
+              <ToolbarButton title="Justifier" active={editor.isActive({ textAlign: 'justify' })} onClick={() => definirAlignement('justify')}><AlignJustify size={14} /></ToolbarButton>
+              <ToolbarButton title="Saut de ligne (Maj+Entrée)" onClick={() => editor.chain().focus().setHardBreak().run()}><CornerDownLeft size={14} /></ToolbarButton>
+              <span style={{ width: 1, height: 18, background: '#e5e7eb', margin: '0 4px' }} />
+              <ToolbarButton title="Insérer un tableau (1 cellule, à agrandir ensuite)" onClick={() => editor.chain().focus().insertTable({ rows: 1, cols: 1, withHeaderRow: false }).run()}><TableIcon size={14} /></ToolbarButton>
+              {editor.isActive('table') && (
+                <>
+                  <ToolbarButton title="Ajouter une ligne" onClick={() => editor.chain().focus().addRowAfter().run()}><Rows3 size={14} /></ToolbarButton>
+                  <ToolbarButton title="Ajouter une colonne" onClick={() => editor.chain().focus().addColumnAfter().run()}><Columns3 size={14} /></ToolbarButton>
+                  <ToolbarButton title="Supprimer la ligne" onClick={() => editor.chain().focus().deleteRow().run()}><TableRowsSplit size={14} /></ToolbarButton>
+                  <ToolbarButton title="Supprimer la colonne" onClick={() => editor.chain().focus().deleteColumn().run()}><TableColumnsSplit size={14} /></ToolbarButton>
+                  <ToolbarButton title="Fusionner les cellules sélectionnées" disabled={!editor.can().mergeCells()} onClick={() => editor.chain().focus().mergeCells().run()}><Merge size={14} /></ToolbarButton>
+                  <ToolbarButton title="Fractionner la cellule" disabled={!editor.can().splitCell()} onClick={() => editor.chain().focus().splitCell().run()}><Split size={14} /></ToolbarButton>
+                  <span style={{ width: 1, height: 18, background: '#e5e7eb', margin: '0 4px' }} />
+                  <ToolbarButton title="Supprimer tout le tableau" onClick={supprimerTableau}><Trash2 size={14} /></ToolbarButton>
+                </>
+              )}
+              {commentSignRow && <span style={{ width: 1, height: 18, background: '#e5e7eb', margin: '0 4px' }} />}
+              {commentSignRow}
             </>
           )}
-          {onComment && (
+          {readOnly && commentSignRow}
+
+          {(onSave || onDownload) && (
             <>
               <span style={{ width: 1, height: 18, background: '#e5e7eb', margin: '0 4px' }} />
-              <ToolbarButton title="Commenter la sélection" label="Commenter" disabled={selectionVide} onClick={ajouterCommentaire}><MessageSquarePlus size={14} /></ToolbarButton>
+              {onSave && <ToolbarButton title={saving ? 'Enregistrement…' : 'Enregistrer'} onClick={onSave} disabled={saving}><Save size={14} /></ToolbarButton>}
+              <DropdownButton icon={<FileText size={14} />} title="Fichier" label="Fichier">
+                {close => (
+                  <div style={{ display: 'flex', flexDirection: 'column', minWidth: 160 }}>
+                    {onSave && <button type="button" style={menuItemStyle} onClick={() => { onSave(); close() }}><Save size={13} /> Enregistrer</button>}
+                    {onDownload && <button type="button" style={menuItemStyle} onClick={() => { onDownload(); close() }}><Download size={13} /> Télécharger en PDF</button>}
+                  </div>
+                )}
+              </DropdownButton>
             </>
           )}
-          {onSign && (
-            <>
-              <span style={{ width: 1, height: 18, background: '#e5e7eb', margin: '0 4px' }} />
-              <ToolbarButton title="Apposer ma signature ici" label="Signer" onClick={onSign}><PenLine size={14} /></ToolbarButton>
-            </>
-          )}
+
+          <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--abed-muted)', flexShrink: 0, paddingLeft: 8 }}>
+            Page {pageInfo.current} / {pageInfo.total}
+          </span>
         </div>
       )}
-      {readOnly && (onComment || onSign) && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 6px', borderBottom: '1px solid var(--abed-border)', background: '#f9fafb', flexWrap: 'wrap' }}>
-          {onComment && <ToolbarButton title="Commenter la sélection" label="Commenter" disabled={selectionVide} onClick={ajouterCommentaire}><MessageSquarePlus size={14} /></ToolbarButton>}
-          {onSign && <ToolbarButton title="Apposer ma signature ici" label="Signer" onClick={onSign}><PenLine size={14} /></ToolbarButton>}
-          {onComment && <span style={{ fontSize: 11, color: 'var(--abed-muted)' }}>Sélectionnez du texte pour le commenter</span>}
-        </div>
-      )}
-      <EditorContent editor={editor} />
+      <div ref={contentWrapRef} className="rte-page-wrap">
+        <EditorContent editor={editor} />
+      </div>
       <style jsx global>{`
-        .rte-content { padding: 16px 20px; min-height: 480px; font-size: 14px; line-height: 1.6; outline: none; }
+        .rte-page-wrap { border: 1px solid var(--abed-border); border-radius: 10px; overflow: hidden; background: white; }
+        .rte-content {
+          padding: 16px 20px; min-height: 480px; font-size: 14px; line-height: 1.6; outline: none;
+          background-image: repeating-linear-gradient(to bottom, transparent 0, transparent ${PAGE_HEIGHT_PX - 1}px, #e5e7eb ${PAGE_HEIGHT_PX - 1}px, #e5e7eb ${PAGE_HEIGHT_PX}px);
+        }
         .rte-content p { margin: 0 0 10px; }
         .rte-content a { color: #2563eb; text-decoration: underline; }
-        .rte-content table { border-collapse: collapse; width: 100%; margin: 10px 0; }
+        .rte-content table { border-collapse: collapse; margin: 10px 0; }
+        .rte-content .tableWrapper { overflow-x: auto; }
         .rte-content table td, .rte-content table th {
-          border: 1px solid #d1d5db; padding: 6px 8px; position: relative;
+          border: 1px solid #d1d5db; padding: 6px 8px; position: relative; min-width: 60px;
           overflow-wrap: break-word; word-break: break-word; white-space: normal; vertical-align: top;
         }
         .rte-content table th { background: #f0fdf4; font-weight: 700; }
+        /* Poignée de redimensionnement des colonnes (prosemirror-tables,
+           resizable: true) — invisible sans ce style explicite. */
+        .rte-content .column-resize-handle {
+          position: absolute; right: -2px; top: 0; bottom: -2px; width: 4px;
+          background-color: #16a34a; pointer-events: none;
+        }
+        .rte-content.resize-cursor { cursor: col-resize; }
         /* Surlignage de la sélection multi-cellules (glisser sur plusieurs
            cellules) — fourni par prosemirror-tables mais jamais importé,
            donc jusqu'ici la sélection était invisible bien que fonctionnelle
@@ -239,7 +423,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, {
         }
         .rte-content ul, .rte-content ol { padding-left: 22px; margin: 0 0 10px; }
         .rte-content [data-comment-id] { background: #fef9c3; border-bottom: 2px solid #eab308; cursor: pointer; }
-        .rte-content mark.rte-highlight { background: #fde047; border-radius: 2px; padding: 0 1px; }
+        .rte-content mark.rte-highlight { border-radius: 2px; padding: 0 1px; }
         .rte-content .doc-signature-stamp { max-height: 46px; vertical-align: middle; margin: 0 4px; }
         .collaboration-cursor__caret { position: relative; margin-left: -1px; margin-right: -1px; border-left: 1px solid; border-right: 1px solid; word-break: normal; pointer-events: none; }
         .collaboration-cursor__label { position: absolute; top: -1.4em; left: -1px; font-size: 11px; font-weight: 700; line-height: 1; user-select: none; white-space: nowrap; border-radius: 4px 4px 4px 0; padding: 2px 6px; color: white; }
