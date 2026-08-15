@@ -12,6 +12,7 @@ import {
   Table as TableIcon, Rows3, Columns3, TableRowsSplit, TableColumnsSplit, Trash2, MessageSquarePlus,
   Undo2, Redo2, CornerDownLeft, Merge, Split, Highlighter, PenLine,
   Baseline, Type, AlignVerticalSpaceAround, Save, Download, FileText, Eraser,
+  Heading, Heading1, Heading2, Heading3, Pilcrow,
 } from 'lucide-react'
 
 export type CollabConfig = {
@@ -130,6 +131,12 @@ const LINE_HEIGHTS = [
   { label: '1,15', value: '1.15' },
   { label: '1,5', value: '1.5' },
   { label: 'Double', value: '2' },
+]
+const TITLE_LEVELS: { label: string; level: 0 | 1 | 2 | 3; icon: React.ReactNode }[] = [
+  { label: 'Texte normal', level: 0, icon: <Pilcrow size={13} /> },
+  { label: 'Titre 1', level: 1, icon: <Heading1 size={13} /> },
+  { label: 'Titre 2', level: 2, icon: <Heading2 size={13} /> },
+  { label: 'Titre 3', level: 3, icon: <Heading3 size={13} /> },
 ]
 
 const RichTextEditor = forwardRef<RichTextEditorHandle, {
@@ -252,6 +259,11 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, {
     editor!.chain().focus().extendMarkRange('link').setLink({ href: url }).run()
   }
 
+  function definirTitre(level: 0 | 1 | 2 | 3) {
+    if (level === 0) editor!.chain().focus().setParagraph().run()
+    else editor!.chain().focus().toggleHeading({ level }).run()
+  }
+
   function definirAlignement(valeur: 'left' | 'center' | 'right' | 'justify') {
     if (editor!.isActive({ textAlign: valeur })) {
       editor!.chain().focus().unsetTextAlign().run()
@@ -297,6 +309,20 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, {
             <>
               <ToolbarButton title="Annuler (Ctrl+Z)" disabled={!editor.can().undo()} onClick={() => editor.chain().focus().undo().run()}><Undo2 size={14} /></ToolbarButton>
               <ToolbarButton title="Rétablir (Ctrl+Y)" disabled={!editor.can().redo()} onClick={() => editor.chain().focus().redo().run()}><Redo2 size={14} /></ToolbarButton>
+              <span style={{ width: 1, height: 18, background: '#e5e7eb', margin: '0 4px' }} />
+              <DropdownButton icon={<Heading size={14} />} title="Style de titre"
+                active={TITLE_LEVELS.some(t => t.level > 0 && editor.isActive('heading', { level: t.level }))}>
+                {close => (
+                  <div style={{ display: 'flex', flexDirection: 'column', minWidth: 150 }}>
+                    {TITLE_LEVELS.map(t => (
+                      <button key={t.level} type="button" style={menuItemStyle}
+                        onClick={() => { definirTitre(t.level); close() }}>
+                        {t.icon} {t.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </DropdownButton>
               <span style={{ width: 1, height: 18, background: '#e5e7eb', margin: '0 4px' }} />
               <ToolbarButton title="Gras" active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()}><Bold size={14} /></ToolbarButton>
               <ToolbarButton title="Italique" active={editor.isActive('italic')} onClick={() => editor.chain().focus().toggleItalic().run()}><Italic size={14} /></ToolbarButton>
@@ -412,6 +438,14 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, {
           );
         }
         .rte-content p { margin: 0 0 10px; }
+        .rte-content h1, .rte-content h2, .rte-content h3, .rte-content h4, .rte-content h5, .rte-content h6 {
+          margin: 20px 0 10px; font-weight: 700; line-height: 1.3; color: #111827;
+        }
+        .rte-content h1:first-child, .rte-content h2:first-child, .rte-content h3:first-child { margin-top: 0; }
+        .rte-content h1 { font-size: 24px; }
+        .rte-content h2 { font-size: 19px; }
+        .rte-content h3 { font-size: 16px; }
+        .rte-content h4, .rte-content h5, .rte-content h6 { font-size: 14px; }
         .rte-content a { color: #2563eb; text-decoration: underline; }
         .rte-content table { border-collapse: collapse; margin: 10px 0; }
         .rte-content .tableWrapper { overflow-x: auto; }

@@ -22,7 +22,7 @@ export function baseTdrExtensions(disableHistory: boolean) {
     StarterKit.configure(disableHistory ? { history: false } : {}),
     Underline,
     Link.configure({ openOnClick: false, autolink: true }),
-    TextAlign.configure({ types: ['paragraph'] }),
+    TextAlign.configure({ types: ['paragraph', 'heading'] }),
     // resizable: redimensionnement des colonnes à la souris (poignée sur la
     // bordure) — fourni nativement par prosemirror-tables, juste désactivé
     // avant. Le déplacement de lignes/colonnes par glisser-déposer, lui,
