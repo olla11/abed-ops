@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import * as Y from 'yjs'
-import { UserPlus, X, PanelRightOpen, PanelRightClose, Pencil, Trash2 } from 'lucide-react'
+import { UserPlus, X, PanelRightOpen, PanelRightClose, Pencil, Trash2, Lock, ArrowUp, ArrowDown, FileSignature } from 'lucide-react'
 import RichTextEditor from '@/components/RichTextEditor'
 import { createClient as createBrowserClient } from '@/lib/supabase-client'
 import { SupabaseYjsProvider, couleurPourUser } from '@/lib/yjs-supabase-provider'
@@ -13,23 +13,32 @@ type Commentaire = {
   id: string; mark_id: string; texte_cite: string | null; contenu: string
   created_at: string; parent_id: string | null; auteur: Profile | null
 }
+type Signataire = {
+  id: string; profile_id: string | null; email: string | null; nom_externe: string | null
+  signe: boolean; signe_le: string | null; est_observateur: boolean; ordre: number | null
+  profile: Profile | null
+}
 type Document = {
   id: string; titre: string; description: string | null; statut: string
-  contenu_html: string; created_at: string; updated_at: string; createur_id: string
-  createur: Profile | null; participants: Participant[]
+  contenu_html: string; fichier_url: string | null; created_at: string; updated_at: string; createur_id: string
+  createur: Profile | null; participants: Participant[]; signataires: Signataire[]
 }
+type LockEntry = { type: 'interne' | 'externe'; value: string }
 
 const inputStyle: React.CSSProperties = {
   width: '100%', padding: '9px 12px', borderRadius: 8, fontSize: 14,
   border: '1px solid var(--abed-border)', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit',
 }
+// Le verrouillage réutilise tel quel le statut 'en_attente' du circuit de
+// signature existant (voir /api/documents/[id]/verrouiller) — seul le
+// libellé affiché ici diffère ("En signature" plutôt que "En attente").
 const STATUT_LABELS: Record<string, string> = {
-  brouillon: 'Brouillon', revision: 'En révision', signature: 'En signature', complete: 'Terminé', refusee: 'Refusé',
+  brouillon: 'Brouillon', revision: 'En révision', en_attente: 'En signature', complete: 'Terminé', refusee: 'Refusé',
 }
 const STATUT_COLORS: Record<string, { bg: string; color: string }> = {
   brouillon: { bg: '#f3f4f6', color: '#6b7280' },
   revision: { bg: '#eff6ff', color: '#2563eb' },
-  signature: { bg: '#fffbeb', color: '#92400e' },
+  en_attente: { bg: '#fffbeb', color: '#92400e' },
   complete: { bg: '#f0fdf4', color: '#16a34a' },
   refusee: { bg: '#fef2f2', color: '#dc2626' },
 }
@@ -164,12 +173,29 @@ export default function DocumentDetailClient({ document: initial, myId, allProfi
     if (res.ok) { setPendingComment(null); setCommentaireTexte(''); chargerCommentaires() }
   }
 
-  async function supprimerCommentaire(id: string) {
-    if (!window.confirm('Supprimer ce commentaire ?')) return
-    // Pas de route DELETE dédiée en phase 1 — simple retrait visuel local si
-    // besoin ; la suppression serveur suivra dans une prochaine itération.
-    setCommentaires(cs => cs.filter(c => c.id !== id))
+  async function supprimerCommentaire(commentId: string) {
+    if (!window.confirm('Supprimer ce commentaire ? Ses éventuelles réponses seront aussi supprimées.')) return
+    const res = await fetch(`/api/documents/${document.id}/commentaires/${commentId}`, { method: 'DELETE' })
+    if (res.ok) setCommentaires(cs => cs.filter(c => c.id !== commentId && c.parent_id !== commentId))
   }
+
+  // Clic sur un passage surligné dans le texte : ouvre le panneau et pointe
+  // le commentaire correspondant (même comportement que sur les TDR).
+  const [commentaireCibleId, setCommentaireCibleId] = useState<string | null>(null)
+  const commentRefs = useRef<Record<string, HTMLDivElement | null>>({})
+
+  function ouvrirCommentaireDepuisTexte(markId: string) {
+    setPanelOpen(true)
+    setCommentaireCibleId(markId)
+  }
+
+  useEffect(() => {
+    if (!commentaireCibleId || !panelOpen) return
+    const el = commentRefs.current[commentaireCibleId]
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    const t = setTimeout(() => setCommentaireCibleId(null), 2200)
+    return () => clearTimeout(t)
+  }, [commentaireCibleId, panelOpen])
 
   // ── Participants ──
   const collabIds = new Set(document.participants.map(p => p.profile_id))
@@ -194,6 +220,68 @@ export default function DocumentDetailClient({ document: initial, myId, allProfi
     if (res.ok) rafraichir()
   }
 
+  // ── Verrouillage pour signature ──
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  const [showLockModal, setShowLockModal] = useState(false)
+  const [lockEntries, setLockEntries] = useState<LockEntry[]>([])
+  const [lockSearch, setLockSearch] = useState('')
+  const [lockExternalEmail, setLockExternalEmail] = useState('')
+  const [lockSequentiel, setLockSequentiel] = useState(true)
+  const [locking, setLocking] = useState(false)
+  const [lockErr, setLockErr] = useState<string | null>(null)
+
+  function lockKey(e: LockEntry) { return `${e.type}:${e.value}` }
+  function lockLabel(e: LockEntry): string {
+    if (e.type === 'externe') return e.value
+    const p = allProfiles.find(pp => pp.id === e.value)
+    return p ? `${p.prenoms} ${p.nom}` : e.value
+  }
+  function toggleLockProfile(id: string) {
+    setLockEntries(prev => prev.some(e => e.type === 'interne' && e.value === id)
+      ? prev.filter(e => !(e.type === 'interne' && e.value === id))
+      : [...prev, { type: 'interne', value: id }])
+  }
+  function addLockExternalEmail() {
+    const email = lockExternalEmail.trim().toLowerCase()
+    if (!email) return
+    if (!EMAIL_RE.test(email)) { setLockErr('Adresse email invalide.'); return }
+    if (lockEntries.some(e => e.type === 'externe' && e.value === email)) { setLockExternalEmail(''); return }
+    setLockEntries(prev => [...prev, { type: 'externe', value: email }])
+    setLockExternalEmail(''); setLockErr(null)
+  }
+  function removeLockEntry(key: string) {
+    setLockEntries(prev => prev.filter(e => lockKey(e) !== key))
+  }
+  function moveLockEntry(idx: number, dir: -1 | 1) {
+    setLockEntries(prev => {
+      const next = [...prev]
+      const j = idx + dir
+      if (j < 0 || j >= next.length) return prev
+      ;[next[idx], next[j]] = [next[j], next[idx]]
+      return next
+    })
+  }
+
+  async function verrouillerPourSignature() {
+    if (lockEntries.length === 0) { setLockErr('Choisissez au moins un signataire.'); return }
+    setLocking(true); setLockErr(null)
+    const res = await fetch(`/api/documents/${document.id}/verrouiller`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ signataires: lockEntries, sequentiel: lockSequentiel }),
+    })
+    setLocking(false)
+    if (res.ok) { setShowLockModal(false); rafraichir() }
+    else { const j = await res.json().catch(() => ({})); setLockErr(j.error ?? 'Erreur lors du verrouillage') }
+  }
+
+  const filteredLockProfiles = allProfiles.filter(p =>
+    p.id !== myId &&
+    (lockSearch === '' || `${p.prenoms} ${p.nom}`.toLowerCase().includes(lockSearch.toLowerCase()))
+  )
+
+  const monSignataire = document.signataires?.find(s => s.profile_id === myId)
+  const signatairesTries = [...(document.signataires ?? [])].filter(s => !s.est_observateur).sort((a, b) => (a.ordre ?? 0) - (b.ordre ?? 0))
+
   return (
     <div className="page-container">
       <div className="tdr-layout">
@@ -211,25 +299,63 @@ export default function DocumentDetailClient({ document: initial, myId, allProfi
                 </span>
               </div>
             </div>
-            <button onClick={() => setPanelOpen(v => !v)}
-              style={{
-                padding: '9px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                background: panelOpen ? 'var(--abed-green)' : 'white', color: panelOpen ? 'white' : '#374151',
-                border: panelOpen ? 'none' : '1px solid var(--abed-border)', display: 'flex', alignItems: 'center', gap: 6,
-              }}>
-              {panelOpen ? <PanelRightClose size={15} /> : <PanelRightOpen size={15} />}
-              Participants &amp; commentaires
-              {commentaires.length > 0 && (
-                <span style={{ fontSize: 10, fontWeight: 700, minWidth: 16, height: 16, padding: '0 4px', borderRadius: 20, background: panelOpen ? 'white' : 'var(--abed-green)', color: panelOpen ? 'var(--abed-green)' : 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {commentaires.length}
-                </span>
+            <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+              {isCreateur && document.statut === 'revision' && (
+                <button onClick={() => setShowLockModal(true)}
+                  style={{ padding: '9px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: '#4f46e5', color: 'white', border: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Lock size={15} /> Verrouiller pour signature
+                </button>
               )}
-            </button>
+              <button onClick={() => setPanelOpen(v => !v)}
+                style={{
+                  padding: '9px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                  background: panelOpen ? 'var(--abed-green)' : 'white', color: panelOpen ? 'white' : '#374151',
+                  border: panelOpen ? 'none' : '1px solid var(--abed-border)', display: 'flex', alignItems: 'center', gap: 6,
+                }}>
+                {panelOpen ? <PanelRightClose size={15} /> : <PanelRightOpen size={15} />}
+                Participants &amp; commentaires
+                {commentaires.length > 0 && (
+                  <span style={{ fontSize: 10, fontWeight: 700, minWidth: 16, height: 16, padding: '0 4px', borderRadius: 20, background: panelOpen ? 'white' : 'var(--abed-green)', color: panelOpen ? 'var(--abed-green)' : 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {commentaires.length}
+                  </span>
+                )}
+              </button>
+            </div>
           </div>
 
           {document.statut !== 'revision' && (
-            <div style={{ background: '#f3f4f6', border: '1px solid var(--abed-border)', borderRadius: 10, padding: '10px 16px', marginBottom: 16, fontSize: 13, color: 'var(--abed-muted)' }}>
-              La révision est terminée pour ce document — contenu en lecture seule.
+            <div style={{ background: statutColor.bg, border: `1px solid ${statutColor.color}33`, borderRadius: 10, padding: '14px 16px', marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: signatairesTries.length > 0 ? 10 : 0 }}>
+                <FileSignature size={16} color={statutColor.color} />
+                <span style={{ fontSize: 13, fontWeight: 700, color: statutColor.color }}>
+                  {document.statut === 'en_attente' && 'Document verrouillé — en circuit de signature'}
+                  {document.statut === 'complete' && 'Document entièrement signé'}
+                  {document.statut === 'refusee' && 'Signature refusée par un signataire'}
+                </span>
+              </div>
+              {signatairesTries.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 10 }}>
+                  {signatairesTries.map((s, i) => (
+                    <div key={s.id} style={{ fontSize: 12.5, color: '#374151', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span>{i + 1}.</span>
+                      <span>{s.profile ? `${s.profile.prenoms} ${s.profile.nom}` : (s.nom_externe ?? s.email ?? '—')}</span>
+                      {s.signe ? <span style={{ color: '#16a34a', fontWeight: 700 }}>✓ signé</span> : <span style={{ color: '#9ca3af' }}>en attente</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {document.statut === 'en_attente' && monSignataire && !monSignataire.signe && !monSignataire.est_observateur && (
+                <a href={`/signatures/${document.id}/signer`}
+                  style={{ display: 'inline-block', padding: '7px 16px', borderRadius: 8, background: 'var(--abed-green)', color: 'white', fontSize: 12.5, fontWeight: 700, textDecoration: 'none' }}>
+                  Aller signer
+                </a>
+              )}
+              {(document.statut === 'complete' || (!monSignataire || monSignataire.signe)) && document.fichier_url && (
+                <a href={`/signatures/${document.id}/view`}
+                  style={{ display: 'inline-block', padding: '7px 16px', borderRadius: 8, background: 'white', color: statutColor.color, border: `1px solid ${statutColor.color}55`, fontSize: 12.5, fontWeight: 700, textDecoration: 'none' }}>
+                  Voir / télécharger le document
+                </a>
+              )}
             </div>
           )}
 
@@ -243,6 +369,7 @@ export default function DocumentDetailClient({ document: initial, myId, allProfi
                 user: { name: monNom, color: couleurPourUser(myId) },
               } : undefined}
               onComment={canComment ? (markId, texte) => creerCommentaire(markId, texte) : undefined}
+              onClickComment={ouvrirCommentaireDepuisTexte}
             />
           </div>
 
@@ -319,7 +446,12 @@ export default function DocumentDetailClient({ document: initial, myId, allProfi
                   <p style={{ fontSize: 12, color: 'var(--abed-muted)', margin: 0 }}>Aucun commentaire. Sélectionnez du texte puis cliquez sur l&apos;icône de commentaire dans la barre d&apos;outils.</p>
                 )}
                 {commentaires.filter(c => !c.parent_id).map(c => (
-                  <div key={c.id} style={{ marginBottom: 10, paddingBottom: 10, borderBottom: '1px solid #f3f4f6' }}>
+                  <div key={c.id} ref={el => { commentRefs.current[c.mark_id] = el }}
+                    style={{
+                      marginBottom: 10, paddingBottom: 10, borderBottom: '1px solid #f3f4f6',
+                      borderRadius: 8, transition: 'background .3s',
+                      background: commentaireCibleId === c.mark_id ? '#fef9c3' : 'transparent',
+                    }}>
                     <CommentRow c={c} myId={myId} onDelete={supprimerCommentaire} />
                   </div>
                 ))}
@@ -343,6 +475,83 @@ export default function DocumentDetailClient({ document: initial, myId, allProfi
               <button onClick={() => setPendingComment(null)} style={{ padding: '9px 20px', borderRadius: 8, cursor: 'pointer', background: 'white', border: '1px solid var(--abed-border)', fontSize: 13 }}>Annuler</button>
               <button onClick={confirmerCommentaire} disabled={!commentaireTexte.trim()} style={{ padding: '9px 20px', borderRadius: 8, cursor: 'pointer', background: 'var(--abed-green)', color: 'white', border: 'none', fontSize: 13, fontWeight: 700 }}>
                 Commenter
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showLockModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: 'white', borderRadius: 14, padding: 28, width: '100%', maxWidth: 460, maxHeight: '88vh', overflowY: 'auto' }}>
+            <h3 style={{ marginBottom: 4, fontSize: 16 }}>Verrouiller pour signature</h3>
+            <p style={{ fontSize: 12.5, color: 'var(--abed-muted)', margin: '0 0 16px' }}>
+              Le contenu actuel sera figé en PDF et envoyé aux signataires choisis. La révision collaborative sera terminée.
+            </p>
+
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 12, fontWeight: 700, color: '#374151', display: 'block', marginBottom: 6 }}>Mode de signature</label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12.5, padding: '6px 10px', borderRadius: 8, border: `1px solid ${lockSequentiel ? '#4f46e5' : 'var(--abed-border)'}`, background: lockSequentiel ? '#eef2ff' : 'white', cursor: 'pointer' }}>
+                  <input type="radio" checked={lockSequentiel} onChange={() => setLockSequentiel(true)} /> Séquentielle (l&apos;un après l&apos;autre)
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12.5, padding: '6px 10px', borderRadius: 8, border: `1px solid ${!lockSequentiel ? '#4f46e5' : 'var(--abed-border)'}`, background: !lockSequentiel ? '#eef2ff' : 'white', cursor: 'pointer' }}>
+                  <input type="radio" checked={!lockSequentiel} onChange={() => setLockSequentiel(false)} /> Parallèle (tous en même temps)
+                </label>
+              </div>
+            </div>
+
+            {lockEntries.length > 0 && (
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: '#374151', display: 'block', marginBottom: 6 }}>
+                  Signataires {lockSequentiel ? '(ordre de signature)' : ''}
+                </label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {lockEntries.map((e, i) => (
+                    <div key={lockKey(e)} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--abed-border)' }}>
+                      <span style={{ color: '#9ca3af', minWidth: 16 }}>{i + 1}.</span>
+                      <span style={{ flex: 1 }}>{e.type === 'externe' ? '✉️ ' : ''}{lockLabel(e)}</span>
+                      {lockSequentiel && (
+                        <>
+                          <button onClick={() => moveLockEntry(i, -1)} disabled={i === 0} style={{ background: 'none', border: 'none', cursor: i === 0 ? 'default' : 'pointer', color: i === 0 ? '#d1d5db' : '#6b7280', display: 'flex' }}><ArrowUp size={13} /></button>
+                          <button onClick={() => moveLockEntry(i, 1)} disabled={i === lockEntries.length - 1} style={{ background: 'none', border: 'none', cursor: i === lockEntries.length - 1 ? 'default' : 'pointer', color: i === lockEntries.length - 1 ? '#d1d5db' : '#6b7280', display: 'flex' }}><ArrowDown size={13} /></button>
+                        </>
+                      )}
+                      <button onClick={() => removeLockEntry(lockKey(e))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', display: 'flex' }}><X size={13} /></button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+              <input type="email" placeholder="email@exterieur.com" value={lockExternalEmail}
+                onChange={e => setLockExternalEmail(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addLockExternalEmail() } }}
+                style={{ ...inputStyle, fontSize: 12.5 }} />
+              <button onClick={addLockExternalEmail} style={{ padding: '8px 14px', borderRadius: 8, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', background: '#4f46e5', color: 'white', border: 'none', whiteSpace: 'nowrap' }}>+ Ajouter</button>
+            </div>
+
+            <input type="text" placeholder="🔍 Rechercher un nom…" value={lockSearch} onChange={e => setLockSearch(e.target.value)} style={{ ...inputStyle, fontSize: 12.5, marginBottom: 6 }} />
+            <div style={{ border: '1px solid var(--abed-border)', borderRadius: 8, maxHeight: 160, overflowY: 'auto', background: '#fafafa', marginBottom: 16 }}>
+              {filteredLockProfiles.slice(0, 30).map(p => {
+                const selected = lockEntries.some(e => e.type === 'interne' && e.value === p.id)
+                return (
+                  <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', fontSize: 12.5, cursor: 'pointer', background: selected ? '#eef2ff' : 'transparent', borderBottom: '1px solid #f3f4f6' }}>
+                    <input type="checkbox" checked={selected} onChange={() => toggleLockProfile(p.id)} style={{ accentColor: '#4f46e5' }} />
+                    {p.prenoms} {p.nom}
+                  </label>
+                )
+              })}
+              {filteredLockProfiles.length === 0 && <div style={{ padding: '8px 10px', fontSize: 12, color: 'var(--abed-muted)' }}>Aucun résultat</div>}
+            </div>
+
+            {lockErr && <div style={{ color: '#c0392b', fontSize: 12.5, marginBottom: 12 }}>{lockErr}</div>}
+
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowLockModal(false)} disabled={locking} style={{ padding: '9px 20px', borderRadius: 8, cursor: 'pointer', background: 'white', border: '1px solid var(--abed-border)', fontSize: 13 }}>Annuler</button>
+              <button onClick={verrouillerPourSignature} disabled={locking || lockEntries.length === 0} style={{ padding: '9px 20px', borderRadius: 8, cursor: 'pointer', background: '#4f46e5', color: 'white', border: 'none', fontSize: 13, fontWeight: 700, opacity: locking ? 0.7 : 1 }}>
+                {locking ? 'Verrouillage…' : 'Verrouiller et envoyer'}
               </button>
             </div>
           </div>

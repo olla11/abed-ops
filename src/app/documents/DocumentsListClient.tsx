@@ -1,7 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { FileText, Plus, PenLine } from 'lucide-react'
+import { FileText, Plus } from 'lucide-react'
 
 type Document = {
   id: string; titre: string; description: string | null; statut: string; created_at: string
@@ -11,14 +11,14 @@ type Document = {
 const STATUT_LABELS: Record<string, string> = {
   brouillon: 'Brouillon',
   revision: 'En révision',
-  signature: 'En signature',
+  en_attente: 'En signature',
   complete: 'Terminé',
   refusee: 'Refusé',
 }
 const STATUT_COLORS: Record<string, { bg: string; color: string }> = {
   brouillon: { bg: '#f3f4f6', color: '#6b7280' },
   revision: { bg: '#eff6ff', color: '#2563eb' },
-  signature: { bg: '#fffbeb', color: '#92400e' },
+  en_attente: { bg: '#fffbeb', color: '#92400e' },
   complete: { bg: '#f0fdf4', color: '#16a34a' },
   refusee: { bg: '#fef2f2', color: '#dc2626' },
 }
@@ -36,13 +36,6 @@ export default function DocumentsListClient({ documents, myId }: { documents: Do
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <Link href="/signatures" style={{
-            padding: '9px 18px', borderRadius: 8, fontSize: 13, fontWeight: 600,
-            background: 'white', color: '#374151', border: '1px solid var(--abed-border)', textDecoration: 'none',
-            display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
-          }}>
-            <PenLine size={15} /> Signature directe
-          </Link>
           <Link href="/documents/nouveau" style={{
             padding: '9px 20px', borderRadius: 8, fontSize: 13, fontWeight: 700,
             background: 'var(--abed-green)', color: 'white', border: 'none', textDecoration: 'none',

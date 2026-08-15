@@ -7,6 +7,7 @@ import TableRow from '@tiptap/extension-table-row'
 import TableCell from '@tiptap/extension-table-cell'
 import TableHeader from '@tiptap/extension-table-header'
 import { CommentMark } from './tiptap-comment-mark'
+import { HighlightMark } from './tiptap-highlight-mark'
 
 // Liste de base des extensions TipTap (hors Collaboration/CollaborationCursor,
 // qui ne changent pas le schéma). Partagée entre l'éditeur et la logique
@@ -23,5 +24,6 @@ export function baseTdrExtensions(disableHistory: boolean) {
     TableHeader,
     TableCell,
     CommentMark,
+    HighlightMark,
   ]
 }

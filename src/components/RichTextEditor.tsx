@@ -10,7 +10,7 @@ import {
   Bold, Italic, Underline as UnderlineIcon, Link2, List, ListOrdered,
   AlignLeft, AlignCenter, AlignRight, AlignJustify,
   Table as TableIcon, Rows3, Columns3, TableRowsSplit, TableColumnsSplit, Trash2, MessageSquarePlus,
-  Undo2, Redo2, CornerDownLeft, Merge, Split,
+  Undo2, Redo2, CornerDownLeft, Merge, Split, Highlighter,
 } from 'lucide-react'
 
 export type CollabConfig = {
@@ -20,16 +20,17 @@ export type CollabConfig = {
   user: { name: string; color: string }
 }
 
-function ToolbarButton({ onClick, active, title, children, disabled }: { onClick: () => void; active?: boolean; title: string; children: React.ReactNode; disabled?: boolean }) {
+function ToolbarButton({ onClick, active, title, children, disabled, label }: { onClick: () => void; active?: boolean; title: string; children: React.ReactNode; disabled?: boolean; label?: string }) {
   return (
     <button type="button" onClick={onClick} title={title} disabled={disabled}
       style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        width: 30, height: 28, borderRadius: 6, border: 'none', cursor: disabled ? 'not-allowed' : 'pointer',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+        padding: label ? '0 10px' : 0, width: label ? 'auto' : 30, height: 28, borderRadius: 6, border: 'none', cursor: disabled ? 'not-allowed' : 'pointer',
         background: active ? '#dcfce7' : 'transparent', color: active ? '#16a34a' : '#374151',
-        opacity: disabled ? 0.4 : 1,
+        opacity: disabled ? 0.4 : 1, fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap',
       }}>
       {children}
+      {label && <span>{label}</span>}
     </button>
   )
 }
@@ -130,6 +131,7 @@ export default function RichTextEditor({
           <ToolbarButton title="Italique" active={editor.isActive('italic')} onClick={() => editor.chain().focus().toggleItalic().run()}><Italic size={14} /></ToolbarButton>
           <ToolbarButton title="Souligné" active={editor.isActive('underline')} onClick={() => editor.chain().focus().toggleUnderline().run()}><UnderlineIcon size={14} /></ToolbarButton>
           <ToolbarButton title="Lien" active={editor.isActive('link')} onClick={ajouterLien}><Link2 size={14} /></ToolbarButton>
+          <ToolbarButton title="Surligner la sélection" label="Surligner" active={editor.isActive('highlight')} onClick={() => editor.chain().focus().toggleHighlight().run()}><Highlighter size={14} /></ToolbarButton>
           <span style={{ width: 1, height: 18, background: '#e5e7eb', margin: '0 4px' }} />
           <ToolbarButton title="Liste à puces" active={editor.isActive('bulletList')} onClick={() => editor.chain().focus().toggleBulletList().run()}><List size={14} /></ToolbarButton>
           <ToolbarButton title="Liste numérotée" active={editor.isActive('orderedList')} onClick={() => editor.chain().focus().toggleOrderedList().run()}><ListOrdered size={14} /></ToolbarButton>
@@ -156,14 +158,14 @@ export default function RichTextEditor({
           {onComment && (
             <>
               <span style={{ width: 1, height: 18, background: '#e5e7eb', margin: '0 4px' }} />
-              <ToolbarButton title="Commenter la sélection" disabled={selectionVide} onClick={ajouterCommentaire}><MessageSquarePlus size={14} /></ToolbarButton>
+              <ToolbarButton title="Commenter la sélection" label="Commenter" disabled={selectionVide} onClick={ajouterCommentaire}><MessageSquarePlus size={14} /></ToolbarButton>
             </>
           )}
         </div>
       )}
       {readOnly && onComment && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 6px', borderBottom: '1px solid var(--abed-border)', background: '#f9fafb' }}>
-          <ToolbarButton title="Commenter la sélection" disabled={selectionVide} onClick={ajouterCommentaire}><MessageSquarePlus size={14} /></ToolbarButton>
+          <ToolbarButton title="Commenter la sélection" label="Commenter" disabled={selectionVide} onClick={ajouterCommentaire}><MessageSquarePlus size={14} /></ToolbarButton>
           <span style={{ fontSize: 11, color: 'var(--abed-muted)' }}>Sélectionnez du texte pour le commenter</span>
         </div>
       )}
@@ -188,6 +190,7 @@ export default function RichTextEditor({
         }
         .rte-content ul, .rte-content ol { padding-left: 22px; margin: 0 0 10px; }
         .rte-content [data-comment-id] { background: #fef9c3; border-bottom: 2px solid #eab308; cursor: pointer; }
+        .rte-content mark.rte-highlight { background: #fde047; border-radius: 2px; padding: 0 1px; }
         .collaboration-cursor__caret { position: relative; margin-left: -1px; margin-right: -1px; border-left: 1px solid; border-right: 1px solid; word-break: normal; pointer-events: none; }
         .collaboration-cursor__label { position: absolute; top: -1.4em; left: -1px; font-size: 11px; font-weight: 700; line-height: 1; user-select: none; white-space: nowrap; border-radius: 4px 4px 4px 0; padding: 2px 6px; color: white; }
       `}</style>
