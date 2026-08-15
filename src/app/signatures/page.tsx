@@ -69,6 +69,11 @@ export default async function SignaturesPage() {
         createur:profiles!demandes_signature_createur_id_fkey(nom, prenoms),
         signataires(profile_id, email, nom_externe, signe, signe_le, refuse, refuse_le, refuse_motif, est_observateur, profile:profiles!signataires_profile_id_fkey(nom, prenoms))
       `)
+      // Les documents en révision collaborative (module "Documents") ont leur
+      // propre liste — ils n'ont pas encore de fichier_url/signataires tant
+      // qu'ils n'ont pas été verrouillés pour signature, donc ne doivent pas
+      // apparaître ici avant ça.
+      .eq('type', 'signature_directe')
       .order('created_at', { ascending: false }),
     getCachedProfilesForSignatures(),
   ])
