@@ -1,4 +1,6 @@
 import { Node, mergeAttributes } from '@tiptap/core'
+import { ReactNodeViewRenderer } from '@tiptap/react'
+import SignatureStampView from '@/components/SignatureStampView'
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
@@ -12,12 +14,16 @@ declare module '@tiptap/core' {
 // choisi par le signataire — pas de verrouillage ni de circuit séparé : le
 // tampon fait partie du contenu du document comme n'importe quel autre
 // élément (image), sauvegardé via le PATCH habituel de contenu_html.
+// draggable: true (+ data-drag-handle côté vue) permet de le déplacer à la
+// souris n'importe où dans le document ; la vue React (SignatureStampView)
+// ajoute une poignée de redimensionnement au coin quand il est sélectionné.
 export const SignatureStampNode = Node.create({
   name: 'signatureStamp',
   group: 'inline',
   inline: true,
   atom: true,
   selectable: true,
+  draggable: true,
   addAttributes() {
     return {
       src: {
@@ -35,6 +41,14 @@ export const SignatureStampNode = Node.create({
         parseHTML: (el: HTMLElement) => el.getAttribute('data-signed-at'),
         renderHTML: (attrs: { signedAt?: string | null }) => (attrs.signedAt ? { 'data-signed-at': attrs.signedAt } : {}),
       },
+      width: {
+        default: 200,
+        parseHTML: (el: HTMLElement) => {
+          const w = el.style.width || el.getAttribute('width')
+          return w ? parseInt(w, 10) : null
+        },
+        renderHTML: (attrs: { width?: number | null }) => (attrs.width ? { style: `width: ${attrs.width}px` } : {}),
+      },
     }
   },
   parseHTML() {
@@ -42,6 +56,9 @@ export const SignatureStampNode = Node.create({
   },
   renderHTML({ HTMLAttributes }) {
     return ['img', mergeAttributes(HTMLAttributes, { class: 'doc-signature-stamp', 'data-signature-stamp': 'true' })]
+  },
+  addNodeView() {
+    return ReactNodeViewRenderer(SignatureStampView)
   },
   addCommands() {
     return {

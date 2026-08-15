@@ -1,6 +1,10 @@
-8 fichiers modifiés/créés + 1 fichier à SUPPRIMER manuellement.
+9 fichiers modifiés/créés — décompresse et colle par-dessus ton clone local.
 
-À SUPPRIMER dans ton clone local (n'existe plus dans ce zip, il faut l'effacer toi-même) :
-  src/app/api/documents/[id]/verrouiller/route.ts
+IMPORTANT : nouvelle dépendance npm (html-to-docx, pour le téléchargement
+Word). package.json et package-lock.json sont inclus dans ce zip — après
+avoir collé les fichiers, lance :
 
-Le reste : décompresse et colle par-dessus ton clone local (structure src/ préservée).
+  npm install
+
+avant de redémarrer/rebuilder le projet, sinon la route de téléchargement
+.docx échouera au démarrage (module introuvable).

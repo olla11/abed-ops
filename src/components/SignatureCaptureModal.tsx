@@ -4,6 +4,14 @@ import { attendrePoliceSignature } from '@/lib/signature-font'
 
 type SignMode = 'saisir' | 'dessiner' | 'importer' | 'enregistree'
 
+const BRACKET_COLOR = '#2563eb'
+
+function shortHash(s: string): string {
+  let h = 0
+  for (let i = 0; i < s.length; i++) { h = (Math.imul(31, h) + s.charCodeAt(i)) | 0 }
+  return Math.abs(h).toString(16).toUpperCase().padStart(8, '0')
+}
+
 /**
  * Recadre un canvas transparent sur le contenu réellement dessiné — même
  * logique que SignerClient (signature du circuit PDF), dupliquée ici
@@ -36,6 +44,15 @@ function trimTransparentCanvas(canvas: HTMLCanvasElement): string {
   trimmed.width = w; trimmed.height = h
   trimmed.getContext('2d')!.drawImage(canvas, minX, minY, w, h, 0, 0, w, h)
   return trimmed.toDataURL('image/png')
+}
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => resolve(img)
+    img.onerror = reject
+    img.src = src
+  })
 }
 
 function SignatureDrawPad({ onChange }: { onChange: (dataUrl: string | null) => void }) {
@@ -120,10 +137,12 @@ export default function SignatureCaptureModal({ userName, signatureEnregistree, 
 
   const rawImage = mode === 'dessiner' ? drawnImage : mode === 'importer' ? importedImage : mode === 'enregistree' ? (signatureEnregistree ?? null) : null
 
-  // Aperçu du nom saisi en cursive, rendu en canvas transparent — pas de
-  // chrome (crochet/date/hash) contrairement au tampon PDF du circuit
-  // formel : ici le tampon s'insère au fil du texte, une légende texte
-  // (nom + date) suit juste à côté dans le document.
+  const today = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  const sigHash = shortHash(userName + today)
+
+  // Rendu du nom saisi en cursive vers un PNG transparent, sans habillage —
+  // sert de contenu au tampon de marque ci-dessous (même chemin que les
+  // autres modes, qui fournissent directement leur image).
   async function rendreNomEnImage(): Promise<string> {
     await attendrePoliceSignature()
     const SCALE = 3
@@ -142,14 +161,91 @@ export default function SignatureCaptureModal({ userName, signatureEnregistree, 
     return canvas.toDataURL('image/png')
   }
 
+  /**
+   * Habille une image de contenu (nom cursif ou dessin/import/enregistrée)
+   * dans le même tampon de marque que le circuit de signature PDF formel
+   * (crochet bleu, en-tête "MyABED signed by:", séparateur, date + hash) —
+   * porté ici depuis SignerClient volontairement dupliqué, pour ne jamais
+   * toucher ce circuit déjà en production.
+   */
+  async function habillerEnTampon(contentImage: string): Promise<string> {
+    const SCALE = 3
+    const BH = 80 * SCALE
+    const hookLen = 13 * SCALE
+    const cornerRadius = Math.round(BH * 0.047)
+    const bracketInset = Math.round(BH * 0.165)
+    const bx = 2 * SCALE
+    const textX = bx + hookLen + 8 * SCALE
+    const hashTexte = `${sigHash.slice(0, 12)}...`
+    const dateHashGap = 10 * SCALE
+
+    const img = await loadImage(contentImage)
+    const contentAreaTop = Math.round(BH * 0.18)
+    const contentAreaBottom = Math.round(BH * 0.66)
+    const targetH = contentAreaBottom - contentAreaTop
+    const maxW = 230 * SCALE
+    const imgW = Math.min(maxW, targetH * (img.width / img.height))
+    const imgH = imgW * (img.height / img.width)
+
+    const mesure = document.createElement('canvas').getContext('2d')!
+    mesure.font = `bold ${9 * SCALE}px Arial, sans-serif`
+    const headerW = mesure.measureText('MYABED SIGNED BY:').width
+    mesure.font = `${8 * SCALE}px Arial, sans-serif`
+    const dateW = mesure.measureText(today).width
+    const hashW = mesure.measureText(hashTexte).width
+
+    const contentW = Math.max(headerW, imgW, dateW + dateHashGap + hashW)
+    const BW = Math.max(150 * SCALE, Math.ceil(textX + contentW + 6 * SCALE))
+
+    const canvas = document.createElement('canvas')
+    canvas.width = BW; canvas.height = BH
+    const ctx = canvas.getContext('2d')!
+
+    ctx.strokeStyle = BRACKET_COLOR
+    ctx.lineWidth = 2 * SCALE
+    ctx.lineCap = 'round'
+    ctx.beginPath()
+    ctx.moveTo(bx + hookLen, bracketInset)
+    ctx.lineTo(bx + cornerRadius, bracketInset)
+    ctx.arcTo(bx, bracketInset, bx, bracketInset + cornerRadius, cornerRadius)
+    ctx.lineTo(bx, BH - bracketInset - cornerRadius)
+    ctx.arcTo(bx, BH - bracketInset, bx + cornerRadius, BH - bracketInset, cornerRadius)
+    ctx.lineTo(bx + hookLen, BH - bracketInset)
+    ctx.stroke()
+
+    ctx.fillStyle = '#374151'
+    ctx.font = `bold ${9 * SCALE}px Arial, sans-serif`
+    ctx.fillText('MYABED SIGNED BY:', textX, Math.round(BH * 0.155))
+
+    ctx.drawImage(img, textX, contentAreaTop + (targetH - imgH) / 2, imgW, imgH)
+
+    ctx.strokeStyle = '#d1d5db'
+    ctx.lineWidth = 1 * SCALE
+    ctx.beginPath()
+    ctx.moveTo(textX, Math.round(BH * 0.70))
+    ctx.lineTo(BW - 4 * SCALE, Math.round(BH * 0.70))
+    ctx.stroke()
+
+    ctx.fillStyle = '#6b7280'
+    ctx.font = `${8 * SCALE}px Arial, sans-serif`
+    ctx.fillText(today, textX, Math.round(BH * 0.855))
+    ctx.fillStyle = '#9ca3af'
+    ctx.fillText(hashTexte, textX + dateW + dateHashGap, Math.round(BH * 0.855))
+
+    return canvas.toDataURL('image/png')
+  }
+
+  async function genererTampon(): Promise<string | null> {
+    const content = mode === 'saisir' ? await rendreNomEnImage() : rawImage
+    if (!content) return null
+    return habillerEnTampon(content)
+  }
+
   useEffect(() => {
     let cancelled = false
-    if (mode === 'saisir') {
-      if (!policeChargee) { setPreview(null); return }
-      rendreNomEnImage().then(url => { if (!cancelled) setPreview(url) })
-    } else {
-      setPreview(rawImage)
-    }
+    if (mode === 'saisir' && !policeChargee) { setPreview(null); return }
+    if (mode !== 'saisir' && !rawImage) { setPreview(null); return }
+    genererTampon().then(url => { if (!cancelled) setPreview(url) })
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, policeChargee, rawImage])
@@ -162,8 +258,7 @@ export default function SignatureCaptureModal({ userName, signatureEnregistree, 
   }
 
   async function confirmer() {
-    let image: string | null = preview
-    if (mode === 'saisir') image = await rendreNomEnImage()
+    const image = preview ?? await genererTampon()
     if (!image) return
     onConfirm(image, saveAsDefault)
   }
@@ -172,10 +267,10 @@ export default function SignatureCaptureModal({ userName, signatureEnregistree, 
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div style={{ background: 'white', borderRadius: 14, padding: 28, width: '100%', maxWidth: 440 }}>
+      <div style={{ background: 'white', borderRadius: 14, padding: 28, width: '100%', maxWidth: 460 }}>
         <h3 style={{ marginBottom: 4, fontSize: 16 }}>Apposer ma signature</h3>
         <p style={{ fontSize: 12.5, color: 'var(--abed-muted)', margin: '0 0 16px' }}>
-          Insérée à l&apos;endroit du curseur dans le document.
+          Insérée à l&apos;endroit du curseur dans le document — déplaçable et redimensionnable ensuite à la souris.
         </p>
 
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
@@ -220,8 +315,8 @@ export default function SignatureCaptureModal({ userName, signatureEnregistree, 
 
         <div style={{ marginTop: 16, marginBottom: 18 }}>
           <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 8, color: '#6b7280' }}>Aperçu</label>
-          <div style={{ minHeight: 60, display: 'flex', alignItems: 'center', padding: '8px 12px', border: '1px solid var(--abed-border)', borderRadius: 8, background: '#fafafa' }}>
-            {preview ? <img src={preview} alt="Aperçu de la signature" style={{ maxHeight: 50, maxWidth: '100%' }} /> : <span style={{ fontSize: 12, color: 'var(--abed-muted)' }}>Aucun aperçu pour l&apos;instant.</span>}
+          <div style={{ minHeight: 90, display: 'flex', alignItems: 'center', padding: '8px 12px', border: '1px solid var(--abed-border)', borderRadius: 8, background: '#fafafa' }}>
+            {preview ? <img src={preview} alt="Aperçu de la signature" style={{ maxHeight: 80, maxWidth: '100%' }} /> : <span style={{ fontSize: 12, color: 'var(--abed-muted)' }}>Aucun aperçu pour l&apos;instant.</span>}
           </div>
         </div>
 

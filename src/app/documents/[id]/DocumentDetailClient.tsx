@@ -304,7 +304,8 @@ export default function DocumentDetailClient({ document: initial, myId, allProfi
             onSign={canSign ? () => setShowSignModal(true) : undefined}
             onSave={canEdit ? () => enregistrer() : undefined}
             saving={saving}
-            onDownload={() => window.open(`/api/documents/${document.id}/pdf`, '_blank')}
+            onDownloadPdf={() => window.open(`/api/documents/${document.id}/pdf`, '_blank')}
+            onDownloadWord={() => window.open(`/api/documents/${document.id}/docx`, '_blank')}
           />
         </div>
 

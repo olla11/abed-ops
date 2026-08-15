@@ -137,9 +137,10 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, {
   onSign?: () => void
   onSave?: () => void
   saving?: boolean
-  onDownload?: () => void
+  onDownloadPdf?: () => void
+  onDownloadWord?: () => void
 }>(function RichTextEditor({
-  value, onChange, readOnly, collab, onComment, onClickComment, onSign, onSave, saving, onDownload,
+  value, onChange, readOnly, collab, onComment, onClickComment, onSign, onSave, saving, onDownloadPdf, onDownloadWord,
 }, ref) {
   const [, setTick] = useState(0)
 
@@ -281,7 +282,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, {
 
   return (
     <div>
-      {(!readOnly || onComment || onSign || onSave || onDownload) && (
+      {(!readOnly || onComment || onSign || onSave || onDownloadPdf || onDownloadWord) && (
         <div className="rte-toolbar" style={{
           position: 'sticky', top: 60, zIndex: 40, display: 'flex', alignItems: 'center', gap: 2,
           padding: '6px 8px', borderRadius: 10, background: 'white', boxShadow: '0 2px 10px rgba(0,0,0,.08)',
@@ -368,15 +369,16 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, {
           )}
           {readOnly && commentSignRow}
 
-          {(onSave || onDownload) && (
+          {(onSave || onDownloadPdf || onDownloadWord) && (
             <>
               <span style={{ width: 1, height: 18, background: '#e5e7eb', margin: '0 4px' }} />
               {onSave && <ToolbarButton title={saving ? 'Enregistrement…' : 'Enregistrer'} onClick={onSave} disabled={saving}><Save size={14} /></ToolbarButton>}
               <DropdownButton icon={<FileText size={14} />} title="Fichier" label="Fichier">
                 {close => (
-                  <div style={{ display: 'flex', flexDirection: 'column', minWidth: 160 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', minWidth: 180 }}>
                     {onSave && <button type="button" style={menuItemStyle} onClick={() => { onSave(); close() }}><Save size={13} /> Enregistrer</button>}
-                    {onDownload && <button type="button" style={menuItemStyle} onClick={() => { onDownload(); close() }}><Download size={13} /> Télécharger en PDF</button>}
+                    {onDownloadPdf && <button type="button" style={menuItemStyle} onClick={() => { onDownloadPdf(); close() }}><Download size={13} /> Télécharger en PDF</button>}
+                    {onDownloadWord && <button type="button" style={menuItemStyle} onClick={() => { onDownloadWord(); close() }}><Download size={13} /> Télécharger en Word</button>}
                   </div>
                 )}
               </DropdownButton>
