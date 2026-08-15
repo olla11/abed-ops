@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, forwardRef, useImperativeHandle } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import Collaboration from '@tiptap/extension-collaboration'
 import CollaborationCursor from '@tiptap/extension-collaboration-cursor'
@@ -10,7 +10,7 @@ import {
   Bold, Italic, Underline as UnderlineIcon, Link2, List, ListOrdered,
   AlignLeft, AlignCenter, AlignRight, AlignJustify,
   Table as TableIcon, Rows3, Columns3, TableRowsSplit, TableColumnsSplit, Trash2, MessageSquarePlus,
-  Undo2, Redo2, CornerDownLeft, Merge, Split, Highlighter,
+  Undo2, Redo2, CornerDownLeft, Merge, Split, Highlighter, PenLine,
 } from 'lucide-react'
 
 export type CollabConfig = {
@@ -18,6 +18,20 @@ export type CollabConfig = {
   fragment: string
   provider: SupabaseYjsProvider
   user: { name: string; color: string }
+}
+
+export type RichTextEditorHandle = {
+  // Retire toutes les marques "comment" portant ce commentId, dans tout le
+  // document — utilisé quand un commentaire est supprimé, pour que le
+  // surlignage associé disparaisse avec lui.
+  removeCommentMark: (commentId: string) => void
+  // Insère un tampon de signature à la position actuelle du curseur.
+  insertSignatureStamp: (src: string, signerName: string) => void
+  // Lecture synchrone du HTML courant — utile juste après un appel
+  // impératif (insertSignatureStamp, removeCommentMark) : onChange étant
+  // asynchrone via le state React du parent, ce getter évite de sauvegarder
+  // une version obsolète du contenu.
+  getHTML: () => string
 }
 
 function ToolbarButton({ onClick, active, title, children, disabled, label }: { onClick: () => void; active?: boolean; title: string; children: React.ReactNode; disabled?: boolean; label?: string }) {
@@ -35,16 +49,17 @@ function ToolbarButton({ onClick, active, title, children, disabled, label }: { 
   )
 }
 
-export default function RichTextEditor({
-  value, onChange, readOnly, collab, onComment, onClickComment,
-}: {
+const RichTextEditor = forwardRef<RichTextEditorHandle, {
   value: string
   onChange?: (html: string) => void
   readOnly: boolean
   collab?: CollabConfig
   onComment?: (commentId: string, texteSelectionne: string) => void
   onClickComment?: (commentId: string) => void
-}) {
+  onSign?: () => void
+}>(function RichTextEditor({
+  value, onChange, readOnly, collab, onComment, onClickComment, onSign,
+}, ref) {
   const [, setTick] = useState(0)
 
   const extensions = [
@@ -85,6 +100,33 @@ export default function RichTextEditor({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, editor, collab])
+
+  useImperativeHandle(ref, () => ({
+    removeCommentMark(commentId: string) {
+      if (!editor) return
+      const { state, view } = editor
+      let tr = state.tr
+      let changed = false
+      state.doc.descendants((node, pos) => {
+        node.marks.forEach(mark => {
+          if (mark.type.name === 'comment' && (mark.attrs as { commentId?: string }).commentId === commentId) {
+            tr = tr.removeMark(pos, pos + node.nodeSize, mark.type)
+            changed = true
+          }
+        })
+      })
+      if (changed) view.dispatch(tr)
+    },
+    insertSignatureStamp(src: string, signerName: string) {
+      if (!editor) return
+      editor.chain().focus().insertSignatureStamp({
+        src, signerName, signedAt: new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+      }).run()
+    },
+    getHTML() {
+      return editor?.getHTML() ?? ''
+    },
+  }), [editor])
 
   if (!editor) return null
 
@@ -161,12 +203,19 @@ export default function RichTextEditor({
               <ToolbarButton title="Commenter la sélection" label="Commenter" disabled={selectionVide} onClick={ajouterCommentaire}><MessageSquarePlus size={14} /></ToolbarButton>
             </>
           )}
+          {onSign && (
+            <>
+              <span style={{ width: 1, height: 18, background: '#e5e7eb', margin: '0 4px' }} />
+              <ToolbarButton title="Apposer ma signature ici" label="Signer" onClick={onSign}><PenLine size={14} /></ToolbarButton>
+            </>
+          )}
         </div>
       )}
-      {readOnly && onComment && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 6px', borderBottom: '1px solid var(--abed-border)', background: '#f9fafb' }}>
-          <ToolbarButton title="Commenter la sélection" label="Commenter" disabled={selectionVide} onClick={ajouterCommentaire}><MessageSquarePlus size={14} /></ToolbarButton>
-          <span style={{ fontSize: 11, color: 'var(--abed-muted)' }}>Sélectionnez du texte pour le commenter</span>
+      {readOnly && (onComment || onSign) && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 6px', borderBottom: '1px solid var(--abed-border)', background: '#f9fafb', flexWrap: 'wrap' }}>
+          {onComment && <ToolbarButton title="Commenter la sélection" label="Commenter" disabled={selectionVide} onClick={ajouterCommentaire}><MessageSquarePlus size={14} /></ToolbarButton>}
+          {onSign && <ToolbarButton title="Apposer ma signature ici" label="Signer" onClick={onSign}><PenLine size={14} /></ToolbarButton>}
+          {onComment && <span style={{ fontSize: 11, color: 'var(--abed-muted)' }}>Sélectionnez du texte pour le commenter</span>}
         </div>
       )}
       <EditorContent editor={editor} />
@@ -191,9 +240,12 @@ export default function RichTextEditor({
         .rte-content ul, .rte-content ol { padding-left: 22px; margin: 0 0 10px; }
         .rte-content [data-comment-id] { background: #fef9c3; border-bottom: 2px solid #eab308; cursor: pointer; }
         .rte-content mark.rte-highlight { background: #fde047; border-radius: 2px; padding: 0 1px; }
+        .rte-content .doc-signature-stamp { max-height: 46px; vertical-align: middle; margin: 0 4px; }
         .collaboration-cursor__caret { position: relative; margin-left: -1px; margin-right: -1px; border-left: 1px solid; border-right: 1px solid; word-break: normal; pointer-events: none; }
         .collaboration-cursor__label { position: absolute; top: -1.4em; left: -1px; font-size: 11px; font-weight: 700; line-height: 1; user-select: none; white-space: nowrap; border-radius: 4px 4px 4px 0; padding: 2px 6px; color: white; }
       `}</style>
     </div>
   )
-}
+})
+
+export default RichTextEditor
