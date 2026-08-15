@@ -253,6 +253,14 @@ export default function DocumentDetailClient({ document: initial, myId, allProfi
     if (res.ok) rafraichir()
   }
 
+  async function modifierPermission(profileId: string, permission: 'lecture' | 'commentaire' | 'edition') {
+    const res = await fetch(`/api/documents/${document.id}/participants`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ profile_id: profileId, permission }),
+    })
+    if (res.ok) rafraichir()
+  }
+
   return (
     <div className="page-container">
       <div className="tdr-layout">
@@ -338,10 +346,20 @@ export default function DocumentDetailClient({ document: initial, myId, allProfi
                   <span>{document.createur ? `${document.createur.prenoms} ${document.createur.nom}` : '—'}<span style={{ fontSize: 10, color: 'var(--abed-muted)', marginLeft: 6 }}>(créateur)</span></span>
                 </div>
                 {document.participants.filter(p => p.profile_id !== document.createur_id).map(p => (
-                  <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, fontSize: 13 }}>
-                    <span>{p.profile ? `${p.profile.prenoms} ${p.profile.nom}` : '—'}<PermissionBadge permission={p.permission} /></span>
-                    {isCreateur && (
-                      <button onClick={() => retirerParticipant(p.profile_id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', display: 'flex' }}><X size={13} /></button>
+                  <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, fontSize: 13, gap: 6 }}>
+                    <span>{p.profile ? `${p.profile.prenoms} ${p.profile.nom}` : '—'}</span>
+                    {isCreateur ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <select value={p.permission} onChange={e => modifierPermission(p.profile_id, e.target.value as 'lecture' | 'commentaire' | 'edition')}
+                          style={{ fontSize: 11, padding: '3px 6px', borderRadius: 6, border: '1px solid var(--abed-border)', background: 'white', color: '#374151' }}>
+                          <option value="lecture">Lecture</option>
+                          <option value="commentaire">Commentaire</option>
+                          <option value="edition">Édition</option>
+                        </select>
+                        <button onClick={() => retirerParticipant(p.profile_id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', display: 'flex' }}><X size={13} /></button>
+                      </div>
+                    ) : (
+                      <PermissionBadge permission={p.permission} />
                     )}
                   </div>
                 ))}

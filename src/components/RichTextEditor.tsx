@@ -39,6 +39,11 @@ export type RichTextEditorHandle = {
 // uniquement de repère visuel (bandes + indicateur "Page X / Y") pour un
 // contenu qui reste en flux continu, pas une pagination réelle à l'impression.
 const PAGE_HEIGHT_PX = 1123
+// Épaisseur du "vide" entre deux pages (comme l'espace gris entre deux
+// pages dans Google Docs) — assez large pour se voir clairement, pas juste
+// un trait fin facile à manquer.
+const PAGE_GAP_PX = 36
+const PAGE_CYCLE_PX = PAGE_HEIGHT_PX + PAGE_GAP_PX
 
 function ToolbarButton({ onClick, active, title, children, disabled, label }: { onClick: () => void; active?: boolean; title: string; children: React.ReactNode; disabled?: boolean; label?: string }) {
   return (
@@ -222,8 +227,8 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, {
       if (!el) return
       const rect = el.getBoundingClientRect()
       const scrolledIntoContent = Math.max(0, -rect.top)
-      const total = Math.max(1, Math.ceil(el.offsetHeight / PAGE_HEIGHT_PX))
-      const current = Math.min(total, Math.floor(scrolledIntoContent / PAGE_HEIGHT_PX) + 1)
+      const total = Math.max(1, Math.ceil(el.offsetHeight / PAGE_CYCLE_PX))
+      const current = Math.min(total, Math.floor(scrolledIntoContent / PAGE_CYCLE_PX) + 1)
       setPageInfo({ current, total })
     }
     update()
@@ -397,7 +402,14 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, {
         .rte-page-wrap { border: 1px solid var(--abed-border); border-radius: 10px; overflow: hidden; background: white; }
         .rte-content {
           padding: 16px 20px; min-height: 480px; font-size: 14px; line-height: 1.6; outline: none;
-          background-image: repeating-linear-gradient(to bottom, transparent 0, transparent ${PAGE_HEIGHT_PX - 1}px, #e5e7eb ${PAGE_HEIGHT_PX - 1}px, #e5e7eb ${PAGE_HEIGHT_PX}px);
+          background-image: repeating-linear-gradient(
+            to bottom,
+            transparent 0, transparent ${PAGE_HEIGHT_PX}px,
+            #cbd5e1 ${PAGE_HEIGHT_PX}px, #cbd5e1 ${PAGE_HEIGHT_PX + 2}px,
+            #eef1f5 ${PAGE_HEIGHT_PX + 2}px, #eef1f5 ${PAGE_HEIGHT_PX + PAGE_GAP_PX - 2}px,
+            #cbd5e1 ${PAGE_HEIGHT_PX + PAGE_GAP_PX - 2}px, #cbd5e1 ${PAGE_HEIGHT_PX + PAGE_GAP_PX}px,
+            transparent ${PAGE_HEIGHT_PX + PAGE_GAP_PX}px, transparent ${PAGE_CYCLE_PX}px
+          );
         }
         .rte-content p { margin: 0 0 10px; }
         .rte-content a { color: #2563eb; text-decoration: underline; }
