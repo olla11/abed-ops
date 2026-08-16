@@ -8,6 +8,16 @@ import { Decoration, DecorationSet } from '@tiptap/pm/view'
 export const PAGE_HEIGHT_PX = 1123
 export const PAGE_GAP_PX = 36
 export const PAGE_CYCLE_PX = PAGE_HEIGHT_PX + PAGE_GAP_PX
+// Un bloc qu'on pousserait à la page suivante peut laisser un vide énorme en
+// bas de la page courante s'il ne restait presque plus de place quand on l'a
+// rencontré (ex : un grand tableau qui arrive tôt sur une page presque
+// vide) — au lieu d'un petit espace propre entre deux pages, on se retrouve
+// avec un bloc géant et vide, ce qui donne des pages de tailles très
+// inégales. Passé ce plafond, on renonce à pousser : le bloc démarre sur la
+// page courante (qui devient exceptionnellement plus haute que la normale),
+// pour garder des sauts de page réguliers plutôt que viser un
+// respect strict de la limite d'une page.
+const MAX_GAP_PX = PAGE_GAP_PX * 3
 
 const pageBreakKey = new PluginKey<PageBreakPluginState>('pageBreak')
 
@@ -96,10 +106,21 @@ export const PageBreak = Extension.create<{ onPageInfo?: (info: { total: number 
                 // theoretical de quelques centièmes de pixel, invisible à
                 // l'œil mais qu'autant éviter.
                 const height = Math.max(1, Math.round(cible - prevBottomEdge) + 2)
-                breaks.push({ pos: offset, height })
-                top = prevBottomEdge + height
-                pageStart = cible
-                total += 1
+                if (height <= MAX_GAP_PX) {
+                  breaks.push({ pos: offset, height })
+                  top = prevBottomEdge + height
+                  pageStart = cible
+                  total += 1
+                } else {
+                  // On renonce au report (voir le commentaire sur MAX_GAP_PX) :
+                  // le bloc reste sur la page courante, qui devient
+                  // exceptionnellement plus haute que PAGE_HEIGHT_PX cette
+                  // fois. `pageStart` doit être réancré à la fin de CE bloc,
+                  // sinon les prochains blocs continuent de se mesurer contre
+                  // l'ancien repère (déjà dépassé) et déclenchent des sauts
+                  // de hauteur absurde (négative, arrondie à 1px).
+                  pageStart = top + h
+                }
               }
               prevBottomEdge = top + h
               first = false
