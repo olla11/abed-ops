@@ -222,31 +222,70 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, {
     },
   }), [editor])
 
-  // Repère "page" — purement visuel (bandes + indicateur), le document reste
-  // un flux continu. Recalculé au scroll, au redimensionnement, et quand le
-  // contenu change de hauteur (ResizeObserver).
+  // Pagination "à blanc" : après chaque bloc de haut niveau (paragraphe,
+  // titre, tableau, liste…) qui ferait déborder la page en cours, on pousse
+  // ce bloc sous un vrai espace vide (marginTop, appliqué directement sur le
+  // DOM déjà rendu par ProseMirror — jamais sur le modèle du document, donc
+  // ça n'apparaît jamais dans getHTML()/contenu_html). Résultat : la zone de
+  // séparation entre deux pages est un vrai vide, on ne peut plus y écrire.
+  // Le numéro de page affiché suit la position du curseur (coordsAtPos), pas
+  // le défilement — un document qui tient à l'écran sans scroll doit quand
+  // même afficher "2/2" si le curseur est après le premier saut de page.
   const contentWrapRef = useRef<HTMLDivElement>(null)
   const [pageInfo, setPageInfo] = useState({ current: 1, total: 1 })
 
   useEffect(() => {
-    function update() {
-      const el = contentWrapRef.current
-      if (!el) return
-      const rect = el.getBoundingClientRect()
-      const scrolledIntoContent = Math.max(0, -rect.top)
-      const total = Math.max(1, Math.ceil(el.offsetHeight / PAGE_CYCLE_PX))
-      const current = Math.min(total, Math.floor(scrolledIntoContent / PAGE_CYCLE_PX) + 1)
+    if (!editor) return
+    const ed = editor
+    let frame = 0
+
+    function repaginer() {
+      const wrap = contentWrapRef.current
+      const content = wrap?.querySelector<HTMLElement>('.rte-content')
+      if (!wrap || !content) return
+
+      const blocs = Array.from(content.children) as HTMLElement[]
+      blocs.forEach(b => { b.style.marginTop = '' })
+
+      let consomme = 0
+      let total = 1
+      for (const bloc of blocs) {
+        const h = bloc.offsetHeight
+        if (consomme > 0 && consomme + h > PAGE_HEIGHT_PX) {
+          bloc.style.marginTop = `${PAGE_HEIGHT_PX - consomme + PAGE_GAP_PX}px`
+          consomme = 0
+          total += 1
+        }
+        consomme += h
+      }
+
+      let current = 1
+      try {
+        const coords = ed.view.coordsAtPos(ed.state.selection.from)
+        const rect = wrap.getBoundingClientRect()
+        current = Math.min(total, Math.max(1, Math.floor((coords.top - rect.top) / PAGE_CYCLE_PX) + 1))
+      } catch { /* position hors document (éditeur pas encore monté) */ }
+
       setPageInfo({ current, total })
     }
-    update()
-    window.addEventListener('scroll', update, { passive: true })
-    window.addEventListener('resize', update)
-    const ro = new ResizeObserver(update)
+
+    function planifier() {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(repaginer)
+    }
+
+    planifier()
+    window.addEventListener('resize', planifier)
+    const ro = new ResizeObserver(planifier)
     if (contentWrapRef.current) ro.observe(contentWrapRef.current)
+    ed.on('update', planifier)
+    ed.on('selectionUpdate', planifier)
     return () => {
-      window.removeEventListener('scroll', update)
-      window.removeEventListener('resize', update)
+      cancelAnimationFrame(frame)
+      window.removeEventListener('resize', planifier)
       ro.disconnect()
+      ed.off('update', planifier)
+      ed.off('selectionUpdate', planifier)
     }
   }, [editor])
 
