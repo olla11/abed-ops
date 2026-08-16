@@ -4,6 +4,7 @@ import { useEditor, EditorContent } from '@tiptap/react'
 import Collaboration from '@tiptap/extension-collaboration'
 import CollaborationCursor from '@tiptap/extension-collaboration-cursor'
 import { baseTdrExtensions } from '@/lib/tdr-editor-extensions'
+import { PageBreak, PAGE_CYCLE_PX } from '@/lib/tiptap-page-break'
 import type * as Y from 'yjs'
 import type { SupabaseYjsProvider } from '@/lib/yjs-supabase-provider'
 import {
@@ -35,16 +36,6 @@ export type RichTextEditorHandle = {
   // une version obsolète du contenu.
   getHTML: () => string
 }
-
-// Hauteur approximative d'une page A4 à l'écran (297mm à 96px/pouce) — sert
-// uniquement de repère visuel (bandes + indicateur "Page X / Y") pour un
-// contenu qui reste en flux continu, pas une pagination réelle à l'impression.
-const PAGE_HEIGHT_PX = 1123
-// Épaisseur du "vide" entre deux pages (comme l'espace gris entre deux
-// pages dans Google Docs) — assez large pour se voir clairement, pas juste
-// un trait fin facile à manquer.
-const PAGE_GAP_PX = 36
-const PAGE_CYCLE_PX = PAGE_HEIGHT_PX + PAGE_GAP_PX
 
 function ToolbarButton({ onClick, active, title, children, disabled, label }: { onClick: () => void; active?: boolean; title: string; children: React.ReactNode; disabled?: boolean; label?: string }) {
   return (
@@ -155,9 +146,19 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, {
   value, onChange, readOnly, collab, onComment, onClickComment, onSign, onSave, saving, onDownloadPdf, onDownloadWord,
 }, ref) {
   const [, setTick] = useState(0)
+  const contentWrapRef = useRef<HTMLDivElement>(null)
+  const [pageInfo, setPageInfo] = useState({ current: 1, total: 1 })
 
   const extensions = [
     ...baseTdrExtensions(!!collab),
+    // Pas dans baseTdrExtensions (partagé avec le TdR, dont l'appel sert
+    // aussi à extraire un schéma seul côté amorçage Yjs) : un plugin
+    // ProseMirror à clé unique ('pageBreak') ne peut exister qu'une fois par
+    // éditeur — le construire ici garantit une seule instance, branchée sur
+    // le onPageInfo de cette instance précise.
+    PageBreak.configure({
+      onPageInfo: ({ total }) => setPageInfo(pi => (pi.total === total ? pi : { ...pi, total })),
+    }),
     ...(collab ? [
       Collaboration.configure({ document: collab.doc, field: collab.fragment }),
       CollaborationCursor.configure({ provider: collab.provider as any, user: collab.user }),
@@ -222,85 +223,37 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, {
     },
   }), [editor])
 
-  // Pagination "à blanc" : après chaque bloc de haut niveau (paragraphe,
-  // titre, tableau, liste…) qui ferait déborder la page en cours, on pousse
-  // ce bloc sous un vrai espace vide (marginTop, appliqué directement sur le
-  // DOM déjà rendu par ProseMirror — jamais sur le modèle du document, donc
-  // ça n'apparaît jamais dans getHTML()/contenu_html). Résultat : la zone de
-  // séparation entre deux pages est un vrai vide, on ne peut plus y écrire.
-  // Le numéro de page affiché suit la position du curseur (coordsAtPos), pas
-  // le défilement — un document qui tient à l'écran sans scroll doit quand
-  // même afficher "2/2" si le curseur est après le premier saut de page.
-  const contentWrapRef = useRef<HTMLDivElement>(null)
-  const [pageInfo, setPageInfo] = useState({ current: 1, total: 1 })
-
+  // Le report des blocs sous un vrai espace vide entre deux pages est géré
+  // par l'extension PageBreak (décorations ProseMirror — voir
+  // tiptap-page-break.ts pour le pourquoi : un style posé depuis React sur le
+  // DOM que ProseMirror gère lui-même se fait systématiquement écraser par sa
+  // propre réconciliation interne). Ici, on ne suit que la page où se trouve
+  // le curseur (coordsAtPos), pas le défilement — un document qui tient à
+  // l'écran sans scroll doit quand même afficher "2/2" si le curseur est
+  // après le premier saut de page.
   useEffect(() => {
     if (!editor) return
     const ed = editor
-    let frame = 0
 
-    function repaginer() {
+    function suivreCurseur() {
       const wrap = contentWrapRef.current
-      const content = wrap?.querySelector<HTMLElement>('.rte-content')
-      if (!wrap || !content) return
-
-      const blocs = Array.from(content.children) as HTMLElement[]
-      blocs.forEach(b => { b.style.marginTop = '' })
-
-      const contentTop = content.getBoundingClientRect().top
-      let pageStart = 0
-      let prevBottomEdge = 0
-      let total = 1
-      let idx = 0
-      for (const bloc of blocs) {
-        bloc.style.marginTop = ''
-        let top = bloc.getBoundingClientRect().top - contentTop
-        const h = bloc.offsetHeight
-        // Un bloc qui déborderait la page en cours est poussé sous un vrai
-        // espace vide. Le montant à pousser se calcule depuis le bord bas du
-        // bloc précédent (prevBottomEdge), pas depuis la position "naturelle"
-        // de ce bloc : les marges verticales de blocs adjacents fusionnent en
-        // CSS (on garde le max, pas la somme), donc calculer depuis la
-        // position naturelle sous-évalue systématiquement le report — le
-        // texte retombait alors en partie dans la bande grise réservée.
-        if (idx > 0 && top + h - pageStart > PAGE_HEIGHT_PX) {
-          const cible = pageStart + PAGE_HEIGHT_PX + PAGE_GAP_PX
-          bloc.style.marginTop = `${cible - prevBottomEdge + 1}px`
-          top = cible
-          pageStart = cible
-          total += 1
-        }
-        prevBottomEdge = top + h
-        idx++
-      }
-
-      let current = 1
+      if (!wrap) return
       try {
         const coords = ed.view.coordsAtPos(ed.state.selection.from)
         const rect = wrap.getBoundingClientRect()
-        current = Math.min(total, Math.max(1, Math.floor((coords.top - rect.top) / PAGE_CYCLE_PX) + 1))
+        setPageInfo(pi => {
+          const current = Math.min(pi.total, Math.max(1, Math.floor((coords.top - rect.top) / PAGE_CYCLE_PX) + 1))
+          return pi.current === current ? pi : { ...pi, current }
+        })
       } catch { /* position hors document (éditeur pas encore monté) */ }
-
-      setPageInfo({ current, total })
     }
 
-    function planifier() {
-      cancelAnimationFrame(frame)
-      frame = requestAnimationFrame(repaginer)
-    }
-
-    planifier()
-    window.addEventListener('resize', planifier)
-    const ro = new ResizeObserver(planifier)
-    if (contentWrapRef.current) ro.observe(contentWrapRef.current)
-    ed.on('update', planifier)
-    ed.on('selectionUpdate', planifier)
+    suivreCurseur()
+    ed.on('update', suivreCurseur)
+    ed.on('selectionUpdate', suivreCurseur)
     return () => {
-      cancelAnimationFrame(frame)
-      window.removeEventListener('resize', planifier)
-      ro.disconnect()
-      ed.off('update', planifier)
-      ed.off('selectionUpdate', planifier)
+      ed.off('update', suivreCurseur)
+      ed.off('selectionUpdate', suivreCurseur)
     }
   }, [editor])
 
@@ -482,14 +435,14 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, {
         .rte-page-wrap { border: 1px solid var(--abed-border); border-radius: 10px; overflow: hidden; background: white; }
         .rte-content {
           padding: 16px 20px; min-height: 480px; font-size: 14px; line-height: 1.6; outline: none;
-          background-image: repeating-linear-gradient(
-            to bottom,
-            transparent 0, transparent ${PAGE_HEIGHT_PX}px,
-            #cbd5e1 ${PAGE_HEIGHT_PX}px, #cbd5e1 ${PAGE_HEIGHT_PX + 2}px,
-            #eef1f5 ${PAGE_HEIGHT_PX + 2}px, #eef1f5 ${PAGE_HEIGHT_PX + PAGE_GAP_PX - 2}px,
-            #cbd5e1 ${PAGE_HEIGHT_PX + PAGE_GAP_PX - 2}px, #cbd5e1 ${PAGE_HEIGHT_PX + PAGE_GAP_PX}px,
-            transparent ${PAGE_HEIGHT_PX + PAGE_GAP_PX}px, transparent ${PAGE_CYCLE_PX}px
-          );
+        }
+        /* Vrai espace entre deux pages — inséré comme décoration ProseMirror
+           (voir tiptap-page-break.ts), pas comme simple décor : le texte ne
+           peut plus s'y écrire, contrairement à une bande peinte en fond. */
+        .rte-content .rte-page-break-spacer {
+          margin: 0 -20px; background: #eef1f5;
+          border-top: 2px solid #cbd5e1; border-bottom: 2px solid #cbd5e1;
+          box-sizing: border-box; user-select: none; pointer-events: none;
         }
         .rte-content p { margin: 0 0 10px; }
         .rte-content h1, .rte-content h2, .rte-content h3, .rte-content h4, .rte-content h5, .rte-content h6 {

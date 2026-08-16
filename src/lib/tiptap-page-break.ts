@@ -1,0 +1,141 @@
+import { Extension } from '@tiptap/core'
+import { Plugin, PluginKey } from '@tiptap/pm/state'
+import { Decoration, DecorationSet } from '@tiptap/pm/view'
+
+// Hauteur approximative d'une page A4 à l'écran (297mm à 96px/pouce) — sert
+// de repère visuel pour un contenu qui reste en flux continu, pas une
+// pagination réelle à l'impression.
+export const PAGE_HEIGHT_PX = 1123
+export const PAGE_GAP_PX = 36
+export const PAGE_CYCLE_PX = PAGE_HEIGHT_PX + PAGE_GAP_PX
+
+const pageBreakKey = new PluginKey<PageBreakPluginState>('pageBreak')
+
+type PageBreakPluginState = { breaks: { pos: number; height: number }[]; total: number }
+
+// Pourquoi une extension ProseMirror plutôt qu'un simple style appliqué
+// depuis un useEffect React (première tentative, abandonnée) : ProseMirror
+// possède son propre MutationObserver interne (DOMObserver) qui surveille en
+// permanence le DOM qu'il gère, et annule/écrase toute modification qui n'est
+// pas passée par son propre système de transactions — dont un `style.marginTop`
+// posé de l'extérieur. Résultat observé : le style était bien appliqué un
+// instant, puis systématiquement effacé quelques millisecondes plus tard,
+// sans jamais déclencher le moindre re-rendu détectable côté React. Une
+// décoration ProseMirror (Decoration.widget), elle, fait partie du rendu que
+// ProseMirror produit lui-même — elle survit donc à ses propres cycles de
+// réconciliation.
+export const PageBreak = Extension.create<{ onPageInfo?: (info: { total: number }) => void }>({
+  name: 'pageBreak',
+  addOptions() {
+    return { onPageInfo: undefined }
+  },
+  addProseMirrorPlugins() {
+    const options = this.options
+    return [
+      new Plugin<PageBreakPluginState>({
+        key: pageBreakKey,
+        state: {
+          init: () => ({ breaks: [], total: 1 }),
+          apply(tr, value) {
+            const meta = tr.getMeta(pageBreakKey) as PageBreakPluginState | undefined
+            if (meta) return meta
+            // Le document a changé : les positions mémorisées ne sont plus
+            // fiables (texte déplacé) — on les vide, la mesure suivante
+            // (déclenchée par la vue juste après) les recalculera à jour.
+            if (tr.docChanged) return { breaks: [], total: value.total }
+            return value
+          },
+        },
+        props: {
+          decorations(state) {
+            const { breaks } = pageBreakKey.getState(state) as PageBreakPluginState
+            if (!breaks.length) return null
+            const decos = breaks.map(({ pos, height }) =>
+              Decoration.widget(
+                pos,
+                () => {
+                  const div = document.createElement('div')
+                  div.className = 'rte-page-break-spacer'
+                  div.style.height = `${height}px`
+                  div.contentEditable = 'false'
+                  return div
+                },
+                { side: -1, key: `pb-${pos}` }
+              )
+            )
+            return DecorationSet.create(state.doc, decos)
+          },
+        },
+        view(editorView) {
+          let frame = 0
+
+          function mesurer() {
+            const dom = editorView.dom as HTMLElement
+            if (!dom.isConnected) return
+            const domRect = dom.getBoundingClientRect()
+            const doc = editorView.state.doc
+
+            let pageStart = 0
+            let prevBottomEdge = 0
+            let total = 1
+            let first = true
+            const breaks: { pos: number; height: number }[] = []
+
+            doc.forEach((node, offset) => {
+              const nodeDom = editorView.nodeDOM(offset)
+              if (!(nodeDom instanceof HTMLElement)) { first = false; return }
+              const r = nodeDom.getBoundingClientRect()
+              let top = r.top - domRect.top
+              const h = nodeDom.offsetHeight
+              if (!first && top + h - pageStart > PAGE_HEIGHT_PX) {
+                const cible = pageStart + PAGE_HEIGHT_PX + PAGE_GAP_PX
+                // +2px de marge de sécurité : deux éléments DOM voisins peuvent
+                // arrondir leurs rectangles à des sous-pixels légèrement
+                // différents malgré un contact visuel parfait — sans cette
+                // marge, un test au pixel près peut détecter un chevauchement
+                // theoretical de quelques centièmes de pixel, invisible à
+                // l'œil mais qu'autant éviter.
+                const height = Math.max(1, Math.round(cible - prevBottomEdge) + 2)
+                breaks.push({ pos: offset, height })
+                top = prevBottomEdge + height
+                pageStart = cible
+                total += 1
+              }
+              prevBottomEdge = top + h
+              first = false
+            })
+
+            const current = pageBreakKey.getState(editorView.state) as PageBreakPluginState
+            const changed =
+              current.total !== total ||
+              current.breaks.length !== breaks.length ||
+              current.breaks.some((b, i) => b.pos !== breaks[i]?.pos || b.height !== breaks[i]?.height)
+            if (changed) {
+              editorView.dispatch(editorView.state.tr.setMeta(pageBreakKey, { breaks, total }))
+            }
+            options.onPageInfo?.({ total })
+          }
+
+          function planifier() {
+            cancelAnimationFrame(frame)
+            frame = requestAnimationFrame(mesurer)
+          }
+
+          planifier()
+          const ro = new ResizeObserver(planifier)
+          ro.observe(editorView.dom)
+          window.addEventListener('resize', planifier)
+
+          return {
+            update: planifier,
+            destroy() {
+              cancelAnimationFrame(frame)
+              ro.disconnect()
+              window.removeEventListener('resize', planifier)
+            },
+          }
+        },
+      }),
+    ]
+  },
+})
