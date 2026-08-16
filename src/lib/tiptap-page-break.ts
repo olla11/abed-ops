@@ -49,11 +49,16 @@ export const PageBreak = Extension.create<{ onPageInfo?: (info: { total: number 
           apply(tr, value) {
             const meta = tr.getMeta(pageBreakKey) as PageBreakPluginState | undefined
             if (meta) return meta
-            // Le document a changé : les positions mémorisées ne sont plus
-            // fiables (texte déplacé) — on les vide, la mesure suivante
-            // (déclenchée par la vue juste après) les recalculera à jour.
-            if (tr.docChanged) return { breaks: [], total: value.total }
-            return value
+            if (!tr.docChanged) return value
+            // Remappe les positions à travers la transaction (comme le ferait
+            // un DecorationSet.map) plutôt que de tout vider : les sauts de
+            // page restent affichés, à la bonne position, pendant que la
+            // mesure suivante (déclenchée par la vue juste après) vérifie si
+            // les hauteurs ont réellement besoin de changer. Les vider à
+            // chaque frappe faisait disparaître puis réapparaître chaque
+            // séparateur à chaque caractère tapé — d'où l'effet de
+            // "vibration" pendant la saisie.
+            return { total: value.total, breaks: value.breaks.map(b => ({ ...b, pos: tr.mapping.map(b.pos) })) }
           },
         },
         props: {
