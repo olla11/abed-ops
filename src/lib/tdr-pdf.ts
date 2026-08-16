@@ -137,7 +137,7 @@ export function construireTdrHtml(tdr: any, exclureCles: Set<string> = new Set()
     <img src="data:image/png;base64,${LOGO_COLOR_PNG_B64}" alt="Logo ABED">
     <div class="org-text">
       <div class="org-name">Agriculture pour le Bien-être et le Développement Durable (ABED-ONG)</div>
-      <div class="org-sub">Parakou, Wanssirou, derrière le lycée MB &nbsp;·&nbsp; Tél. : +229 0167779141<br>Email : contact@abedong.org &nbsp;|&nbsp; abedong.org</div>
+      <div class="org-sub">Parakou, Quartier Zongo, Troisième vons après le CS/Zongo &nbsp;·&nbsp; Tél. : +229 0167779141<br>Email : contact@abedong.org &nbsp;|&nbsp; abedong.org</div>
     </div>
     <img src="data:image/png;base64,${LOGO_COLOR_PNG_B64}" alt="Logo ABED">
   </div>
@@ -165,7 +165,7 @@ export function construireTdrHtml(tdr: any, exclureCles: Set<string> = new Set()
     ${sigBlock('de', signataireParRole('de'))}
   </div>
 
-  <div class="footer">ABED ONG · Parakou, Bénin · Système de gestion des TdR</div>
+  <div class="footer">ABED ONG · Parakou, Quartier Zongo, Bénin · Système de gestion des TdR</div>
 </body>
 </html>`
 }

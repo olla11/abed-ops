@@ -92,7 +92,7 @@ export async function GET(
   const repNom = `${repProfile?.prenoms ?? ''} ${repProfile?.nom ?? ''}`.trim() || '—'
   const repTel = repProfile?.telephone ?? '—'
   const repEmail = repProfile?.email ?? '—'
-  const repAdresse = repProfile?.adresse ?? 'Parakou, Bénin'
+  const repAdresse = repProfile?.adresse ?? 'Parakou, Quartier Zongo, Bénin'
 
   // Cachet du représentant (utilisé pour l'offre de stage, signée par le DE)
   let repCachetUrl: string | null = null
@@ -304,7 +304,7 @@ export async function GET(
       <div class="org-acronym">(ABED-ONG)</div>
       <div class="org-sub">
         Enregistrée sous le N° 2019-4/0008 /PDB/SG/SAG du 16 Janvier 2019<br>
-        Parakou – Bénin &nbsp;·&nbsp; Tél. : +229 0167779141<br>
+        Parakou, Quartier Zongo, Troisième vons après le CS/Zongo, Bénin &nbsp;·&nbsp; Tél. : +229 0167779141<br>
         Email : contact@abedong.org &nbsp;|&nbsp; abedcontactpk@gmail.com
       </div>
     </div>
@@ -313,7 +313,7 @@ export async function GET(
 
   ${corpsHtml}
 
-  <div class="footer">ABED ONG · Parakou, Bénin · Système de gestion RH</div>
+  <div class="footer">ABED ONG · Parakou, Quartier Zongo, Bénin · Système de gestion RH</div>
 </body>
 </html>`
 

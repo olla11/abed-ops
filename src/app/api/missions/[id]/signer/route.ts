@@ -135,7 +135,7 @@ export async function POST(
           <p style="font-size:12px;color:#9ca3af;margin:0">Cet email a été envoyé automatiquement par My ABED. Ne pas répondre à cet email.</p>
         </td></tr>
         <tr><td style="background:#f9fafb;border-radius:0 0 12px 12px;padding:16px 32px;text-align:center;border-top:1px solid #e5e7eb">
-          <p style="font-size:11px;color:#d1d5db;margin:0">© 2025 My ABED — ABED ONG · Parakou, Bénin</p>
+          <p style="font-size:11px;color:#d1d5db;margin:0">© 2025 My ABED — ABED ONG · Parakou, Quartier Zongo, Bénin</p>
         </td></tr>
       </table>
     </td></tr>

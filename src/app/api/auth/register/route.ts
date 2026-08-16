@@ -176,7 +176,7 @@ export async function POST(req: NextRequest) {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:4px">
               <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
             </svg>
-            <span style="font-size:11px;color:#9ca3af">ABED ONG · Parakou, Bénin</span>
+            <span style="font-size:11px;color:#9ca3af">ABED ONG · Parakou, Quartier Zongo, Bénin</span>
           </div>
           <p style="font-size:11px;color:#d1d5db;margin:0">© 2025 My ABED — Tous droits réservés</p>
         </td></tr>

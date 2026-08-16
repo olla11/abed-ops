@@ -192,7 +192,7 @@ export async function GET(req: NextRequest) {
       { text: 'AGRICULTURE POUR LE BIEN-ÊTRE ET LE DÉVELOPPEMENT DURABLE', size: 9, isBold: true, color: black },
       { text: '(ABED-ONG)', size: 10.5, isBold: true, color: black },
       { text: 'Enregistré sous le N° 2019-4/0008 /PDB/SG/SAG du 16 Janvier 2019', size: 7.5, isBold: false, color: gray },
-      { text: 'Parakou – BENIN', size: 8, isBold: false, color: gray },
+      { text: 'Parakou, Quartier Zongo – BENIN', size: 8, isBold: false, color: gray },
       { text: 'Tel. : +229 0167779141', size: 8, isBold: false, color: gray },
       { text: 'Email : contact@abedong.org  |  abedcontactpk@gmail.com', size: 7.5, isBold: false, color: gray },
     ]

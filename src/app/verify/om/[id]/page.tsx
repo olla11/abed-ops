@@ -141,7 +141,7 @@ export default async function VerifyOMPage({ params }: { params: Promise<{ id: s
               {/* Footer */}
               <div style={{ textAlign: 'center', fontSize: 11, color: '#9ca3af', padding: '0 0 32px' }}>
                 <div>Vérifié via My ABED — Système de gestion interne d'ABED ONG</div>
-                <div style={{ marginTop: 4 }}>Agriculture pour le Bien-Être et le Développement Durable · Parakou, Bénin</div>
+                <div style={{ marginTop: 4 }}>Agriculture pour le Bien-Être et le Développement Durable · Parakou, Quartier Zongo, Bénin</div>
               </div>
             </>
           )}

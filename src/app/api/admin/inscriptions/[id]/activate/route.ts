@@ -114,7 +114,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
               Se connecter →
             </a>
           </div>
-          <p style="text-align:center;font-size:12px;color:#9ca3af;margin-top:20px">My ABED — ABED ONG · Parakou, Bénin</p>
+          <p style="text-align:center;font-size:12px;color:#9ca3af;margin-top:20px">My ABED — ABED ONG · Parakou, Quartier Zongo, Bénin</p>
         </div>
       `,
     })

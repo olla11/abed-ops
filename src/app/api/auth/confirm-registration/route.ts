@@ -59,7 +59,7 @@ export async function POST(_req: NextRequest) {
               💡 Vous pouvez contacter l'administrateur système directement pour accélérer l'activation de votre compte.
             </div>
           </div>
-          <p style="text-align:center;font-size:12px;color:#9ca3af;margin-top:20px">My ABED — ABED ONG · Parakou, Bénin</p>
+          <p style="text-align:center;font-size:12px;color:#9ca3af;margin-top:20px">My ABED — ABED ONG · Parakou, Quartier Zongo, Bénin</p>
         </div>
       `,
     })
@@ -96,7 +96,7 @@ export async function POST(_req: NextRequest) {
                 Gérer les inscriptions →
               </a>
             </div>
-            <p style="text-align:center;font-size:12px;color:#9ca3af;margin-top:20px">My ABED — ABED ONG · Parakou, Bénin</p>
+            <p style="text-align:center;font-size:12px;color:#9ca3af;margin-top:20px">My ABED — ABED ONG · Parakou, Quartier Zongo, Bénin</p>
           </div>
         `,
       })

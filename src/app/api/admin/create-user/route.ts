@@ -138,7 +138,7 @@ export async function POST(req: NextRequest) {
             </a>
           </div>
           <p style="text-align:center;font-size:12px;color:#9ca3af;margin-top:20px">
-            My ABED — ABED ONG · Parakou, Bénin
+            My ABED — ABED ONG · Parakou, Quartier Zongo, Bénin
           </p>
         </div>
       `,
