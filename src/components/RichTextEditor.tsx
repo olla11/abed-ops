@@ -247,16 +247,31 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, {
       const blocs = Array.from(content.children) as HTMLElement[]
       blocs.forEach(b => { b.style.marginTop = '' })
 
-      let consomme = 0
+      const contentTop = content.getBoundingClientRect().top
+      let pageStart = 0
+      let prevBottomEdge = 0
       let total = 1
+      let idx = 0
       for (const bloc of blocs) {
+        bloc.style.marginTop = ''
+        let top = bloc.getBoundingClientRect().top - contentTop
         const h = bloc.offsetHeight
-        if (consomme > 0 && consomme + h > PAGE_HEIGHT_PX) {
-          bloc.style.marginTop = `${PAGE_HEIGHT_PX - consomme + PAGE_GAP_PX}px`
-          consomme = 0
+        // Un bloc qui déborderait la page en cours est poussé sous un vrai
+        // espace vide. Le montant à pousser se calcule depuis le bord bas du
+        // bloc précédent (prevBottomEdge), pas depuis la position "naturelle"
+        // de ce bloc : les marges verticales de blocs adjacents fusionnent en
+        // CSS (on garde le max, pas la somme), donc calculer depuis la
+        // position naturelle sous-évalue systématiquement le report — le
+        // texte retombait alors en partie dans la bande grise réservée.
+        if (idx > 0 && top + h - pageStart > PAGE_HEIGHT_PX) {
+          const cible = pageStart + PAGE_HEIGHT_PX + PAGE_GAP_PX
+          bloc.style.marginTop = `${cible - prevBottomEdge + 1}px`
+          top = cible
+          pageStart = cible
           total += 1
         }
-        consomme += h
+        prevBottomEdge = top + h
+        idx++
       }
 
       let current = 1
