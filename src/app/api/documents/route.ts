@@ -32,35 +32,42 @@ export async function POST(req: NextRequest) {
   const fichier = formData.get('fichier') as File | null
 
   if (!titre) return NextResponse.json({ error: 'Le titre est requis' }, { status: 400 })
-  if (!fichier || fichier.size === 0) return NextResponse.json({ error: 'Le document est requis' }, { status: 400 })
-  if (!formatConvertible(fichier.name)) {
-    return NextResponse.json({ error: `Format "${fichier.name}" non pris en charge pour la révision collaborative. Utilisez un Word (.docx) ou un PDF.` }, { status: 400 })
-  }
 
-  const buffer = Buffer.from(await fichier.arrayBuffer())
-  let contenuHtml: string | null
-  try {
-    contenuHtml = await convertirEnHtmlEditable(buffer, fichier.name)
-  } catch (e) {
-    console.error('[documents] échec conversion:', e)
-    return NextResponse.json({ error: `Impossible de lire "${fichier.name}" — le fichier est peut-être corrompu.` }, { status: 400 })
-  }
-  if (!contenuHtml) return NextResponse.json({ error: 'Conversion impossible pour ce format.' }, { status: 400 })
-
+  // Sans fichier : document vierge, prêt à rédiger directement dans l'éditeur.
+  let contenuHtml = '<p></p>'
+  let fichierOriginalPath: string | null = null
   const admin = createAdminClient()
-  await admin.storage.createBucket('documents', { public: false }).catch(() => {})
 
-  const uploadName = fichier.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-  const path = `${user.id}/${Date.now()}_${uploadName}`
-  const { error: uploadErr } = await admin.storage.from('documents').upload(path, buffer, {
-    contentType: fichier.type || 'application/octet-stream', upsert: false,
-  })
-  if (uploadErr) return NextResponse.json({ error: `Erreur upload : ${uploadErr.message}` }, { status: 500 })
+  if (fichier && fichier.size > 0) {
+    if (!formatConvertible(fichier.name)) {
+      return NextResponse.json({ error: `Format "${fichier.name}" non pris en charge pour la révision collaborative. Utilisez un Word (.docx).` }, { status: 400 })
+    }
+
+    const buffer = Buffer.from(await fichier.arrayBuffer())
+    let converti: string | null
+    try {
+      converti = await convertirEnHtmlEditable(buffer, fichier.name)
+    } catch (e) {
+      console.error('[documents] échec conversion:', e)
+      return NextResponse.json({ error: `Impossible de lire "${fichier.name}" — le fichier est peut-être corrompu.` }, { status: 400 })
+    }
+    if (!converti) return NextResponse.json({ error: 'Conversion impossible pour ce format.' }, { status: 400 })
+    contenuHtml = converti
+
+    await admin.storage.createBucket('documents', { public: false }).catch(() => {})
+    const uploadName = fichier.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+    const path = `${user.id}/${Date.now()}_${uploadName}`
+    const { error: uploadErr } = await admin.storage.from('documents').upload(path, buffer, {
+      contentType: fichier.type || 'application/octet-stream', upsert: false,
+    })
+    if (uploadErr) return NextResponse.json({ error: `Erreur upload : ${uploadErr.message}` }, { status: 500 })
+    fichierOriginalPath = path
+  }
 
   const { data: demande, error: insertErr } = await admin.from('demandes_signature').insert({
     titre, description, createur_id: user.id,
     type: 'document_collaboratif', statut: 'revision',
-    contenu_html: contenuHtml, fichier_original_url: path,
+    contenu_html: contenuHtml, fichier_original_url: fichierOriginalPath,
   }).select('id').single()
   if (insertErr || !demande) return NextResponse.json({ error: insertErr?.message ?? 'Erreur lors de la création' }, { status: 500 })
 

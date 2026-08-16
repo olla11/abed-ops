@@ -29,7 +29,7 @@ export default async function NouveauDocumentPage() {
         <a href="/documents" style={{ fontSize: 13, color: 'var(--abed-muted)', textDecoration: 'none' }}>← Documents</a>
         <h2 style={{ margin: '10px 0 4px', color: 'var(--abed-green)' }}>Nouveau document</h2>
         <p style={{ fontSize: 13, color: 'var(--abed-muted)', margin: '0 0 20px' }}>
-          Uploadez un Word (.docx) ou un PDF — le contenu devient éditable pour la révision collaborative (commentaires, corrections en direct).
+          Partez d&apos;une page vierge ou importez un Word (.docx) — le contenu est éditable pour la révision collaborative (commentaires, corrections en direct).
         </p>
         <NouveauDocumentForm />
       </div>
