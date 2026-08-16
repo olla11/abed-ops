@@ -39,7 +39,7 @@ type PageBreakPluginState = { breaks: { pos: number; height: number }[]; total: 
 // décoration ProseMirror (Decoration.widget), elle, fait partie du rendu que
 // ProseMirror produit lui-même — elle survit donc à ses propres cycles de
 // réconciliation.
-export const PageBreak = Extension.create<{ onPageInfo?: (info: { total: number }) => void; pageHeightPx?: number }>({
+export const PageBreak = Extension.create<{ onPageInfo?: (info: { current: number; total: number }) => void; pageHeightPx?: number }>({
   name: 'pageBreak',
   addOptions() {
     return { onPageInfo: undefined, pageHeightPx: undefined }
@@ -118,6 +118,12 @@ export const PageBreak = Extension.create<{ onPageInfo?: (info: { total: number 
             let total = 1
             let first = true
             const breaks: { pos: number; height: number }[] = []
+            // Position Y (même repère que top/prevBottomEdge) où chaque page
+            // suivante démarre réellement — sert à calculer "current" à partir
+            // des vrais sauts insérés, plutôt qu'en supposant des pages toutes
+            // de la même hauteur (faux dès qu'un report est renoncé, voir
+            // MAX_GAP_PX : cette page-là est alors plus haute que les autres).
+            const pageBoundaries: number[] = []
 
             doc.forEach((node, offset) => {
               const nodeDom = editorView.nodeDOM(offset)
@@ -136,6 +142,7 @@ export const PageBreak = Extension.create<{ onPageInfo?: (info: { total: number 
                 const height = Math.max(1, Math.round(cible - prevBottomEdge) + 2)
                 if (height <= MAX_GAP_PX) {
                   breaks.push({ pos: offset, height })
+                  pageBoundaries.push(cible)
                   top = prevBottomEdge + height
                   pageStart = cible
                   total += 1
@@ -154,15 +161,26 @@ export const PageBreak = Extension.create<{ onPageInfo?: (info: { total: number 
               first = false
             })
 
-            const current = pageBreakKey.getState(editorView.state) as PageBreakPluginState
+            const etatActuel = pageBreakKey.getState(editorView.state) as PageBreakPluginState
             const changed =
-              current.total !== total ||
-              current.breaks.length !== breaks.length ||
-              current.breaks.some((b, i) => b.pos !== breaks[i]?.pos || b.height !== breaks[i]?.height)
+              etatActuel.total !== total ||
+              etatActuel.breaks.length !== breaks.length ||
+              etatActuel.breaks.some((b, i) => b.pos !== breaks[i]?.pos || b.height !== breaks[i]?.height)
             if (changed) {
               editorView.dispatch(editorView.state.tr.setMeta(pageBreakKey, { breaks, total }))
             }
-            options.onPageInfo?.({ total })
+
+            // "current" à partir des vraies frontières de page mesurées
+            // ci-dessus (pas d'une division uniforme par une hauteur de
+            // cycle supposée constante — les frontières réelles ne le sont
+            // pas dès qu'une page a été exceptionnellement rallongée).
+            let current = 1
+            try {
+              const coords = editorView.coordsAtPos(editorView.state.selection.from)
+              const curseurY = coords.top - domRect.top
+              current = 1 + pageBoundaries.filter(y => curseurY >= y).length
+            } catch { /* position hors document */ }
+            options.onPageInfo?.({ current: Math.min(current, total), total })
           }
 
           function planifier() {

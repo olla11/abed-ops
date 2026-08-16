@@ -4,7 +4,7 @@ import { useEditor, EditorContent } from '@tiptap/react'
 import Collaboration from '@tiptap/extension-collaboration'
 import CollaborationCursor from '@tiptap/extension-collaboration-cursor'
 import { baseTdrExtensions } from '@/lib/tdr-editor-extensions'
-import { PageBreak, PAGE_HEIGHT_PX, PAGE_GAP_PX } from '@/lib/tiptap-page-break'
+import { PageBreak } from '@/lib/tiptap-page-break'
 import type * as Y from 'yjs'
 import type { SupabaseYjsProvider } from '@/lib/yjs-supabase-provider'
 import {
@@ -153,7 +153,6 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, {
   const [, setTick] = useState(0)
   const contentWrapRef = useRef<HTMLDivElement>(null)
   const [pageInfo, setPageInfo] = useState({ current: 1, total: 1 })
-  const pageCyclePx = (pageHeightPx ?? PAGE_HEIGHT_PX) + PAGE_GAP_PX
 
   const extensions = [
     ...baseTdrExtensions(!!collab),
@@ -161,10 +160,13 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, {
     // aussi à extraire un schéma seul côté amorçage Yjs) : un plugin
     // ProseMirror à clé unique ('pageBreak') ne peut exister qu'une fois par
     // éditeur — le construire ici garantit une seule instance, branchée sur
-    // le onPageInfo de cette instance précise.
+    // le onPageInfo de cette instance précise. current/total sont calculés
+    // par l'extension elle-même à partir des vraies frontières de page
+    // mesurées (pas d'une simple division par une hauteur de cycle supposée
+    // uniforme — voir tiptap-page-break.ts).
     PageBreak.configure({
       pageHeightPx,
-      onPageInfo: ({ total }) => setPageInfo(pi => (pi.total === total ? pi : { ...pi, total })),
+      onPageInfo: ({ current, total }) => setPageInfo(pi => (pi.current === current && pi.total === total ? pi : { current, total })),
     }),
     ...(collab ? [
       Collaboration.configure({ document: collab.doc, field: collab.fragment }),
@@ -229,40 +231,6 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, {
       return editor?.getHTML() ?? ''
     },
   }), [editor])
-
-  // Le report des blocs sous un vrai espace vide entre deux pages est géré
-  // par l'extension PageBreak (décorations ProseMirror — voir
-  // tiptap-page-break.ts pour le pourquoi : un style posé depuis React sur le
-  // DOM que ProseMirror gère lui-même se fait systématiquement écraser par sa
-  // propre réconciliation interne). Ici, on ne suit que la page où se trouve
-  // le curseur (coordsAtPos), pas le défilement — un document qui tient à
-  // l'écran sans scroll doit quand même afficher "2/2" si le curseur est
-  // après le premier saut de page.
-  useEffect(() => {
-    if (!editor) return
-    const ed = editor
-
-    function suivreCurseur() {
-      const wrap = contentWrapRef.current
-      if (!wrap) return
-      try {
-        const coords = ed.view.coordsAtPos(ed.state.selection.from)
-        const rect = wrap.getBoundingClientRect()
-        setPageInfo(pi => {
-          const current = Math.min(pi.total, Math.max(1, Math.floor((coords.top - rect.top) / pageCyclePx) + 1))
-          return pi.current === current ? pi : { ...pi, current }
-        })
-      } catch { /* position hors document (éditeur pas encore monté) */ }
-    }
-
-    suivreCurseur()
-    ed.on('update', suivreCurseur)
-    ed.on('selectionUpdate', suivreCurseur)
-    return () => {
-      ed.off('update', suivreCurseur)
-      ed.off('selectionUpdate', suivreCurseur)
-    }
-  }, [editor])
 
   if (!editor) return null
 
