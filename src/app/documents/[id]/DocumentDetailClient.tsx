@@ -18,6 +18,7 @@ type Commentaire = {
 type Document = {
   id: string; titre: string; description: string | null; statut: string
   contenu_html: string; created_at: string; updated_at: string; createur_id: string
+  page_hauteur_px: number | null
   createur: Profile | null; participants: Participant[]
 }
 
@@ -393,6 +394,7 @@ export default function DocumentDetailClient({ document: initial, myId, allProfi
             value={contenuHtml}
             onChange={html => setContenuHtml(html)}
             readOnly={!canEdit}
+            pageHeightPx={document.page_hauteur_px ?? undefined}
             collab={collabReady && ydocRef.current && providerRef.current ? {
               doc: ydocRef.current, fragment: 'contenu', provider: providerRef.current,
               user: { name: monNom, color: couleurPourUser(myId) },

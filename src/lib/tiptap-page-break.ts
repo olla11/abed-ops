@@ -1,11 +1,16 @@
 import { Extension } from '@tiptap/core'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
+import { HAUTEUR_CONTENU_PX_DEFAUT } from './docx-page-setup'
 
-// Hauteur approximative d'une page A4 à l'écran (297mm à 96px/pouce) — sert
-// de repère visuel pour un contenu qui reste en flux continu, pas une
-// pagination réelle à l'impression.
-export const PAGE_HEIGHT_PX = 1123
+// Hauteur de page par défaut (A4, marges 1 pouce) — voir docx-page-setup.ts.
+// Une instance peut la remplacer via `.configure({ pageHeightPx })` avec la
+// vraie mise en page extraite du .docx importé, pour coller à la pagination
+// du document d'origine plutôt qu'à une page générique.
+export const PAGE_HEIGHT_PX = HAUTEUR_CONTENU_PX_DEFAUT
+// Épaisseur de la bande visible entre deux pages — TOUJOURS cette même
+// valeur, quel que soit le report nécessaire (voir plus bas) : c'est ce qui
+// rend les séparateurs visuellement identiques d'un saut de page à l'autre.
 export const PAGE_GAP_PX = 36
 export const PAGE_CYCLE_PX = PAGE_HEIGHT_PX + PAGE_GAP_PX
 // Un bloc qu'on pousserait à la page suivante peut laisser un vide énorme en
@@ -34,13 +39,14 @@ type PageBreakPluginState = { breaks: { pos: number; height: number }[]; total: 
 // décoration ProseMirror (Decoration.widget), elle, fait partie du rendu que
 // ProseMirror produit lui-même — elle survit donc à ses propres cycles de
 // réconciliation.
-export const PageBreak = Extension.create<{ onPageInfo?: (info: { total: number }) => void }>({
+export const PageBreak = Extension.create<{ onPageInfo?: (info: { total: number }) => void; pageHeightPx?: number }>({
   name: 'pageBreak',
   addOptions() {
-    return { onPageInfo: undefined }
+    return { onPageInfo: undefined, pageHeightPx: undefined }
   },
   addProseMirrorPlugins() {
     const options = this.options
+    const pageHeightPx = options.pageHeightPx ?? PAGE_HEIGHT_PX
     return [
       new Plugin<PageBreakPluginState>({
         key: pageBreakKey,
@@ -69,11 +75,28 @@ export const PageBreak = Extension.create<{ onPageInfo?: (info: { total: number 
               Decoration.widget(
                 pos,
                 () => {
-                  const div = document.createElement('div')
-                  div.className = 'rte-page-break-spacer'
-                  div.style.height = `${height}px`
-                  div.contentEditable = 'false'
-                  return div
+                  // Deux zones dans le même report : un remplissage invisible
+                  // (la place restante sur la page qui se termine, variable)
+                  // + une bande visible de taille FIXE (PAGE_GAP_PX) tout en
+                  // bas. Résultat : la bande qu'on voit est toujours la même
+                  // taille d'un saut de page à l'autre, même quand le report
+                  // total varie selon le contenu.
+                  const bandeHauteur = Math.min(height, PAGE_GAP_PX)
+                  const remplissageHauteur = Math.max(0, height - PAGE_GAP_PX)
+                  const outer = document.createElement('div')
+                  outer.className = 'rte-page-break-spacer'
+                  outer.style.height = `${height}px`
+                  outer.contentEditable = 'false'
+                  if (remplissageHauteur > 0) {
+                    const remplissage = document.createElement('div')
+                    remplissage.style.height = `${remplissageHauteur}px`
+                    outer.appendChild(remplissage)
+                  }
+                  const bande = document.createElement('div')
+                  bande.className = 'rte-page-break-band'
+                  bande.style.height = `${bandeHauteur}px`
+                  outer.appendChild(bande)
+                  return outer
                 },
                 { side: -1, key: `pb-${pos}` }
               )
@@ -102,8 +125,8 @@ export const PageBreak = Extension.create<{ onPageInfo?: (info: { total: number 
               const r = nodeDom.getBoundingClientRect()
               let top = r.top - domRect.top
               const h = nodeDom.offsetHeight
-              if (!first && top + h - pageStart > PAGE_HEIGHT_PX) {
-                const cible = pageStart + PAGE_HEIGHT_PX + PAGE_GAP_PX
+              if (!first && top + h - pageStart > pageHeightPx) {
+                const cible = pageStart + pageHeightPx + PAGE_GAP_PX
                 // +2px de marge de sécurité : deux éléments DOM voisins peuvent
                 // arrondir leurs rectangles à des sous-pixels légèrement
                 // différents malgré un contact visuel parfait — sans cette
@@ -119,7 +142,7 @@ export const PageBreak = Extension.create<{ onPageInfo?: (info: { total: number 
                 } else {
                   // On renonce au report (voir le commentaire sur MAX_GAP_PX) :
                   // le bloc reste sur la page courante, qui devient
-                  // exceptionnellement plus haute que PAGE_HEIGHT_PX cette
+                  // exceptionnellement plus haute que pageHeightPx cette
                   // fois. `pageStart` doit être réancré à la fin de CE bloc,
                   // sinon les prochains blocs continuent de se mesurer contre
                   // l'ancien repère (déjà dépassé) et déclenchent des sauts

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { convertirEnHtmlEditable, formatConvertible } from '@/lib/document-convert'
+import { extraireHauteurContenuDocx } from '@/lib/docx-page-setup'
 
 // Liste des documents en révision collaborative (distincts des demandes de
 // signature directe, qui restent gérées par /signatures). Lecture ouverte à
@@ -36,6 +37,7 @@ export async function POST(req: NextRequest) {
   // Sans fichier : document vierge, prêt à rédiger directement dans l'éditeur.
   let contenuHtml = '<p></p>'
   let fichierOriginalPath: string | null = null
+  let pageHauteurPx: number | null = null
   const admin = createAdminClient()
 
   if (fichier && fichier.size > 0) {
@@ -54,6 +56,11 @@ export async function POST(req: NextRequest) {
     if (!converti) return NextResponse.json({ error: 'Conversion impossible pour ce format.' }, { status: 400 })
     contenuHtml = converti
 
+    // Mise en page réelle du Word (taille de page + marges) — sert de repère
+    // pour que la pagination affichée dans l'éditeur colle à celle du
+    // document d'origine plutôt qu'à une page A4 générique.
+    pageHauteurPx = await extraireHauteurContenuDocx(buffer).catch(() => null)
+
     await admin.storage.createBucket('documents', { public: false }).catch(() => {})
     const uploadName = fichier.name.replace(/[^a-zA-Z0-9._-]/g, '_')
     const path = `${user.id}/${Date.now()}_${uploadName}`
@@ -67,7 +74,7 @@ export async function POST(req: NextRequest) {
   const { data: demande, error: insertErr } = await admin.from('demandes_signature').insert({
     titre, description, createur_id: user.id,
     type: 'document_collaboratif', statut: 'revision',
-    contenu_html: contenuHtml, fichier_original_url: fichierOriginalPath,
+    contenu_html: contenuHtml, fichier_original_url: fichierOriginalPath, page_hauteur_px: pageHauteurPx,
   }).select('id').single()
   if (insertErr || !demande) return NextResponse.json({ error: insertErr?.message ?? 'Erreur lors de la création' }, { status: 500 })
 

@@ -4,7 +4,7 @@ import { useEditor, EditorContent } from '@tiptap/react'
 import Collaboration from '@tiptap/extension-collaboration'
 import CollaborationCursor from '@tiptap/extension-collaboration-cursor'
 import { baseTdrExtensions } from '@/lib/tdr-editor-extensions'
-import { PageBreak, PAGE_CYCLE_PX } from '@/lib/tiptap-page-break'
+import { PageBreak, PAGE_HEIGHT_PX, PAGE_GAP_PX } from '@/lib/tiptap-page-break'
 import type * as Y from 'yjs'
 import type { SupabaseYjsProvider } from '@/lib/yjs-supabase-provider'
 import {
@@ -142,12 +142,18 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, {
   saving?: boolean
   onDownloadPdf?: () => void
   onDownloadWord?: () => void
+  // Hauteur de texte utilisable par page, en pixels — extraite du .docx
+  // importé (voir docx-page-setup.ts) pour coller à sa mise en page réelle.
+  // Par défaut (document vierge, ou fichier sans mise en page détectable) :
+  // page A4 avec marges d'1 pouce, la même valeur que PAGE_HEIGHT_PX.
+  pageHeightPx?: number
 }>(function RichTextEditor({
-  value, onChange, readOnly, collab, onComment, onClickComment, onSign, onSave, saving, onDownloadPdf, onDownloadWord,
+  value, onChange, readOnly, collab, onComment, onClickComment, onSign, onSave, saving, onDownloadPdf, onDownloadWord, pageHeightPx,
 }, ref) {
   const [, setTick] = useState(0)
   const contentWrapRef = useRef<HTMLDivElement>(null)
   const [pageInfo, setPageInfo] = useState({ current: 1, total: 1 })
+  const pageCyclePx = (pageHeightPx ?? PAGE_HEIGHT_PX) + PAGE_GAP_PX
 
   const extensions = [
     ...baseTdrExtensions(!!collab),
@@ -157,6 +163,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, {
     // éditeur — le construire ici garantit une seule instance, branchée sur
     // le onPageInfo de cette instance précise.
     PageBreak.configure({
+      pageHeightPx,
       onPageInfo: ({ total }) => setPageInfo(pi => (pi.total === total ? pi : { ...pi, total })),
     }),
     ...(collab ? [
@@ -242,7 +249,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, {
         const coords = ed.view.coordsAtPos(ed.state.selection.from)
         const rect = wrap.getBoundingClientRect()
         setPageInfo(pi => {
-          const current = Math.min(pi.total, Math.max(1, Math.floor((coords.top - rect.top) / PAGE_CYCLE_PX) + 1))
+          const current = Math.min(pi.total, Math.max(1, Math.floor((coords.top - rect.top) / pageCyclePx) + 1))
           return pi.current === current ? pi : { ...pi, current }
         })
       } catch { /* position hors document (éditeur pas encore monté) */ }
@@ -438,11 +445,18 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, {
         }
         /* Vrai espace entre deux pages — inséré comme décoration ProseMirror
            (voir tiptap-page-break.ts), pas comme simple décor : le texte ne
-           peut plus s'y écrire, contrairement à une bande peinte en fond. */
+           peut plus s'y écrire, contrairement à une bande peinte en fond.
+           Le conteneur (.rte-page-break-spacer) a une hauteur variable (la
+           place restante sur la page qui se termine) mais reste invisible ;
+           seule .rte-page-break-band, à taille FIXE, est visible — donc
+           toujours la même d'un saut de page à l'autre. */
         .rte-content .rte-page-break-spacer {
+          box-sizing: border-box; user-select: none; pointer-events: none;
+        }
+        .rte-content .rte-page-break-band {
           margin: 0 -20px; background: #eef1f5;
           border-top: 2px solid #cbd5e1; border-bottom: 2px solid #cbd5e1;
-          box-sizing: border-box; user-select: none; pointer-events: none;
+          box-sizing: border-box;
         }
         .rte-content p { margin: 0 0 10px; }
         .rte-content h1, .rte-content h2, .rte-content h3, .rte-content h4, .rte-content h5, .rte-content h6 {

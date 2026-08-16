@@ -9,7 +9,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
   const { data: document, error } = await supabase
     .from('demandes_signature')
-    .select(`id, titre, description, statut, contenu_html, created_at, updated_at, createur_id,
+    .select(`id, titre, description, statut, contenu_html, created_at, updated_at, createur_id, page_hauteur_px,
       createur:profiles!demandes_signature_createur_id_fkey(id, nom, prenoms),
       participants:document_participants(id, profile_id, permission, profile:profiles!document_participants_profile_id_fkey(id, nom, prenoms))
     `)
