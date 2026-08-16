@@ -13,7 +13,7 @@ type Profile = { id: string; nom: string; prenoms: string }
 type Participant = { id: string; profile_id: string; permission: 'lecture' | 'commentaire' | 'edition'; profile: Profile | null }
 type Commentaire = {
   id: string; mark_id: string; texte_cite: string | null; contenu: string
-  created_at: string; parent_id: string | null; auteur: Profile | null
+  created_at: string; updated_at: string | null; parent_id: string | null; auteur: Profile | null
 }
 type Document = {
   id: string; titre: string; description: string | null; statut: string
@@ -40,9 +40,44 @@ function PermissionBadge({ permission }: { permission: string }) {
   return <span style={{ fontSize: 10, color: 'var(--abed-muted)', marginLeft: 6 }}>({label})</span>
 }
 
-function CommentRow({ c, myId, onDelete }: { c: Commentaire; myId: string; onDelete: (id: string) => void }) {
+const commentActionStyle: React.CSSProperties = {
+  background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', display: 'flex', padding: 2,
+}
+const commentSmallBtn: React.CSSProperties = {
+  padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', border: 'none',
+}
+
+// Une ligne de commentaire ou de réponse : modification réservée à son
+// auteur, suppression idem, réponse ouverte à tous ceux qui peuvent
+// commenter (canReply). Les réponses n'ont pas leur propre bouton
+// "Répondre" — un seul niveau de fil, pas de réponses en cascade.
+function CommentRow({ c, myId, canReply, onDelete, onEdit, onReply }: {
+  c: Commentaire; myId: string; canReply: boolean
+  onDelete: (id: string) => void
+  onEdit: (id: string, contenu: string) => void
+  onReply?: (parentId: string, contenu: string) => void
+}) {
   const couleur = couleurPourUser(c.auteur?.id ?? c.mark_id)
   const estAuteur = !!c.auteur && c.auteur.id === myId
+  const [editing, setEditing] = useState(false)
+  const [editText, setEditText] = useState(c.contenu)
+  const [replying, setReplying] = useState(false)
+  const [replyText, setReplyText] = useState('')
+
+  function sauvegarderEdit() {
+    const t = editText.trim()
+    if (!t) return
+    onEdit(c.id, t)
+    setEditing(false)
+  }
+  function envoyerReponse() {
+    const t = replyText.trim()
+    if (!t || !onReply) return
+    onReply(c.id, t)
+    setReplyText('')
+    setReplying(false)
+  }
+
   return (
     <div style={{ display: 'flex', gap: 8, borderLeft: `3px solid ${couleur}`, paddingLeft: 8 }}>
       <div style={{ width: 26, height: 26, borderRadius: '50%', background: couleur, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
@@ -51,17 +86,52 @@ function CommentRow({ c, myId, onDelete }: { c: Commentaire; myId: string; onDel
       <div style={{ minWidth: 0, flex: 1 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
           <div style={{ fontSize: 12, fontWeight: 700 }}>{c.auteur ? `${c.auteur.prenoms} ${c.auteur.nom}` : 'Utilisateur supprimé'}</div>
-          {estAuteur && (
-            <button onClick={() => onDelete(c.id)} title="Supprimer" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', display: 'flex', padding: 2 }}>
-              <Trash2 size={12} />
-            </button>
+          {estAuteur && !editing && (
+            <div style={{ display: 'flex', gap: 4 }}>
+              <button onClick={() => { setEditText(c.contenu); setEditing(true) }} title="Modifier" style={commentActionStyle}>
+                <Pencil size={12} />
+              </button>
+              <button onClick={() => onDelete(c.id)} title="Supprimer" style={commentActionStyle}>
+                <Trash2 size={12} />
+              </button>
+            </div>
           )}
         </div>
         {c.texte_cite && <div style={{ fontSize: 12, color: '#92400e', background: '#fffbeb', borderRadius: 6, padding: '4px 8px', margin: '4px 0' }}>« {c.texte_cite} »</div>}
-        <div style={{ fontSize: 13 }}>{c.contenu}</div>
-        <div style={{ fontSize: 10, color: 'var(--abed-muted)', marginTop: 2 }}>
-          {new Date(c.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+
+        {editing ? (
+          <div style={{ marginTop: 4 }}>
+            <textarea rows={2} autoFocus value={editText} onChange={e => setEditText(e.target.value)}
+              style={{ ...inputStyle, fontSize: 12.5, padding: '6px 8px', resize: 'vertical' }} />
+            <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+              <button onClick={sauvegarderEdit} disabled={!editText.trim()} style={{ ...commentSmallBtn, background: 'var(--abed-green)', color: 'white' }}>Enregistrer</button>
+              <button onClick={() => setEditing(false)} style={{ ...commentSmallBtn, background: 'white', border: '1px solid var(--abed-border)' }}>Annuler</button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ fontSize: 13 }}>{c.contenu}</div>
+        )}
+
+        <div style={{ fontSize: 10, color: 'var(--abed-muted)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span>
+            {new Date(c.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+            {c.updated_at && ' · modifié'}
+          </span>
+          {canReply && onReply && !editing && (
+            <button onClick={() => setReplying(r => !r)} style={{ ...commentActionStyle, fontSize: 10, fontWeight: 700, color: 'var(--abed-green)' }}>Répondre</button>
+          )}
         </div>
+
+        {replying && (
+          <div style={{ marginTop: 6 }}>
+            <textarea rows={2} autoFocus placeholder="Votre réponse…" value={replyText} onChange={e => setReplyText(e.target.value)}
+              style={{ ...inputStyle, fontSize: 12.5, padding: '6px 8px', resize: 'vertical' }} />
+            <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+              <button onClick={envoyerReponse} disabled={!replyText.trim()} style={{ ...commentSmallBtn, background: 'var(--abed-green)', color: 'white' }}>Répondre</button>
+              <button onClick={() => { setReplying(false); setReplyText('') }} style={{ ...commentSmallBtn, background: 'white', border: '1px solid var(--abed-border)' }}>Annuler</button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -175,6 +245,20 @@ export default function DocumentDetailClient({ document: initial, myId, allProfi
       body: JSON.stringify({ mark_id: pendingComment.markId, texte_cite: pendingComment.texteSelectionne, contenu: commentaireTexte.trim() }),
     })
     if (res.ok) { setPendingComment(null); setCommentaireTexte(''); chargerCommentaires() }
+  }
+
+  async function modifierCommentaire(commentId: string, contenu: string) {
+    const res = await fetch(`/api/documents/${document.id}/commentaires/${commentId}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contenu }),
+    })
+    if (res.ok) chargerCommentaires()
+  }
+
+  async function repondreCommentaire(parentId: string, contenu: string) {
+    const res = await fetch(`/api/documents/${document.id}/commentaires`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ parent_id: parentId, contenu }),
+    })
+    if (res.ok) chargerCommentaires()
   }
 
   async function supprimerCommentaire(commentId: string) {
@@ -405,7 +489,14 @@ export default function DocumentDetailClient({ document: initial, myId, allProfi
                       borderRadius: 8, transition: 'background .3s',
                       background: commentaireCibleId === c.mark_id ? '#fef9c3' : 'transparent',
                     }}>
-                    <CommentRow c={c} myId={myId} onDelete={supprimerCommentaire} />
+                    <CommentRow c={c} myId={myId} canReply={canComment} onDelete={supprimerCommentaire} onEdit={modifierCommentaire} onReply={repondreCommentaire} />
+                    {commentaires.filter(r => r.parent_id === c.id).length > 0 && (
+                      <div style={{ marginTop: 8, marginLeft: 20, display: 'flex', flexDirection: 'column', gap: 8, paddingLeft: 10, borderLeft: '2px solid #f3f4f6' }}>
+                        {commentaires.filter(r => r.parent_id === c.id).map(r => (
+                          <CommentRow key={r.id} c={r} myId={myId} canReply={false} onDelete={supprimerCommentaire} onEdit={modifierCommentaire} />
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

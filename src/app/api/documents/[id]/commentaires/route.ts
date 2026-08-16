@@ -10,7 +10,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
   const { data, error } = await supabase
     .from('document_commentaires')
-    .select('id, mark_id, texte_cite, contenu, created_at, parent_id, auteur:profiles!document_commentaires_auteur_id_fkey(id, nom, prenoms)')
+    .select('id, mark_id, texte_cite, contenu, created_at, updated_at, parent_id, auteur:profiles!document_commentaires_auteur_id_fkey(id, nom, prenoms)')
     .eq('demande_id', id)
     .order('created_at', { ascending: true })
 
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const { data, error } = await supabase.from('document_commentaires').insert({
     demande_id: id, mark_id: markId, texte_cite: texteCite, contenu, auteur_id: user.id, parent_id: parentId,
-  }).select('id, mark_id, texte_cite, contenu, created_at, parent_id, auteur:profiles!document_commentaires_auteur_id_fkey(id, nom, prenoms)').single()
+  }).select('id, mark_id, texte_cite, contenu, created_at, updated_at, parent_id, auteur:profiles!document_commentaires_auteur_id_fkey(id, nom, prenoms)').single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
@@ -61,14 +61,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const auteur = data.auteur as any
     const auteurNom = auteur ? `${auteur.prenoms} ${auteur.nom}` : 'Quelqu\'un'
     const citation = texteCite ? ` (sur « ${escapeHtml(texteCite)} »)` : ''
+    const titre = parentId ? `💬 Nouvelle réponse sur « ${escapeHtml(document.titre)} »` : `💬 Nouveau commentaire sur « ${escapeHtml(document.titre)} »`
+    const message = parentId
+      ? `${escapeHtml(auteurNom)} a répondu à un commentaire : « ${escapeHtml(contenu)} »`
+      : `${escapeHtml(auteurNom)} a commenté${citation} : « ${escapeHtml(contenu)} »`
     const { data: profils } = await admin.from('profiles').select('id, email, nom, prenoms').in('id', [...ids])
     for (const p of profils ?? []) {
-      await admin.from('notifications').insert({
-        user_id: p.id,
-        titre: `💬 Nouveau commentaire sur « ${escapeHtml(document.titre)} »`,
-        message: `${escapeHtml(auteurNom)} a commenté${citation} : « ${escapeHtml(contenu)} »`,
-        lien: `/documents/${id}`,
-      })
+      await admin.from('notifications').insert({ user_id: p.id, titre, message, lien: `/documents/${id}` })
     }
   })
 
