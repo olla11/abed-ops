@@ -54,3 +54,31 @@ export async function extraireHauteurContenuDocx(buffer: Buffer): Promise<number
     return null
   }
 }
+
+/**
+ * Détecte si un .docx est configuré en orientation paysage — via l'attribut
+ * explicite `w:orient="landscape"`, ou à défaut en comparant largeur/hauteur
+ * de page (`<w:pgSz>`). Sert à générer le PDF de signature dans la bonne
+ * orientation plutôt qu'à toujours forcer un portrait A4 qui tronquerait un
+ * document volontairement large (tableau étendu, etc.).
+ */
+export async function estDocxPaysage(buffer: Buffer): Promise<boolean> {
+  try {
+    const zip = await JSZip.loadAsync(buffer)
+    const fichier = zip.file('word/document.xml')
+    if (!fichier) return false
+    const xml = await fichier.async('text')
+
+    const pgSz = /<w:pgSz\b[^>]*\/>/.exec(xml)?.[0]
+    if (!pgSz) return false
+    if (/w:orient="landscape"/.test(pgSz)) return true
+    if (/w:orient="portrait"/.test(pgSz)) return false
+
+    const wMatch = /w:w="(\d+)"/.exec(pgSz)
+    const hMatch = /w:h="(\d+)"/.exec(pgSz)
+    if (!wMatch || !hMatch) return false
+    return parseInt(wMatch[1], 10) > parseInt(hMatch[1], 10)
+  } catch {
+    return false
+  }
+}
