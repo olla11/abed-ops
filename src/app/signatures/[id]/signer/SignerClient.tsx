@@ -164,7 +164,12 @@ function SignatureBlock({ name, date, hash, small }: { name: string; date: strin
 
   // Largeur dynamique : mesure le texte réel (comme la capture canvas) pour
   // que le tampon et sa ligne séparatrice épousent la longueur du nom, au
-  // lieu d'un rectangle fixe qui débordait toujours pour un nom court.
+  // lieu d'un rectangle fixe qui débordait toujours pour un nom court. Plafonnée
+  // (voir largeurMax) : un nom de signataire très long ne doit jamais pouvoir
+  // forcer ce bloc — posé dans un panneau à largeur limitée — à dépasser
+  // l'espace disponible et pousser le reste de la page hors champ ; le nom
+  // s'affiche alors tronqué (…) plutôt que de casser la mise en page.
+  const largeurMax = small ? 260 : 340
   let bw = small ? 190 : 240
   if (typeof document !== 'undefined') {
     const mesure = document.createElement('canvas').getContext('2d')
@@ -177,7 +182,7 @@ function SignatureBlock({ name, date, hash, small }: { name: string; date: strin
       const dateW = mesure.measureText(date).width
       const hashW = mesure.measureText(hashTexte).width
       const contentW = Math.max(headerW, nameW, dateW + 8 + hashW)
-      bw = Math.max(small ? 120 : 150, Math.ceil(textLeft + contentW + 6))
+      bw = Math.min(largeurMax, Math.max(small ? 120 : 150, Math.ceil(textLeft + contentW + 6)))
     }
   }
   return (
@@ -190,9 +195,13 @@ function SignatureBlock({ name, date, hash, small }: { name: string; date: strin
       <div style={{ position: 'absolute', top: headerTop, left: hookLen + 8, right: 4, fontSize: small ? 7.5 : 9, fontWeight: 700, color: '#374151', letterSpacing: 0.5, fontFamily: 'Arial, sans-serif', textTransform: 'uppercase', lineHeight: 1 }}>
         MyABED signed by:
       </div>
-      {/* Name — baseline pinned to nameLine, overflow visible for tall Brittany flourishes */}
-      <div style={{ position: 'absolute', left: hookLen + 8, right: 4, top: nameLine - fontSize - 4, overflow: 'visible', lineHeight: 1 }}>
-        <span style={{ fontFamily: '"BrittanySignature", cursive', fontSize, color: '#000', letterSpacing: '0.02em', fontWeight: 400, whiteSpace: 'nowrap', display: 'inline-block', overflow: 'visible' }}>
+      {/* Name — baseline pinned to nameLine ; débordement vertical visible (les
+          fioritures de la police Brittany dépassent parfois vers le haut),
+          mais horizontal tronqué (…) — la largeur du bloc est plafonnée
+          (largeurMax) et un nom trop long pour y tenir doit se couper
+          proprement plutôt que déborder par-dessus le reste de la page. */}
+      <div style={{ position: 'absolute', left: hookLen + 8, right: 4, top: nameLine - fontSize - 4, overflowX: 'hidden', overflowY: 'visible', lineHeight: 1 }}>
+        <span style={{ fontFamily: '"BrittanySignature", cursive', fontSize, color: '#000', letterSpacing: '0.02em', fontWeight: 400, whiteSpace: 'nowrap', display: 'inline-block', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', verticalAlign: 'top' }}>
           {name}
         </span>
       </div>
@@ -878,7 +887,17 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
   return (
     <div style={{ display: 'flex', height: 'calc(100vh - 64px)', overflow: 'hidden' }}>
       {/* Left: PDF canvas viewer */}
-      <div style={{ flex: '0 0 62%', background: '#525659', borderRight: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column' }}>
+      {/* flex-shrink:0 sur les deux colonnes (ancienne valeur : "0 0 62%" /
+          "0 0 38%") empêchait toute compression : sur une fenêtre trop
+          étroite, ou quand le panneau de droite avait besoin d'un peu plus
+          de place (ex: un nom de signataire long dans SignatureBlock), la
+          ligne entière dépassait la largeur visible et l'overflow:hidden du
+          conteneur parent effaçait silencieusement ce qui ne rentrait plus —
+          sans barre de défilement pour le récupérer. Le bouton "Confirmer la
+          signature", en bas du panneau de droite, pouvait alors devenir
+          injoignable. Cette colonne peut désormais rétrécir (flex-shrink:1)
+          jusqu'à sa largeur minimale. */}
+      <div style={{ flex: '1 1 62%', minWidth: 320, background: '#525659', borderRight: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column' }}>
         {/* Toolbar */}
         <div style={{ padding: '10px 16px', background: '#3d4043', borderBottom: '1px solid #2a2d30', fontSize: 13, fontWeight: 600, color: '#e5e7eb', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
           <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📄 {titre}</span>
@@ -969,7 +988,7 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
       </div>
 
       {/* Right: Signature panel */}
-      <div style={{ flex: '0 0 38%', padding: '28px 24px', background: 'white', display: 'flex', flexDirection: 'column', gap: 16, overflowY: 'auto' }}>
+      <div style={{ flex: '1 1 38%', minWidth: 320, maxWidth: 480, padding: '28px 24px', background: 'white', display: 'flex', flexDirection: 'column', gap: 16, overflowY: 'auto', overflowX: 'hidden' }}>
         <h2 style={{ margin: 0, fontSize: 19, color: '#111827', fontWeight: 700 }}>Votre signature</h2>
 
         <div>
