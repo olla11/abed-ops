@@ -201,7 +201,7 @@ function SignatureBlock({ name, date, hash, small }: { name: string; date: strin
           (largeurMax) et un nom trop long pour y tenir doit se couper
           proprement plutôt que déborder par-dessus le reste de la page. */}
       <div style={{ position: 'absolute', left: hookLen + 8, right: 4, top: nameLine - fontSize - 4, overflowX: 'hidden', overflowY: 'visible', lineHeight: 1 }}>
-        <span style={{ fontFamily: '"BrittanySignature", cursive', fontSize, color: '#000', letterSpacing: '0.02em', fontWeight: 400, whiteSpace: 'nowrap', display: 'inline-block', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', verticalAlign: 'top' }}>
+        <span style={{ fontFamily: '"BrittanySignature", cursive', fontSize, color: '#000', letterSpacing: '0.02em', fontWeight: 400, whiteSpace: 'nowrap', display: 'inline-block', maxWidth: '100%', overflowX: 'hidden', overflowY: 'visible', textOverflow: 'ellipsis', verticalAlign: 'top' }}>
           {name}
         </span>
       </div>
