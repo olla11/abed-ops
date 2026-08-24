@@ -16,17 +16,29 @@ type Notif = {
 export default function NotificationBell() {
   const [open, setOpen] = useState(false)
   const [notifs, setNotifs] = useState<Notif[]>([])
+  const [unreadCount, setUnreadCount] = useState(0)
   const ref = useRef<HTMLDivElement>(null)
   const pathname = usePathname()
   const supabase = createClient()
 
   const load = useCallback(async () => {
-    const { data } = await supabase
-      .from('notifications')
-      .select('id, titre, message, lien, created_at, lu')
-      .order('created_at', { ascending: false })
-      .limit(30)
+    // Le panneau n'affiche que les 30 plus récentes (liste déroulante
+    // volontairement bornée), mais le badge doit refléter le VRAI total de
+    // non-lues — sinon il plafonne artificiellement à 30 dès qu'il y en a
+    // plus, même si toutes les notifications récentes ont été lues.
+    const [{ data }, { count }] = await Promise.all([
+      supabase
+        .from('notifications')
+        .select('id, titre, message, lien, created_at, lu')
+        .order('created_at', { ascending: false })
+        .limit(30),
+      supabase
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('lu', false),
+    ])
     if (data) setNotifs(data)
+    setUnreadCount(count ?? 0)
   }, [supabase])
 
   useEffect(() => { load() }, [load])
@@ -49,17 +61,20 @@ export default function NotificationBell() {
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  const unread = notifs.filter(n => !n.lu).length
-
   async function deleteNotif(id: string) {
     await supabase.from('notifications').delete().eq('id', id)
-    setNotifs(prev => prev.filter(n => n.id !== id))
+    setNotifs(prev => {
+      const deleted = prev.find(n => n.id === id)
+      if (deleted && !deleted.lu) setUnreadCount(c => Math.max(0, c - 1))
+      return prev.filter(n => n.id !== id)
+    })
   }
 
   async function deleteAll() {
     const ids = notifs.map(n => n.id)
     if (ids.length === 0) return
     await supabase.from('notifications').delete().in('id', ids)
+    setUnreadCount(c => Math.max(0, c - notifs.filter(n => !n.lu).length))
     setNotifs([])
   }
 
@@ -92,7 +107,7 @@ export default function NotificationBell() {
           <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
           <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
         </svg>
-        {unread > 0 && (
+        {unreadCount > 0 && (
           <span style={{
             position: 'absolute', top: -3, right: -3,
             minWidth: 17, height: 17, borderRadius: 9,
@@ -101,7 +116,7 @@ export default function NotificationBell() {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             padding: '0 4px', border: '2px solid white', lineHeight: 1,
           }}>
-            {unread > 99 ? '99+' : unread}
+            {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
       </button>
@@ -122,7 +137,7 @@ export default function NotificationBell() {
             background: '#f9fafb',
           }}>
             <span style={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>
-              Notifications {unread > 0 && <span style={{ color: '#ef4444' }}>({unread})</span>}
+              Notifications {unreadCount > 0 && <span style={{ color: '#ef4444' }}>({unreadCount})</span>}
             </span>
             {notifs.length > 0 && (
               <button onClick={deleteAll} style={{
