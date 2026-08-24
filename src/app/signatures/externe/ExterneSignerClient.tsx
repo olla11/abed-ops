@@ -24,6 +24,9 @@ function shortHash(s: string): string {
 
 const BRACKET_COLOR = '#2563eb'
 
+type StampOptions = { bracket: boolean; header: boolean; date: boolean; hash: boolean }
+const DEFAULT_STAMP_OPTIONS: StampOptions = { bracket: true, header: true, date: true, hash: true }
+
 // Crochet aux coins arrondis, resserré vers le centre (autour du nom) plutôt
 // que de courir sur toute la hauteur du bloc.
 function bracketPath(hookLen: number, topY: number, bottomY: number, radius: number): string {
@@ -31,7 +34,10 @@ function bracketPath(hookLen: number, topY: number, bottomY: number, radius: num
   return `M ${x + hookLen},${topY} L ${x + radius},${topY} A ${radius},${radius} 0 0 0 ${x},${topY + radius} L ${x},${bottomY - radius} A ${radius},${radius} 0 0 0 ${x + radius},${bottomY} L ${x + hookLen},${bottomY}`
 }
 
-function SignatureBlock({ name, date, hash, small }: { name: string; date: string; hash: string; small?: boolean }) {
+function SignatureBlock({ name, date, hash, small, opts = DEFAULT_STAMP_OPTIONS }: { name: string; date: string; hash: string; small?: boolean; opts?: StampOptions }) {
+  // Chaque élément peut être désactivé (opts) — la ligne du nom se resserre
+  // vers l'espace disponible en conséquence, plutôt que de laisser un vide à
+  // la place de l'élément retiré (même logique que SignerClient/SignatureCaptureModal).
   const bh = small ? 68 : 85
   const barW = 2
   const hookLen = small ? 9 : 13
@@ -41,10 +47,13 @@ function SignatureBlock({ name, date, hash, small }: { name: string; date: strin
   const cornerRadius = Math.round(bh * 0.047)
   const bracketInset = Math.round(bh * 0.165)
   const headerTop = Math.round(bh * 0.04)
-  const nameLine = Math.round(bh * 0.604)
+  const hasFooter = opts.date || opts.hash
+  const contentAreaTop = bh * (opts.header ? 0.18 : 0.08)
+  const contentAreaBottom = bh * (hasFooter ? 0.66 : 0.86)
+  const nameLine = Math.round((contentAreaTop + contentAreaBottom) / 2 + fontSize * 0.32)
   const sepLine = Math.round(bh * 0.70)   // resserré vers le nom (presque collé, sans couper les descendantes)
   const dateBottom = Math.round(bh * 0.97)
-  const textLeft = hookLen + 8
+  const textLeft = opts.bracket ? hookLen + 8 : 6
   const hashTexte = `${hash.slice(0, 12)}...`
 
   // Largeur dynamique : mesure le texte réel (comme la capture canvas) pour
@@ -55,36 +64,45 @@ function SignatureBlock({ name, date, hash, small }: { name: string; date: strin
     const mesure = document.createElement('canvas').getContext('2d')
     if (mesure) {
       mesure.font = `bold ${headerFontSize}px Arial, sans-serif`
-      const headerW = mesure.measureText('MYABED SIGNED BY:').width
+      const headerW = opts.header ? mesure.measureText('MYABED SIGNED BY:').width : 0
       mesure.font = `${fontSize}px BrittanySignature`
       const nameW = mesure.measureText(name).width
       mesure.font = `${footerFontSize}px Arial, sans-serif`
-      const dateW = mesure.measureText(date).width
-      const hashW = mesure.measureText(hashTexte).width
-      const contentW = Math.max(headerW, nameW, dateW + 8 + hashW)
+      const dateW = opts.date ? mesure.measureText(date).width : 0
+      const hashW = opts.hash ? mesure.measureText(hashTexte).width : 0
+      const footerW = opts.date && opts.hash ? dateW + 8 + hashW : Math.max(dateW, hashW)
+      const contentW = Math.max(headerW, nameW, footerW)
       bw = Math.max(small ? 120 : 150, Math.ceil(textLeft + contentW + 6))
     }
   }
   return (
     <div style={{ position: 'relative', width: bw, height: bh, userSelect: 'none', overflow: 'visible' }}>
-      <svg width={hookLen + 4} height={bh} style={{ position: 'absolute', left: 0, top: 0, overflow: 'visible' }}>
-        <path d={bracketPath(hookLen, bracketInset, bh - bracketInset, cornerRadius)} stroke={BRACKET_COLOR} strokeWidth={barW} fill="none" strokeLinecap="round" />
-      </svg>
-      <div style={{ position: 'absolute', top: headerTop, left: hookLen + 8, right: 4, fontSize: small ? 7.5 : 9, fontWeight: 700, color: '#374151', letterSpacing: 0.5, fontFamily: 'Arial, sans-serif', textTransform: 'uppercase', lineHeight: 1 }}>
-        MyABED signed by:
-      </div>
-      <div style={{ position: 'absolute', left: hookLen + 8, right: 4, top: nameLine - fontSize - 4, overflow: 'visible', lineHeight: 1 }}>
+      {opts.bracket && (
+        <svg width={hookLen + 4} height={bh} style={{ position: 'absolute', left: 0, top: 0, overflow: 'visible' }}>
+          <path d={bracketPath(hookLen, bracketInset, bh - bracketInset, cornerRadius)} stroke={BRACKET_COLOR} strokeWidth={barW} fill="none" strokeLinecap="round" />
+        </svg>
+      )}
+      {opts.header && (
+        <div style={{ position: 'absolute', top: headerTop, left: textLeft, right: 4, fontSize: small ? 7.5 : 9, fontWeight: 700, color: '#374151', letterSpacing: 0.5, fontFamily: 'Arial, sans-serif', textTransform: 'uppercase', lineHeight: 1 }}>
+          MyABED signed by:
+        </div>
+      )}
+      <div style={{ position: 'absolute', left: textLeft, right: 4, top: nameLine - fontSize - 4, overflow: 'visible', lineHeight: 1 }}>
         <span style={{ fontFamily: '"BrittanySignature", cursive', fontSize, color: '#000', letterSpacing: '0.02em', fontWeight: 400, whiteSpace: 'nowrap', display: 'inline-block', overflow: 'visible' }}>
           {name}
         </span>
       </div>
-      <div style={{ position: 'absolute', top: sepLine, left: hookLen + 8, right: 4, borderTop: '1px solid #d1d5db' }} />
-      {/* Footer — le hash suit directement la date au lieu d'être plaqué à
-          droite du bloc, ce qui laissait un grand vide pour un nom court. */}
-      <div style={{ position: 'absolute', top: sepLine + 4, bottom: bh - dateBottom, left: hookLen + 8, right: 4, fontSize: small ? 7 : 8, color: '#6b7280', display: 'flex', gap: 8, fontFamily: 'Arial, sans-serif', alignItems: 'center' }}>
-        <span>{date}</span>
-        <span style={{ color: '#9ca3af' }}>{hash.slice(0, 12)}...</span>
-      </div>
+      {hasFooter && (
+        <>
+          <div style={{ position: 'absolute', top: sepLine, left: textLeft, right: 4, borderTop: '1px solid #d1d5db' }} />
+          {/* le hash suit directement la date au lieu d'être plaqué à droite du
+              bloc, ce qui laissait un grand vide pour un nom court. */}
+          <div style={{ position: 'absolute', top: sepLine + 4, bottom: bh - dateBottom, left: textLeft, right: 4, fontSize: small ? 7 : 8, color: '#6b7280', display: 'flex', gap: 8, fontFamily: 'Arial, sans-serif', alignItems: 'center' }}>
+            {opts.date && <span>{date}</span>}
+            {opts.hash && <span style={{ color: '#9ca3af' }}>{hash.slice(0, 12)}...</span>}
+          </div>
+        </>
+      )}
     </div>
   )
 }
@@ -356,6 +374,7 @@ export default function ExterneSignerClient({
   const [refusing, setRefusing] = useState(false)
   const [refused, setRefused] = useState(false)
   const [policeChargee, setPoliceChargee] = useState(false)
+  const [options, setOptions] = useState<StampOptions>(DEFAULT_STAMP_OPTIONS)
 
   const today = signeLe
     ? new Date(signeLe).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -407,7 +426,7 @@ export default function ExterneSignerClient({
     if (clamped !== sigPage) { setSigPage(clamped); setViewPage(clamped); setSigPos(null) }
   }
 
-  async function captureSignatureImage(): Promise<string> {
+  async function captureSignatureImage(opts: StampOptions = DEFAULT_STAMP_OPTIONS): Promise<string> {
     // 3× pour un rendu net, multiplié par le facteur choisi par l'utilisateur
     // (poignée de redimensionnement) — toutes les dimensions ci-dessous en
     // dérivent, donc l'agrandissement reste proportionnel en largeur et hauteur.
@@ -417,10 +436,11 @@ export default function ExterneSignerClient({
     const cornerRadius = Math.round(BH * 0.047)
     const bracketInset = Math.round(BH * 0.165)
     const bx = 2 * SCALE
-    const textX = bx + hookLen + 8 * SCALE
+    const textX = bx + (opts.bracket ? hookLen + 8 * SCALE : 6 * SCALE)
     const nomSignataire = nomExterne ?? ''
     const hashTexte = `${sigHash.slice(0, 12)}...`
     const dateHashGap = 10 * SCALE
+    const hasFooter = opts.date || opts.hash
 
     // Laisse le temps à la police (embarquée dans le bundle) de finir de
     // se préparer, sans jamais bloquer la signature sur cette base.
@@ -432,14 +452,15 @@ export default function ExterneSignerClient({
     // laissant un grand vide avant le hash pour les noms courts.
     const mesure = document.createElement('canvas').getContext('2d')!
     mesure.font = `bold ${9 * SCALE}px Arial, sans-serif`
-    const headerW = mesure.measureText('MYABED SIGNED BY:').width
+    const headerW = opts.header ? mesure.measureText('MYABED SIGNED BY:').width : 0
     mesure.font = `${fontSize}px BrittanySignature`
     const nameW = mesure.measureText(nomSignataire).width
     mesure.font = `${8 * SCALE}px Arial, sans-serif`
-    const dateW = mesure.measureText(today).width
-    const hashW = mesure.measureText(hashTexte).width
+    const dateW = opts.date ? mesure.measureText(today).width : 0
+    const hashW = opts.hash ? mesure.measureText(hashTexte).width : 0
+    const footerW = opts.date && opts.hash ? dateW + dateHashGap + hashW : Math.max(dateW, hashW)
 
-    const contentW = Math.max(headerW, nameW, dateW + dateHashGap + hashW)
+    const contentW = Math.max(headerW, nameW, footerW)
     const BW = Math.max(150 * SCALE, Math.ceil(textX + contentW + 6 * SCALE))
 
     const canvas = document.createElement('canvas')
@@ -451,42 +472,59 @@ export default function ExterneSignerClient({
     // au lieu d'apparaître dans un rectangle blanc.
 
     // Bracket (blue C-shape) — coins arrondis, resserré vers le centre
-    ctx.strokeStyle = BRACKET_COLOR
-    ctx.lineWidth = 2 * SCALE
-    ctx.lineCap = 'round'
-    ctx.beginPath()
-    ctx.moveTo(bx + hookLen, bracketInset)
-    ctx.lineTo(bx + cornerRadius, bracketInset)
-    ctx.arcTo(bx, bracketInset, bx, bracketInset + cornerRadius, cornerRadius)
-    ctx.lineTo(bx, BH - bracketInset - cornerRadius)
-    ctx.arcTo(bx, BH - bracketInset, bx + cornerRadius, BH - bracketInset, cornerRadius)
-    ctx.lineTo(bx + hookLen, BH - bracketInset)
-    ctx.stroke()
+    if (opts.bracket) {
+      ctx.strokeStyle = BRACKET_COLOR
+      ctx.lineWidth = 2 * SCALE
+      ctx.lineCap = 'round'
+      ctx.beginPath()
+      ctx.moveTo(bx + hookLen, bracketInset)
+      ctx.lineTo(bx + cornerRadius, bracketInset)
+      ctx.arcTo(bx, bracketInset, bx, bracketInset + cornerRadius, cornerRadius)
+      ctx.lineTo(bx, BH - bracketInset - cornerRadius)
+      ctx.arcTo(bx, BH - bracketInset, bx + cornerRadius, BH - bracketInset, cornerRadius)
+      ctx.lineTo(bx + hookLen, BH - bracketInset)
+      ctx.stroke()
+    }
 
-    ctx.fillStyle = '#374151'
-    ctx.font = `bold ${9 * SCALE}px Arial, sans-serif`
-    ctx.fillText('MYABED SIGNED BY:', textX, Math.round(BH * 0.155))
+    const contentAreaTop = BH * (opts.header ? 0.18 : 0.08)
+    const contentAreaBottom = BH * (hasFooter ? 0.66 : 0.86)
+    const nameBaselineY = Math.round((contentAreaTop + contentAreaBottom) / 2 + fontSize * 0.32)
+
+    if (opts.header) {
+      ctx.fillStyle = '#374151'
+      ctx.font = `bold ${9 * SCALE}px Arial, sans-serif`
+      ctx.fillText('MYABED SIGNED BY:', textX, Math.round(BH * 0.155))
+    }
 
     ctx.fillStyle = '#000000'
     ctx.font = `${fontSize}px BrittanySignature`
-    ctx.fillText(nomSignataire, textX, Math.round(BH * 0.604))
+    ctx.fillText(nomSignataire, textX, nameBaselineY)
 
-    // Separator line — s'arrête à la largeur réelle du contenu, resserrée
-    // vers le nom (presque collée aux descendantes, sans les couper).
-    ctx.strokeStyle = '#d1d5db'
-    ctx.lineWidth = 1 * SCALE
-    ctx.beginPath()
-    ctx.moveTo(textX, Math.round(BH * 0.70))
-    ctx.lineTo(BW - 4 * SCALE, Math.round(BH * 0.70))
-    ctx.stroke()
+    if (hasFooter) {
+      // Separator line — s'arrête à la largeur réelle du contenu, resserrée
+      // vers le nom (presque collée aux descendantes, sans les couper).
+      ctx.strokeStyle = '#d1d5db'
+      ctx.lineWidth = 1 * SCALE
+      ctx.beginPath()
+      ctx.moveTo(textX, Math.round(BH * 0.70))
+      ctx.lineTo(BW - 4 * SCALE, Math.round(BH * 0.70))
+      ctx.stroke()
 
-    // Date and hash — le hash suit immédiatement la date. Décalés d'autant
-    // que la ligne pour garder le même espacement ligne→date qu'avant.
-    ctx.fillStyle = '#6b7280'
-    ctx.font = `${8 * SCALE}px Arial, sans-serif`
-    ctx.fillText(today, textX, Math.round(BH * 0.855))
-    ctx.fillStyle = '#9ca3af'
-    ctx.fillText(hashTexte, textX + dateW + dateHashGap, Math.round(BH * 0.855))
+      // Date and hash — le hash suit immédiatement la date. Décalés d'autant
+      // que la ligne pour garder le même espacement ligne→date qu'avant.
+      let fx = textX
+      if (opts.date) {
+        ctx.fillStyle = '#6b7280'
+        ctx.font = `${8 * SCALE}px Arial, sans-serif`
+        ctx.fillText(today, fx, Math.round(BH * 0.855))
+        fx += dateW + dateHashGap
+      }
+      if (opts.hash) {
+        ctx.fillStyle = '#9ca3af'
+        ctx.font = `${8 * SCALE}px Arial, sans-serif`
+        ctx.fillText(hashTexte, fx, Math.round(BH * 0.855))
+      }
+    }
 
     return canvas.toDataURL('image/png')
   }
@@ -516,7 +554,7 @@ export default function ExterneSignerClient({
     setLoading(true); setErr(null)
     let sig_image: string
     try {
-      sig_image = await captureSignatureImage()
+      sig_image = await captureSignatureImage(options)
     } catch {
       setLoading(false)
       setErr('Erreur lors de la génération de la signature. Réessayez.')
@@ -543,7 +581,7 @@ export default function ExterneSignerClient({
     else { const d = await res.json().catch(() => ({})); setErr(d.error ?? 'Erreur lors du refus') }
   }
 
-  const sigBlock = policeChargee ? <SignatureBlock name={nomExterne ?? ''} date={today} hash={sigHash} /> : null
+  const sigBlock = policeChargee ? <SignatureBlock name={nomExterne ?? ''} date={today} hash={sigHash} opts={options} /> : null
 
   const shellStyle: React.CSSProperties = { minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 16, background: '#f4f6f9' }
   const cardStyle: React.CSSProperties = { background: 'white', borderRadius: 16, boxShadow: '0 4px 32px rgba(0,0,0,.10)', padding: '40px 36px', maxWidth: 480, width: '100%', textAlign: 'center' }
@@ -593,7 +631,7 @@ export default function ExterneSignerClient({
           <p style={{ color: '#374151', fontSize: 14 }}>Vous avez signé <strong>{titre}</strong> le {today}.</p>
           {nomExterne && policeChargee && (
             <div style={{ margin: '20px auto', display: 'inline-block' }}>
-              <SignatureBlock name={nomExterne} date={today} hash={sigHash} />
+              <SignatureBlock name={nomExterne} date={today} hash={sigHash} opts={options} />
             </div>
           )}
           {fichierUrl && (
@@ -734,8 +772,25 @@ export default function ExterneSignerClient({
         <div>
           <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 8, color: '#6b7280' }}>Aperçu de la signature</label>
           {policeChargee
-            ? <SignatureBlock name={nomExterne} date={today} hash={sigHash} small />
+            ? <SignatureBlock name={nomExterne} date={today} hash={sigHash} small opts={options} />
             : <div style={{ fontSize: 12, color: '#6b7280' }}>Chargement...</div>}
+        </div>
+
+        <div>
+          <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 8, color: '#6b7280' }}>Éléments affichés sur la signature</label>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            {([
+              { key: 'bracket', label: 'Crochet bleu' },
+              { key: 'header', label: '« MyABED signed by »' },
+              { key: 'date', label: 'Date' },
+              { key: 'hash', label: 'Hash' },
+            ] as { key: keyof StampOptions; label: string }[]).map(o => (
+              <label key={o.key} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12.5, color: '#374151', cursor: 'pointer' }}>
+                <input type="checkbox" checked={options[o.key]} onChange={e => setOptions(prev => ({ ...prev, [o.key]: e.target.checked }))} />
+                {o.label}
+              </label>
+            ))}
+          </div>
         </div>
 
         {docUrl && numPages && (

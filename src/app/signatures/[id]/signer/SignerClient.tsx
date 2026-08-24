@@ -14,6 +14,8 @@ type Props = {
 }
 
 type SignMode = 'saisir' | 'dessiner' | 'importer' | 'enregistree'
+type StampOptions = { bracket: boolean; header: boolean; date: boolean; hash: boolean }
+const DEFAULT_STAMP_OPTIONS: StampOptions = { bracket: true, header: true, date: true, hash: true }
 
 /**
  * Recadre un canvas transparent sur le contenu réellement dessiné (retire les
@@ -145,8 +147,12 @@ function bracketPath(hookLen: number, topY: number, bottomY: number, radius: num
   return `M ${x + hookLen},${topY} L ${x + radius},${topY} A ${radius},${radius} 0 0 0 ${x},${topY + radius} L ${x},${bottomY - radius} A ${radius},${radius} 0 0 0 ${x + radius},${bottomY} L ${x + hookLen},${bottomY}`
 }
 
-function SignatureBlock({ name, date, hash, small }: { name: string; date: string; hash: string; small?: boolean }) {
+function SignatureBlock({ name, date, hash, small, opts = DEFAULT_STAMP_OPTIONS }: { name: string; date: string; hash: string; small?: boolean; opts?: StampOptions }) {
   // Layout mirrors the canvas capture: header 15.5%, name baseline 60.4%, sep 70%, date 93.3%
+  // Chaque élément peut être désactivé (opts) — la ligne de base du nom se
+  // resserre vers le haut/bas de l'espace disponible en conséquence, plutôt
+  // que de laisser un vide à la place de l'élément retiré (même logique que
+  // habillerEnTampon dans SignatureCaptureModal).
   const bh = small ? 68 : 85
   const barW = 2
   const hookLen = small ? 9 : 13
@@ -156,10 +162,13 @@ function SignatureBlock({ name, date, hash, small }: { name: string; date: strin
   const cornerRadius = Math.round(bh * 0.047)
   const bracketInset = Math.round(bh * 0.165)
   const headerTop = Math.round(bh * 0.04)
-  const nameLine = Math.round(bh * 0.604)   // aligns with canvas baseline %
+  const hasFooter = opts.date || opts.hash
+  const contentAreaTop = bh * (opts.header ? 0.18 : 0.08)
+  const contentAreaBottom = bh * (hasFooter ? 0.66 : 0.86)
+  const nameLine = Math.round((contentAreaTop + contentAreaBottom) / 2 + fontSize * 0.32)   // baseline ≈ centre + demi-hauteur de fonte
   const sepLine   = Math.round(bh * 0.70)   // resserré vers le nom (presque collé, sans couper les descendantes)
   const dateBottom = Math.round(bh * 0.97)
-  const textLeft = hookLen + 8
+  const textLeft = opts.bracket ? hookLen + 8 : 6
   const hashTexte = `${hash.slice(0, 12)}...`
 
   // Largeur dynamique : mesure le texte réel (comme la capture canvas) pour
@@ -175,44 +184,53 @@ function SignatureBlock({ name, date, hash, small }: { name: string; date: strin
     const mesure = document.createElement('canvas').getContext('2d')
     if (mesure) {
       mesure.font = `bold ${headerFontSize}px Arial, sans-serif`
-      const headerW = mesure.measureText('MYABED SIGNED BY:').width
+      const headerW = opts.header ? mesure.measureText('MYABED SIGNED BY:').width : 0
       mesure.font = `${fontSize}px BrittanySignature`
       const nameW = mesure.measureText(name).width
       mesure.font = `${footerFontSize}px Arial, sans-serif`
-      const dateW = mesure.measureText(date).width
-      const hashW = mesure.measureText(hashTexte).width
-      const contentW = Math.max(headerW, nameW, dateW + 8 + hashW)
+      const dateW = opts.date ? mesure.measureText(date).width : 0
+      const hashW = opts.hash ? mesure.measureText(hashTexte).width : 0
+      const footerW = opts.date && opts.hash ? dateW + 8 + hashW : Math.max(dateW, hashW)
+      const contentW = Math.max(headerW, nameW, footerW)
       bw = Math.min(largeurMax, Math.max(small ? 120 : 150, Math.ceil(textLeft + contentW + 6)))
     }
   }
   return (
     <div style={{ position: 'relative', width: bw, height: bh, userSelect: 'none', overflow: 'visible' }}>
       {/* Bracket — resserré vers le centre, coins arrondis */}
-      <svg width={hookLen + 4} height={bh} style={{ position: 'absolute', left: 0, top: 0, overflow: 'visible' }}>
-        <path d={bracketPath(hookLen, bracketInset, bh - bracketInset, cornerRadius)} stroke={BRACKET_COLOR} strokeWidth={barW} fill="none" strokeLinecap="round" />
-      </svg>
+      {opts.bracket && (
+        <svg width={hookLen + 4} height={bh} style={{ position: 'absolute', left: 0, top: 0, overflow: 'visible' }}>
+          <path d={bracketPath(hookLen, bracketInset, bh - bracketInset, cornerRadius)} stroke={BRACKET_COLOR} strokeWidth={barW} fill="none" strokeLinecap="round" />
+        </svg>
+      )}
       {/* Header */}
-      <div style={{ position: 'absolute', top: headerTop, left: hookLen + 8, right: 4, fontSize: small ? 7.5 : 9, fontWeight: 700, color: '#374151', letterSpacing: 0.5, fontFamily: 'Arial, sans-serif', textTransform: 'uppercase', lineHeight: 1 }}>
-        MyABED signed by:
-      </div>
+      {opts.header && (
+        <div style={{ position: 'absolute', top: headerTop, left: textLeft, right: 4, fontSize: small ? 7.5 : 9, fontWeight: 700, color: '#374151', letterSpacing: 0.5, fontFamily: 'Arial, sans-serif', textTransform: 'uppercase', lineHeight: 1 }}>
+          MyABED signed by:
+        </div>
+      )}
       {/* Name — baseline pinned to nameLine ; débordement vertical visible (les
           fioritures de la police Brittany dépassent parfois vers le haut),
           mais horizontal tronqué (…) — la largeur du bloc est plafonnée
           (largeurMax) et un nom trop long pour y tenir doit se couper
           proprement plutôt que déborder par-dessus le reste de la page. */}
-      <div style={{ position: 'absolute', left: hookLen + 8, right: 4, top: nameLine - fontSize - 4, overflowX: 'hidden', overflowY: 'visible', lineHeight: 1 }}>
+      <div style={{ position: 'absolute', left: textLeft, right: 4, top: nameLine - fontSize - 4, overflowX: 'hidden', overflowY: 'visible', lineHeight: 1 }}>
         <span style={{ fontFamily: '"BrittanySignature", cursive', fontSize, color: '#000', letterSpacing: '0.02em', fontWeight: 400, whiteSpace: 'nowrap', display: 'inline-block', maxWidth: '100%', overflowX: 'hidden', overflowY: 'visible', textOverflow: 'ellipsis', verticalAlign: 'top' }}>
           {name}
         </span>
       </div>
-      {/* Separator */}
-      <div style={{ position: 'absolute', top: sepLine, left: hookLen + 8, right: 4, borderTop: '1px solid #d1d5db' }} />
-      {/* Footer — le hash suit directement la date au lieu d'être plaqué à
-          droite du bloc, ce qui laissait un grand vide pour un nom court. */}
-      <div style={{ position: 'absolute', top: sepLine + 4, bottom: bh - dateBottom, left: hookLen + 8, right: 4, fontSize: small ? 7 : 8, color: '#6b7280', display: 'flex', gap: 8, fontFamily: 'Arial, sans-serif', alignItems: 'center' }}>
-        <span>{date}</span>
-        <span style={{ color: '#9ca3af' }}>{hash.slice(0, 12)}...</span>
-      </div>
+      {/* Séparateur + footer — seulement si date et/ou hash affichés */}
+      {hasFooter && (
+        <>
+          <div style={{ position: 'absolute', top: sepLine, left: textLeft, right: 4, borderTop: '1px solid #d1d5db' }} />
+          {/* le hash suit directement la date au lieu d'être plaqué à droite du
+              bloc, ce qui laissait un grand vide pour un nom court. */}
+          <div style={{ position: 'absolute', top: sepLine + 4, bottom: bh - dateBottom, left: textLeft, right: 4, fontSize: small ? 7 : 8, color: '#6b7280', display: 'flex', gap: 8, fontFamily: 'Arial, sans-serif', alignItems: 'center' }}>
+            {opts.date && <span>{date}</span>}
+            {opts.hash && <span style={{ color: '#9ca3af' }}>{hash.slice(0, 12)}...</span>}
+          </div>
+        </>
+      )}
     </div>
   )
 }
@@ -533,6 +551,7 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
   const [refusing, setRefusing] = useState(false)
   const [refused, setRefused] = useState(false)
   const [policeChargee, setPoliceChargee] = useState(false)
+  const [options, setOptions] = useState<StampOptions>(DEFAULT_STAMP_OPTIONS)
 
   const today = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
   const sigHash = shortHash(userName + demandeId + today)
@@ -584,7 +603,7 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
   // Render the signature block to a PNG via an offscreen canvas.
   // This captures the EXACT browser rendering (Brittany font included) so the
   // PDF embedding is pixel-perfect identical to what the user sees.
-  async function captureSignatureImage(): Promise<string> {
+  async function captureSignatureImage(opts: StampOptions = DEFAULT_STAMP_OPTIONS): Promise<string> {
     // 3× pour un rendu net, multiplié par le facteur choisi par l'utilisateur
     // (poignée de redimensionnement) — toutes les dimensions ci-dessous en
     // dérivent, donc l'agrandissement reste proportionnel en largeur et hauteur.
@@ -595,9 +614,10 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
     const cornerRadius = Math.round(BH * 0.047)
     const bracketInset = Math.round(BH * 0.165)
     const bx = 2 * SCALE
-    const textX = bx + hookLen + 8 * SCALE
+    const textX = bx + (opts.bracket ? hookLen + 8 * SCALE : 6 * SCALE)
     const hashTexte = `${sigHash.slice(0, 12)}...`
     const dateHashGap = 10 * SCALE
+    const hasFooter = opts.date || opts.hash
 
     // Laisse le temps à la police (embarquée dans le bundle) de finir de
     // se préparer, sans jamais bloquer la signature sur cette base.
@@ -609,14 +629,15 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
     // laissant un grand vide avant le hash pour les noms courts.
     const mesure = document.createElement('canvas').getContext('2d')!
     mesure.font = `bold ${9 * SCALE}px Arial, sans-serif`
-    const headerW = mesure.measureText('MYABED SIGNED BY:').width
+    const headerW = opts.header ? mesure.measureText('MYABED SIGNED BY:').width : 0
     mesure.font = `${fontSize}px BrittanySignature`
     const nameW = mesure.measureText(userName).width
     mesure.font = `${8 * SCALE}px Arial, sans-serif`
-    const dateW = mesure.measureText(today).width
-    const hashW = mesure.measureText(hashTexte).width
+    const dateW = opts.date ? mesure.measureText(today).width : 0
+    const hashW = opts.hash ? mesure.measureText(hashTexte).width : 0
+    const footerW = opts.date && opts.hash ? dateW + dateHashGap + hashW : Math.max(dateW, hashW)
 
-    const contentW = Math.max(headerW, nameW, dateW + dateHashGap + hashW)
+    const contentW = Math.max(headerW, nameW, footerW)
     const BW = Math.max(150 * SCALE, Math.ceil(textX + contentW + 6 * SCALE))
 
     const canvas = document.createElement('canvas')
@@ -628,54 +649,68 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
     // au lieu d'apparaître dans un rectangle blanc.
 
     // Bracket (blue C-shape) — coins arrondis, resserré vers le centre
-    ctx.strokeStyle = BRACKET_COLOR
-    ctx.lineWidth = 2 * SCALE
-    ctx.lineCap = 'round'
-    ctx.beginPath()
-    ctx.moveTo(bx + hookLen, bracketInset)
-    ctx.lineTo(bx + cornerRadius, bracketInset)
-    ctx.arcTo(bx, bracketInset, bx, bracketInset + cornerRadius, cornerRadius)
-    ctx.lineTo(bx, BH - bracketInset - cornerRadius)
-    ctx.arcTo(bx, BH - bracketInset, bx + cornerRadius, BH - bracketInset, cornerRadius)
-    ctx.lineTo(bx + hookLen, BH - bracketInset)
-    ctx.stroke()
+    if (opts.bracket) {
+      ctx.strokeStyle = BRACKET_COLOR
+      ctx.lineWidth = 2 * SCALE
+      ctx.lineCap = 'round'
+      ctx.beginPath()
+      ctx.moveTo(bx + hookLen, bracketInset)
+      ctx.lineTo(bx + cornerRadius, bracketInset)
+      ctx.arcTo(bx, bracketInset, bx, bracketInset + cornerRadius, cornerRadius)
+      ctx.lineTo(bx, BH - bracketInset - cornerRadius)
+      ctx.arcTo(bx, BH - bracketInset, bx + cornerRadius, BH - bracketInset, cornerRadius)
+      ctx.lineTo(bx + hookLen, BH - bracketInset)
+      ctx.stroke()
+    }
 
     // --- Vertical layout (all values in px at 3× scale) ---
-    // BH = 240
-    // Header baseline  :  42px (15.5% — gives label room then gap before name)
-    // Name baseline    : 163px (60.4% — Brittany ascenders ~72px above → top at 91px,
-    //                            well below header end; descenders ~18px below → 181px)
-    // Separator        : 168px (70% — resserré vers le nom, presque collé aux descendantes)
-    // Date baseline    : 252px (93.3%)
+    // BH = 240 — chaque élément peut être désactivé (opts) : la zone dispo
+    // pour le nom se resserre en conséquence (même logique que
+    // habillerEnTampon dans SignatureCaptureModal) plutôt que de laisser un
+    // vide à la place de l'élément retiré.
+    const contentAreaTop = BH * (opts.header ? 0.18 : 0.08)
+    const contentAreaBottom = BH * (hasFooter ? 0.66 : 0.86)
+    const nameBaselineY = Math.round((contentAreaTop + contentAreaBottom) / 2 + fontSize * 0.32)
 
     // Header label
-    ctx.fillStyle = '#374151'
-    ctx.font = `bold ${9 * SCALE}px Arial, sans-serif`
-    ctx.fillText('MYABED SIGNED BY:', textX, Math.round(BH * 0.155))
+    if (opts.header) {
+      ctx.fillStyle = '#374151'
+      ctx.font = `bold ${9 * SCALE}px Arial, sans-serif`
+      ctx.fillText('MYABED SIGNED BY:', textX, Math.round(BH * 0.155))
+    }
 
     // Signer name in Brittany
     ctx.fillStyle = '#000000'
     ctx.font = `${fontSize}px BrittanySignature`
-    ctx.fillText(userName, textX, Math.round(BH * 0.604))
+    ctx.fillText(userName, textX, nameBaselineY)
 
-    // Separator line — s'arrête à la largeur réelle du contenu, plus jamais
-    // un trait fixe qui dépasse largement un nom court.
-    ctx.strokeStyle = '#d1d5db'
-    ctx.lineWidth = 1 * SCALE
-    ctx.beginPath()
-    ctx.moveTo(textX, Math.round(BH * 0.70))
-    ctx.lineTo(BW - 4 * SCALE, Math.round(BH * 0.70))
-    ctx.stroke()
+    if (hasFooter) {
+      // Separator line — s'arrête à la largeur réelle du contenu, plus jamais
+      // un trait fixe qui dépasse largement un nom court.
+      ctx.strokeStyle = '#d1d5db'
+      ctx.lineWidth = 1 * SCALE
+      ctx.beginPath()
+      ctx.moveTo(textX, Math.round(BH * 0.70))
+      ctx.lineTo(BW - 4 * SCALE, Math.round(BH * 0.70))
+      ctx.stroke()
 
-    // Date and hash — le hash suit immédiatement la date (plus de décalage
-    // fixe qui laissait un vide quand la date/le nom sont courts). Décalés
-    // d'autant que la ligne séparatrice pour garder le même espacement
-    // ligne→date qu'avant (seul l'espace nom→ligne est resserré).
-    ctx.fillStyle = '#6b7280'
-    ctx.font = `${8 * SCALE}px Arial, sans-serif`
-    ctx.fillText(today, textX, Math.round(BH * 0.855))
-    ctx.fillStyle = '#9ca3af'
-    ctx.fillText(hashTexte, textX + dateW + dateHashGap, Math.round(BH * 0.855))
+      // Date and hash — le hash suit immédiatement la date (plus de décalage
+      // fixe qui laissait un vide quand la date/le nom sont courts). Décalés
+      // d'autant que la ligne séparatrice pour garder le même espacement
+      // ligne→date qu'avant (seul l'espace nom→ligne est resserré).
+      let fx = textX
+      if (opts.date) {
+        ctx.fillStyle = '#6b7280'
+        ctx.font = `${8 * SCALE}px Arial, sans-serif`
+        ctx.fillText(today, fx, Math.round(BH * 0.855))
+        fx += dateW + dateHashGap
+      }
+      if (opts.hash) {
+        ctx.fillStyle = '#9ca3af'
+        ctx.font = `${8 * SCALE}px Arial, sans-serif`
+        ctx.fillText(hashTexte, fx, Math.round(BH * 0.855))
+      }
+    }
 
     return canvas.toDataURL('image/png')
   }
@@ -694,20 +729,21 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
    * — mêmes garanties de traçabilité) mais avec une image (dessinée,
    * importée ou enregistrée) à la place du nom saisi en police manuscrite.
    */
-  async function captureImageSignatureStamp(rawImage: string): Promise<string> {
+  async function captureImageSignatureStamp(rawImage: string, opts: StampOptions = DEFAULT_STAMP_OPTIONS): Promise<string> {
     const SCALE = 3 * sigScale
     const BH = 80 * SCALE
     const hookLen = 13 * SCALE
     const cornerRadius = Math.round(BH * 0.047)
     const bracketInset = Math.round(BH * 0.165)
     const bx = 2 * SCALE
-    const textX = bx + hookLen + 8 * SCALE
+    const textX = bx + (opts.bracket ? hookLen + 8 * SCALE : 6 * SCALE)
     const hashTexte = `${sigHash.slice(0, 12)}...`
     const dateHashGap = 10 * SCALE
+    const hasFooter = opts.date || opts.hash
 
     const img = await loadImage(rawImage)
-    const nameAreaTop = Math.round(BH * 0.18)
-    const nameAreaBottom = Math.round(BH * 0.66)
+    const nameAreaTop = Math.round(BH * (opts.header ? 0.18 : 0.08))
+    const nameAreaBottom = Math.round(BH * (hasFooter ? 0.66 : 0.86))
     const targetH = nameAreaBottom - nameAreaTop
     const maxW = 230 * SCALE
     const imgW = Math.min(maxW, targetH * (img.width / img.height))
@@ -715,48 +751,62 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
 
     const mesure = document.createElement('canvas').getContext('2d')!
     mesure.font = `bold ${9 * SCALE}px Arial, sans-serif`
-    const headerW = mesure.measureText('MYABED SIGNED BY:').width
+    const headerW = opts.header ? mesure.measureText('MYABED SIGNED BY:').width : 0
     mesure.font = `${8 * SCALE}px Arial, sans-serif`
-    const dateW = mesure.measureText(today).width
-    const hashW = mesure.measureText(hashTexte).width
+    const dateW = opts.date ? mesure.measureText(today).width : 0
+    const hashW = opts.hash ? mesure.measureText(hashTexte).width : 0
+    const footerW = opts.date && opts.hash ? dateW + dateHashGap + hashW : Math.max(dateW, hashW)
 
-    const contentW = Math.max(headerW, imgW, dateW + dateHashGap + hashW)
+    const contentW = Math.max(headerW, imgW, footerW)
     const BW = Math.max(150 * SCALE, Math.ceil(textX + contentW + 6 * SCALE))
 
     const canvas = document.createElement('canvas')
     canvas.width = BW; canvas.height = BH
     const ctx = canvas.getContext('2d')!
 
-    ctx.strokeStyle = BRACKET_COLOR
-    ctx.lineWidth = 2 * SCALE
-    ctx.lineCap = 'round'
-    ctx.beginPath()
-    ctx.moveTo(bx + hookLen, bracketInset)
-    ctx.lineTo(bx + cornerRadius, bracketInset)
-    ctx.arcTo(bx, bracketInset, bx, bracketInset + cornerRadius, cornerRadius)
-    ctx.lineTo(bx, BH - bracketInset - cornerRadius)
-    ctx.arcTo(bx, BH - bracketInset, bx + cornerRadius, BH - bracketInset, cornerRadius)
-    ctx.lineTo(bx + hookLen, BH - bracketInset)
-    ctx.stroke()
+    if (opts.bracket) {
+      ctx.strokeStyle = BRACKET_COLOR
+      ctx.lineWidth = 2 * SCALE
+      ctx.lineCap = 'round'
+      ctx.beginPath()
+      ctx.moveTo(bx + hookLen, bracketInset)
+      ctx.lineTo(bx + cornerRadius, bracketInset)
+      ctx.arcTo(bx, bracketInset, bx, bracketInset + cornerRadius, cornerRadius)
+      ctx.lineTo(bx, BH - bracketInset - cornerRadius)
+      ctx.arcTo(bx, BH - bracketInset, bx + cornerRadius, BH - bracketInset, cornerRadius)
+      ctx.lineTo(bx + hookLen, BH - bracketInset)
+      ctx.stroke()
+    }
 
-    ctx.fillStyle = '#374151'
-    ctx.font = `bold ${9 * SCALE}px Arial, sans-serif`
-    ctx.fillText('MYABED SIGNED BY:', textX, Math.round(BH * 0.155))
+    if (opts.header) {
+      ctx.fillStyle = '#374151'
+      ctx.font = `bold ${9 * SCALE}px Arial, sans-serif`
+      ctx.fillText('MYABED SIGNED BY:', textX, Math.round(BH * 0.155))
+    }
 
     ctx.drawImage(img, textX, nameAreaTop + (targetH - imgH) / 2, imgW, imgH)
 
-    ctx.strokeStyle = '#d1d5db'
-    ctx.lineWidth = 1 * SCALE
-    ctx.beginPath()
-    ctx.moveTo(textX, Math.round(BH * 0.70))
-    ctx.lineTo(BW - 4 * SCALE, Math.round(BH * 0.70))
-    ctx.stroke()
+    if (hasFooter) {
+      ctx.strokeStyle = '#d1d5db'
+      ctx.lineWidth = 1 * SCALE
+      ctx.beginPath()
+      ctx.moveTo(textX, Math.round(BH * 0.70))
+      ctx.lineTo(BW - 4 * SCALE, Math.round(BH * 0.70))
+      ctx.stroke()
 
-    ctx.fillStyle = '#6b7280'
-    ctx.font = `${8 * SCALE}px Arial, sans-serif`
-    ctx.fillText(today, textX, Math.round(BH * 0.855))
-    ctx.fillStyle = '#9ca3af'
-    ctx.fillText(hashTexte, textX + dateW + dateHashGap, Math.round(BH * 0.855))
+      let fx = textX
+      if (opts.date) {
+        ctx.fillStyle = '#6b7280'
+        ctx.font = `${8 * SCALE}px Arial, sans-serif`
+        ctx.fillText(today, fx, Math.round(BH * 0.855))
+        fx += dateW + dateHashGap
+      }
+      if (opts.hash) {
+        ctx.fillStyle = '#9ca3af'
+        ctx.font = `${8 * SCALE}px Arial, sans-serif`
+        ctx.fillText(hashTexte, fx, Math.round(BH * 0.855))
+      }
+    }
 
     return canvas.toDataURL('image/png')
   }
@@ -769,10 +819,10 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
   useEffect(() => {
     if (mode === 'saisir' || !rawImageForMode) { setRasterPreview(null); return }
     let cancelled = false
-    captureImageSignatureStamp(rawImageForMode).then(url => { if (!cancelled) setRasterPreview(url) }).catch(() => { if (!cancelled) setRasterPreview(null) })
+    captureImageSignatureStamp(rawImageForMode, options).then(url => { if (!cancelled) setRasterPreview(url) }).catch(() => { if (!cancelled) setRasterPreview(null) })
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, rawImageForMode, sigScale])
+  }, [mode, rawImageForMode, sigScale, options])
 
   function handleImportFile(file: File | null) {
     if (!file) return
@@ -804,7 +854,7 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
     // Capture the signature as a PNG image from the browser's own rendering
     let sig_image: string
     try {
-      sig_image = mode === 'saisir' ? await captureSignatureImage() : await captureImageSignatureStamp(rawImageForMode!)
+      sig_image = mode === 'saisir' ? await captureSignatureImage(options) : await captureImageSignatureStamp(rawImageForMode!, options)
     } catch {
       setLoading(false)
       setErr('Erreur lors de la génération de la signature. Réessayez.')
@@ -836,7 +886,7 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
   }
 
   const sigBlock = mode === 'saisir'
-    ? (policeChargee ? <SignatureBlock name={userName} date={today} hash={sigHash} /> : null)
+    ? (policeChargee ? <SignatureBlock name={userName} date={today} hash={sigHash} opts={options} /> : null)
     : (rasterPreview ? <img src={rasterPreview} alt="Signature" style={{ display: 'block', maxWidth: 260 }} /> : null)
 
   if (refused) {
@@ -1054,8 +1104,25 @@ export default function SignerClient({ demandeId, titre, fichierUrl, userName, c
         <div>
           <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 8, color: '#6b7280' }}>Aperçu de la signature</label>
           {mode === 'saisir'
-            ? (policeChargee ? <SignatureBlock name={userName} date={today} hash={sigHash} small /> : <div style={{ fontSize: 12, color: 'var(--abed-muted)' }}>Chargement...</div>)
+            ? (policeChargee ? <SignatureBlock name={userName} date={today} hash={sigHash} small opts={options} /> : <div style={{ fontSize: 12, color: 'var(--abed-muted)' }}>Chargement...</div>)
             : (rasterPreview ? <img src={rasterPreview} alt="Aperçu de la signature" style={{ maxWidth: 190, display: 'block' }} /> : <div style={{ fontSize: 12, color: 'var(--abed-muted)' }}>Aucun aperçu pour l&apos;instant.</div>)}
+        </div>
+
+        <div>
+          <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 8, color: '#6b7280' }}>Éléments affichés sur la signature</label>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            {([
+              { key: 'bracket', label: 'Crochet bleu' },
+              { key: 'header', label: '« MyABED signed by »' },
+              { key: 'date', label: 'Date' },
+              { key: 'hash', label: 'Hash' },
+            ] as { key: keyof StampOptions; label: string }[]).map(o => (
+              <label key={o.key} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12.5, color: '#374151', cursor: 'pointer' }}>
+                <input type="checkbox" checked={options[o.key]} onChange={e => setOptions(prev => ({ ...prev, [o.key]: e.target.checked }))} />
+                {o.label}
+              </label>
+            ))}
+          </div>
         </div>
 
         {/* Page indicator */}

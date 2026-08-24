@@ -1,7 +1,7 @@
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
 import Link from '@tiptap/extension-link'
-import Image from '@tiptap/extension-image'
+import { ResizableImage } from './tiptap-resizable-image'
 import TextAlign from '@tiptap/extension-text-align'
 import Table from '@tiptap/extension-table'
 import TableRow from '@tiptap/extension-table-row'
@@ -25,7 +25,7 @@ export function baseTdrExtensions(disableHistory: boolean) {
     Link.configure({ openOnClick: false, autolink: true }),
     // allowBase64 : mammoth (import Word) embarque les images en data URI,
     // sans passer par un upload/stockage séparé.
-    Image.configure({ allowBase64: true }),
+    ResizableImage.configure({ allowBase64: true }),
     TextAlign.configure({ types: ['paragraph', 'heading'] }),
     // resizable: redimensionnement des colonnes à la souris (poignée sur la
     // bordure) — fourni nativement par prosemirror-tables, juste désactivé

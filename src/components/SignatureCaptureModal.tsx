@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
+import { Type, PenTool, ImagePlus, Star } from 'lucide-react'
 import { attendrePoliceSignature } from '@/lib/signature-font'
 
 type SignMode = 'saisir' | 'dessiner' | 'importer' | 'enregistree'
@@ -297,17 +298,19 @@ export default function SignatureCaptureModal({ userName, signatureEnregistree, 
 
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
           {([
-            { key: 'saisir', label: '✍️ Saisir' },
-            { key: 'dessiner', label: '🖊️ Dessiner' },
-            { key: 'importer', label: '🖼️ Importer' },
-            { key: 'enregistree', label: '⭐ Enregistrée' },
-          ] as { key: SignMode; label: string }[]).map(t => (
+            { key: 'saisir', label: 'Saisir', Icon: Type },
+            { key: 'dessiner', label: 'Dessiner', Icon: PenTool },
+            { key: 'importer', label: 'Importer', Icon: ImagePlus },
+            { key: 'enregistree', label: 'Enregistrée', Icon: Star },
+          ] as { key: SignMode; label: string; Icon: typeof Type }[]).map(t => (
             <button key={t.key} type="button" onClick={() => setMode(t.key)}
               style={{
+                display: 'flex', alignItems: 'center', gap: 6,
                 padding: '6px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: 'pointer',
                 background: mode === t.key ? '#2563eb' : 'white', color: mode === t.key ? 'white' : '#374151',
                 border: `1px solid ${mode === t.key ? '#2563eb' : '#e5e7eb'}`,
               }}>
+              <t.Icon size={13} />
               {t.label}
             </button>
           ))}
