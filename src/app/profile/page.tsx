@@ -18,7 +18,7 @@ export default async function ProfilePage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, nom, prenoms, email, civilite, telephone, ifu, fonction, signature_url, cachet_url, adresse, date_naissance, lieu_naissance, nationalite, type_emploi, avatar_url, notification_topics')
+    .select('role, titre, nom, prenoms, email, civilite, telephone, ifu, fonction, signature_url, cachet_url, adresse, date_naissance, lieu_naissance, nationalite, type_emploi, avatar_url, notification_topics')
     .eq('id', user.id)
     .single()
 
@@ -33,6 +33,7 @@ export default async function ProfilePage() {
       <AppHeader
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={role}
+        userTitre={profile?.titre}
         typeEmploi={profile?.type_emploi}
         showAdmin={['admin', 'superadmin'].includes(realRole) && !previewRole}
         showRH={estRH(role)}

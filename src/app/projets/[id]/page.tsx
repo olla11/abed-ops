@@ -17,7 +17,7 @@ export default async function ProjetDetailPage({ params }: { params: Promise<{ i
   if (!user) redirect('/login')
 
   const { data: profile } = await supabase
-    .from('profiles').select('role, nom, prenoms, type_emploi, avatar_url').eq('id', user.id).single()
+    .from('profiles').select('role, titre, nom, prenoms, type_emploi, avatar_url').eq('id', user.id).single()
 
   const realRole = profile?.role ?? 'missionnaire'
   const role = await getEffectiveRole(realRole)
@@ -82,6 +82,7 @@ export default async function ProjetDetailPage({ params }: { params: Promise<{ i
       <AppHeader
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={role}
+        userTitre={profile?.titre}
         typeEmploi={profile?.type_emploi}
         showAdmin={['admin', 'superadmin'].includes(realRole) && !previewRole}
         showRH={estRH(role)}

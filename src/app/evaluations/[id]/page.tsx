@@ -19,7 +19,7 @@ export default async function EvaluationPage({ params }: { params: Promise<{ id:
   )
 
   const { data: profile } = await service
-    .from('profiles').select('nom, prenoms, role, avatar_url, type_emploi').eq('id', user.id).single()
+    .from('profiles').select('nom, prenoms, role, titre, avatar_url, type_emploi').eq('id', user.id).single()
 
   const { data: ev, error } = await service
     .from('evaluations')
@@ -47,6 +47,7 @@ export default async function EvaluationPage({ params }: { params: Promise<{ id:
       <AppHeader
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={role}
+        userTitre={profile?.titre}
         typeEmploi={profile?.type_emploi}
         showRH={estRH(role)}
         showAAF={estAAF(role)}

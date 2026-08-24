@@ -16,7 +16,7 @@ export default async function TimesheetsPage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, nom, prenoms, manager_id, type_emploi, email, avatar_url')
+    .select('role, titre, nom, prenoms, manager_id, type_emploi, email, avatar_url')
     .eq('id', user.id).single()
 
   const realRole = profile?.role ?? 'missionnaire'
@@ -71,6 +71,7 @@ export default async function TimesheetsPage() {
       <AppHeader
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={role}
+        userTitre={profile?.titre}
         typeEmploi={typeEmploi}
         showAdmin={['admin', 'superadmin'].includes(realRole) && !previewRole}
         showRH={estRH(role)}

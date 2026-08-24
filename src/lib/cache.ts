@@ -14,7 +14,7 @@ export const getCachedProfile = (userId: string) =>
     async () => {
       const { data } = await service()
         .from('profiles')
-        .select('id, nom, prenoms, role, avatar_url, type_emploi, manager_id, fonction, email')
+        .select('id, nom, prenoms, role, titre, avatar_url, type_emploi, manager_id, fonction, email')
         .eq('id', userId)
         .single()
       return data

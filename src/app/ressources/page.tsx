@@ -27,7 +27,7 @@ export default async function RessourcesPage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, nom, prenoms, avatar_url, type_emploi')
+    .select('role, titre, nom, prenoms, avatar_url, type_emploi')
     .eq('id', user.id)
     .single()
 
@@ -51,6 +51,7 @@ export default async function RessourcesPage() {
       <AppHeader
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={role}
+        userTitre={profile?.titre}
         typeEmploi={profile?.type_emploi}
         showAdmin={['admin', 'superadmin'].includes(realRole) && !previewRole}
         showRH={estRH(role)}

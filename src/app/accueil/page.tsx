@@ -15,7 +15,7 @@ export default async function AccueilPage() {
   if (!user) redirect('/login')
 
   const { data: profile } = await supabase
-    .from('profiles').select('role, nom, prenoms, type_emploi, avatar_url, fonction').eq('id', user.id).single()
+    .from('profiles').select('role, titre, nom, prenoms, type_emploi, avatar_url, fonction').eq('id', user.id).single()
 
   if (profile?.must_change_password) redirect('/auth/changer-mot-de-passe')
 
@@ -49,6 +49,7 @@ export default async function AccueilPage() {
       <AppHeader
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={role}
+        userTitre={profile?.titre}
         typeEmploi={profile?.type_emploi}
         showAdmin={['admin', 'superadmin'].includes(realRole) && !previewRole}
         showRH={estRH(role)}

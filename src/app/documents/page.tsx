@@ -15,7 +15,7 @@ export default async function DocumentsPage() {
   if (!user) redirect('/login')
 
   const { data: profile } = await supabase
-    .from('profiles').select('role, nom, prenoms, avatar_url, type_emploi').eq('id', user.id).single()
+    .from('profiles').select('role, titre, nom, prenoms, avatar_url, type_emploi').eq('id', user.id).single()
 
   const realRole = profile?.role ?? 'missionnaire'
   const role = await getEffectiveRole(realRole)
@@ -33,6 +33,7 @@ export default async function DocumentsPage() {
       <AppHeader
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={role}
+        userTitre={profile?.titre}
         typeEmploi={profile?.type_emploi}
         showAdmin={['admin', 'superadmin'].includes(realRole) && !previewRole}
         showRH={estRH(role)}

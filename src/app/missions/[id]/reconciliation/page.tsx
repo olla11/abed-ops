@@ -27,13 +27,14 @@ export default async function ReconciliationPage({ params }: { params: Promise<{
   }
 
   const { data: profile } = await supabase
-    .from('profiles').select('role, nom, prenoms').eq('id', user.id).single()
+    .from('profiles').select('role, titre, nom, prenoms').eq('id', user.id).single()
 
   return (
     <>
       <AppHeader
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={profile?.role}
+        userTitre={profile?.titre}
         showAdmin={['admin', 'superadmin'].includes(profile?.role ?? '')}
         showAAF={estAAF(profile?.role ?? '')}
       />

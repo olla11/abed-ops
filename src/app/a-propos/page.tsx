@@ -21,7 +21,7 @@ export default async function AProposPage() {
   if (!user) redirect('/login')
 
   const { data: profile } = await supabase
-    .from('profiles').select('role, nom, prenoms, avatar_url, type_emploi').eq('id', user.id).single()
+    .from('profiles').select('role, titre, nom, prenoms, avatar_url, type_emploi').eq('id', user.id).single()
 
   const annee = new Date().getFullYear()
 
@@ -30,6 +30,7 @@ export default async function AProposPage() {
       <AppHeader
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={profile?.role ?? ''}
+        userTitre={profile?.titre}
         typeEmploi={profile?.type_emploi}
         showAAF={estAAF(profile?.role ?? '')}
         avatarUrl={profile?.avatar_url ?? null}

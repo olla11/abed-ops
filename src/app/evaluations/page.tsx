@@ -28,7 +28,7 @@ export default async function MesEvaluationsPage() {
 
   const { data: profile } = await service
     .from('profiles')
-    .select('nom, prenoms, role, avatar_url, type_emploi')
+    .select('nom, prenoms, role, titre, avatar_url, type_emploi')
     .eq('id', user.id)
     .single()
 
@@ -52,6 +52,7 @@ export default async function MesEvaluationsPage() {
       <AppHeader
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={profile?.role}
+        userTitre={profile?.titre}
         typeEmploi={(profile as any)?.type_emploi}
         showRH={showRH}
         showAAF={showAAF}

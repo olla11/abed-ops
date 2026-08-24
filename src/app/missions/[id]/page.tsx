@@ -80,6 +80,7 @@ export default async function MissionDetail({ params }: { params: Promise<{ id: 
       <AppHeader
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={role}
+        userTitre={profile?.titre}
         showAdmin={['admin', 'superadmin'].includes(role)}
         showAAF={estAAF(role)}
       />

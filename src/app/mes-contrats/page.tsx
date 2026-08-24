@@ -11,7 +11,7 @@ export default async function MesContratsPage() {
   if (!user) redirect('/login')
 
   const { data: profile } = await supabase
-    .from('profiles').select('role, nom, prenoms, type_emploi, avatar_url').eq('id', user.id).single()
+    .from('profiles').select('role, titre, nom, prenoms, type_emploi, avatar_url').eq('id', user.id).single()
 
   const canSign = ['de', 'dp', 'administrateur'].includes(profile?.role ?? '')
 
@@ -46,6 +46,7 @@ export default async function MesContratsPage() {
       <AppHeader
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={profile?.role ?? 'missionnaire'}
+        userTitre={profile?.titre}
         typeEmploi={profile?.type_emploi}
         showAAF={estAAF(profile?.role ?? '')}
         avatarUrl={profile?.avatar_url ?? null}

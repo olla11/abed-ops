@@ -11,7 +11,7 @@ export default async function MissionsEnCours() {
   if (!user) redirect('/login')
 
   const { data: profile } = await supabase
-    .from('profiles').select('role, nom, prenoms, avatar_url, type_emploi').eq('id', user.id).single()
+    .from('profiles').select('role, titre, nom, prenoms, avatar_url, type_emploi').eq('id', user.id).single()
 
   const role = profile?.role ?? 'missionnaire'
   const isManager = ['admin', 'rh', 'caf', 'de', 'dp', 'administrateur', 'aaf'].includes(role)
@@ -40,6 +40,7 @@ export default async function MissionsEnCours() {
       <AppHeader
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={role}
+        userTitre={profile?.titre}
         typeEmploi={profile?.type_emploi}
         showAAF={estAAF(role)}
         avatarUrl={profile?.avatar_url ?? null}

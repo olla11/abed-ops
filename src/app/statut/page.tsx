@@ -15,7 +15,7 @@ export default async function StatutPage() {
   if (!user) redirect('/login')
 
   const { data: profile } = await supabase
-    .from('profiles').select('role, nom, prenoms, type_emploi, must_change_password, avatar_url').eq('id', user.id).single()
+    .from('profiles').select('role, titre, nom, prenoms, type_emploi, must_change_password, avatar_url').eq('id', user.id).single()
 
   if (profile?.must_change_password) redirect('/auth/changer-mot-de-passe')
 
@@ -29,6 +29,7 @@ export default async function StatutPage() {
       <AppHeader
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={role}
+        userTitre={profile?.titre}
         typeEmploi={profile?.type_emploi}
         showAdmin={['admin', 'superadmin'].includes(realRole) && !previewRole}
         showRH={estRH(role)}
