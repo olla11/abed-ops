@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
+import { PenLine } from 'lucide-react'
 import { attendrePoliceSignature } from '@/lib/signature-font'
 
 type Props = {
@@ -687,14 +688,14 @@ export default function ExterneSignerClient({
           )}
           {docUrl && !placingMode && !sigPos && !zoneImposee && (
             <button onClick={() => setPlacingMode(true)}
-              style={{ padding: '5px 14px', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer', background: '#16a34a', color: 'white', border: 'none', whiteSpace: 'nowrap', flexShrink: 0 }}>
-              ✍️ Placer ma signature
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 14px', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer', background: '#16a34a', color: 'white', border: 'none', whiteSpace: 'nowrap', flexShrink: 0 }}>
+              <PenLine size={13} /> Placer ma signature
             </button>
           )}
           {docUrl && !placingMode && !sigPos && zoneImposee && (
             <button onClick={confirmerZone}
-              style={{ padding: '5px 14px', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer', background: '#16a34a', color: 'white', border: 'none', whiteSpace: 'nowrap', flexShrink: 0 }}>
-              ✍️ Poser ma signature ici
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 14px', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer', background: '#16a34a', color: 'white', border: 'none', whiteSpace: 'nowrap', flexShrink: 0 }}>
+              <PenLine size={13} /> Poser ma signature ici
             </button>
           )}
           {placingMode && (
@@ -815,12 +816,12 @@ export default function ExterneSignerClient({
         )}
         {docUrl && !sigPos && !placingMode && !zoneImposee && (
           <div style={{ background: '#fef9ec', border: '1px solid #fde68a', borderRadius: 8, padding: '12px 14px', fontSize: 13, color: '#92400e' }}>
-            Cliquez sur <strong>« ✍️ Placer ma signature »</strong> puis cliquez l&apos;endroit voulu sur le document. Vous pourrez ensuite la déplacer.
+            Cliquez sur <strong>« Placer ma signature »</strong> puis cliquez l&apos;endroit voulu sur le document. Vous pourrez ensuite la déplacer.
           </div>
         )}
         {docUrl && !sigPos && !placingMode && zoneImposee && (
           <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '12px 14px', fontSize: 13, color: '#1e40af' }}>
-            🔒 <strong>Zone de signature imposée</strong> — l&apos;expéditeur a indiqué où vous devez signer (rectangle vert sur le document). Cliquez dessus, ou sur <strong>« ✍️ Poser ma signature ici »</strong>, pour l&apos;apposer.
+            🔒 <strong>Zone de signature imposée</strong> — l&apos;expéditeur a indiqué où vous devez signer (rectangle vert sur le document). Cliquez dessus, ou sur <strong>« Poser ma signature ici »</strong>, pour l&apos;apposer.
           </div>
         )}
         {placingMode && (
