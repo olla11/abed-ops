@@ -1,7 +1,10 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { STATUT_LABELS, type OpportuniteStatut } from '@/lib/bd'
+
+const PAR_PAGE = 20
 
 type Opportunite = {
   id: string
@@ -31,11 +34,18 @@ function fmtDate(d: string | null) {
 export default function OpportunitesListClient({ opportunites }: { opportunites: Opportunite[] }) {
   const [filtre, setFiltre] = useState<OpportuniteStatut | 'tous'>('tous')
   const [annee, setAnnee] = useState<number | 'toutes'>('toutes')
+  const [page, setPage] = useState(1)
 
   const anneesDisponibles = Array.from(new Set(opportunites.map(o => new Date(o.date_identification).getFullYear()))).sort((a, b) => b - a)
 
   const parAnnee = annee === 'toutes' ? opportunites : opportunites.filter(o => new Date(o.date_identification).getFullYear() === annee)
   const filtered = filtre === 'tous' ? parAnnee : parAnnee.filter(o => o.statut === filtre)
+
+  useEffect(() => { setPage(1) }, [filtre, annee])
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAR_PAGE))
+  const pageActuelle = Math.min(page, totalPages)
+  const pagines = filtered.slice((pageActuelle - 1) * PAR_PAGE, pageActuelle * PAR_PAGE)
 
   return (
     <div>
@@ -73,7 +83,7 @@ export default function OpportunitesListClient({ opportunites }: { opportunites:
         <div className="card"><p style={{ color: 'var(--abed-muted)' }}>Aucune opportunité.</p></div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {filtered.map(o => {
+          {pagines.map(o => {
             const badge = STATUT_BADGE[o.statut]
             return (
               <Link key={o.id} href={`/bd/opportunites/${o.id}`} className="card" style={{
@@ -99,8 +109,38 @@ export default function OpportunitesListClient({ opportunites }: { opportunites:
           })}
         </div>
       )}
+
+      {totalPages > 1 && (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 14, marginTop: 20 }}>
+          <button
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={pageActuelle === 1}
+            style={pageBtnStyle(pageActuelle === 1)}
+          >
+            <ChevronLeft size={15} />
+          </button>
+          <span style={{ fontSize: 12.5, fontWeight: 600, color: '#6b7280' }}>
+            Page {pageActuelle} sur {totalPages}
+          </span>
+          <button
+            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            disabled={pageActuelle === totalPages}
+            style={pageBtnStyle(pageActuelle === totalPages)}
+          >
+            <ChevronRight size={15} />
+          </button>
+        </div>
+      )}
     </div>
   )
+}
+
+function pageBtnStyle(disabled: boolean): React.CSSProperties {
+  return {
+    width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center',
+    borderRadius: 8, border: '1px solid #e5e7eb', background: 'white', color: disabled ? '#d1d5db' : '#374151',
+    cursor: disabled ? 'default' : 'pointer',
+  }
 }
 
 function filterBtnStyle(active: boolean): React.CSSProperties {
