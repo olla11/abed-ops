@@ -1,8 +1,8 @@
 'use client'
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react'
-import { STATUT_LABELS, STATUT_COLORS, STATUTS_EN_PREPARATION, type OpportuniteStatut } from '@/lib/bd'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { STATUT_LABELS, STATUT_COLORS, type OpportuniteStatut } from '@/lib/bd'
 
 type Opportunite = { id: string; titre: string; bailleur: string | null; statut: OpportuniteStatut; date_limite: string }
 
@@ -45,12 +45,6 @@ export default function CalendrierClient({ opportunites }: { opportunites: Oppor
 
   const grid = useMemo(() => getMonthGrid(cursor.getFullYear(), cursor.getMonth()), [cursor])
 
-  const enRetard = useMemo(() => {
-    return opportunites
-      .filter(o => STATUTS_EN_PREPARATION.includes(o.statut) && new Date(o.date_limite).setHours(0, 0, 0, 0) < aujourdhui.getTime())
-      .sort((a, b) => a.date_limite.localeCompare(b.date_limite))
-  }, [opportunites, aujourdhui])
-
   function changerMois(delta: number) {
     setCursor(prev => new Date(prev.getFullYear(), prev.getMonth() + delta, 1))
     setJourEtendu(null)
@@ -91,44 +85,6 @@ export default function CalendrierClient({ opportunites }: { opportunites: Oppor
           </div>
         ))}
       </div>
-
-      {enRetard.length > 0 && (
-        <div style={{
-          background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 12, padding: '14px 18px', marginBottom: 16,
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-            <AlertTriangle size={16} color="#991b1b" />
-            <h3 style={{ margin: 0, fontSize: 13.5, fontWeight: 700, color: '#991b1b' }}>
-              En retard — délai dépassé sans soumission ({enRetard.length})
-            </h3>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {enRetard.map(o => {
-              const jours = Math.round((aujourdhui.getTime() - new Date(o.date_limite).setHours(0, 0, 0, 0)) / 86400000)
-              return (
-                <Link key={o.id} href={`/bd/opportunites/${o.id}`} style={{
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10,
-                  padding: '8px 12px', borderRadius: 8, background: 'white', border: '1px solid #fecaca', textDecoration: 'none',
-                }}>
-                  <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: STATUT_COLORS[o.statut], flexShrink: 0 }} />
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.titre}</div>
-                      <div style={{ fontSize: 11.5, color: '#9ca3af', marginTop: 1 }}>{o.bailleur ?? 'Bailleur non précisé'} — {STATUT_LABELS[o.statut]}</div>
-                    </div>
-                  </div>
-                  <span style={{
-                    fontSize: 11, fontWeight: 700, flexShrink: 0, padding: '3px 9px', borderRadius: 20,
-                    color: '#991b1b', background: '#fee2e2',
-                  }}>
-                    Retard {jours}j
-                  </span>
-                </Link>
-              )
-            })}
-          </div>
-        </div>
-      )}
 
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', background: '#f9fafb', borderBottom: '1px solid var(--abed-border)' }}>

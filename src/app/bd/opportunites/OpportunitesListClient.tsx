@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { STATUT_LABELS, type OpportuniteStatut } from '@/lib/bd'
+import { STATUT_LABELS, DELAI_DEPASSE_LABEL, DELAI_DEPASSE_COLOR, estDelaiDepasse, statutAffiche, type OpportuniteStatut } from '@/lib/bd'
 
 const PAR_PAGE = 20
 
@@ -17,29 +17,21 @@ type Opportunite = {
   identifie_par: { nom: string; prenoms: string } | null
 }
 
-const STATUT_BADGE: Record<OpportuniteStatut, { color: string; bg: string; border: string }> = {
-  identifie: { color: '#374151', bg: '#f3f4f6', border: '#e5e7eb' },
-  en_preparation: { color: '#92660b', bg: '#fffbeb', border: '#fde68a' },
-  soumis: { color: '#1e40af', bg: '#eff6ff', border: '#bfdbfe' },
-  accepte: { color: '#166534', bg: '#f0fdf4', border: '#bbf7d0' },
-  refuse: { color: '#991b1b', bg: '#fef2f2', border: '#fecaca' },
-  sans_reponse: { color: '#57534e', bg: '#f5f5f4', border: '#e7e5e4' },
-  abandonne: { color: '#57534e', bg: '#f5f5f4', border: '#e7e5e4' },
-}
-
 function fmtDate(d: string | null) {
   return d ? new Date(d).toLocaleDateString('fr-FR') : '—'
 }
 
 export default function OpportunitesListClient({ opportunites }: { opportunites: Opportunite[] }) {
-  const [filtre, setFiltre] = useState<OpportuniteStatut | 'tous'>('tous')
+  const [filtre, setFiltre] = useState<OpportuniteStatut | 'tous' | 'delai_depasse'>('tous')
   const [annee, setAnnee] = useState<number | 'toutes'>('toutes')
   const [page, setPage] = useState(1)
 
   const anneesDisponibles = Array.from(new Set(opportunites.map(o => new Date(o.date_identification).getFullYear()))).sort((a, b) => b - a)
 
   const parAnnee = annee === 'toutes' ? opportunites : opportunites.filter(o => new Date(o.date_identification).getFullYear() === annee)
-  const filtered = filtre === 'tous' ? parAnnee : parAnnee.filter(o => o.statut === filtre)
+  const filtered = filtre === 'tous' ? parAnnee
+    : filtre === 'delai_depasse' ? parAnnee.filter(estDelaiDepasse)
+    : parAnnee.filter(o => o.statut === filtre && !estDelaiDepasse(o))
 
   useEffect(() => { setPage(1) }, [filtre, annee])
 
@@ -55,7 +47,7 @@ export default function OpportunitesListClient({ opportunites }: { opportunites:
             Tous ({parAnnee.length})
           </button>
           {(Object.keys(STATUT_LABELS) as OpportuniteStatut[]).map(s => {
-            const count = parAnnee.filter(o => o.statut === s).length
+            const count = parAnnee.filter(o => o.statut === s && !estDelaiDepasse(o)).length
             if (count === 0) return null
             return (
               <button key={s} onClick={() => setFiltre(s)} style={filterBtnStyle(filtre === s)}>
@@ -63,6 +55,18 @@ export default function OpportunitesListClient({ opportunites }: { opportunites:
               </button>
             )
           })}
+          {(() => {
+            const count = parAnnee.filter(estDelaiDepasse).length
+            if (count === 0) return null
+            return (
+              <button
+                onClick={() => setFiltre('delai_depasse')}
+                style={filtre === 'delai_depasse' ? { ...filterBtnStyle(true), background: DELAI_DEPASSE_COLOR, borderColor: DELAI_DEPASSE_COLOR } : { ...filterBtnStyle(false), color: DELAI_DEPASSE_COLOR, borderColor: DELAI_DEPASSE_COLOR + '60' }}
+              >
+                {DELAI_DEPASSE_LABEL} ({count})
+              </button>
+            )
+          })()}
         </div>
         {anneesDisponibles.length > 0 && (
           <select
@@ -84,7 +88,7 @@ export default function OpportunitesListClient({ opportunites }: { opportunites:
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {pagines.map(o => {
-            const badge = STATUT_BADGE[o.statut]
+            const badge = statutAffiche(o)
             return (
               <Link key={o.id} href={`/bd/opportunites/${o.id}`} className="card" style={{
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -99,10 +103,10 @@ export default function OpportunitesListClient({ opportunites }: { opportunites:
                   </div>
                 </div>
                 <span style={{
-                  fontSize: 12, fontWeight: 700, color: badge.color, background: badge.bg,
-                  border: `1px solid ${badge.border}`, borderRadius: 20, padding: '3px 12px', flexShrink: 0,
+                  fontSize: 12, fontWeight: 700, color: badge.color, background: badge.color + '15',
+                  border: `1px solid ${badge.color}40`, borderRadius: 20, padding: '3px 12px', flexShrink: 0,
                 }}>
-                  {STATUT_LABELS[o.statut]}
+                  {badge.label}
                 </span>
               </Link>
             )

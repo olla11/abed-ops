@@ -39,3 +39,22 @@ export const STATUT_COLORS: Record<OpportuniteStatut, string> = {
 export const STATUTS_TERMINES: OpportuniteStatut[] = ['accepte', 'refuse', 'sans_reponse', 'abandonne']
 export const STATUTS_EN_PREPARATION: OpportuniteStatut[] = ['identifie', 'en_preparation']
 
+// "Délai dépassé" n'est pas un statut stocké en base : c'est une
+// classification automatique — une opportunité encore identifiée/en
+// préparation dont la date limite est passée sans soumission. Elle prend
+// la place de son statut brut partout où le statut est affiché ou filtré.
+export const DELAI_DEPASSE_LABEL = 'Délai dépassé'
+export const DELAI_DEPASSE_COLOR = '#c2410c'
+
+export function estDelaiDepasse(o: { statut: OpportuniteStatut; date_limite: string | null }): boolean {
+  if (!o.date_limite || !STATUTS_EN_PREPARATION.includes(o.statut)) return false
+  const limite = new Date(o.date_limite); limite.setHours(0, 0, 0, 0)
+  const aujourdhui = new Date(); aujourdhui.setHours(0, 0, 0, 0)
+  return limite.getTime() < aujourdhui.getTime()
+}
+
+export function statutAffiche(o: { statut: OpportuniteStatut; date_limite: string | null }): { label: string; color: string } {
+  if (estDelaiDepasse(o)) return { label: DELAI_DEPASSE_LABEL, color: DELAI_DEPASSE_COLOR }
+  return { label: STATUT_LABELS[o.statut], color: STATUT_COLORS[o.statut] }
+}
+
