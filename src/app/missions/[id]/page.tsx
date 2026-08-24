@@ -24,7 +24,7 @@ export default async function MissionDetail({ params }: { params: Promise<{ id: 
     .from('missions')
     .select(`
       *,
-      missionnaire:profiles!missions_missionnaire_id_fkey(nom, prenoms, email, telephone, fonction),
+      missionnaire:profiles!missions_missionnaire_id_fkey(nom, prenoms, email, telephone, fonction, role),
       signataire:profiles!missions_signe_par_fkey(nom, prenoms, fonction, role)
     `)
     .eq('id', id)
@@ -33,11 +33,18 @@ export default async function MissionDetail({ params }: { params: Promise<{ id: 
   if (!mission) redirect('/dashboard')
 
   const { data: profile } = await supabase
-    .from('profiles').select('role, nom, prenoms').eq('id', user.id).single()
+    .from('profiles').select('role, nom, prenoms, titre').eq('id', user.id).single()
 
   const role = profile?.role ?? 'missionnaire'
   const isLocked = mission.status === 'cloture'
-  const canSign = ['caf', 'de', 'dp', 'admin', 'administrateur'].includes(role) && ['soumis', 'brouillon'].includes(mission.status)
+  // Trois personnes peuvent signer un OM : le DE, le CAF, le Président du CA.
+  // Cas général : seul le DE signe. OM du DE lui-même (il ne peut pas
+  // s'auto-signer) : seuls le CAF (Pour Ordre) ou le Président du CA
+  // peuvent signer — voir la même règle dans signer/route.ts.
+  const missionnaireEstDE = (mission.missionnaire as any)?.role === 'de'
+  const estPresidentCA = role === 'administrateur' && profile?.titre === 'president_ca'
+  const peutSignerOM = missionnaireEstDE ? (role === 'caf' || estPresidentCA) : role === 'de'
+  const canSign = peutSignerOM && ['soumis', 'brouillon'].includes(mission.status)
   const canEdit = ['caf', 'de', 'dp', 'admin', 'administrateur'].includes(role) && ['soumis', 'brouillon'].includes(mission.status)
   const canDelete = role === 'admin'
   const pdfDispo = !['brouillon', 'soumis'].includes(mission.status)
@@ -218,7 +225,9 @@ export default async function MissionDetail({ params }: { params: Promise<{ id: 
         }} />
       )}
 
-      {!isLocked && canSign && <MissionActions missionId={mission.id} />}
+      {!isLocked && canSign && (
+        <MissionActions missionId={mission.id} pourOrdre={role === 'caf' && missionnaireEstDE} />
+      )}
 
       {canDelete && (
         <div style={{ marginTop: 32, paddingTop: 16, borderTop: '1px solid var(--abed-border)' }}>

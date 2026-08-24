@@ -107,8 +107,17 @@ export function accessFromTitre(titre: Titre): AccessRole {
 }
 
 // --- Capacités par niveau d'accès (utilisé pour afficher/masquer des actions) ---
+// signerOM : indicateur approximatif (par rôle seul) des personnes qui
+// peuvent un jour signer un OM. La règle réelle est plus fine et dépend
+// aussi de qui est le missionnaire — voir src/app/api/missions/[id]/signer/route.ts :
+//   - Cas général : seul le DE signe.
+//   - OM du DE lui-même (il ne peut pas s'auto-signer) : seuls le CAF
+//     (mention "Pour Ordre") ou le Président du CA peuvent signer — le
+//     Président se distingue par son `titre` ('president_ca'), pas par
+//     l'AccessRole 'administrateur' seul (partagé avec les autres membres
+//     du CA, qui eux ne signent jamais).
 export const CAN = {
-  signerOM: (r: AccessRole) => r === 'caf' || r === 'de' || r === 'dp',
+  signerOM: (r: AccessRole) => r === 'caf' || r === 'de',
   validerTimesheet: (r: AccessRole) => r === 'manager' || r === 'caf' || r === 'admin',
   validerPaiement: (r: AccessRole) => r === 'caf' || r === 'de' || r === 'dp' || r === 'admin',
   attribuerTitre: (r: AccessRole) => r === 'admin' || r === 'rh',

@@ -12,31 +12,48 @@ export async function POST(
   if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
 
   const { data: profile } = await supabase
-    .from('profiles').select('role, nom, prenoms, fonction').eq('id', user.id).single()
+    .from('profiles').select('role, nom, prenoms, fonction, titre').eq('id', user.id).single()
 
-  if (!profile || !['caf', 'de', 'dp', 'admin', 'administrateur'].includes(profile.role)) {
+  if (!profile) {
     return NextResponse.json({ error: 'accès refusé' }, { status: 403 })
   }
 
-  // Vérifier la mission et la règle : un directeur (DE/DP) ne peut pas signer ses propres OM (seule la CAF peut)
+  // Trois personnes peuvent signer un OM : le DE, le CAF, le Président du CA.
+  //   - Cas général : seul le DE signe.
+  //   - OM du DE lui-même (il ne peut pas s'auto-signer) : seuls le CAF
+  //     (mention "Pour Ordre") ou le Président du CA peuvent signer. Le
+  //     Président se distingue par son `titre` — l'AccessRole
+  //     'administrateur' seul est partagé avec les autres membres du CA
+  //     (secrétaire général, trésorier), qui eux ne signent jamais.
   const { data: missionCheck } = await supabase
     .from('missions')
     .select('missionnaire_id, missionnaire:profiles!missions_missionnaire_id_fkey(role)')
     .eq('id', id)
     .single()
 
-  const isDirectorRole = (r: string | undefined) => r === 'de' || r === 'dp'
+  if (!missionCheck) {
+    return NextResponse.json({ error: 'introuvable' }, { status: 404 })
+  }
 
-  if (missionCheck) {
-    const missionnaireRole = (missionCheck.missionnaire as any)?.role
-    // Si le missionnaire est un directeur (DE/DP), seule la CAF (ou admin) peut signer
-    if (isDirectorRole(missionnaireRole) && isDirectorRole(profile.role)) {
-      return NextResponse.json({ error: 'Un directeur ne peut pas signer son propre OM. La CAF doit apposer la signature.' }, { status: 403 })
-    }
-    // Personne ne peut signer son propre OM
-    if (missionCheck.missionnaire_id === user.id) {
-      return NextResponse.json({ error: 'Vous ne pouvez pas signer votre propre ordre de mission.' }, { status: 403 })
-    }
+  const missionnaireEstDE = (missionCheck.missionnaire as any)?.role === 'de'
+  const estPresidentCA = profile.role === 'administrateur' && profile.titre === 'president_ca'
+  const signePourOrdre = missionnaireEstDE && profile.role === 'caf'
+
+  const eligible = missionnaireEstDE
+    ? profile.role === 'caf' || estPresidentCA
+    : profile.role === 'de'
+
+  if (!eligible) {
+    return NextResponse.json({
+      error: missionnaireEstDE
+        ? "Cet OM appartient au Directeur Exécutif, qui ne peut pas le signer lui-même : seuls le CAF (Pour Ordre) ou le Président du CA peuvent le signer."
+        : 'Seul le Directeur Exécutif peut signer cet ordre de mission.',
+    }, { status: 403 })
+  }
+
+  // Garde-fou : personne ne signe son propre OM
+  if (missionCheck.missionnaire_id === user.id) {
+    return NextResponse.json({ error: 'Vous ne pouvez pas signer votre propre ordre de mission.' }, { status: 403 })
   }
 
   const now = new Date()
@@ -79,9 +96,9 @@ export async function POST(
 
     // Email au missionnaire
     const m = mission.missionnaire as any
+    const signedBy = `${profile.prenoms} ${profile.nom}${profile.fonction ? ` — ${profile.fonction}` : ''}${signePourOrdre ? ' (Pour Ordre)' : ''}`
     if (m?.email) {
       const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://myabed.vercel.app'
-      const signedBy = `${profile.prenoms} ${profile.nom}${profile.fonction ? ` — ${profile.fonction}` : ''}`
       try {
         await sendEmail({
           to: m.email,
@@ -146,6 +163,26 @@ export async function POST(
       } catch (e) {
         console.error('[signer] email error:', e)
       }
+    }
+
+    // Le DP et les membres du CA (y compris le Président) sont informés
+    // qu'un OM a été signé pour quelqu'un — simple information, ils ne
+    // signent jamais. On exclut le signataire lui-même et le missionnaire
+    // (déjà notifié ci-dessus).
+    const { data: informes } = await supabase
+      .from('profiles')
+      .select('id')
+      .or('role.eq.dp,titre.in.(president_ca,secretaire_general_ca,tresorier_ca)')
+
+    const nomMissionnaire = `${m?.prenoms ?? ''} ${m?.nom ?? ''}`.trim()
+    for (const inf of informes ?? []) {
+      if (inf.id === user.id || inf.id === mission.missionnaire_id) continue
+      await supabase.from('notifications').insert({
+        user_id: inf.id,
+        titre: 'Ordre de Mission signé',
+        message: `L'OM de ${nomMissionnaire} (réf. ${reference}) a été signé par ${signedBy}. Pour information.`,
+        lien: `/missions/${id}`,
+      })
     }
   }
 

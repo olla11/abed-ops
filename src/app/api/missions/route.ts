@@ -20,26 +20,39 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error?.message ?? 'Erreur création' }, { status: 400 })
   }
 
-  // Notifier les signataires uniquement si soumis (pas brouillon)
+  // Notifier le(s) signataire(s) uniquement si soumis (pas brouillon).
+  // Cas général : seul le DE signe les OM, donc seul le DE est notifié.
+  // Si c'est le DE lui-même qui soumet (il ne peut pas s'auto-signer), le
+  // CAF et le Président du CA sont notifiés à sa place — ce sont les deux
+  // seuls habilités à signer un OM du DE.
   if (status === 'soumis') {
     const { data: missProfile } = await supabase
-      .from('profiles').select('nom, prenoms, civilite').eq('id', user.id).single()
+      .from('profiles').select('nom, prenoms, civilite, role').eq('id', user.id).single()
 
     const missNom = `${missProfile?.prenoms ?? ''} ${missProfile?.nom ?? ''}`.trim()
+    const missionnaireEstDE = missProfile?.role === 'de'
     const admin = createAdminClient()
 
-    // Récupérer DE, CAF et administrateur (président CA)
-    const { data: signataires } = await admin
-      .from('profiles')
-      .select('id, email, nom, prenoms, role')
-      .in('role', ['de', 'dp', 'caf', 'administrateur'])
+    const { data: signataires } = missionnaireEstDE
+      ? await admin
+          .from('profiles')
+          .select('id, email, nom, prenoms, role')
+          .or('role.eq.caf,titre.eq.president_ca')
+      : await admin
+          .from('profiles')
+          .select('id, email, nom, prenoms, role')
+          .eq('role', 'de')
+
+    const messageIn = missionnaireEstDE
+      ? `Le Directeur Exécutif a soumis son propre ordre de mission : « ${mission.objet} » (${mission.lieu}). Le DE ne pouvant pas signer son propre OM, seuls le CAF (Pour Ordre) ou le Président du CA peuvent le signer.`
+      : `${missNom} a soumis un ordre de mission : « ${mission.objet} » (${mission.lieu}). Veuillez examiner et signer.`
 
     for (const s of signataires ?? []) {
       // Notif in-app
       await admin.from('notifications').insert({
         user_id: s.id,
         titre: 'Nouvel OM à signer',
-        message: `${missNom} a soumis un ordre de mission : « ${mission.objet} » (${mission.lieu}). Veuillez examiner et signer.`,
+        message: messageIn,
         lien: `/missions/${mission.id}`,
       })
 
@@ -49,7 +62,7 @@ export async function POST(req: NextRequest) {
           await sendEmail({
             to: s.email,
             subject: `📋 Nouvel Ordre de Mission à signer — ${missNom}`,
-            html: buildEmailHtml(mission, missNom, s),
+            html: buildEmailHtml(mission, missNom, s, missionnaireEstDE),
           })
         } catch (e) {
           console.error('[missions/create] email error:', e)
@@ -61,13 +74,18 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ ok: true, id: mission.id })
 }
 
-function buildEmailHtml(mission: any, missNom: string, signataire: any) {
+function buildEmailHtml(mission: any, missNom: string, signataire: any, missionnaireEstDE = false) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://myabed.vercel.app'
   const roleLabel: Record<string, string> = {
     de: 'Directeur Exécutif',
     caf: 'CAF',
     administrateur: 'Président du Conseil d\'Administration',
   }
+  const note = missionnaireEstDE
+    ? `<p style="font-size:13px;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;margin:0 0 20px;line-height:1.5">
+        ⚠️ Cet ordre de mission est celui du <strong>Directeur Exécutif</strong>, qui ne peut pas le signer lui-même. Seuls vous (CAF ou Président du CA) pouvez y apposer votre signature.
+      </p>`
+    : ''
   return `<!DOCTYPE html>
 <html lang="fr">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -96,6 +114,7 @@ function buildEmailHtml(mission: any, missNom: string, signataire: any) {
           <p style="font-size:14px;color:#374151;margin:16px 0 24px;line-height:1.6">
             Un nouvel <strong>Ordre de Mission</strong> a été soumis par <strong>${missNom}</strong> et nécessite votre signature.
           </p>
+          ${note}
           <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:20px 24px;margin-bottom:24px">
             <table width="100%" cellpadding="0" cellspacing="0">
               <tr>
