@@ -23,10 +23,10 @@ function fmtDate(d: string | null) {
 
 export default function OpportunitesListClient({ opportunites }: { opportunites: Opportunite[] }) {
   const [filtre, setFiltre] = useState<OpportuniteStatut | 'tous' | 'delai_depasse'>('tous')
-  const [annee, setAnnee] = useState<number | 'toutes'>('toutes')
+  const [annee, setAnnee] = useState<number | 'toutes'>(new Date().getFullYear())
   const [page, setPage] = useState(1)
 
-  const anneesDisponibles = Array.from(new Set(opportunites.map(o => new Date(o.date_identification).getFullYear()))).sort((a, b) => b - a)
+  const anneesDisponibles = Array.from(new Set([new Date().getFullYear(), ...opportunites.map(o => new Date(o.date_identification).getFullYear())])).sort((a, b) => b - a)
 
   const parAnnee = annee === 'toutes' ? opportunites : opportunites.filter(o => new Date(o.date_identification).getFullYear() === annee)
   const filtered = filtre === 'tous' ? parAnnee
