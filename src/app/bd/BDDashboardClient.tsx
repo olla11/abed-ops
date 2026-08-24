@@ -50,7 +50,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   )
 }
 
-export default function BDDashboardClient({ opportunites }: { opportunites: Opportunite[] }) {
+export default function BDDashboardClient({ opportunites, peutGerer }: { opportunites: Opportunite[]; peutGerer: boolean }) {
   const anneeActuelle = new Date().getFullYear()
   const [annee, setAnnee] = useState<number | 'toutes'>(anneeActuelle)
   const anneesDisponibles = Array.from(new Set([anneeActuelle, ...opportunites.map(o => new Date(o.date_identification).getFullYear())])).sort((a, b) => b - a)
@@ -108,9 +108,11 @@ export default function BDDashboardClient({ opportunites }: { opportunites: Oppo
             <option value="toutes">Toutes les années</option>
             {anneesDisponibles.map(a => <option key={a} value={a}>{a}</option>)}
           </select>
-          <Link href="/bd/opportunites/nouveau" className="btn" style={{ fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <Plus size={15} /> Nouvelle opportunité
-          </Link>
+          {peutGerer && (
+            <Link href="/bd/opportunites/nouveau" className="btn" style={{ fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <Plus size={15} /> Nouvelle opportunité
+            </Link>
+          )}
         </div>
       </div>
 

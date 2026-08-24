@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, FileText, Users, CalendarDays } from 'lucide-react'
@@ -19,6 +19,13 @@ export default function NouvelleOpportuniteForm({ personnes }: { personnes: Pers
   const [dateLimite, setDateLimite] = useState('')
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+
+  // La bulle AGA (fixe, en bas à droite) chevauche le bouton "Créer
+  // l'opportunité" du formulaire — masquée le temps de la page.
+  useEffect(() => {
+    document.body.classList.add('panel-open')
+    return () => document.body.classList.remove('panel-open')
+  }, [])
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()

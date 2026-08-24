@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, FileText, Users, CalendarDays, Wallet, StickyNote, Paperclip, Trash2 } from 'lucide-react'
@@ -70,6 +70,13 @@ export default function OpportuniteDetailClient({ opportunite, peutGerer, person
   const [deleting, setDeleting] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
+
+  // La bulle AGA (fixe, en bas à droite) chevauche les boutons d'action de
+  // cette page — masquée le temps de la page.
+  useEffect(() => {
+    document.body.classList.add('panel-open')
+    return () => document.body.classList.remove('panel-open')
+  }, [])
 
   function set<K extends keyof typeof form>(key: K, value: typeof form[K]) {
     setForm(prev => ({ ...prev, [key]: value }))
