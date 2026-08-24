@@ -1,11 +1,11 @@
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { ArrowLeft, FileText, Users, CalendarDays } from 'lucide-react'
 import { TYPE_OPPORTUNITE_LABELS, type TypeOpportunite } from '@/lib/bd'
 import { ResponsableSelect, AssociesMultiSelect, type Personne } from '../../PersonPickers'
-
-const inputStyle: React.CSSProperties = { width: '100%', padding: '10px 14px', borderRadius: 8, fontSize: 14, border: '1px solid #e5e7eb', boxSizing: 'border-box' }
-const textareaStyle: React.CSSProperties = { ...inputStyle, fontFamily: 'inherit', resize: 'vertical' as const }
+import { Field, FieldGrid, FormSection, inputStyle, textareaStyle } from '../FormUI'
 
 export default function NouvelleOpportuniteForm({ personnes }: { personnes: Personne[] }) {
   const router = useRouter()
@@ -40,52 +40,59 @@ export default function NouvelleOpportuniteForm({ personnes }: { personnes: Pers
   }
 
   return (
-    <div>
-      <h2 style={{ color: 'var(--abed-green)', margin: '0 0 20px' }}>Nouvelle opportunité</h2>
-      <form onSubmit={submit} className="card" style={{ display: 'grid', gap: 16, maxWidth: 640 }}>
-        <div>
-          <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4, color: '#6b7280' }}>Type d&apos;opportunité</label>
-          <select value={typeOpportunite} onChange={e => setTypeOpportunite(e.target.value as TypeOpportunite)} style={inputStyle}>
-            {(Object.keys(TYPE_OPPORTUNITE_LABELS) as TypeOpportunite[]).map(t => (
-              <option key={t} value={t}>{TYPE_OPPORTUNITE_LABELS[t]}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4, color: '#6b7280' }}>Intitulé de l&apos;appel *</label>
-          <input value={titre} onChange={e => setTitre(e.target.value)} required style={inputStyle} />
-        </div>
-        <div>
-          <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4, color: '#6b7280' }}>Bailleur</label>
-          <input value={bailleur} onChange={e => setBailleur(e.target.value)} style={inputStyle} />
-        </div>
-        <div>
-          <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4, color: '#6b7280' }}>Description de l&apos;appel (~100 mots)</label>
-          <textarea value={descriptionAppel} onChange={e => setDescriptionAppel(e.target.value)} rows={4} style={textareaStyle} />
-        </div>
-        <div>
-          <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4, color: '#6b7280' }}>Responsable de la soumission</label>
-          <ResponsableSelect personnes={personnes} value={responsableId} onChange={setResponsableId} />
-          <p style={{ fontSize: 11, color: '#9ca3af', margin: '4px 0 0' }}>Reçoit une notification (in-app + email) et les rappels d&apos;échéance.</p>
-        </div>
-        <div>
-          <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4, color: '#6b7280' }}>Personnes à associer</label>
-          <AssociesMultiSelect personnes={personnes} value={associesIds} onChange={setAssociesIds} />
-          <p style={{ fontSize: 11, color: '#9ca3af', margin: '4px 0 0' }}>Chacune reçoit aussi la notification et les rappels d&apos;échéance.</p>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-          <div>
-            <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4, color: '#6b7280' }}>Date de publication</label>
-            <input type="date" value={datePublication} onChange={e => setDatePublication(e.target.value)} style={inputStyle} />
-          </div>
-          <div>
-            <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4, color: '#6b7280' }}>Date limite</label>
-            <input type="date" value={dateLimite} onChange={e => setDateLimite(e.target.value)} style={inputStyle} />
-          </div>
-        </div>
+    <div style={{ maxWidth: 760 }}>
+      <Link href="/bd/opportunites" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, color: '#6b7280', textDecoration: 'none', marginBottom: 14 }}>
+        <ArrowLeft size={14} /> Retour aux opportunités
+      </Link>
+      <h2 style={{ color: '#111827', margin: '0 0 4px', fontSize: 21, fontWeight: 800 }}>Nouvelle opportunité</h2>
+      <p style={{ fontSize: 13.5, color: '#6b7280', margin: '0 0 24px' }}>Renseignez un appel à projets ou un AMI identifié.</p>
+
+      <form onSubmit={submit} style={{ display: 'grid', gap: 18 }}>
+        <FormSection icon={FileText} color="#1e40af" title="Informations générales" description="Nature et description de l'appel">
+          <FieldGrid columns={2}>
+            <Field label="Type d'opportunité">
+              <select value={typeOpportunite} onChange={e => setTypeOpportunite(e.target.value as TypeOpportunite)} style={inputStyle}>
+                {(Object.keys(TYPE_OPPORTUNITE_LABELS) as TypeOpportunite[]).map(t => (
+                  <option key={t} value={t}>{TYPE_OPPORTUNITE_LABELS[t]}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Bailleur">
+              <input value={bailleur} onChange={e => setBailleur(e.target.value)} placeholder="Ex. Union Européenne" style={inputStyle} />
+            </Field>
+          </FieldGrid>
+          <Field label="Intitulé de l'appel *">
+            <input value={titre} onChange={e => setTitre(e.target.value)} required style={inputStyle} />
+          </Field>
+          <Field label="Description de l'appel" hint="Résumé en ~100 mots">
+            <textarea value={descriptionAppel} onChange={e => setDescriptionAppel(e.target.value)} rows={4} style={textareaStyle} />
+          </Field>
+        </FormSection>
+
+        <FormSection icon={Users} color="#6d28d9" title="Équipe assignée" description="Qui pilote et suit ce dossier">
+          <Field label="Responsable de la soumission" hint="Reçoit une notification (in-app + email) et les rappels d'échéance.">
+            <ResponsableSelect personnes={personnes} value={responsableId} onChange={setResponsableId} />
+          </Field>
+          <Field label="Personnes à associer" hint="Chacune reçoit aussi la notification et les rappels d'échéance.">
+            <AssociesMultiSelect personnes={personnes} value={associesIds} onChange={setAssociesIds} />
+          </Field>
+        </FormSection>
+
+        <FormSection icon={CalendarDays} color="#b45309" title="Calendrier" description="Dates clés de l'appel">
+          <FieldGrid columns={2}>
+            <Field label="Date de publication">
+              <input type="date" value={datePublication} onChange={e => setDatePublication(e.target.value)} style={inputStyle} />
+            </Field>
+            <Field label="Date limite">
+              <input type="date" value={dateLimite} onChange={e => setDateLimite(e.target.value)} style={inputStyle} />
+            </Field>
+          </FieldGrid>
+        </FormSection>
+
         {err && <p style={{ color: '#991b1b', fontSize: 13, margin: 0 }}>{err}</p>}
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button type="submit" className="btn" disabled={loading}>{loading ? 'Création...' : 'Créer'}</button>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <Link href="/bd/opportunites" className="btn secondary">Annuler</Link>
+          <button type="submit" className="btn" disabled={loading}>{loading ? 'Création...' : "Créer l'opportunité"}</button>
         </div>
       </form>
     </div>
