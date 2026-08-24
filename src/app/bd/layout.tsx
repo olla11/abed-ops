@@ -48,13 +48,17 @@ export default async function BDLayout({ children }: { children: React.ReactNode
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}
       {impersonation && <ImpersonationBanner adminNom={impersonation.adminNom} adminPrenoms={impersonation.adminPrenoms} targetNom={impersonation.targetNom} targetPrenoms={impersonation.targetPrenoms} targetRole={impersonation.targetRole} />}
       <div className="page-container">
-        {!estEquipeBD && <OverviewSubNav />}
-        <BDNav />
         {!estEquipeBD && (
-          <div className="card" style={{ borderLeft: '4px solid #1e40af', marginBottom: 20, fontSize: 13, color: '#374151' }}>
-            🔒 Vue en lecture seule — la gestion des opportunités est réservée à l&apos;équipe Business Developer.
-          </div>
+          <>
+            <div style={{ marginBottom: 20 }}>
+              <OverviewSubNav />
+            </div>
+            <div className="card" style={{ borderLeft: '4px solid #1e40af', marginBottom: 20, fontSize: 13, color: '#374151' }}>
+              🔒 Vue en lecture seule — la gestion des opportunités est réservée à l&apos;équipe Business Developer.
+            </div>
+          </>
         )}
+        <BDNav />
         {children}
       </div>
     </>
