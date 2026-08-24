@@ -1,4 +1,5 @@
 'use client'
+import { useState } from 'react'
 import Link from 'next/link'
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts'
 import { Target, Send, Clock, CheckCircle2, XCircle, HelpCircle, Wallet, TrendingUp, Plus, CalendarDays } from 'lucide-react'
@@ -52,7 +53,9 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 
 export default function BDDashboardClient({ opportunites }: { opportunites: Opportunite[] }) {
   const anneeActuelle = new Date().getFullYear()
-  const opportunitesAnnee = opportunites.filter(o => new Date(o.date_identification).getFullYear() === anneeActuelle)
+  const [annee, setAnnee] = useState<number | 'toutes'>(anneeActuelle)
+  const anneesDisponibles = Array.from(new Set([anneeActuelle, ...opportunites.map(o => new Date(o.date_identification).getFullYear())])).sort((a, b) => b - a)
+  const opportunitesAnnee = annee === 'toutes' ? opportunites : opportunites.filter(o => new Date(o.date_identification).getFullYear() === annee)
   const aujourdhui = new Date(); aujourdhui.setHours(0, 0, 0, 0)
 
   const nbIdentifiees = opportunitesAnnee.length
@@ -86,12 +89,25 @@ export default function BDDashboardClient({ opportunites }: { opportunites: Oppo
         <div>
           <h2 style={{ color: '#111827', margin: '0 0 4px', fontSize: 22, fontWeight: 800 }}>Tableau de bord BD</h2>
           <p style={{ fontSize: 13.5, color: '#6b7280', margin: 0 }}>
-            Pipeline de financement — année {anneeActuelle}
+            Pipeline de financement — {annee === 'toutes' ? 'toutes années' : `année ${annee}`}
           </p>
         </div>
-        <Link href="/bd/opportunites/nouveau" className="btn" style={{ fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          <Plus size={15} /> Nouvelle opportunité
-        </Link>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <select
+            value={annee}
+            onChange={e => setAnnee(e.target.value === 'toutes' ? 'toutes' : Number(e.target.value))}
+            style={{
+              padding: '8px 14px', borderRadius: 20, fontSize: 12.5, fontWeight: 700, color: '#374151',
+              border: '1px solid #e5e7eb', background: 'white', cursor: 'pointer',
+            }}
+          >
+            <option value="toutes">Toutes les années</option>
+            {anneesDisponibles.map(a => <option key={a} value={a}>{a}</option>)}
+          </select>
+          <Link href="/bd/opportunites/nouveau" className="btn" style={{ fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Plus size={15} /> Nouvelle opportunité
+          </Link>
+        </div>
       </div>
 
       <SectionLabel>Pipeline</SectionLabel>

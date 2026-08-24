@@ -30,24 +30,43 @@ function fmtDate(d: string | null) {
 
 export default function OpportunitesListClient({ opportunites }: { opportunites: Opportunite[] }) {
   const [filtre, setFiltre] = useState<OpportuniteStatut | 'tous'>('tous')
+  const [annee, setAnnee] = useState<number | 'toutes'>('toutes')
 
-  const filtered = filtre === 'tous' ? opportunites : opportunites.filter(o => o.statut === filtre)
+  const anneesDisponibles = Array.from(new Set(opportunites.map(o => new Date(o.date_identification).getFullYear()))).sort((a, b) => b - a)
+
+  const parAnnee = annee === 'toutes' ? opportunites : opportunites.filter(o => new Date(o.date_identification).getFullYear() === annee)
+  const filtered = filtre === 'tous' ? parAnnee : parAnnee.filter(o => o.statut === filtre)
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
-        <button onClick={() => setFiltre('tous')} style={filterBtnStyle(filtre === 'tous')}>
-          Tous ({opportunites.length})
-        </button>
-        {(Object.keys(STATUT_LABELS) as OpportuniteStatut[]).map(s => {
-          const count = opportunites.filter(o => o.statut === s).length
-          if (count === 0) return null
-          return (
-            <button key={s} onClick={() => setFiltre(s)} style={filterBtnStyle(filtre === s)}>
-              {STATUT_LABELS[s]} ({count})
-            </button>
-          )
-        })}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          <button onClick={() => setFiltre('tous')} style={filterBtnStyle(filtre === 'tous')}>
+            Tous ({parAnnee.length})
+          </button>
+          {(Object.keys(STATUT_LABELS) as OpportuniteStatut[]).map(s => {
+            const count = parAnnee.filter(o => o.statut === s).length
+            if (count === 0) return null
+            return (
+              <button key={s} onClick={() => setFiltre(s)} style={filterBtnStyle(filtre === s)}>
+                {STATUT_LABELS[s]} ({count})
+              </button>
+            )
+          })}
+        </div>
+        {anneesDisponibles.length > 0 && (
+          <select
+            value={annee}
+            onChange={e => setAnnee(e.target.value === 'toutes' ? 'toutes' : Number(e.target.value))}
+            style={{
+              padding: '6px 12px', borderRadius: 20, fontSize: 12.5, fontWeight: 700, color: '#374151',
+              border: '1px solid #e5e7eb', background: 'white', cursor: 'pointer',
+            }}
+          >
+            <option value="toutes">Toutes les années</option>
+            {anneesDisponibles.map(a => <option key={a} value={a}>{a}</option>)}
+          </select>
+        )}
       </div>
 
       {filtered.length === 0 ? (
