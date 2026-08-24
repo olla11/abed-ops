@@ -77,14 +77,23 @@ export default function OpportuniteDetailClient({ opportunite, peutGerer, person
 
   async function handleUpload(file: File | null) {
     if (!file) return
-    setUploading(true); setErr(null)
+    setUploading(true); setErr(null); setMsg(null)
     const fd = new FormData()
     fd.append('file', file)
     const res = await fetch(`/api/bd/opportunites/${opportunite.id}/upload`, { method: 'POST', body: fd })
     const data = await res.json()
+    if (!res.ok) { setUploading(false); setErr(data.error ?? 'Erreur d\'upload'); return }
+
+    const nouvellesPieces = [...pieces, { path: data.path, nom: data.nom }]
+    const patch = await fetch(`/api/bd/opportunites/${opportunite.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pieces_jointes: nouvellesPieces }),
+    })
     setUploading(false)
-    if (!res.ok) { setErr(data.error ?? 'Erreur d\'upload'); return }
-    setPieces(prev => [...prev, { path: data.path, nom: data.nom }])
+    if (!patch.ok) { const d = await patch.json(); setErr(d.error ?? 'Erreur d\'enregistrement de la pièce jointe'); return }
+    setPieces(nouvellesPieces)
+    setMsg('Pièce jointe enregistrée.')
   }
 
   async function save() {
@@ -141,7 +150,7 @@ export default function OpportuniteDetailClient({ opportunite, peutGerer, person
       .map(p => `${p!.prenoms} ${p!.nom}`)
       .join(', ')
     return (
-      <div style={{ maxWidth: 760 }}>
+      <div>
         {header}
         <div style={{ display: 'grid', gap: 18 }}>
           <FormSection icon={FileText} color="#1e40af" title="Informations générales">
@@ -189,7 +198,7 @@ export default function OpportuniteDetailClient({ opportunite, peutGerer, person
   }
 
   return (
-    <div style={{ maxWidth: 760 }}>
+    <div>
       {header}
       <div style={{ display: 'grid', gap: 18 }}>
         <FormSection icon={FileText} color="#1e40af" title="Informations générales">

@@ -40,7 +40,7 @@ export default function NouvelleOpportuniteForm({ personnes }: { personnes: Pers
   }
 
   return (
-    <div style={{ maxWidth: 760 }}>
+    <div>
       <Link href="/bd/opportunites" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, color: '#6b7280', textDecoration: 'none', marginBottom: 14 }}>
         <ArrowLeft size={14} /> Retour aux opportunités
       </Link>

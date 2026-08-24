@@ -25,20 +25,20 @@ function fmtFcfa(n: number) {
 function KpiCard({ icon: Icon, label, value, color, sub }: { icon: any; label: string; value: number | string; color: string; sub?: string }) {
   return (
     <div style={{
-      background: 'white', borderRadius: 14, padding: '20px 22px', border: '1px solid #eef0f2',
-      boxShadow: '0 1px 2px rgba(16,24,40,.04)', display: 'flex', flexDirection: 'column', gap: 12,
+      background: color + '0a', borderRadius: 12, padding: '14px 16px', border: `1px solid ${color}25`,
+      display: 'flex', flexDirection: 'column', gap: 10,
     }}>
-      <div style={{
-        width: 38, height: 38, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: color + '15', color,
-      }}>
-        <Icon size={19} strokeWidth={2.2} />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color, textTransform: 'uppercase', letterSpacing: '.04em' }}>{label}</div>
+        <div style={{
+          width: 28, height: 28, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: color + '20', color, flexShrink: 0,
+        }}>
+          <Icon size={15} strokeWidth={2.3} />
+        </div>
       </div>
-      <div>
-        <div style={{ fontSize: 26, fontWeight: 800, color: '#111827', lineHeight: 1.1 }}>{value}</div>
-        <div style={{ fontSize: 12.5, color: '#6b7280', marginTop: 4, fontWeight: 500 }}>{label}</div>
-        {sub && <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{sub}</div>}
-      </div>
+      <div style={{ fontSize: 32, fontWeight: 800, color: '#111827', lineHeight: 1 }}>{value}</div>
+      {sub && <div style={{ fontSize: 11.5, color: '#6b7280', fontWeight: 500 }}>{sub}</div>}
     </div>
   )
 }
@@ -79,9 +79,9 @@ export default function BDDashboardClient({ opportunites }: { opportunites: Oppo
   const aSurveiller = opportunites
     .filter(o => o.date_limite && (o.statut === 'identifie' || o.statut === 'en_preparation'))
     .map(o => ({ ...o, jours: Math.round((new Date(o.date_limite as string).setHours(0, 0, 0, 0) - aujourdhui.getTime()) / 86400000) }))
-    .filter(o => o.jours <= 7)
+    .filter(o => o.jours <= 15)
     .sort((a, b) => a.jours - b.jours)
-    .slice(0, 6)
+    .slice(0, 10)
 
   return (
     <div>
@@ -111,21 +111,21 @@ export default function BDDashboardClient({ opportunites }: { opportunites: Oppo
       </div>
 
       <SectionLabel>Pipeline</SectionLabel>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14, marginBottom: 26 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 14, marginBottom: 26 }}>
         <KpiCard icon={Target} label="Identifiées" value={nbIdentifiees} color="#475569" />
         <KpiCard icon={Send} label="Soumises" value={nbSoumises} color="#1e40af" sub={`${tauxSoumission}% des identifiées`} />
         <KpiCard icon={Clock} label="En attente de réponse" value={nbEnAttente} color="#b45309" />
       </div>
 
       <SectionLabel>Résultats</SectionLabel>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14, marginBottom: 26 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 14, marginBottom: 26 }}>
         <KpiCard icon={CheckCircle2} label="Acceptées" value={nbAccepte} color="#166534" sub={nbReponsesResolues > 0 ? `${tauxSucces}% de taux de succès` : undefined} />
         <KpiCard icon={XCircle} label="Refusées" value={nbRefuse} color="#991b1b" />
         <KpiCard icon={HelpCircle} label="Sans réponse" value={nbSansReponse} color="#78716c" />
       </div>
 
       <SectionLabel>Finance</SectionLabel>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14, marginBottom: 28 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 14, marginBottom: 28 }}>
         <KpiCard icon={Wallet} label="Montant total demandé" value={fmtFcfa(montantDemande)} color="#6d28d9" />
         <KpiCard icon={TrendingUp} label="Montant total obtenu" value={fmtFcfa(montantObtenu)} color="#0f766e" sub={montantDemande > 0 ? `${tauxConversionValeur}% du montant demandé` : undefined} />
       </div>
@@ -163,12 +163,12 @@ export default function BDDashboardClient({ opportunites }: { opportunites: Oppo
         <div style={{ background: 'white', borderRadius: 14, padding: 22, border: '1px solid #eef0f2', boxShadow: '0 1px 2px rgba(16,24,40,.04)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
             <CalendarDays size={16} color="#b45309" />
-            <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#111827' }}>À surveiller (7 prochains jours)</h3>
+            <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#111827' }}>À surveiller (15 prochains jours)</h3>
           </div>
           {aSurveiller.length === 0 ? (
             <p style={{ fontSize: 13, color: '#9ca3af' }}>Rien à surveiller pour l&apos;instant.</p>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 380, overflowY: 'auto', paddingRight: 2 }}>
               {aSurveiller.map(o => (
                 <Link key={o.id} href={`/bd/opportunites/${o.id}`} style={{
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10,
