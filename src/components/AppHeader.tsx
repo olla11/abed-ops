@@ -7,17 +7,19 @@ import { useTranslations, useLocale } from 'next-intl'
 import UserAvatar from './UserAvatar'
 import AgaWidget from './AgaWidget'
 import NotificationBell from './NotificationBell'
-import { estAAF as roleEstAAF, estRH as roleEstRH, estCAF as roleEstCAF, estDE as roleEstDE } from '@/lib/roles'
+import { estAAF as roleEstAAF, estRH as roleEstRH, estCAF as roleEstCAF, estDE as roleEstDE, estBD as titreEstBD } from '@/lib/roles'
 
 type Props = {
   userName?: string
   userRole?: string
+  userTitre?: string | null
   typeEmploi?: string | null
   showAdmin?: boolean
   showRH?: boolean
   showAAF?: boolean
   showCAF?: boolean
   showDE?: boolean
+  showBD?: boolean
   avatarUrl?: string | null
 }
 
@@ -28,7 +30,7 @@ type Props = {
 const OVERVIEW_ROLES = ['de','dp','caf','admin','administrateur','superadmin']
 const RAPPORT_TYPES = ['benevole','stagiaire_n1','stagiaire_n2','cdd','cdi']
 
-export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, showRH, showAAF, showCAF, showDE, avatarUrl }: Props) {
+export default function AppHeader({ userName, userRole, userTitre, typeEmploi, showAdmin, showRH, showAAF, showCAF, showDE, showBD, avatarUrl }: Props) {
   const pathname = usePathname()
   const locale = useLocale()
   const t = useTranslations('nav')
@@ -45,6 +47,10 @@ export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, s
   // DE : rôle autonome comme AAF seul (pas d'héritage) — lien simple, pas de
   // menu déroulant (voir commentaire près du lien AAF plus bas).
   const effectiveShowDE = showDE ?? roleEstDE(userRole)
+  // BD : contrairement à AAF/CAF/DE, ce n'est pas un rôle d'accès dédié (le
+  // titre business_developer partage l'AccessRole 'manager' avec d'autres
+  // postes) — le repli se fait donc sur le TITRE, pas sur userRole.
+  const effectiveShowBD = showBD ?? titreEstBD(userTitre)
   const [dossierOpen, setDossierOpen] = useState(false)
   const [docSignOpen, setDocSignOpen] = useState(false)
   const [cafOpen, setCafOpen] = useState(false)
@@ -111,6 +117,7 @@ export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, s
   const aafActive = effectiveShowAAF && (isActive(['/aaf']) || aafTabs.some(s => isActive(s.match)))
   const cafActive = effectiveShowCAF && cafTabs.some(s => isActive(s.match))
   const deActive = effectiveShowDE && isActive(['/de'])
+  const bdActive = effectiveShowBD && isActive(['/bd'])
 
   // Close mobile menu on route change
   useEffect(() => { setMobileOpen(false) }, [pathname])
@@ -301,6 +308,14 @@ export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, s
             </Link>
           )}
 
+          {/* BD — même traitement que AAF/DE seuls : lien simple, sous-menu
+              via la barre d'onglets alignée dans /bd (BDNav). */}
+          {effectiveShowBD && (
+            <Link href="/bd" style={tabStyle(!!bdActive)}>
+              BD
+            </Link>
+          )}
+
           {/* Autres onglets */}
           {mainTabs.map(tab => (
             <Link key={tab.href} href={tab.href} style={tabStyle(isActive(tab.match))}>
@@ -432,6 +447,20 @@ export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, s
               borderTop: '1px solid var(--abed-border)',
             }}>
               DE
+            </Link>
+          )}
+
+          {effectiveShowBD && (
+            <Link href="/bd" style={{
+              display: 'block', padding: '12px 24px', fontSize: 14,
+              fontWeight: bdActive ? 700 : 400,
+              color: bdActive ? 'var(--abed-green)' : '#374151',
+              background: bdActive ? '#f0fdf4' : 'white',
+              textDecoration: 'none',
+              borderBottom: '1px solid #f9fafb',
+              borderTop: '1px solid var(--abed-border)',
+            }}>
+              BD
             </Link>
           )}
 

@@ -148,3 +148,11 @@ export const estCAF = (r?: string | null) => r === 'caf'
 // Le DE n'hérite d'aucun autre menu (contrairement à la CAF qui hérite
 // AAF/RH) — rôle autonome, comme AAF seul.
 export const estDE = (r?: string | null) => r === 'de'
+
+// Business Developer : contrairement à AAF/CAF/DE, ce n'est PAS un
+// AccessRole dédié — le titre partage l'accès 'manager' avec plusieurs
+// autres postes (Représentant Pays, Programme Lead, Chargé de Projet,
+// Responsable communication), volontairement, pour hériter des mêmes
+// capacités manager sans dupliquer ces vérifications partout. Le menu BD se
+// distingue donc par le TITRE, pas par le rôle d'accès.
+export const estBD = (titre?: string | null) => titre === 'business_developer'

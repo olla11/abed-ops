@@ -8,7 +8,7 @@ import ImpersonationBanner from '@/components/ImpersonationBanner'
 import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
 import { getImpersonationInfo } from '@/lib/impersonation'
 import MissionsTable from './MissionsTable'
-import { estRH, estAAF } from '@/lib/roles'
+import { estRH, estAAF, estBD } from '@/lib/roles'
 
 export default async function Dashboard() {
   const supabase = await createClient()
@@ -61,10 +61,12 @@ export default async function Dashboard() {
       <AppHeader
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={role}
+        userTitre={profile?.titre}
         typeEmploi={profile?.type_emploi}
         showAdmin={['admin', 'superadmin'].includes(realRole) && !previewRole}
         showRH={estRH(role)}
         showAAF={estAAF(role)}
+        showBD={estBD(profile?.titre) || role === 'de'}
         avatarUrl={profile?.avatar_url ?? null}
       />
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}

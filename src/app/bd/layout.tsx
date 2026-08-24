@@ -1,16 +1,16 @@
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import AppHeader from '@/components/AppHeader'
-import DENav from './DENav'
+import BDNav from './BDNav'
 import RolePreviewBanner from '@/components/RolePreviewBanner'
 import ImpersonationBanner from '@/components/ImpersonationBanner'
 import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
 import { getImpersonationInfo } from '@/lib/impersonation'
-import { estDE } from '@/lib/roles'
+import { estBD } from '@/lib/roles'
 
 export const dynamic = 'force-dynamic'
 
-export default async function DELayout({ children }: { children: React.ReactNode }) {
+export default async function BDLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -18,7 +18,9 @@ export default async function DELayout({ children }: { children: React.ReactNode
   const { data: profile } = await supabase
     .from('profiles').select('role, titre, nom, prenoms, avatar_url, type_emploi').eq('id', user.id).single()
 
-  if (!profile || !(estDE(profile.role) || ['admin', 'superadmin'].includes(profile.role))) redirect('/dashboard')
+  const estEquipeBD = estBD(profile?.titre)
+  const estSuperviseur = ['de', 'admin', 'superadmin'].includes(profile?.role ?? '')
+  if (!profile || !(estEquipeBD || estSuperviseur)) redirect('/dashboard')
 
   const realRole = profile.role
   const role = await getEffectiveRole(realRole)
@@ -32,18 +34,19 @@ export default async function DELayout({ children }: { children: React.ReactNode
         userRole={role}
         userTitre={profile.titre}
         typeEmploi={profile.type_emploi}
-        showDE={true}
-        // Le DE a une vue en lecture seule sur /bd (supervision du pipeline
-        // de financement) — lien affiché explicitement ici, indépendamment
-        // de son propre titre (qui n'est pas business_developer).
-        showBD={realRole === 'de'}
+        showBD={true}
         showAdmin={['admin', 'superadmin'].includes(realRole) && !previewRole}
         avatarUrl={profile.avatar_url ?? null}
       />
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}
       {impersonation && <ImpersonationBanner adminNom={impersonation.adminNom} adminPrenoms={impersonation.adminPrenoms} targetNom={impersonation.targetNom} targetPrenoms={impersonation.targetPrenoms} targetRole={impersonation.targetRole} />}
       <div className="page-container">
-        <DENav />
+        <BDNav />
+        {!estEquipeBD && (
+          <div className="card" style={{ borderLeft: '4px solid #1e40af', marginBottom: 20, fontSize: 13, color: '#374151' }}>
+            🔒 Vue en lecture seule — la gestion des opportunités est réservée à l&apos;équipe Business Developer.
+          </div>
+        )}
         {children}
       </div>
     </>
