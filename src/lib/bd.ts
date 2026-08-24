@@ -3,6 +3,12 @@
 // soumission -> réponse du bailleur — remplace les deux colonnes séparées
 // (Statut / Réponse du bailleur) du registre Excel d'origine.
 
+export const TYPE_OPPORTUNITE_LABELS = {
+  appel_a_projets: 'Appel à Projets',
+  ami: "AMI (Avis de Manifestation d'Intérêt)",
+} as const
+export type TypeOpportunite = keyof typeof TYPE_OPPORTUNITE_LABELS
+
 export const OPPORTUNITE_STATUTS = [
   'identifie', 'en_preparation', 'soumis', 'accepte', 'refuse', 'sans_reponse', 'abandonne',
 ] as const
@@ -33,36 +39,3 @@ export const STATUT_COLORS: Record<OpportuniteStatut, string> = {
 export const STATUTS_TERMINES: OpportuniteStatut[] = ['accepte', 'refuse', 'sans_reponse', 'abandonne']
 export const STATUTS_EN_PREPARATION: OpportuniteStatut[] = ['identifie', 'en_preparation']
 
-export type CalendrierBucket = 'a_faire' | 'en_retard' | 'en_attente' | 'termine'
-
-export const CALENDRIER_BUCKET_LABELS: Record<CalendrierBucket, string> = {
-  a_faire: 'À faire',
-  en_retard: 'En retard',
-  en_attente: 'Soumis — en attente',
-  termine: 'Terminé',
-}
-
-export const CALENDRIER_BUCKET_COLORS: Record<CalendrierBucket, string> = {
-  a_faire: '#1e40af',
-  en_retard: '#991b1b',
-  en_attente: '#b45309',
-  termine: '#166534',
-}
-
-/**
- * Classe une opportunité dans l'une des 4 catégories du calendrier BD.
- * "En retard" : encore en préparation (jamais soumise) alors que la date
- * limite est dépassée. Une fois soumise, la date limite n'a plus d'effet.
- */
-export function calendrierBucket(statut: OpportuniteStatut, dateLimite: string | null): CalendrierBucket {
-  if (STATUTS_EN_PREPARATION.includes(statut)) {
-    if (dateLimite) {
-      const aujourdhui = new Date(); aujourdhui.setHours(0, 0, 0, 0)
-      const limite = new Date(dateLimite)
-      if (limite < aujourdhui) return 'en_retard'
-    }
-    return 'a_faire'
-  }
-  if (statut === 'soumis') return 'en_attente'
-  return 'termine'
-}

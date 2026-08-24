@@ -2,7 +2,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import PiecesJointesList from '@/components/PiecesJointesList'
-import { STATUT_LABELS, OPPORTUNITE_STATUTS, type OpportuniteStatut } from '@/lib/bd'
+import { STATUT_LABELS, OPPORTUNITE_STATUTS, TYPE_OPPORTUNITE_LABELS, type OpportuniteStatut, type TypeOpportunite } from '@/lib/bd'
+import { ResponsableSelect, AssociesMultiSelect, type Personne } from '../../PersonPickers'
 
 type Piece = { path: string; nom: string }
 
@@ -11,7 +12,9 @@ type Opportunite = {
   titre: string
   bailleur: string | null
   description_appel: string | null
-  personnes_associees: string | null
+  type_opportunite: TypeOpportunite
+  responsable_id: string | null
+  associes_ids: string[]
   date_identification: string
   date_publication: string | null
   date_limite: string | null
@@ -24,6 +27,7 @@ type Opportunite = {
   montant_obtenu: number | null
   pieces_jointes: Piece[] | null
   identifie_par: { nom: string; prenoms: string } | null
+  responsable: { nom: string; prenoms: string } | null
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -38,13 +42,14 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 const inputStyle: React.CSSProperties = { width: '100%', padding: '10px 14px', borderRadius: 8, fontSize: 14, border: '1px solid #e5e7eb', boxSizing: 'border-box' }
 const textareaStyle: React.CSSProperties = { ...inputStyle, fontFamily: 'inherit', resize: 'vertical' as const }
 
-export default function OpportuniteDetailClient({ opportunite, peutGerer }: { opportunite: Opportunite; peutGerer: boolean }) {
+export default function OpportuniteDetailClient({ opportunite, peutGerer, personnes }: { opportunite: Opportunite; peutGerer: boolean; personnes: Personne[] }) {
   const router = useRouter()
   const [form, setForm] = useState({
     titre: opportunite.titre,
     bailleur: opportunite.bailleur ?? '',
     description_appel: opportunite.description_appel ?? '',
-    personnes_associees: opportunite.personnes_associees ?? '',
+    type_opportunite: opportunite.type_opportunite,
+    responsable_id: opportunite.responsable_id ?? '',
     date_publication: opportunite.date_publication ?? '',
     date_limite: opportunite.date_limite ?? '',
     date_soumission: opportunite.date_soumission ?? '',
@@ -55,6 +60,7 @@ export default function OpportuniteDetailClient({ opportunite, peutGerer }: { op
     montant_demande: opportunite.montant_demande?.toString() ?? '',
     montant_obtenu: opportunite.montant_obtenu?.toString() ?? '',
   })
+  const [associesIds, setAssociesIds] = useState<string[]>(opportunite.associes_ids ?? [])
   const [pieces, setPieces] = useState<Piece[]>(Array.isArray(opportunite.pieces_jointes) ? opportunite.pieces_jointes : [])
   const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -85,6 +91,8 @@ export default function OpportuniteDetailClient({ opportunite, peutGerer }: { op
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         ...form,
+        responsable_id: form.responsable_id || null,
+        associes_ids: associesIds,
         montant_demande: form.montant_demande ? Number(form.montant_demande) : null,
         montant_obtenu: form.montant_obtenu ? Number(form.montant_obtenu) : null,
         date_publication: form.date_publication || null,
@@ -109,13 +117,22 @@ export default function OpportuniteDetailClient({ opportunite, peutGerer }: { op
   }
 
   if (!peutGerer) {
+    const associesNoms = (opportunite.associes_ids ?? [])
+      .map(id => personnes.find(p => p.id === id))
+      .filter(Boolean)
+      .map(p => `${p!.prenoms} ${p!.nom}`)
+      .join(', ')
     return (
       <div>
         <h2 style={{ color: 'var(--abed-green)', margin: '0 0 4px' }}>{opportunite.titre}</h2>
-        <p style={{ fontSize: 13, color: 'var(--abed-muted)', margin: '0 0 20px' }}>{opportunite.bailleur ?? 'Bailleur non précisé'}</p>
+        <p style={{ fontSize: 13, color: 'var(--abed-muted)', margin: '0 0 20px' }}>
+          {TYPE_OPPORTUNITE_LABELS[opportunite.type_opportunite]} — {opportunite.bailleur ?? 'Bailleur non précisé'}
+        </p>
         <div className="card" style={{ display: 'grid', gap: 12 }}>
           <Row label="Statut" value={STATUT_LABELS[opportunite.statut]} />
           <Row label="Identifiée par" value={opportunite.identifie_par ? `${opportunite.identifie_par.prenoms} ${opportunite.identifie_par.nom}` : '—'} />
+          <Row label="Responsable de la soumission" value={opportunite.responsable ? `${opportunite.responsable.prenoms} ${opportunite.responsable.nom}` : '—'} />
+          <Row label="Personnes associées" value={associesNoms || null} />
           <Row label="Date d'identification" value={fmtDate(opportunite.date_identification)} />
           <Row label="Date de publication" value={fmtDate(opportunite.date_publication)} />
           <Row label="Date limite" value={fmtDate(opportunite.date_limite)} />
@@ -136,9 +153,18 @@ export default function OpportuniteDetailClient({ opportunite, peutGerer }: { op
     <div>
       <h2 style={{ color: 'var(--abed-green)', margin: '0 0 20px' }}>{opportunite.titre}</h2>
       <div className="card" style={{ display: 'grid', gap: 16, maxWidth: 720 }}>
-        <Field label="Intitulé de l'appel">
-          <input value={form.titre} onChange={e => set('titre', e.target.value)} style={inputStyle} />
-        </Field>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 16 }}>
+          <Field label="Type d'opportunité">
+            <select value={form.type_opportunite} onChange={e => set('type_opportunite', e.target.value as TypeOpportunite)} style={inputStyle}>
+              {(Object.keys(TYPE_OPPORTUNITE_LABELS) as TypeOpportunite[]).map(t => (
+                <option key={t} value={t}>{TYPE_OPPORTUNITE_LABELS[t]}</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Intitulé de l'appel">
+            <input value={form.titre} onChange={e => set('titre', e.target.value)} style={inputStyle} />
+          </Field>
+        </div>
         <Field label="Bailleur">
           <input value={form.bailleur} onChange={e => set('bailleur', e.target.value)} style={inputStyle} />
         </Field>
@@ -150,8 +176,11 @@ export default function OpportuniteDetailClient({ opportunite, peutGerer }: { op
         <Field label="Description de l'appel (~100 mots)">
           <textarea value={form.description_appel} onChange={e => set('description_appel', e.target.value)} rows={4} style={textareaStyle} />
         </Field>
+        <Field label="Responsable de la soumission">
+          <ResponsableSelect personnes={personnes} value={form.responsable_id} onChange={v => set('responsable_id', v)} />
+        </Field>
         <Field label="Personnes à associer">
-          <input value={form.personnes_associees} onChange={e => set('personnes_associees', e.target.value)} style={inputStyle} />
+          <AssociesMultiSelect personnes={personnes} value={associesIds} onChange={setAssociesIds} />
         </Field>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
           <Field label="Date de publication">

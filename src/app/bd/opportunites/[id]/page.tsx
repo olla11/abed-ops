@@ -14,13 +14,16 @@ export default async function OpportuniteDetailPage({ params }: { params: Promis
   const { data: profile } = await supabase.from('profiles').select('titre, role').eq('id', user.id).single()
   const peutGerer = estBD(profile?.titre) || ['admin', 'superadmin'].includes(profile?.role ?? '')
 
-  const { data: opportunite } = await supabase
-    .from('opportunites_bd')
-    .select('*, identifie_par:profiles!opportunites_bd_identifie_par_fkey(nom, prenoms)')
-    .eq('id', id)
-    .single()
+  const [{ data: opportunite }, { data: personnes }] = await Promise.all([
+    supabase
+      .from('opportunites_bd')
+      .select('*, identifie_par:profiles!opportunites_bd_identifie_par_fkey(nom, prenoms), responsable:profiles!opportunites_bd_responsable_id_fkey(nom, prenoms)')
+      .eq('id', id)
+      .single(),
+    supabase.from('profiles').select('id, nom, prenoms').order('nom'),
+  ])
 
   if (!opportunite) notFound()
 
-  return <OpportuniteDetailClient opportunite={opportunite as any} peutGerer={peutGerer} />
+  return <OpportuniteDetailClient opportunite={opportunite as any} peutGerer={peutGerer} personnes={personnes ?? []} />
 }
