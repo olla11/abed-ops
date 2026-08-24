@@ -1,7 +1,6 @@
 'use client'
 import { useState } from 'react'
 import Link from 'next/link'
-import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts'
 import { Target, Send, Clock, CheckCircle2, XCircle, HelpCircle, Wallet, TrendingUp, Plus, CalendarDays } from 'lucide-react'
 import { STATUT_LABELS, STATUT_COLORS, STATUTS_TERMINES, type OpportuniteStatut } from '@/lib/bd'
 
@@ -75,11 +74,16 @@ export default function BDDashboardClient({ opportunites }: { opportunites: Oppo
   const repartition = (Object.keys(STATUT_LABELS) as OpportuniteStatut[])
     .map(statut => ({ statut, name: STATUT_LABELS[statut], value: opportunitesAnnee.filter(o => o.statut === statut).length }))
     .filter(r => r.value > 0)
+    .sort((a, b) => b.value - a.value)
+  const repartitionMax = Math.max(1, ...repartition.map(r => r.value))
 
-  const aSurveiller = opportunites
+  // "À surveiller" ne retient que les échéances encore à venir (0 à 15
+  // jours) — le passé (délai dépassé sans soumission) est déjà signalé
+  // comme sa propre catégorie dans le registre des opportunités.
+  const aSurveiller = opportunitesAnnee
     .filter(o => o.date_limite && (o.statut === 'identifie' || o.statut === 'en_preparation'))
     .map(o => ({ ...o, jours: Math.round((new Date(o.date_limite as string).setHours(0, 0, 0, 0) - aujourdhui.getTime()) / 86400000) }))
-    .filter(o => o.jours <= 15)
+    .filter(o => o.jours >= 0 && o.jours <= 15)
     .sort((a, b) => a.jours - b.jours)
     .slice(0, 10)
 
@@ -131,31 +135,30 @@ export default function BDDashboardClient({ opportunites }: { opportunites: Oppo
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 1fr) minmax(280px, 1.3fr)', gap: 16 }}>
-        <div style={{ background: 'white', borderRadius: 14, padding: 22, border: '1px solid #eef0f2', boxShadow: '0 1px 2px rgba(16,24,40,.04)' }}>
-          <h3 style={{ margin: '0 0 16px', fontSize: 14, fontWeight: 700, color: '#111827' }}>Répartition par statut</h3>
+        <div style={{ background: 'white', borderRadius: 14, padding: 22, border: '1px solid #eef0f2', boxShadow: '0 1px 2px rgba(16,24,40,.04)', display: 'flex', flexDirection: 'column' }}>
+          <h3 style={{ margin: '0 0 18px', fontSize: 14, fontWeight: 700, color: '#111827' }}>Répartition par statut</h3>
           {repartition.length === 0 ? (
             <p style={{ fontSize: 13, color: '#9ca3af' }}>Aucune opportunité cette année.</p>
           ) : (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-              <ResponsiveContainer width={140} height={140}>
-                <PieChart>
-                  <Pie data={repartition} dataKey="value" nameKey="name" innerRadius={40} outerRadius={64} paddingAngle={2} strokeWidth={0}>
-                    {repartition.map(r => <Cell key={r.statut} fill={STATUT_COLORS[r.statut]} />)}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
-                {repartition.map(r => (
-                  <div key={r.statut} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12.5 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 7, color: '#374151' }}>
-                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: STATUT_COLORS[r.statut] }} />
-                      {r.name}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 18, flex: 1, justifyContent: 'space-evenly' }}>
+              {repartition.map(r => {
+                const pct = Math.round((r.value / repartitionMax) * 100)
+                const partTotale = Math.round((r.value / opportunitesAnnee.length) * 100)
+                return (
+                  <div key={r.statut}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>{r.name}</span>
+                      <span style={{ fontSize: 13 }}>
+                        <span style={{ fontWeight: 800, color: '#111827' }}>{r.value}</span>
+                        <span style={{ color: '#9ca3af', marginLeft: 5 }}>({partTotale}%)</span>
+                      </span>
                     </div>
-                    <span style={{ fontWeight: 700, color: '#111827' }}>{r.value}</span>
+                    <div style={{ height: 10, borderRadius: 6, background: '#f3f4f6', overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${pct}%`, borderRadius: 6, background: STATUT_COLORS[r.statut] }} />
+                    </div>
                   </div>
-                ))}
-              </div>
+                )
+              })}
             </div>
           )}
         </div>
@@ -173,7 +176,7 @@ export default function BDDashboardClient({ opportunites }: { opportunites: Oppo
                 <Link key={o.id} href={`/bd/opportunites/${o.id}`} style={{
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10,
                   padding: '10px 12px', borderRadius: 8, border: '1px solid #f3f4f6', textDecoration: 'none',
-                  background: o.jours < 0 ? '#fef2f2' : '#fafafa',
+                  background: '#fafafa',
                 }}>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: 13, fontWeight: 600, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.titre}</div>
@@ -181,10 +184,10 @@ export default function BDDashboardClient({ opportunites }: { opportunites: Oppo
                   </div>
                   <span style={{
                     fontSize: 11, fontWeight: 700, flexShrink: 0, padding: '3px 9px', borderRadius: 20,
-                    color: o.jours < 0 ? '#991b1b' : o.jours === 0 ? '#b45309' : '#1e40af',
-                    background: o.jours < 0 ? '#fee2e2' : o.jours === 0 ? '#fef3c7' : '#dbeafe',
+                    color: o.jours === 0 ? '#b45309' : '#1e40af',
+                    background: o.jours === 0 ? '#fef3c7' : '#dbeafe',
                   }}>
-                    {o.jours < 0 ? `Retard ${Math.abs(o.jours)}j` : o.jours === 0 ? "Aujourd'hui" : `Dans ${o.jours}j`}
+                    {o.jours === 0 ? "Aujourd'hui" : `Dans ${o.jours}j`}
                   </span>
                 </Link>
               ))}
