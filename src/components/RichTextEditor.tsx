@@ -436,6 +436,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, {
         .rte-content h3 { font-size: 16px; }
         .rte-content h4, .rte-content h5, .rte-content h6 { font-size: 14px; }
         .rte-content a { color: #2563eb; text-decoration: underline; }
+        .rte-content img { max-width: 100%; height: auto; }
         .rte-content table { border-collapse: collapse; margin: 10px 0; }
         .rte-content .tableWrapper { overflow-x: auto; }
         .rte-content table td, .rte-content table th {
