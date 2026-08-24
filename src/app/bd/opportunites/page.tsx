@@ -15,7 +15,8 @@ export default async function OpportunitesPage() {
 
   const { data: opportunites } = await supabase
     .from('opportunites_bd')
-    .select('id, titre, bailleur, statut, date_identification, date_limite, date_soumission, identifie_par:profiles!opportunites_bd_identifie_par_fkey(nom, prenoms)')
+    .select('id, titre, bailleur, statut, date_identification, date_publication, date_limite, date_soumission, identifie_par:profiles!opportunites_bd_identifie_par_fkey(nom, prenoms)')
+    .order('date_publication', { ascending: false, nullsFirst: false })
     .order('date_identification', { ascending: false })
     .order('created_at', { ascending: false })
 
