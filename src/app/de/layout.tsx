@@ -33,10 +33,6 @@ export default async function DELayout({ children }: { children: React.ReactNode
         userTitre={profile.titre}
         typeEmploi={profile.type_emploi}
         showDE={true}
-        // Le DE a une vue en lecture seule sur /bd (supervision du pipeline
-        // de financement) — lien affiché explicitement ici, indépendamment
-        // de son propre titre (qui n'est pas business_developer).
-        showBD={realRole === 'de'}
         showAdmin={['admin', 'superadmin'].includes(realRole) && !previewRole}
         avatarUrl={profile.avatar_url ?? null}
       />

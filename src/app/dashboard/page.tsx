@@ -66,7 +66,7 @@ export default async function Dashboard() {
         showAdmin={['admin', 'superadmin'].includes(realRole) && !previewRole}
         showRH={estRH(role)}
         showAAF={estAAF(role)}
-        showBD={estBD(profile?.titre) || role === 'de'}
+        showBD={estBD(profile?.titre)}
         avatarUrl={profile?.avatar_url ?? null}
       />
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}

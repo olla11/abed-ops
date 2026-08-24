@@ -8,8 +8,16 @@ import ImpersonationBanner from '@/components/ImpersonationBanner'
 import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
 import { getImpersonationInfo } from '@/lib/impersonation'
 import OverviewOperations from '@/components/OverviewOperations'
+import OverviewSubNav from '@/components/OverviewSubNav'
 import AAFNav from '@/app/aaf/AAFNav'
 import { estRH, estAAF } from '@/lib/roles'
+
+// Rôles qui voient "Vue d'ensemble" comme onglet principal (voir
+// OVERVIEW_ROLES dans AppHeader) — ce sont eux qui obtiennent le sous-onglet
+// BD, le registre en lecture seule ayant quitté son propre menu pour
+// rejoindre Vue d'ensemble. L'AAF y accède différemment (sous-menu AAF), pas
+// concerné ici.
+const SHOW_BD_SUBTAB_ROLES = ['de', 'dp', 'caf', 'admin', 'administrateur', 'superadmin']
 
 export default async function OverviewPage() {
   const supabase = await createClient()
@@ -48,6 +56,7 @@ export default async function OverviewPage() {
       {impersonation && <ImpersonationBanner adminNom={impersonation.adminNom} adminPrenoms={impersonation.adminPrenoms} targetNom={impersonation.targetNom} targetPrenoms={impersonation.targetPrenoms} targetRole={impersonation.targetRole} />}
       <div className="page-container" style={{ display: 'grid', gap: 28 }}>
 
+      {SHOW_BD_SUBTAB_ROLES.includes(role) && <OverviewSubNav />}
       {showAAFNav && <AAFNav role={role} />}
 
       <div>
