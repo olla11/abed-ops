@@ -6,6 +6,7 @@ const TABS = [
   { href: '/bd', label: 'Tableau de bord', exact: true },
   { href: '/bd/calendrier', label: 'Calendrier' },
   { href: '/bd/opportunites', label: 'Opportunités' },
+  { href: '/bd/rapport', label: 'Rapport' },
 ]
 
 export default function BDNav() {
