@@ -27,11 +27,13 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
   refuse_de:    { label: '✗ Refusé (DE)',    color: '#991b1b' },
 }
 
-// Seul le DE (+ admin) traite encore ce circuit depuis "Mon espace" : AAF et
-// CAF ont désormais leur propre menu dédié (/aaf/demandes-paiement) pour tout
-// ce qui concerne le traitement des dossiers d'autrui — "Mon espace" ne leur
-// montre plus que leurs propres demandes, comme n'importe quel employé.
-const isTraiteur = (r: string) => ['de', 'admin'].includes(r)
+// Seul l'admin traite encore ce circuit depuis "Mon espace" (secours
+// technique) : AAF, CAF et DE ont chacun leur propre menu dédié
+// (/aaf/demandes-paiement, /caf/demandes-paiement, /de/demandes-paiement)
+// pour tout ce qui concerne le traitement des dossiers d'autrui — "Mon
+// espace" ne leur montre plus que leurs propres demandes, comme n'importe
+// quel employé.
+const isTraiteur = (r: string) => r === 'admin'
 
 export default function DemandesClient({ role, userId, userEmail, userName }: {
   role: string; userId: string; userEmail: string; userName: string

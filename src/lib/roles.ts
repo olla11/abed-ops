@@ -141,3 +141,7 @@ export const estRH = (r?: string | null) => r === 'rh' || r === 'caf'
 // CAF Pro est exclusif au rôle 'caf' lui-même — personne d'autre n'hérite
 // des étapes de validation propres à la CAF.
 export const estCAF = (r?: string | null) => r === 'caf'
+
+// Le DE n'hérite d'aucun autre menu (contrairement à la CAF qui hérite
+// AAF/RH) — rôle autonome, comme AAF seul.
+export const estDE = (r?: string | null) => r === 'de'

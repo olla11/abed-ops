@@ -7,7 +7,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import UserAvatar from './UserAvatar'
 import AgaWidget from './AgaWidget'
 import NotificationBell from './NotificationBell'
-import { estAAF as roleEstAAF, estRH as roleEstRH, estCAF as roleEstCAF } from '@/lib/roles'
+import { estAAF as roleEstAAF, estRH as roleEstRH, estCAF as roleEstCAF, estDE as roleEstDE } from '@/lib/roles'
 
 type Props = {
   userName?: string
@@ -17,6 +17,7 @@ type Props = {
   showRH?: boolean
   showAAF?: boolean
   showCAF?: boolean
+  showDE?: boolean
   avatarUrl?: string | null
 }
 
@@ -27,7 +28,7 @@ type Props = {
 const OVERVIEW_ROLES = ['de','dp','caf','admin','administrateur','superadmin']
 const RAPPORT_TYPES = ['benevole','stagiaire_n1','stagiaire_n2','cdd','cdi']
 
-export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, showRH, showAAF, showCAF, avatarUrl }: Props) {
+export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, showRH, showAAF, showCAF, showDE, avatarUrl }: Props) {
   const pathname = usePathname()
   const locale = useLocale()
   const t = useTranslations('nav')
@@ -41,6 +42,9 @@ export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, s
   // Le menu CAF (déroulant CAF Pro / AAF / RH) remplace les onglets AAF et RH
   // séparés pour la CAF — exclusif à ce rôle, pas de repli par défaut ailleurs.
   const effectiveShowCAF = showCAF ?? roleEstCAF(userRole)
+  // DE : rôle autonome comme AAF seul (pas d'héritage) — lien simple, pas de
+  // menu déroulant (voir commentaire près du lien AAF plus bas).
+  const effectiveShowDE = showDE ?? roleEstDE(userRole)
   const [dossierOpen, setDossierOpen] = useState(false)
   const [docSignOpen, setDocSignOpen] = useState(false)
   const [cafOpen, setCafOpen] = useState(false)
@@ -106,6 +110,7 @@ export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, s
   const dossierActive = subTabs.some(s => isActive(s.match))
   const aafActive = effectiveShowAAF && (isActive(['/aaf']) || aafTabs.some(s => isActive(s.match)))
   const cafActive = effectiveShowCAF && cafTabs.some(s => isActive(s.match))
+  const deActive = effectiveShowDE && isActive(['/de'])
 
   // Close mobile menu on route change
   useEffect(() => { setMobileOpen(false) }, [pathname])
@@ -287,6 +292,15 @@ export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, s
             </Link>
           )}
 
+          {/* DE — même traitement que AAF seul : lien simple, sous-menu via
+              la barre d'onglets alignée dans /de (DENav), pas de menu
+              déroulant qui la recouvrirait. */}
+          {effectiveShowDE && (
+            <Link href="/de" style={tabStyle(!!deActive)}>
+              DE
+            </Link>
+          )}
+
           {/* Autres onglets */}
           {mainTabs.map(tab => (
             <Link key={tab.href} href={tab.href} style={tabStyle(isActive(tab.match))}>
@@ -404,6 +418,20 @@ export default function AppHeader({ userName, userRole, typeEmploi, showAdmin, s
               borderTop: '1px solid var(--abed-border)',
             }}>
               AAF
+            </Link>
+          )}
+
+          {effectiveShowDE && (
+            <Link href="/de" style={{
+              display: 'block', padding: '12px 24px', fontSize: 14,
+              fontWeight: deActive ? 700 : 400,
+              color: deActive ? 'var(--abed-green)' : '#374151',
+              background: deActive ? '#f0fdf4' : 'white',
+              textDecoration: 'none',
+              borderBottom: '1px solid #f9fafb',
+              borderTop: '1px solid var(--abed-border)',
+            }}>
+              DE
             </Link>
           )}
 

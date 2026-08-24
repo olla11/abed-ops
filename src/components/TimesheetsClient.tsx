@@ -46,8 +46,6 @@ export default function TimesheetsClient({
   const estPrestataire = ['prestataire_direct', 'prestataire_credit'].includes(typeEmploi ?? '')
   const estSalarie = ['cdd', 'cdi'].includes(typeEmploi ?? '')
   const estManager = ['manager', 'caf', 'admin', 'de', 'dp', 'aaf'].includes(role)
-  // Autorisation finale réservée au DE (+ administrateur pour l'auto-soumission de/dp) — le DP n'autorise plus.
-  const estDE = ['de', 'administrateur'].includes(role)
   // Les étapes AAF et CAF des rapports d'allocation sont désormais traitées
   // depuis le menu AAF dédié (/aaf/rapports-allocations) et le menu CAF Pro
   // (/caf/rapports-allocations) — "Mon espace" ne les affiche plus pour
@@ -56,6 +54,10 @@ export default function TimesheetsClient({
   // Idem pour la validation financière des timesheets (étape CAF exclusive,
   // sans équivalent AAF) : désormais dans le menu CAF Pro (/caf/timesheets).
   const showTimesheetsCAFDansMonEspace = role === 'admin'
+  // Idem pour l'autorisation finale DE (timesheets et rapports d'allocation)
+  // : désormais dans le menu DE (/de/timesheets, /de/rapports-allocations).
+  const showTimesheetsDEDansMonEspace = role === 'admin'
+  const showRapportsDEDansMonEspace = role === 'admin'
 
   // Construire les onglets selon les droits
   const tabs: Tab[] = []
@@ -104,7 +106,7 @@ export default function TimesheetsClient({
   }
 
   // Timesheets à autoriser DE — étape finale avant que la CAF puisse payer.
-  if (estDE) {
+  if (showTimesheetsDEDansMonEspace) {
     tabs.push({
       key: 'de_timesheets', icon: ShieldCheck, label: 'Timesheets à autoriser',
       desc: 'Autorisation finale DE',
@@ -113,7 +115,7 @@ export default function TimesheetsClient({
   }
 
   // Rapports à autoriser DE
-  if (estDE) {
+  if (showRapportsDEDansMonEspace) {
     tabs.push({
       key: 'de_rapports', icon: ShieldCheck, label: 'Rapports à autoriser',
       desc: 'Autorisation finale DE',

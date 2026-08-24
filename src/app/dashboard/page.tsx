@@ -25,13 +25,17 @@ export default async function Dashboard() {
   const previewRole = await getRolePreview()
   const impersonation = await getImpersonationInfo()
   const isManager = ['admin', 'rh', 'caf', 'de', 'dp', 'administrateur'].includes(role)
-  const isSignataire = ['caf', 'de', 'dp', 'admin', 'administrateur'].includes(role)
+  // Signer un OM depuis ce tableau reste possible pour CAF/DP/admin — le DE a
+  // désormais son propre menu dédié (/de/om-a-signer), même logique que
+  // showReconciliationTabs pour AAF/CAF juste en dessous.
+  const isSignataire = ['caf', 'dp', 'admin', 'administrateur'].includes(role)
   // AAF et CAF traitent désormais les réconciliations depuis leur menu AAF
   // dédié (/aaf/reconciliations) — le tableau de bord personnel ne montre
   // plus cet onglet de traitement pour eux, seulement pour l'admin.
   const showReconciliationTabs = role === 'admin'
   const canValidateReconc = role === 'admin'
-  const canAutoriserDE = ['de', 'admin'].includes(role)
+  // Idem : autorisation finale DE désormais dans /de/reconciliations.
+  const canAutoriserDE = role === 'admin'
 
   const { data: missions } = await supabase
     .from('missions')
