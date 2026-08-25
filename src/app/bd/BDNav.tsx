@@ -2,15 +2,17 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
-const TABS = [
+const TABS_BASE = [
   { href: '/bd', label: 'Tableau de bord', exact: true },
   { href: '/bd/calendrier', label: 'Calendrier' },
   { href: '/bd/opportunites', label: 'Opportunités' },
-  { href: '/bd/rapport', label: 'Rapport' },
 ]
 
-export default function BDNav() {
+// "Rapport" est un outil de travail de l'équipe BD — pas partagé avec les
+// superviseurs qui consultent /bd en lecture seule depuis Vue d'ensemble.
+export default function BDNav({ estEquipeBD }: { estEquipeBD: boolean }) {
   const pathname = usePathname()
+  const TABS = estEquipeBD ? [...TABS_BASE, { href: '/bd/rapport', label: 'Rapport' }] : TABS_BASE
   return (
     <div style={{
       display: 'flex', gap: 4, marginBottom: 28,

@@ -5,8 +5,6 @@ import { resoudrePeriode } from '@/lib/bd-rapport-periode'
 
 // Version JSON (légère) des mêmes données que le PDF — pour l'aperçu à
 // l'écran avant de lancer la génération du PDF (Puppeteer, plus coûteux).
-const SUPERVISEUR_ROLES = ['de', 'dp', 'caf', 'admin', 'administrateur', 'superadmin']
-
 const SELECT = `id, titre, bailleur, type_opportunite, statut, date_identification, date_soumission,
   montant_demande, montant_obtenu,
   responsable:profiles!opportunites_bd_responsable_id_fkey(nom, prenoms)`
@@ -16,9 +14,9 @@ export async function GET(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
 
-  const { data: profile } = await supabase.from('profiles').select('titre, role').eq('id', user.id).single()
-  if (!profile || !(estBD(profile.titre) || SUPERVISEUR_ROLES.includes(profile.role))) {
-    return NextResponse.json({ error: 'Accès réservé à l\'équipe Business Developer et aux superviseurs' }, { status: 403 })
+  const { data: profile } = await supabase.from('profiles').select('titre').eq('id', user.id).single()
+  if (!estBD(profile?.titre)) {
+    return NextResponse.json({ error: 'Accès réservé à l\'équipe Business Developer' }, { status: 403 })
   }
 
   const { searchParams } = new URL(req.url)

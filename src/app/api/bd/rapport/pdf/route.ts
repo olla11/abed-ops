@@ -7,10 +7,6 @@ import { genererRapportBDPdf, nomFichierRapportBDPdf, type RapportOpportunite } 
 export const runtime = 'nodejs'
 export const maxDuration = 60
 
-// Accès en lecture : équipe BD (génération) + les mêmes superviseurs qui ont
-// désormais accès à /bd en lecture seule (voir OverviewSubNav / bd/layout.tsx).
-const SUPERVISEUR_ROLES = ['de', 'dp', 'caf', 'admin', 'administrateur', 'superadmin']
-
 const SELECT = `id, titre, bailleur, type_opportunite, statut, date_identification, date_soumission, date_limite,
   montant_demande, montant_obtenu,
   identifie_par:profiles!opportunites_bd_identifie_par_fkey(nom, prenoms),
@@ -21,9 +17,9 @@ export async function GET(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
 
-  const { data: profile } = await supabase.from('profiles').select('titre, role').eq('id', user.id).single()
-  if (!profile || !(estBD(profile.titre) || SUPERVISEUR_ROLES.includes(profile.role))) {
-    return NextResponse.json({ error: 'Accès réservé à l\'équipe Business Developer et aux superviseurs' }, { status: 403 })
+  const { data: profile } = await supabase.from('profiles').select('titre').eq('id', user.id).single()
+  if (!estBD(profile?.titre)) {
+    return NextResponse.json({ error: 'Accès réservé à l\'équipe Business Developer' }, { status: 403 })
   }
 
   const { searchParams } = new URL(req.url)
