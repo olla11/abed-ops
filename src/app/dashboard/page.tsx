@@ -25,10 +25,13 @@ export default async function Dashboard() {
   const previewRole = await getRolePreview()
   const impersonation = await getImpersonationInfo()
   const isManager = ['admin', 'rh', 'caf', 'de', 'dp', 'administrateur'].includes(role)
-  // Signer un OM depuis ce tableau reste possible pour CAF/DP/admin — le DE a
-  // désormais son propre menu dédié (/de/om-a-signer), même logique que
-  // showReconciliationTabs pour AAF/CAF juste en dessous.
-  const isSignataire = ['caf', 'dp', 'admin', 'administrateur'].includes(role)
+  // Le DE a son propre menu dédié pour signer les OM des autres
+  // (/de/om-a-signer) — ce tableau ne couvre que le cas "Pour Ordre" : le CAF
+  // ou le Président du CA signant les OM du DE lui-même, qui ne peut pas
+  // s'auto-signer (même règle que missions/[id]/page.tsx et signer/route.ts ;
+  // ni DP ni admin n'ont de droit de signature sur un OM).
+  const estPresidentCA = role === 'administrateur' && profile?.titre === 'president_ca'
+  const isSignataire = role === 'caf' || estPresidentCA
   // AAF et CAF traitent désormais les réconciliations depuis leur menu AAF
   // dédié (/aaf/reconciliations) — le tableau de bord personnel ne montre
   // plus cet onglet de traitement pour eux, seulement pour l'admin.
@@ -39,7 +42,7 @@ export default async function Dashboard() {
 
   const { data: missions } = await supabase
     .from('missions')
-    .select('id, reference, objet, lieu, date_depart, date_retour, status, missionnaire_id, missionnaire:profiles!missions_missionnaire_id_fkey(nom, prenoms)')
+    .select('id, reference, objet, lieu, date_depart, date_retour, status, missionnaire_id, missionnaire:profiles!missions_missionnaire_id_fkey(nom, prenoms, role)')
     .order('created_at', { ascending: false })
 
   const STATUS_LABELS: Record<string, string> = {

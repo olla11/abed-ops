@@ -14,7 +14,7 @@ export type Mission = {
   date_retour: string
   status: string
   missionnaire_id: string
-  missionnaire?: { nom: string; prenoms: string } | null
+  missionnaire?: { nom: string; prenoms: string; role?: string } | null
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -109,13 +109,17 @@ type ActionTab = {
   icon: React.ElementType
 }
 
+// Ce tableau ne couvre que le cas "Pour Ordre" (CAF/Président du CA signant
+// les OM du DE lui-même) — le DE signe les OM de tout le monde d'autre
+// depuis son propre menu (/de/om-a-signer), pas ici. Même règle que
+// missions/[id]/page.tsx et signer/route.ts.
 const SIGNER_TAB: ActionTab = {
   key: 'signer',
-  label: 'À signer',
-  filter: (missions) => missions.filter(m => m.status === 'soumis'),
+  label: 'À signer (Pour Ordre — DE)',
+  filter: (missions) => missions.filter(m => m.status === 'soumis' && m.missionnaire?.role === 'de'),
   banner: (n) => ({
-    title: `${n} ordre${n > 1 ? 's' : ''} en attente de votre signature`,
-    desc: 'Ces missions ont été soumises et nécessitent votre signature pour être officialisées.',
+    title: `${n} ordre${n > 1 ? 's' : ''} du DE en attente de votre signature`,
+    desc: 'Le DE ne peut pas signer son propre ordre de mission — votre signature "Pour Ordre" l\'officialise.',
   }),
   icon: PenLine,
 }
