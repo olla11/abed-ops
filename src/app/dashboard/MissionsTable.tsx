@@ -109,19 +109,35 @@ type ActionTab = {
   icon: React.ElementType
 }
 
-// Ce tableau ne couvre que le cas "Pour Ordre" (CAF/Président du CA signant
-// les OM du DE lui-même) — le DE signe les OM de tout le monde d'autre
-// depuis son propre menu (/de/om-a-signer), pas ici. Même règle que
-// missions/[id]/page.tsx et signer/route.ts.
-const SIGNER_TAB: ActionTab = {
-  key: 'signer',
-  label: 'À signer (Pour Ordre — DE)',
-  filter: (missions) => missions.filter(m => m.status === 'soumis' && m.missionnaire?.role === 'de'),
-  banner: (n) => ({
-    title: `${n} ordre${n > 1 ? 's' : ''} du DE en attente de votre signature`,
-    desc: 'Le DE ne peut pas signer son propre ordre de mission — votre signature "Pour Ordre" l\'officialise.',
-  }),
-  icon: PenLine,
+// Deux variantes mutuellement exclusives, mêmes règles que
+// missions/[id]/page.tsx et signer/route.ts : "du_de" — CAF/Président du CA
+// signant les OM du DE lui-même (il ne peut pas s'auto-signer, mention "Pour
+// Ordre") ; "autres" — le DE signant les OM de tout le monde sauf les siens
+// (même exclusion que sur son menu dédié /de/om-a-signer, répliquée ici pour
+// que "Mon espace" garde les mêmes 3 onglets pour tout signataire).
+function buildSignerTab(mode: 'du_de' | 'autres'): ActionTab {
+  if (mode === 'du_de') {
+    return {
+      key: 'signer',
+      label: 'À signer (Pour Ordre — DE)',
+      filter: (missions) => missions.filter(m => m.status === 'soumis' && m.missionnaire?.role === 'de'),
+      banner: (n) => ({
+        title: `${n} ordre${n > 1 ? 's' : ''} du DE en attente de votre signature`,
+        desc: 'Le DE ne peut pas signer son propre ordre de mission — votre signature "Pour Ordre" l\'officialise.',
+      }),
+      icon: PenLine,
+    }
+  }
+  return {
+    key: 'signer',
+    label: 'À signer',
+    filter: (missions) => missions.filter(m => m.status === 'soumis' && m.missionnaire?.role !== 'de'),
+    banner: (n) => ({
+      title: `${n} ordre${n > 1 ? 's' : ''} en attente de votre signature`,
+      desc: 'Ces missions ont été soumises et nécessitent votre signature pour être officialisées.',
+    }),
+    icon: PenLine,
+  }
 }
 
 const VALIDER_AAF_TAB: ActionTab = {
@@ -161,6 +177,7 @@ export default function MissionsTable({
   missions,
   isManager,
   isSignataire,
+  signerMode,
   isAAF,
   canValidateReconc,
   canAutoriserDE,
@@ -169,13 +186,14 @@ export default function MissionsTable({
   missions: Mission[]
   isManager: boolean
   isSignataire: boolean
+  signerMode: 'du_de' | 'autres' | null
   isAAF: boolean
   canValidateReconc: boolean
   canAutoriserDE: boolean
   userId: string
 }) {
   const actionTabs: ActionTab[] = [
-    ...(isSignataire ? [SIGNER_TAB] : []),
+    ...(isSignataire && signerMode ? [buildSignerTab(signerMode)] : []),
     ...(isAAF ? [VALIDER_AAF_TAB] : []),
     ...(canValidateReconc ? [VALIDER_CAF_TAB] : []),
     ...(canAutoriserDE ? [AUTORISER_DE_TAB] : []),

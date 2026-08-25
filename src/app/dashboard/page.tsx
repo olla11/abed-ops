@@ -25,13 +25,15 @@ export default async function Dashboard() {
   const previewRole = await getRolePreview()
   const impersonation = await getImpersonationInfo()
   const isManager = ['admin', 'rh', 'caf', 'de', 'dp', 'administrateur'].includes(role)
-  // Le DE a son propre menu dédié pour signer les OM des autres
-  // (/de/om-a-signer) — ce tableau ne couvre que le cas "Pour Ordre" : le CAF
-  // ou le Président du CA signant les OM du DE lui-même, qui ne peut pas
-  // s'auto-signer (même règle que missions/[id]/page.tsx et signer/route.ts ;
-  // ni DP ni admin n'ont de droit de signature sur un OM).
+  // Deux cas de signature d'OM, mutuellement exclusifs (même règle que
+  // missions/[id]/page.tsx et signer/route.ts) : le DE signe les OM de tout
+  // le monde SAUF les siens ("autres") ; le CAF ou le Président du CA signent
+  // uniquement les OM du DE lui-même, qui ne peut pas s'auto-signer ("du_de",
+  // mention "Pour Ordre"). Ni DP ni admin n'ont de droit de signature.
   const estPresidentCA = role === 'administrateur' && profile?.titre === 'president_ca'
-  const isSignataire = role === 'caf' || estPresidentCA
+  const signerMode: 'du_de' | 'autres' | null =
+    role === 'de' ? 'autres' : (role === 'caf' || estPresidentCA) ? 'du_de' : null
+  const isSignataire = signerMode !== null
   // AAF et CAF traitent désormais les réconciliations depuis leur menu AAF
   // dédié (/aaf/reconciliations) — le tableau de bord personnel ne montre
   // plus cet onglet de traitement pour eux, seulement pour l'admin.
@@ -97,6 +99,7 @@ export default async function Dashboard() {
           missions={(missions ?? []) as any}
           isManager={isManager}
           isSignataire={isSignataire}
+          signerMode={signerMode}
           isAAF={showReconciliationTabs}
           canValidateReconc={canValidateReconc}
           canAutoriserDE={canAutoriserDE}
