@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Search } from 'lucide-react'
 import { STATUT_LABELS, DELAI_DEPASSE_LABEL, DELAI_DEPASSE_COLOR, estDelaiDepasse, statutAffiche, type OpportuniteStatut } from '@/lib/bd'
 
 const PAR_PAGE = 20
@@ -24,16 +24,25 @@ function fmtDate(d: string | null) {
 export default function OpportunitesListClient({ opportunites }: { opportunites: Opportunite[] }) {
   const [filtre, setFiltre] = useState<OpportuniteStatut | 'tous' | 'delai_depasse'>('tous')
   const [annee, setAnnee] = useState<number | 'toutes'>(new Date().getFullYear())
+  const [recherche, setRecherche] = useState('')
   const [page, setPage] = useState(1)
 
   const anneesDisponibles = Array.from(new Set([new Date().getFullYear(), ...opportunites.map(o => new Date(o.date_identification).getFullYear())])).sort((a, b) => b - a)
 
   const parAnnee = annee === 'toutes' ? opportunites : opportunites.filter(o => new Date(o.date_identification).getFullYear() === annee)
-  const filtered = filtre === 'tous' ? parAnnee
+  const parStatut = filtre === 'tous' ? parAnnee
     : filtre === 'delai_depasse' ? parAnnee.filter(estDelaiDepasse)
     : parAnnee.filter(o => o.statut === filtre && !estDelaiDepasse(o))
 
-  useEffect(() => { setPage(1) }, [filtre, annee])
+  const terme = recherche.trim().toLowerCase()
+  const filtered = !terme ? parStatut : parStatut.filter(o => {
+    const identifiePar = o.identifie_par ? `${o.identifie_par.prenoms} ${o.identifie_par.nom}` : ''
+    return o.titre.toLowerCase().includes(terme)
+      || (o.bailleur ?? '').toLowerCase().includes(terme)
+      || identifiePar.toLowerCase().includes(terme)
+  })
+
+  useEffect(() => { setPage(1) }, [filtre, annee, recherche])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAR_PAGE))
   const pageActuelle = Math.min(page, totalPages)
@@ -41,6 +50,20 @@ export default function OpportunitesListClient({ opportunites }: { opportunites:
 
   return (
     <div>
+      <div style={{ position: 'relative', marginBottom: 14 }}>
+        <Search size={15} color="#9ca3af" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
+        <input
+          type="text"
+          value={recherche}
+          onChange={e => setRecherche(e.target.value)}
+          placeholder="Rechercher une opportunité (intitulé, bailleur, identifiée par...)"
+          style={{
+            width: '100%', padding: '10px 14px 10px 36px', borderRadius: 10, fontSize: 13.5,
+            border: '1px solid #e5e7eb', boxSizing: 'border-box', background: 'white',
+          }}
+        />
+      </div>
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           <button onClick={() => setFiltre('tous')} style={filterBtnStyle(filtre === 'tous')}>
@@ -84,7 +107,7 @@ export default function OpportunitesListClient({ opportunites }: { opportunites:
       </div>
 
       {filtered.length === 0 ? (
-        <div className="card"><p style={{ color: 'var(--abed-muted)' }}>Aucune opportunité.</p></div>
+        <div className="card"><p style={{ color: 'var(--abed-muted)' }}>{terme ? 'Aucune opportunité ne correspond à cette recherche.' : 'Aucune opportunité.'}</p></div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {pagines.map(o => {
