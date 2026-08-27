@@ -267,21 +267,21 @@ export function construireContratHtml(d: ContratPdfData): string {
   <meta charset="UTF-8">
   <title>${categorie} ${d.numero ?? ''} — ${d.employePrenoms} ${d.employeNom}</title>
   <style>
-    /* Marge physique de la page : nulle en haut de la 1ère page seulement
-       (pour que la bannière couvre tout le haut de la feuille), normale sur
-       les pages suivantes pour que le texte ne les touche pas. Gauche/droite
-       restent nulles partout — .page-content réintroduit une marge de lecture
-       identique sur toutes les pages via son padding, pour un alignement
-       cohérent d'une page à l'autre. Nécessite preferCSSPageSize dans
-       page.pdf() pour que ces règles @page priment sur l'option margin JS. */
-    @page { size: A4; margin: 1.5cm 0 1.3cm 0; }
-    @page :first { margin: 0 0 1.3cm 0; }
+    /* Marges façon Word (2,54 cm, marges "Normal" par défaut) sur toutes les
+       pages — sauf le haut de la 1ère page, nul pour que la bannière couvre
+       tout le haut de la feuille. Gauche/droite restent nulles au niveau
+       physique partout : .page-content réintroduit une marge de lecture de
+       2,54 cm via son padding, identique sur toutes les pages pour un
+       alignement cohérent d'une page à l'autre. Nécessite preferCSSPageSize
+       dans page.pdf() pour que ces règles @page priment sur l'option margin JS. */
+    @page { size: A4; margin: 2.54cm 0 2.54cm 0; }
+    @page :first { margin: 0 0 2.54cm 0; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Times New Roman', serif; font-size: 12pt; color: #111; background: #fff; padding: 0; max-width: 820px; margin: 0 auto; }
-    .page-content { padding: 28px 56px 48px; }
-    .letterhead { margin: 0 0 20px 0; }
+    .page-content { padding: 0 2.54cm; }
+    .letterhead { margin: 0 0 28px 0; }
     .letterhead-wave svg { display: block; width: 100%; height: 104px; }
-    .letterhead-body { display: flex; align-items: center; gap: 20px; padding: 10px 56px 4px; }
+    .letterhead-body { display: flex; align-items: center; gap: 20px; padding: 10px 2.54cm 4px; }
     .letterhead-logo { height: 108px; width: auto; flex-shrink: 0; }
     .letterhead-text { flex: 1; }
     .letterhead-title { font-family: Arial, sans-serif; font-size: 13pt; font-weight: 800; text-transform: uppercase; color: #1f7a1f; letter-spacing: .2px; line-height: 1.25; }
@@ -346,6 +346,15 @@ export async function genererContratPdf(d: ContratPdfData): Promise<Buffer> {
       // du haut nulle uniquement sur la 1ère page, pour la bannière) —
       // preferCSSPageSize fait primer ces règles sur cette option.
       preferCSSPageSize: true,
+      // Pagination systématique (Page X / Y) en pied de page, sur toutes les
+      // pages y compris la 1ère.
+      displayHeaderFooter: true,
+      headerTemplate: '<span></span>',
+      footerTemplate: `
+        <div style="width:100%;font-size:8px;text-align:center;color:#888;font-family:Georgia,'Times New Roman',serif;padding-bottom:6px;">
+          Page <span class="pageNumber"></span> / <span class="totalPages"></span>
+        </div>
+      `,
     })
     return Buffer.from(pdfBuffer)
   } finally {
