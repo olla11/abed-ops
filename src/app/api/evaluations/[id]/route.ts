@@ -3,6 +3,7 @@ import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import { sendEmail } from '@/lib/resend'
 import { estRH } from '@/lib/roles'
+import { genererEvaluationPdf, nomFichierEvaluationPdf, type EvaluationPdfData } from '@/lib/evaluation-pdf'
 
 export const dynamic = 'force-dynamic'
 
@@ -65,7 +66,13 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
 
   const { data: ev } = await service
     .from('evaluations')
-    .select('*, profile:profiles!profile_id(id, nom, prenoms, email)')
+    .select(`
+      *,
+      profile:profiles!profile_id(id, nom, prenoms, email, civilite),
+      evaluateur:profiles!evaluateur_id(id, nom, prenoms),
+      responsable:profiles!responsable_id(id, nom, prenoms),
+      contrat:contrats(type_contrat, date_debut, date_fin, poste)
+    `)
     .eq('id', id)
     .single()
 
@@ -137,7 +144,18 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
       newStatut = 'cloture'
       notifUserId = ev.profile_id
       notifTitre = 'Évaluation clôturée'
-      notifMessage = `Votre évaluation de fin de contrat a été clôturée.`
+      notifMessage = `Votre évaluation de fin de contrat a été clôturée. Le rapport PDF est disponible sur votre fiche.`
+
+      // La RH doit aussi être notifiée à la clôture — c'est elle qui garde la
+      // trace du dossier final et le télécharge depuis son interface.
+      const { data: rhProfiles } = await service.from('profiles').select('id').in('role', ['rh', 'caf', 'admin'])
+      for (const rhP of rhProfiles ?? []) {
+        notifsMultiples.push({
+          userId: rhP.id,
+          titre: 'Évaluation clôturée',
+          message: `L'évaluation de fin de contrat de ${nomEmploye} est clôturée. Le rapport PDF est disponible dans Documents RH.`,
+        })
+      }
     }
 
     if (newStatut) updates.statut = newStatut
@@ -229,12 +247,60 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
     } else if (newStatut === 'cloture') {
       const { data: employe } = await service.from('profiles').select('email, prenoms, nom').eq('id', ev.profile_id).single()
       if (employe?.email) {
+        // Le rapport final est joint directement à l'email de l'évalué(e) —
+        // elle n'a pas systématiquement le réflexe de revenir sur My ABED.
+        let attachments: { filename: string; content: string }[] | undefined
+        try {
+          const p = ev.profile as any
+          const c = ev.contrat as any
+          const pdfData: EvaluationPdfData = {
+            employeCivilite: p?.civilite ?? null,
+            employePrenoms: p?.prenoms ?? '',
+            employeNom: p?.nom ?? '',
+            poste: updated.poste ?? c?.poste ?? null,
+            direction: updated.direction ?? null,
+            contratTypeContrat: c?.type_contrat ?? null,
+            contratDateDebut: c?.date_debut ? new Date(c.date_debut).toLocaleDateString('fr-FR') : null,
+            contratDateFin: c?.date_fin ? new Date(c.date_fin).toLocaleDateString('fr-FR') : null,
+            supHier: updated.superieur_hierarchique ?? null,
+            supFonc: updated.superieur_fonctionnel ?? null,
+            nomResponsable: ev.responsable ? `${(ev.responsable as any).prenoms} ${(ev.responsable as any).nom}` : (updated.responsable_departement ?? '—'),
+            nomEvaluateur: ev.evaluateur ? `${(ev.evaluateur as any).prenoms} ${(ev.evaluateur as any).nom}` : (updated.nom_evaluateur ?? '—'),
+            descriptionTaches: updated.description_taches ?? null,
+            grilleNotes: updated.grille_notes ?? {},
+            scoreMoyen: updated.score_moyen ?? null,
+            qualites: updated.qualites ?? null,
+            pointsAmelioration: updated.points_amelioration ?? null,
+            actionsExceptionnelles: updated.actions_exceptionnelles ?? null,
+            evaluationGenerale: updated.evaluation_generale ?? null,
+            commentaireEvaluateur: updated.commentaire_evaluateur ?? null,
+            sigEvaluateur: updated.signature_evaluateur ?? null,
+            dateEvaluateur: updated.date_evaluateur ?? null,
+            commentaireEvalue: updated.commentaire_evalue ?? null,
+            sigEvalue: updated.signature_evalue ?? null,
+            dateEvalue: updated.date_evalue ?? null,
+            avisResponsable: updated.avis_responsable ?? null,
+            commentaireResponsable: updated.commentaire_responsable ?? null,
+            sigResponsable: updated.signature_responsable ?? null,
+            dateResponsable: updated.date_responsable ?? null,
+            decisionEvaluateur: (updated.decision_evaluateur as any)?.decision ?? null,
+            decisionCaf: (updated.decision_caf as any)?.decision ?? null,
+            decisionDe: (updated.decision_de as any)?.decision ?? null,
+            dateEtablissement: updated.declenchee_le ? new Date(updated.declenchee_le).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR'),
+          }
+          const pdfBuffer = await genererEvaluationPdf(pdfData)
+          attachments = [{ filename: nomFichierEvaluationPdf(pdfData.employePrenoms, pdfData.employeNom, id), content: pdfBuffer.toString('base64') }]
+        } catch (e) {
+          console.error('[evaluations] échec génération PDF pour email de clôture:', e)
+        }
+
         await sendEmail({
           to: employe.email,
           subject: "Votre évaluation de fin de contrat est clôturée",
           html: emailBlock(`${employe.prenoms} ${employe.nom}`,
             'Évaluation clôturée',
-            `Votre évaluation de fin de contrat a été finalisée et clôturée par les RH. Vous pouvez consulter le résumé complet sur My ABED.`),
+            `Votre évaluation de fin de contrat a été finalisée et clôturée par les RH. Le rapport complet est joint à cet email, et reste disponible sur My ABED.`),
+          attachments,
         }).catch(() => {})
       }
     }

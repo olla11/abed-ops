@@ -643,6 +643,13 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole }: Props) 
               Score final : {Number(ev.score_moyen).toFixed(2)}/5
             </div>
           )}
+          <a href={`/api/evaluations/${ev.id}/pdf`} target="_blank" rel="noopener noreferrer" style={{
+            display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 16,
+            padding: '10px 22px', borderRadius: 8, fontSize: 14, fontWeight: 700,
+            background: 'var(--abed-green)', color: 'white', textDecoration: 'none',
+          }}>
+            📄 Télécharger le rapport PDF
+          </a>
         </div>
       )}
     </div>

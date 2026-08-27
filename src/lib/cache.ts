@@ -90,7 +90,7 @@ export const getCachedEvaluations = () =>
     async () => {
       const { data } = await service()
         .from('evaluations')
-        .select('id, statut, declenchee_le, score_moyen, profile:profiles!profile_id(nom, prenoms), contrat:contrats(type_contrat, date_fin, poste)')
+        .select('id, statut, declenchee_le, score_moyen, evaluateur_id, responsable_id, decision_evaluateur, decision_caf, decision_de, profile:profiles!profile_id(nom, prenoms), evaluateur:profiles!evaluateur_id(nom, prenoms), responsable:profiles!responsable_id(nom, prenoms), contrat:contrats(type_contrat, date_fin, poste)')
         .order('declenchee_le', { ascending: false })
       return data ?? []
     },

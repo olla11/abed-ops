@@ -7,12 +7,20 @@ const PAGE_SIZE = 10
 
 type Profile = { id: string; nom: string; prenoms: string }
 type Contrat = { id: string; type_contrat: string; date_fin: string | null; poste: string | null }
+type Decision = { decision?: string } | null
 type Evaluation = {
   id: string
   statut: string
   declenchee_le: string
   score_moyen: number | null
+  evaluateur_id: string | null
+  responsable_id: string | null
+  decision_evaluateur: Decision
+  decision_caf: Decision
+  decision_de: Decision
   profile: Profile | null
+  evaluateur: Profile | null
+  responsable: Profile | null
   contrat: Contrat | null
 }
 type ContratActif = {
@@ -29,22 +37,53 @@ type Props = {
   personnel: Profile[]
 }
 
-const STATUTS: Record<string, { label: string; color: string; bg: string; border: string }> = {
-  en_attente:           { label: 'En attente',           color: '#92400e', bg: '#fffbeb', border: '#fde68a' },
-  evaluateur_complete:  { label: 'Évaluateur complété',  color: '#1e40af', bg: '#eff6ff', border: '#bfdbfe' },
-  evalue_complete:      { label: 'Évalué complété',      color: '#6b21a8', bg: '#faf5ff', border: '#e9d5ff' },
-  responsable_complete: { label: 'Responsable signé',    color: '#92400e', bg: '#fffbeb', border: '#fcd34d' },
-  cloture:              { label: 'Clôturé',              color: '#166534', bg: '#f0fdf4', border: '#bbf7d0' },
+const STATUT_FILTER_LABELS: Record<string, string> = {
+  en_attente: 'Chez l\'évaluateur',
+  evaluateur_complete: 'Chez l\'évalué·e',
+  evalue_complete: 'Chez le/la responsable',
+  responsable_complete: 'Décisions (Section X)',
+  cloture: 'Clôturé',
 }
 
-function BadgeStatut({ statut }: { statut: string }) {
-  const s = STATUTS[statut] ?? { label: statut, color: '#6b7280', bg: '#f3f4f6', border: '#e5e7eb' }
+const STATUT_STYLE: Record<string, { color: string; bg: string; border: string }> = {
+  en_attente:           { color: '#92400e', bg: '#fffbeb', border: '#fde68a' },
+  evaluateur_complete:  { color: '#1e40af', bg: '#eff6ff', border: '#bfdbfe' },
+  evalue_complete:      { color: '#6b21a8', bg: '#faf5ff', border: '#e9d5ff' },
+  responsable_complete: { color: '#92400e', bg: '#fffbeb', border: '#fcd34d' },
+  cloture:              { color: '#166534', bg: '#f0fdf4', border: '#bbf7d0' },
+}
+
+function nomComplet(p: Profile | null): string {
+  return p ? `${p.prenoms} ${p.nom}`.trim() : '—'
+}
+
+// Plutôt qu'un statut technique, on affiche directement chez qui le dossier
+// se trouve — c'est ce dont la RH a besoin pour relancer la bonne personne.
+// En Section X, trois décisions indépendantes sont requises (évaluateur, CAF,
+// Direction Exécutive) : on liste celles qui manquent encore.
+function chezQui(e: Evaluation): string {
+  if (e.statut === 'en_attente') return `Chez ${nomComplet(e.evaluateur)} (évaluateur)`
+  if (e.statut === 'evaluateur_complete') return `Chez ${nomComplet(e.profile)} (évalué·e)`
+  if (e.statut === 'evalue_complete') return `Chez ${nomComplet(e.responsable)} (responsable)`
+  if (e.statut === 'responsable_complete') {
+    const manquants: string[] = []
+    if (!e.decision_evaluateur?.decision) manquants.push(nomComplet(e.evaluateur))
+    if (!e.decision_caf?.decision) manquants.push('CAF')
+    if (!e.decision_de?.decision) manquants.push('Direction Exécutive')
+    return manquants.length > 0 ? `Chez ${manquants.join(', ')} (décision)` : 'Décisions complètes'
+  }
+  if (e.statut === 'cloture') return 'Clôturé'
+  return e.statut
+}
+
+function BadgeStatut({ e }: { e: Evaluation }) {
+  const s = STATUT_STYLE[e.statut] ?? { color: '#6b7280', bg: '#f3f4f6', border: '#e5e7eb' }
   return (
     <span style={{
       background: s.bg, color: s.color, border: `1px solid ${s.border}`,
       borderRadius: 6, padding: '2px 10px', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap',
     }}>
-      {s.label}
+      {chezQui(e)}
     </span>
   )
 }
@@ -145,7 +184,7 @@ export default function EvaluationsRHClient({ evaluations: initial, contratsActi
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
           <select value={filtreStatut} onChange={e => setFiltreStatut(e.target.value)} style={{ padding: '7px 12px', borderRadius: 7, border: '1px solid var(--abed-border)', fontSize: 13 }}>
             <option value="">Tous les statuts</option>
-            {Object.entries(STATUTS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+            {Object.entries(STATUT_FILTER_LABELS).map(([k, label]) => <option key={k} value={k}>{label}</option>)}
           </select>
           <input type="month" value={filtreMois} onChange={e => setFiltreMois(e.target.value)} style={{ padding: '7px 12px', borderRadius: 7, border: '1px solid var(--abed-border)', fontSize: 13 }} />
           {(filtreStatut || filtreMois) && (
@@ -240,7 +279,7 @@ export default function EvaluationsRHClient({ evaluations: initial, contratsActi
                 <td style={{ padding: '10px 14px', whiteSpace: 'nowrap', color: '#374151', fontSize: 13 }}>
                   {e.declenchee_le ? new Date(e.declenchee_le).toLocaleDateString('fr-FR') : '—'}
                 </td>
-                <td style={{ padding: '10px 14px' }}><BadgeStatut statut={e.statut} /></td>
+                <td style={{ padding: '10px 14px' }}><BadgeStatut e={e} /></td>
                 <td style={{ padding: '10px 14px' }}>
                   {e.score_moyen != null ? (
                     <span style={{
