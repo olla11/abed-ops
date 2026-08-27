@@ -225,7 +225,10 @@ export function construireContratHtml(d: ContratPdfData): string {
   // signature d'un contrat/convention — c'est une lettre, pas un document
   // "entre les soussignés" avec des articles numérotés.
   const isOffre = categorie === 'Offre de stage' || categorie === 'Offre'
-  const objetApresParties = categorie === 'Convention' || categorie === 'Avenant'
+  // Les contrats de prestation ("Il a été préalablement exposé...") suivent
+  // le même ordre que les conventions/avenants dans les modèles réels :
+  // "Entre les soussignés" d'abord, puis le préambule qui nomme les parties.
+  const objetApresParties = categorie === 'Convention' || categorie === 'Avenant' || categorie === 'Contrat'
   const parentLabelHtml = d.parentNumero
     ? `<br/>${categorie === 'Avenant' ? 'À' : 'Suite à'} ${parentCategorieLabel(d.parentCategorie)} N° <strong>${d.parentNumero}</strong>`
     : ''
@@ -328,7 +331,7 @@ export function construireContratHtml(d: ContratPdfData): string {
   ${objetApresParties ? objetHtml : ''}
 
   <div class="section">
-    <h2>Conditions du ${categorie.toLowerCase()}</h2>
+    <h2>Conditions ${categorie === 'Convention' ? 'de la' : categorie === 'Avenant' ? "de l'" : 'du'}${categorie === 'Avenant' ? '' : ' '}${categorie.toLowerCase()}</h2>
     <div class="row"><span class="label">Type :</span><span class="value">${d.typeContrat}</span></div>
     ${d.poste ? `<div class="row"><span class="label">Poste :</span><span class="value">${d.poste}</span></div>` : ''}
     ${d.direction ? `<div class="row"><span class="label">Direction :</span><span class="value">${d.direction}</span></div>` : ''}

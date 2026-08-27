@@ -13,6 +13,7 @@ export const maxDuration = 60
 function partieLabel(typeContrat: string | null | undefined): string {
   const t = (typeContrat ?? '').toLowerCase()
   if (t.includes('bénévol')) return 'Bénévole'
+  if (t.includes('bourse')) return 'Boursier(ère)'
   if (t.includes('stage') || t.includes('stagiaire')) return 'Stagiaire'
   if (t.includes('prestataire')) return 'Prestataire'
   if (t.includes('consultant')) return 'Consultant'

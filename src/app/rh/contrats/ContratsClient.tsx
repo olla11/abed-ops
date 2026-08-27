@@ -56,7 +56,7 @@ function clearDraft(key: string) {
   try { localStorage.removeItem(key) } catch {}
 }
 
-const TYPES = ['CDD', 'CDI', 'Stage N1', 'Stage N2', 'Bénévolat', 'Prestataire direct', 'Prestataire à crédit', 'Consultant']
+const TYPES = ['CDD', 'CDI', 'Stage N1', 'Stage N2', 'Bénévolat', 'Prestataire direct', 'Prestataire à crédit', 'Consultant', 'Bourse de formation']
 const TYPES_STAGE = ['Stage N1', 'Stage N2']
 const CATEGORIES = ['Offre', 'Contrat', 'Convention', 'Avenant', 'Offre de stage']
 const SOURCES_FINANCEMENT = ['Expertise France (CLEE-2i)', 'Prometiers', 'ABED Directe', 'Réserve', 'Autre']
