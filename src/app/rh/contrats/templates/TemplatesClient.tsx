@@ -110,15 +110,18 @@ export default function TemplatesClient({ templates: initial }: { templates: Tem
           <table style={{ minWidth: 700, width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#f9fafb' }}>
-                {['Nom', 'Type', 'Catégorie', 'Articles', 'Champs', 'Statut', 'Actions'].map(h => (
-                  <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#6b7280', borderBottom: '1px solid var(--abed-border)', whiteSpace: 'nowrap' }}>{h}</th>
+                {[
+                  ['Nom', '26%'], ['Type', undefined], ['Catégorie', undefined], ['Articles', undefined],
+                  ['Champs', undefined], ['Statut', undefined], ['Actions', undefined],
+                ].map(([h, width]) => (
+                  <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#6b7280', borderBottom: '1px solid var(--abed-border)', whiteSpace: 'nowrap', width }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {templates.map((t, i) => (
                 <tr key={t.id} style={{ background: i % 2 === 0 ? 'white' : '#fafafa' }}>
-                  <td style={{ padding: '10px 12px', fontSize: 13, fontWeight: 600 }}>{t.nom}</td>
+                  <td style={{ padding: '10px 12px', fontSize: 13, fontWeight: 600, whiteSpace: 'normal', overflow: 'visible', textOverflow: 'clip' }}>{t.nom}</td>
                   <td style={{ padding: '10px 12px', fontSize: 12 }}>{t.type_contrat}</td>
                   <td style={{ padding: '10px 12px', fontSize: 12 }}>{t.categorie_document}</td>
                   <td style={{ padding: '10px 12px', fontSize: 12, color: '#6b7280' }}>{t.articles.length}</td>
