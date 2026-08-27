@@ -52,7 +52,9 @@ export default function AppHeader({ userName, userRole, userTitre, typeEmploi, s
   // postes) — le repli se fait donc sur le TITRE, pas sur userRole.
   const effectiveShowBD = showBD ?? titreEstBD(userTitre)
   const [dossierOpen, setDossierOpen] = useState(false)
-  const [docSignOpen, setDocSignOpen] = useState(false)
+  // Quel sous-groupe (par son label) affiche son survol flottant — plusieurs
+  // groupes peuvent coexister dans "Mon espace" (Doc & Sign, Contrats & Évaluations...).
+  const [openGroup, setOpenGroup] = useState<string | null>(null)
   const [cafOpen, setCafOpen] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const mobileRef = useRef<HTMLDivElement>(null)
@@ -65,6 +67,16 @@ export default function AppHeader({ userName, userRole, userTitre, typeEmploi, s
     { href: '/documents', label: 'Documents', match: ['/documents'] },
   ]
 
+  // "Contrats" était un lien isolé — /evaluations existe mais n'était relié
+  // à aucun menu (seulement atteignable via le lien d'une notification), ce
+  // qui le rendait invisible. Un contrat/convention et l'évaluation qui en
+  // découle en fin de période sont le même dossier RH pour la personne
+  // évaluée — d'où un sous-menu commun plutôt que deux entrées séparées.
+  const contratsEvalTabs = [
+    { href: '/mes-contrats', label: t('contracts'), match: ['/mes-contrats'] },
+    { href: '/evaluations', label: t('evaluations'), match: ['/evaluations'] },
+  ]
+
   type SubTab =
     | { kind: 'link'; href: string; label: string; match: string[] }
     | { kind: 'group'; label: string; match: string[]; children: typeof docSignTabs }
@@ -75,7 +87,7 @@ export default function AppHeader({ userName, userRole, userTitre, typeEmploi, s
     { kind: 'link', href: '/demandes', label: t('payments'), match: ['/demandes'] },
     { kind: 'link', href: '/conges', label: t('leaves'), match: ['/conges'] },
     { kind: 'group', label: 'Doc & Sign', match: ['/documents', '/signatures'], children: docSignTabs },
-    { kind: 'link', href: '/mes-contrats', label: t('contracts'), match: ['/mes-contrats'] },
+    { kind: 'group', label: t('contractsGroup'), match: ['/mes-contrats', '/evaluations'], children: contratsEvalTabs },
   ]
 
   // Appellations volontairement différentes de "Mon espace" (verbe d'action en
@@ -179,8 +191,8 @@ export default function AppHeader({ userName, userRole, userTitre, typeEmploi, s
                     return (
                       <div key={s.label}
                         style={{ position: 'relative' }}
-                        onMouseEnter={() => setDocSignOpen(true)}
-                        onMouseLeave={() => setDocSignOpen(false)}
+                        onMouseEnter={() => setOpenGroup(s.label)}
+                        onMouseLeave={() => setOpenGroup(null)}
                       >
                         <div style={{
                           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -193,7 +205,7 @@ export default function AppHeader({ userName, userRole, userTitre, typeEmploi, s
                         }}>
                           {s.label} <span style={{ fontSize: 9, opacity: 0.7 }}>▶</span>
                         </div>
-                        {docSignOpen && (
+                        {openGroup === s.label && (
                           <div style={{
                             position: 'absolute', top: 0, left: '100%', zIndex: 201,
                             background: 'white', border: '1px solid var(--abed-border)',

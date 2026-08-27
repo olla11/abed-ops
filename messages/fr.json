@@ -81,6 +81,8 @@
     "leaves": "Congés",
     "signatures": "Documents",
     "contracts": "Contrat",
+    "contractsGroup": "Contrats & Évaluations",
+    "evaluations": "Évaluations",
     "status": "Statut",
     "projects": "Hub",
     "tdr": "TdR",

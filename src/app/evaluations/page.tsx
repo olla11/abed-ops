@@ -36,7 +36,8 @@ export default async function MesEvaluationsPage() {
   const { data: evaluations } = await service
     .from('evaluations')
     .select(`
-      id, statut, declenchee_le, score_moyen,
+      id, statut, declenchee_le, score_moyen, profile_id, evaluateur_id,
+      profile:profiles!profile_id(nom, prenoms),
       contrat:contrats(type_contrat, date_fin, poste)
     `)
     .or(`profile_id.eq.${user.id},evaluateur_id.eq.${user.id}`)
@@ -60,12 +61,11 @@ export default async function MesEvaluationsPage() {
         avatarUrl={profile?.avatar_url}
       />
       <div className="page-container">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
+        <div style={{ marginBottom: 4 }}>
           <Link href="/dashboard" style={{ fontSize: 13, color: 'var(--abed-muted)', textDecoration: 'none' }}>← Retour</Link>
-          <h2 style={{ margin: 0, color: 'var(--abed-green)' }}>📝 Mes évaluations</h2>
         </div>
 
-        <EvaluationsListClient evaluations={(evaluations ?? []) as any} />
+        <EvaluationsListClient evaluations={(evaluations ?? []) as any} myId={user.id} />
       </div>
     </>
   )

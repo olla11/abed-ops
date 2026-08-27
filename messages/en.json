@@ -81,6 +81,8 @@
     "leaves": "My leaves",
     "signatures": "Signatures",
     "contracts": "My contracts",
+    "contractsGroup": "Contracts & Evaluations",
+    "evaluations": "Evaluations",
     "status": "Status",
     "projects": "Hub",
     "tdr": "TDR",
