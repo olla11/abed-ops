@@ -3,7 +3,7 @@ import { Users, FileText, Palmtree, ClipboardEdit, BarChart3, Wallet, Scale } fr
 import { useTranslations } from 'next-intl'
 
 type Personnel = { id: string; nom: string; prenoms: string; role: string; type_emploi: string | null; direction: string | null; fonction: string | null; genre: string | null }
-type Contrat = { id: string; type_contrat: string; statut: string; date_fin: string | null; date_debut: string; direction: string | null; poste: string | null; profile_id: string; salaire_brut: number | null; source_financement: string | null; profile: { nom: string; prenoms: string } | null }
+type Contrat = { id: string; type_contrat: string; statut: string; date_fin: string | null; date_debut: string; direction: string | null; poste: string | null; profile_id: string; salaire_brut: number | null; source_financement: string | null; categorie_document: string | null; profile: { nom: string; prenoms: string } | null }
 type Conge = { id: string; statut: string; date_debut: string; date_fin: string; nb_jours: number | null; created_at: string; profile: { nom: string; prenoms: string; direction: string | null } | null; type_conge: { nom: string } | null }
 type Evaluation = { id: string; statut: string; score_moyen: number | null; declenchee_le: string | null; profile: { nom: string; prenoms: string } | null }
 
@@ -45,7 +45,11 @@ export default function RHDashboardClient({ personnel, contrats, contratsExpiran
   const today = new Date().toISOString().split('T')[0]
   const in7 = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0]
 
-  const contratsActifs = contrats.filter(c => c.statut === 'actif').length
+  // Un avenant modifie un contrat/convention existant, il ne représente pas un
+  // engagement distinct — on l'exclut des comptages pour ne pas doubler
+  // chaque personne qui a un avenant (le contrat de base porte déjà les
+  // stats de rémunération/durée à jour).
+  const contratsActifs = contrats.filter(c => c.statut === 'actif' && c.categorie_document !== 'Avenant').length
   const evalsEnCours = evaluations.filter(e => e.statut !== 'cloture').length
 
   // Répartition par type d'emploi
@@ -75,7 +79,7 @@ export default function RHDashboardClient({ personnel, contrats, contratsExpiran
     ? Math.round((avecGenre.filter(p => p.genre === 'F').length / avecGenre.length) * 100)
     : null
 
-  const contratsActifsList = contrats.filter(c => c.statut === 'actif')
+  const contratsActifsList = contrats.filter(c => c.statut === 'actif' && c.categorie_document !== 'Avenant')
   const masseSalariale = contratsActifsList.reduce((sum, c) => sum + (c.salaire_brut ?? 0), 0)
 
   const salairesF = contratsActifsList.filter(c => genreById[c.profile_id] === 'F' && c.salaire_brut).map(c => c.salaire_brut as number)

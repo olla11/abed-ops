@@ -624,7 +624,17 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
                 const catStyle = categorieBadge(cat)
                 return (
                   <tr key={c.id} style={{ background: i % 2 === 0 ? 'white' : '#fafafa' }}>
-                    <td style={{ padding: '10px 12px', fontSize: 11, color: '#6b7280', whiteSpace: 'nowrap' }}>{c.numero ?? '—'}</td>
+                    <td style={{ padding: '10px 12px', fontSize: 11, color: '#6b7280', whiteSpace: 'nowrap' }}>
+                      {c.numero ?? '—'}
+                      {cat === 'Avenant' && c.contrat_parent_id && (() => {
+                        const parent = contrats.find(p => p.id === c.contrat_parent_id)
+                        return parent ? (
+                          <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 2 }}>
+                            ↳ {parent.numero ?? parent.id.slice(0, 8)}
+                          </div>
+                        ) : null
+                      })()}
+                    </td>
                     <td style={{ padding: '10px 12px' }}>
                       <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: catStyle.bg, color: catStyle.color }}>{cat}</span>
                     </td>

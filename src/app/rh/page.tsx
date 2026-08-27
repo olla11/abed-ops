@@ -57,8 +57,11 @@ export default async function RHDashboardPage() {
     getActiveMois(),
   ])
 
+  // Un avenant modifie un contrat/convention existant plutôt que de créer un
+  // engagement distinct — l'exclure évite d'alerter deux fois sur la même
+  // échéance pour une personne qui a un avenant en plus de son contrat de base.
   const contratsExpirants = (contrats ?? []).filter((c: any) =>
-    c.statut === 'actif' && c.date_fin && c.date_fin <= in30 && c.date_fin >= today
+    c.statut === 'actif' && c.categorie_document !== 'Avenant' && c.date_fin && c.date_fin <= in30 && c.date_fin >= today
   )
 
   const totalActifs = (personnel ?? []).filter((p: any) => p.type_emploi && p.type_emploi !== 'non défini').length
