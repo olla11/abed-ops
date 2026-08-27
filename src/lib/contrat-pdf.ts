@@ -235,13 +235,14 @@ export function construireContratHtml(d: ContratPdfData): string {
 
   ${articlesHtml ? `<div class="section"><h2>Dispositions particulières</h2>${articlesHtml}</div>` : ''}
 
+  ${!d.objet ? `
   <p class="lettre-corps">
     Nous vous prions de signer cette offre et de nous la retourner dans les plus brefs délais si elle vous convient.
   </p>
   <p class="lettre-corps">
     Espérant que cette opportunité vous permettra d'apprendre et de développer de nouvelles compétences, nous vous
     souhaitons une riche période au sein de notre organisation.
-  </p>
+  </p>` : ''}
 
   <div class="sig-block">
     ${sigBlockHtml(`Pour ${p.civilite === 'Mme' ? 'la' : 'le'} bénéficiaire`, d.employeSigneLe ? formatSignatureDisplayName(p.prenoms, p.nom) : null, employeNomReel, d.employeSigneLe)}
