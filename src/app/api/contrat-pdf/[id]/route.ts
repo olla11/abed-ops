@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { formatSignatureDisplayName as formatSignatureName } from '@/lib/signature-name'
-import { BRITTANY_SIGNATURE_FONT_DATA_URI } from '@/lib/signature-font-data'
+import { genererContratPdf, nomFichierContratPdf, type ContratPdfData } from '@/lib/contrat-pdf'
+
+// Rendu via Chromium headless (au lieu du "Imprimer" du navigateur) — c'est
+// le seul moyen d'obtenir un vrai fichier PDF avec marges fixées par le
+// serveur, cohérent quel que soit le navigateur du destinataire.
+export const runtime = 'nodejs'
+export const maxDuration = 60
 
 // Désignation de la partie employé dans le préambule, selon le type de contrat
 function partieLabel(typeContrat: string | null | undefined): string {
@@ -11,25 +17,6 @@ function partieLabel(typeContrat: string | null | undefined): string {
   if (t.includes('prestataire')) return 'Prestataire'
   if (t.includes('consultant')) return 'Consultant'
   return 'Employé(e)'
-}
-
-// Accord de genre en fonction de la civilité (Mme → féminin)
-function accordE(civilite: string | null | undefined): string {
-  return civilite === 'Mme' ? 'e' : ''
-}
-function titreDirecteur(civilite: string | null | undefined): string {
-  return civilite === 'Mme' ? 'La Directrice Exécutive' : 'Le Directeur Exécutif'
-}
-function dureeMois(debut: string | null | undefined, fin: string | null | undefined): string {
-  if (!debut || !fin) return ''
-  const d1 = new Date(debut), d2 = new Date(fin)
-  const months = (d2.getFullYear() - d1.getFullYear()) * 12 + (d2.getMonth() - d1.getMonth())
-  return months > 0 ? `${months} mois` : ''
-}
-
-// Les prestataires sont payés à l'heure (taux CAF), pas sur un salaire fixe mensuel
-function isPrestataireType(typeContrat: string | null | undefined): boolean {
-  return (typeContrat ?? '').toLowerCase().includes('prestataire')
 }
 
 export async function GET(
@@ -89,14 +76,29 @@ export async function GET(
   const dateDebut = contrat.date_debut ? new Date(contrat.date_debut).toLocaleDateString('fr-FR') : '—'
   const dateFin = contrat.date_fin ? new Date(contrat.date_fin).toLocaleDateString('fr-FR') : 'Indéterminée'
   const today = new Date().toLocaleDateString('fr-FR')
-  const partie = partieEmploye
 
-  // Représentant d'ABED : le DE, sauf si le contrat concerne le DE lui-même → le PCA
-  const { data: repProfile } = await admin
-    .from('profiles')
-    .select('nom, prenoms, civilite, telephone, email, adresse, cachet_url')
-    .eq('role', isDE ? 'administrateur' : 'de')
-    .single()
+  // Représentant d'ABED affiché dans le préambule ET dans le bloc de
+  // signature : priorité à la personne effectivement enregistrée comme
+  // signataire du contrat (contrat.signataire_id) — c'est elle qui a
+  // réellement signé le document, quel que soit le titulaire actuel du
+  // poste. On ne retombe sur le titulaire courant du rôle que si le contrat
+  // n'a pas encore été envoyé à un signataire (brouillon).
+  let repProfile: { nom?: string; prenoms?: string; civilite?: string | null; telephone?: string | null; email?: string | null; adresse?: string | null; cachet_url?: string | null } | null = null
+  if (contrat.signataire_id) {
+    const { data } = await admin
+      .from('profiles')
+      .select('nom, prenoms, civilite, telephone, email, adresse, cachet_url')
+      .eq('id', contrat.signataire_id)
+      .single()
+    repProfile = data
+  } else {
+    const { data } = await admin
+      .from('profiles')
+      .select('nom, prenoms, civilite, telephone, email, adresse, cachet_url')
+      .eq('role', isDE ? 'administrateur' : 'de')
+      .single()
+    repProfile = data
+  }
   const repNom = `${repProfile?.prenoms ?? ''} ${repProfile?.nom ?? ''}`.trim() || '—'
   const repTel = repProfile?.telephone ?? '—'
   const repEmail = repProfile?.email ?? '—'
@@ -133,216 +135,49 @@ export async function GET(
       signataireSigneLe = new Date(contrat.signe_signataire_le).toLocaleDateString('fr-FR')
     }
   }
-  const employeNomReel = `${p?.prenoms ?? ''} ${p?.nom ?? ''}`.trim()
-
-  // Bloc de signature : le nom manuscrit (cursif) repose sur le trait, le nom réel imprimé apparaît en dessous
-  function sigBlockHtml(role: string, nomCursif: string | null, nomReel: string, dateStr: string | null, avant = ''): string {
-    return `
-    <div class="sig">
-      <div class="sig-role">${role}</div>
-      ${avant}
-      <div class="sig-area">${nomCursif ? `<div class="sig-cursive">${nomCursif}</div>` : ''}</div>
-      <div class="sig-rule"></div>
-      ${nomCursif
-        ? `<div class="sig-realname">${nomReel}</div><div class="sig-stamp">✓ Signé électroniquement${dateStr ? ` le ${dateStr}` : ''}</div>`
-        : `<div class="sig-pending">En attente de signature</div>`}
-    </div>`
-  }
 
   const articles: Array<{ titre: string; contenu: string }> = Array.isArray(contrat.articles) ? contrat.articles : []
 
-  // Un avenant modifie un article numéroté de la convention/du contrat
-  // d'origine (« ARTICLE 3 NOUVEAU : ... ») — la RH tape l'intitulé complet
-  // elle-même, on ne le préfixe donc pas de « Article N — » comme pour les
-  // autres catégories (dispositions particulières, numérotées séquentiellement).
-  const articlesHtml = articles.length > 0
-    ? articles.map((art, i) => `
-      <div class="article">
-        <div class="article-title">${categorie === 'Avenant' ? (art.titre || '') : `Article ${i + 1} — ${art.titre || ''}`}</div>
-        <div class="article-body">${(art.contenu || '').replace(/\n/g, '<br/>')}</div>
-      </div>`).join('')
-    : ''
+  const pdfData: ContratPdfData = {
+    numero,
+    categorie,
+    typeContrat: contrat.type_contrat,
+    poste: contrat.poste,
+    direction: contrat.direction,
+    dateDebut,
+    dateFin,
+    today,
+    parentNumero,
+    objet: contrat.objet,
+    articles,
+    observations: contrat.observations,
+    salaireBrut: contrat.salaire_brut,
+    representantEmployeur,
+    sigLeft,
+    sigRight,
+    repNom,
+    repTel,
+    repEmail,
+    repAdresse,
+    repCachetUrl,
+    employeCivilite: p?.civilite ?? null,
+    employePrenoms: p?.prenoms ?? '',
+    employeNom: p?.nom ?? '',
+    employeTelephone: p?.telephone ?? null,
+    employeEmail: p?.email ?? null,
+    employeAdresse: p?.adresse ?? null,
+    employeSigneLe,
+    signataireNom,
+    signataireNomReel,
+    signataireSigneLe,
+    partieEmploye,
+  }
 
-  const isOffreStage = categorie === 'Offre de stage'
-  const objetApresParties = categorie === 'Convention' || categorie === 'Avenant'
-  const objetHtml = contrat.objet ? `
-  <div class="section">
-    <h2>Objet</h2>
-    <p style="font-size:11pt;line-height:1.8;">${contrat.objet.replace(/\n/g, '<br/>')}</p>
-  </div>` : ''
-  const clauseClotureHtml = categorie === 'Avenant' ? `
-  <p style="font-size:10.5pt;margin-top:24px;text-align:justify;">
-    Cet avenant${numero ? ` numéro ${numero}` : ''} modifie la convention initiale, et tous deux doivent être lus ensemble et
-    constituent une seule convention, de même que tout avenant précédent et ultérieur.
-  </p>
-  <p style="font-size:10.5pt;margin-top:12px;text-align:justify;">
-    Toutes les obligations, termes et conditions contenues dans la convention restent en vigueur jusqu'à la fin de la
-    convention, à moins de modification contraire dans les présentes.
-  </p>` : `
-  <p style="font-size:10.5pt;margin-top:24px;text-align:justify;">
-    Les parties déclarent avoir pris connaissance des présentes dispositions et s'engagent à les respecter.
-  </p>`
-
-  const corpsHtml = isOffreStage ? `
-  <div class="doc-title">
-    <h1>Offre de stage</h1>
-  </div>
-  <div class="doc-ref">
-    Réf. : <strong>${numero ?? 'N/A'}</strong> &nbsp;·&nbsp; Parakou, le ${today}
-  </div>
-
-  <p class="lettre-corps"><strong>Objet : Offre de stage</strong></p>
-
-  <p class="lettre-corps">${p?.civilite ?? ''}, ${p?.prenoms ?? ''} ${p?.nom ?? ''},</p>
-
-  <p class="lettre-corps">
-    En référence à votre candidature au poste de stagiaire ${contrat.poste ?? ''}, et pour donner suite à l'entretien,
-    nous avons le plaisir de vous informer que vous êtes retenu${accordE(p?.civilite)} pour effectuer un stage
-    professionnel${dureeMois(contrat.date_debut, contrat.date_fin) ? ` de ${dureeMois(contrat.date_debut, contrat.date_fin)}` : ''}
-    au sein de notre organisation, à compter du ${dateDebut}.
-  </p>
-
-  ${contrat.direction ? `<p class="lettre-corps">Vous effectuerez ce stage au sein de notre ${contrat.direction}.</p>` : ''}
-
-  ${contrat.objet ? `<p class="lettre-corps">${contrat.objet.replace(/\n/g, '<br/>')}</p>` : ''}
-
-  ${contrat.salaire_brut ? `<p class="lettre-corps">Une allocation mensuelle de ${Number(contrat.salaire_brut).toLocaleString('fr-FR')} FCFA vous sera versée durant cette période.</p>` : ''}
-
-  ${contrat.observations ? `<p class="lettre-corps">${contrat.observations.replace(/\n/g, '<br/>')}</p>` : ''}
-
-  ${articlesHtml ? `<div class="section"><h2>Dispositions particulières</h2>${articlesHtml}</div>` : ''}
-
-  <p class="lettre-corps">
-    Nous vous prions de signer cette offre et de nous la retourner dans les plus brefs délais si elle vous convient.
-  </p>
-  <p class="lettre-corps">
-    Espérant que ce stage vous permettra d'apprendre et de développer de nouvelles compétences, nous vous souhaitons
-    une riche période d'apprentissage au sein de notre organisation.
-  </p>
-
-  <div class="sig-block">
-    ${sigBlockHtml(`Pour ${p?.civilite === 'Mme' ? 'la' : 'le'} stagiaire`, employeSigneLe ? formatSignatureName(p?.prenoms, p?.nom) : null, employeNomReel, employeSigneLe)}
-    ${sigBlockHtml(titreDirecteur(repProfile?.civilite), signataireNom, signataireNomReel, signataireSigneLe, repCachetUrl ? `<img src="${repCachetUrl}" alt="Cachet ABED" style="height:70px;margin-top:8px;" />` : '')}
-  </div>
-  ` : `
-  <div class="doc-title">
-    <h1>${categorie} de ${contrat.type_contrat}</h1>
-  </div>
-  <div class="doc-ref">
-    Réf. : <strong>${numero ?? 'N/A'}</strong> &nbsp;·&nbsp; Parakou, le ${today}
-    ${categorie === 'Avenant' && parentNumero ? `<br/>À la convention N° <strong>${parentNumero}</strong>` : ''}
-  </div>
-
-  ${!objetApresParties ? objetHtml : ''}
-
-  <div class="section">
-    <h2>Entre les soussignés</h2>
-    <p class="preambule">
-      <strong>ABED-ONG</strong>, représentée par son ${representantEmployeur}, ${repNom}, Tél ${repTel}, Email : ${repEmail}, demeurant à ${repAdresse}, et ci-après dénommée <strong>« ABED »</strong>, d'une part,
-    </p>
-    <p class="preambule">Et</p>
-    <p class="preambule">
-      <strong>${p?.civilite ?? ''} ${p?.prenoms ?? ''} ${p?.nom ?? ''}</strong>, Tél ${p?.telephone ?? '—'}, Email : ${p?.email ?? '—'}, demeurant à ${p?.adresse ?? '—'}, Rép. Bénin, ci-après dénommé(e) <strong>« ${partie} »</strong>, d'autre part.
-    </p>
-    <p class="preambule">
-      « <strong>ABED-ONG</strong> » et le « <strong>${partie}</strong> » désignent collectivement les parties.
-    </p>
-  </div>
-
-  ${objetApresParties ? objetHtml : ''}
-
-  <div class="section">
-    <h2>Conditions du ${categorie.toLowerCase()}</h2>
-    <div class="row"><span class="label">Type :</span><span class="value">${contrat.type_contrat}</span></div>
-    ${contrat.poste ? `<div class="row"><span class="label">Poste :</span><span class="value">${contrat.poste}</span></div>` : ''}
-    ${contrat.direction ? `<div class="row"><span class="label">Direction :</span><span class="value">${contrat.direction}</span></div>` : ''}
-    <div class="row"><span class="label">Date de prise d'effet :</span><span class="value">${dateDebut}</span></div>
-    <div class="row"><span class="label">Date d'échéance :</span><span class="value">${dateFin}</span></div>
-    ${contrat.salaire_brut ? `<div class="row"><span class="label">${isPrestataireType(contrat.type_contrat) ? 'Taux horaire (CAF)' : 'Rémunération brute'} :</span><span class="value">${Number(contrat.salaire_brut).toLocaleString('fr-FR')} FCFA${isPrestataireType(contrat.type_contrat) ? ' / heure' : ' / mois'}</span></div>` : ''}
-    ${contrat.observations ? `<div class="row"><span class="label">Observations :</span><span class="value">${contrat.observations}</span></div>` : ''}
-  </div>
-
-  ${articlesHtml ? `
-  <div class="section">
-    <h2>Dispositions particulières</h2>
-    ${articlesHtml}
-  </div>` : ''}
-
-  ${clauseClotureHtml}
-
-  <div class="sig-block">
-    ${sigBlockHtml(sigLeft, signataireNom, signataireNomReel, signataireSigneLe)}
-    ${sigBlockHtml(sigRight, employeSigneLe ? formatSignatureName(p?.prenoms, p?.nom) : null, employeNomReel, employeSigneLe)}
-  </div>
-  `
-
-  const html = `<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <title>${categorie} ${numero ?? ''} — ${p?.prenoms} ${p?.nom}</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Times New Roman', serif; font-size: 12pt; color: #111; background: #fff; padding: 48px 56px; max-width: 820px; margin: 0 auto; }
-    .no-print { text-align: center; margin-bottom: 24px; }
-    .no-print button { padding: 10px 24px; background: #16a34a; color: white; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; font-family: sans-serif; }
-    .header { display: flex; align-items: center; gap: 16px; border-bottom: 3px double #16a34a; padding-bottom: 16px; margin-bottom: 24px; }
-    .header img { height: 72px; width: auto; flex-shrink: 0; }
-    .header .org-text { flex: 1; text-align: center; }
-    .header .org-name { font-size: 12.5pt; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; color: #111; }
-    .header .org-acronym { font-size: 13pt; font-weight: bold; margin-top: 2px; }
-    .header .org-sub { font-size: 8.5pt; color: #555; margin-top: 3px; line-height: 1.5; }
-    .doc-title { text-align: center; margin: 20px 0 8px; }
-    .doc-title h1 { font-size: 15pt; text-transform: uppercase; letter-spacing: 2px; border: 2px solid #111; display: inline-block; padding: 6px 24px; }
-    .doc-ref { text-align: center; font-size: 10pt; color: #555; margin-bottom: 28px; }
-    .section { margin-bottom: 20px; }
-    .section h2 { font-size: 10.5pt; text-transform: uppercase; font-weight: bold; border-bottom: 1.5px solid #222; padding-bottom: 3px; margin-bottom: 10px; letter-spacing: 1px; }
-    .row { display: flex; gap: 12px; margin-bottom: 6px; font-size: 11pt; }
-    .label { font-weight: bold; min-width: 170px; }
-    .value { flex: 1; }
-    .preambule { font-size: 11pt; line-height: 1.9; text-align: justify; margin-bottom: 10px; }
-    .lettre-corps { font-size: 11pt; line-height: 1.9; text-align: justify; margin-bottom: 14px; }
-    .article { margin-bottom: 16px; }
-    .article-title { font-size: 11pt; font-weight: bold; margin-bottom: 4px; }
-    .article-body { font-size: 10.5pt; line-height: 1.8; text-align: justify; }
-    @font-face { font-family: 'BrittanySignature'; src: url('${BRITTANY_SIGNATURE_FONT_DATA_URI}') format('truetype'); font-weight: normal; font-style: normal; }
-    .sig-block { display: flex; justify-content: space-between; margin-top: 64px; }
-    .sig { text-align: center; width: 45%; }
-    .sig-role { font-size: 10pt; font-weight: bold; margin-bottom: 4px; }
-    .sig-area { min-height: 54px; margin-top: 30px; display: flex; align-items: flex-end; justify-content: center; }
-    .sig-cursive { font-family: 'BrittanySignature', cursive; font-size: 28pt; line-height: 1; color: #1e3a8a; transform: translateY(-16px); }
-    .sig-rule { border-top: 1px solid #000; }
-    .sig-realname { font-size: 10.5pt; font-weight: bold; margin-top: 14px; color: #111; }
-    .sig-pending { font-size: 10pt; color: #9ca3af; margin-top: 6px; }
-    .sig-stamp { font-size: 8.5pt; color: #16a34a; margin-top: 3px; font-family: Arial, sans-serif; font-weight: bold; }
-    .footer { text-align: center; font-size: 8.5pt; color: #888; margin-top: 40px; border-top: 1px solid #e5e7eb; padding-top: 10px; }
-    @media print { .no-print { display: none !important; } body { padding: 24px 32px; } }
-  </style>
-</head>
-<body>
-  <div class="no-print">
-    <button onclick="window.print()">🖨️ Imprimer / Télécharger en PDF</button>
-  </div>
-
-  <div class="header">
-    <img src="/logoabed2.png" alt="Logo ABED" />
-    <div class="org-text">
-      <div class="org-name">Agriculture pour le Bien-être et le Développement Durable</div>
-      <div class="org-acronym">(ABED-ONG)</div>
-      <div class="org-sub">
-        Enregistrée sous le N° 2019-4/0008 /PDB/SG/SAG du 16 Janvier 2019<br>
-        Parakou, Quartier Zongo, Troisième vons après le CS/Zongo, Bénin &nbsp;·&nbsp; Tél. : +229 0167779141<br>
-        Email : contact@abedong.org &nbsp;|&nbsp; abedcontactpk@gmail.com
-      </div>
-    </div>
-    <img src="/logoabed2.png" alt="Logo ABED" />
-  </div>
-
-  ${corpsHtml}
-
-  <div class="footer">ABED ONG · Parakou, Quartier Zongo, Bénin · Système de gestion RH</div>
-</body>
-</html>`
-
-  return new NextResponse(html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } })
+  const pdfBuffer = await genererContratPdf(pdfData)
+  return new NextResponse(new Uint8Array(pdfBuffer), {
+    headers: {
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `inline; filename="${nomFichierContratPdf(categorie, numero, id)}"`,
+    },
+  })
 }
