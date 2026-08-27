@@ -8,6 +8,13 @@ import { LOGO_COLOR_PNG_B64 } from '@/lib/logo-color-b64'
 import puppeteer from 'puppeteer-core'
 import chromium from '@sparticuz/chromium'
 
+// Coordonnées officielles ABED-ONG (celles de l'entête) — utilisées aussi
+// dans « Entre les soussignés » : c'est l'organisation qui est partie au
+// contrat, pas le téléphone/l'adresse personnelle du représentant qui signe.
+export const ORG_TEL = '+229 01 97 95 60 50'
+export const ORG_EMAIL = 'contact@abedong.org'
+export const ORG_ADRESSE = 'Parakou, Wanssirou, derrière le lycée MB'
+
 export interface ContratPdfArticle {
   titre: string
   contenu: string
@@ -98,7 +105,7 @@ function letterheadHtml(): string {
     <div class="letterhead-body">
       <img class="letterhead-logo" src="data:image/png;base64,${LOGO_COLOR_PNG_B64}" alt="Logo ABED">
       <div class="letterhead-text">
-        <div class="letterhead-title">Agriculture pour le Bien Etre et le Développement</div>
+        <div class="letterhead-title">Agriculture pour le Bien Etre et le Développement Durable (ABED-ONG)</div>
         <div class="letterhead-reg">N° 2019-4/0008 /PDB/SG/SAG du 16 Janvier 2019 ; J.OFF du 15 Juin 2022</div>
         <div class="letterhead-contact-row">
           <span class="lh-item">${ICON_PHONE} +229 01 97 95 60 50</span>
@@ -261,11 +268,15 @@ export function construireContratHtml(d: ContratPdfData): string {
   <title>${categorie} ${d.numero ?? ''} — ${d.employePrenoms} ${d.employeNom}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Times New Roman', serif; font-size: 12pt; color: #111; background: #fff; padding: 0 56px 48px; max-width: 820px; margin: 0 auto; }
-    .letterhead { margin: 0 -56px 20px; }
-    .letterhead-wave svg { display: block; width: 100%; height: 96px; }
-    .letterhead-body { display: flex; align-items: center; gap: 18px; padding: 8px 56px 4px; }
-    .letterhead-logo { height: 76px; width: auto; flex-shrink: 0; }
+    body { font-family: 'Times New Roman', serif; font-size: 12pt; color: #111; background: #fff; padding: 0; max-width: 820px; margin: 0 auto; }
+    /* La marge physique de la page (cf. page.pdf()) est nulle pour que la
+       bannière couvre tout le haut de la feuille, comme sur le modèle papier —
+       .page-content réintroduit la marge de lecture habituelle pour le texte. */
+    .page-content { padding: 28px 56px 48px; }
+    .letterhead { margin: 0 0 20px 0; }
+    .letterhead-wave svg { display: block; width: 100%; height: 104px; }
+    .letterhead-body { display: flex; align-items: center; gap: 20px; padding: 10px 56px 4px; }
+    .letterhead-logo { height: 108px; width: auto; flex-shrink: 0; }
     .letterhead-text { flex: 1; }
     .letterhead-title { font-family: Arial, sans-serif; font-size: 13pt; font-weight: 800; text-transform: uppercase; color: #1f7a1f; letter-spacing: .2px; line-height: 1.25; }
     .letterhead-reg { font-family: Arial, sans-serif; font-size: 8.5pt; font-weight: 800; text-transform: uppercase; color: #e08e00; margin-top: 5px; letter-spacing: .2px; }
@@ -301,9 +312,11 @@ export function construireContratHtml(d: ContratPdfData): string {
 <body>
   ${letterheadHtml()}
 
-  ${corpsHtml}
+  <div class="page-content">
+    ${corpsHtml}
 
-  <div class="footer">ABED ONG · Parakou, Quartier Zongo, Bénin · Système de gestion RH</div>
+    <div class="footer">ABED ONG · Parakou, Quartier Zongo, Bénin · Système de gestion RH</div>
+  </div>
 </body>
 </html>`
 }
@@ -323,7 +336,10 @@ export async function genererContratPdf(d: ContratPdfData): Promise<Buffer> {
     const pdfBuffer = await page.pdf({
       format: 'A4',
       printBackground: true,
-      margin: { top: '1.5cm', bottom: '1.5cm', left: '1.5cm', right: '1.5cm' },
+      // Marge nulle en haut/gauche/droite : la bannière d'entête doit couvrir
+      // tout le haut de la page (voir .letterhead / .page-content plus haut,
+      // qui réintroduisent la marge de lecture pour le texte).
+      margin: { top: '0cm', bottom: '1.3cm', left: '0cm', right: '0cm' },
     })
     return Buffer.from(pdfBuffer)
   } finally {

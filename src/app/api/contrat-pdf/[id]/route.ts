@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { formatSignatureDisplayName as formatSignatureName } from '@/lib/signature-name'
-import { genererContratPdf, nomFichierContratPdf, type ContratPdfData } from '@/lib/contrat-pdf'
+import { genererContratPdf, nomFichierContratPdf, ORG_TEL, ORG_EMAIL, ORG_ADRESSE, type ContratPdfData } from '@/lib/contrat-pdf'
 
 // Rendu via Chromium headless (au lieu du "Imprimer" du navigateur) — c'est
 // le seul moyen d'obtenir un vrai fichier PDF avec marges fixées par le
@@ -100,9 +100,12 @@ export async function GET(
     repProfile = data
   }
   const repNom = `${repProfile?.prenoms ?? ''} ${repProfile?.nom ?? ''}`.trim() || '—'
-  const repTel = repProfile?.telephone ?? '—'
-  const repEmail = repProfile?.email ?? '—'
-  const repAdresse = repProfile?.adresse ?? 'Parakou, Quartier Zongo, Bénin'
+  // Le préambule "Entre les soussignés" présente l'organisation ABED-ONG :
+  // ses coordonnées officielles (celles de l'entête), pas le téléphone/
+  // l'adresse personnelle du représentant qui signe pour son compte.
+  const repTel = ORG_TEL
+  const repEmail = ORG_EMAIL
+  const repAdresse = ORG_ADRESSE
 
   // Cachet du représentant (utilisé pour l'offre de stage, signée par le DE)
   let repCachetUrl: string | null = null
