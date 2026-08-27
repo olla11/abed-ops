@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
   const {
     profile_id, type_contrat, date_debut, poste, direction, date_fin,
     salaire_brut, observations, categorie_document, contrat_parent_id,
-    objet, articles, commentaires_rh, source_financement,
+    objet, articles, commentaires_rh, source_financement, template_id,
   } = body
 
   if (!profile_id || !type_contrat || !date_debut) {
@@ -81,6 +81,7 @@ export async function POST(req: NextRequest) {
     objet: objet || null,
     articles: articles || [],
     commentaires_rh: commentaires_rh || null,
+    template_id: template_id || null,
     statut: 'actif',
     workflow_statut: isOffreStage ? 'envoye_de' : 'envoye_employe',
   }).select('*, profile:profiles!profile_id(id, nom, prenoms, email, role, civilite)').single()

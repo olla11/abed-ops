@@ -74,6 +74,14 @@ export async function GET(
   const p = contrat.profile as any
   const isDE = ['de', 'dp'].includes(p?.role)
   const categorie = contrat.categorie_document ?? 'Contrat'
+
+  // Avenant : on affiche à quelle convention/contrat il se rattache, sous le
+  // titre — le contrat parent porte déjà la référence via contrat_parent_id.
+  let parentNumero: string | null = null
+  if (categorie === 'Avenant' && contrat.contrat_parent_id) {
+    const { data: parent } = await admin.from('contrats').select('numero, categorie_document').eq('id', contrat.contrat_parent_id).single()
+    parentNumero = parent?.numero ?? null
+  }
   const representantEmployeur = isDE ? "Président du Conseil d'Administration" : 'Directeur Exécutif'
   const sigLeft = isDE ? "Le Président du Conseil d'Administration" : "Le Directeur Exécutif"
   const partieEmploye = partieLabel(contrat.type_contrat)
@@ -143,15 +151,37 @@ export async function GET(
 
   const articles: Array<{ titre: string; contenu: string }> = Array.isArray(contrat.articles) ? contrat.articles : []
 
+  // Un avenant modifie un article numéroté de la convention/du contrat
+  // d'origine (« ARTICLE 3 NOUVEAU : ... ») — la RH tape l'intitulé complet
+  // elle-même, on ne le préfixe donc pas de « Article N — » comme pour les
+  // autres catégories (dispositions particulières, numérotées séquentiellement).
   const articlesHtml = articles.length > 0
     ? articles.map((art, i) => `
       <div class="article">
-        <div class="article-title">Article ${i + 1} — ${art.titre || ''}</div>
+        <div class="article-title">${categorie === 'Avenant' ? (art.titre || '') : `Article ${i + 1} — ${art.titre || ''}`}</div>
         <div class="article-body">${(art.contenu || '').replace(/\n/g, '<br/>')}</div>
       </div>`).join('')
     : ''
 
   const isOffreStage = categorie === 'Offre de stage'
+  const objetApresParties = categorie === 'Convention' || categorie === 'Avenant'
+  const objetHtml = contrat.objet ? `
+  <div class="section">
+    <h2>Objet</h2>
+    <p style="font-size:11pt;line-height:1.8;">${contrat.objet.replace(/\n/g, '<br/>')}</p>
+  </div>` : ''
+  const clauseClotureHtml = categorie === 'Avenant' ? `
+  <p style="font-size:10.5pt;margin-top:24px;text-align:justify;">
+    Cet avenant${numero ? ` numéro ${numero}` : ''} modifie la convention initiale, et tous deux doivent être lus ensemble et
+    constituent une seule convention, de même que tout avenant précédent et ultérieur.
+  </p>
+  <p style="font-size:10.5pt;margin-top:12px;text-align:justify;">
+    Toutes les obligations, termes et conditions contenues dans la convention restent en vigueur jusqu'à la fin de la
+    convention, à moins de modification contraire dans les présentes.
+  </p>` : `
+  <p style="font-size:10.5pt;margin-top:24px;text-align:justify;">
+    Les parties déclarent avoir pris connaissance des présentes dispositions et s'engagent à les respecter.
+  </p>`
 
   const corpsHtml = isOffreStage ? `
   <div class="doc-title">
@@ -200,13 +230,10 @@ export async function GET(
   </div>
   <div class="doc-ref">
     Réf. : <strong>${numero ?? 'N/A'}</strong> &nbsp;·&nbsp; Parakou, le ${today}
+    ${categorie === 'Avenant' && parentNumero ? `<br/>À la convention N° <strong>${parentNumero}</strong>` : ''}
   </div>
 
-  ${contrat.objet ? `
-  <div class="section">
-    <h2>Objet</h2>
-    <p style="font-size:11pt;line-height:1.8;">${contrat.objet}</p>
-  </div>` : ''}
+  ${!objetApresParties ? objetHtml : ''}
 
   <div class="section">
     <h2>Entre les soussignés</h2>
@@ -221,6 +248,8 @@ export async function GET(
       « <strong>ABED-ONG</strong> » et le « <strong>${partie}</strong> » désignent collectivement les parties.
     </p>
   </div>
+
+  ${objetApresParties ? objetHtml : ''}
 
   <div class="section">
     <h2>Conditions du ${categorie.toLowerCase()}</h2>
@@ -239,9 +268,7 @@ export async function GET(
     ${articlesHtml}
   </div>` : ''}
 
-  <p style="font-size:10.5pt;margin-top:24px;text-align:justify;">
-    Les parties déclarent avoir pris connaissance des présentes dispositions et s'engagent à les respecter.
-  </p>
+  ${clauseClotureHtml}
 
   <div class="sig-block">
     ${sigBlockHtml(sigLeft, signataireNom, signataireNomReel, signataireSigneLe)}

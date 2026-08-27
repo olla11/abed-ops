@@ -1,7 +1,9 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { FileText, Pencil, MessageSquare, Send, PartyPopper, RotateCcw, Ban, RefreshCw, Trash2 } from 'lucide-react'
+import Link from 'next/link'
+import { FileText, Pencil, MessageSquare, Send, PartyPopper, RotateCcw, Ban, RefreshCw, Trash2, Sparkles, Settings } from 'lucide-react'
 import Pagination, { paginate } from '@/components/Pagination'
+import { genererDepuisTemplate, formatDateLettres, type ContratTemplate, type ChampTemplate } from '@/lib/contrat-template'
 
 type Article = { titre: string; contenu: string }
 
@@ -153,6 +155,8 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
   const [gradeChoisi, setGradeChoisi] = useState('')
   const [echelonChoisi, setEchelonChoisi] = useState('')
   const [draftRestoredAt, setDraftRestoredAt] = useState<number | null>(null)
+  const [templates, setTemplates] = useState<ContratTemplate[]>([])
+  const [champVals, setChampVals] = useState<Record<string, string>>({})
 
   const anyModalOpen = showNew || !!editTarget || !!renewTarget || !!resilierTarget || !!commentTarget || !!wfTarget
 
@@ -180,6 +184,9 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
   }, [])
   useEffect(() => {
     fetch('/api/config/listes?type=directions').then(r => r.json()).then(j => setDirections(j.data ?? [])).catch(() => {})
+  }, [])
+  useEffect(() => {
+    fetch('/api/rh/contrat-templates').then(r => r.json()).then(j => setTemplates(j.templates ?? [])).catch(() => {})
   }, [])
 
   function tauxPourType(type: string | undefined, taux: { direct: number; credit: number } | null): number | null {
@@ -359,6 +366,36 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
 
   const categorie = form.categorie_document ?? 'Contrat'
 
+  const templateActif = templates.find(t => t.actif && t.type_contrat === form.type_contrat && t.categorie_document === categorie) ?? null
+
+  useEffect(() => {
+    if (!templateActif) { setChampVals({}); return }
+    const defauts: Record<string, string> = {}
+    for (const c of templateActif.champs) defauts[c.cle] = c.defaut ?? ''
+    setChampVals(defauts)
+  }, [templateActif?.id])
+
+  function genererDepuisModele() {
+    if (!templateActif) return
+    if (articles.length > 0 && !confirm('Des articles sont déjà présents — les remplacer par le contenu du modèle ?')) return
+
+    const parent = form.contrat_parent_id ? contrats.find(c => c.id === form.contrat_parent_id) : null
+    const valeurs: Record<string, string> = {
+      ...champVals,
+      poste: form.poste ?? '',
+      date_debut_texte: formatDateLettres(form.date_debut),
+      date_fin_texte: formatDateLettres(form.date_fin),
+      date_convention_initiale_texte: parent ? formatDateLettres(parent.date_debut) : '',
+    }
+    const { objet, articles: articlesGeneres } = genererDepuisTemplate(templateActif, valeurs)
+    setForm((f: any) => ({ ...f, objet, template_id: templateActif.id }))
+    setArticles(articlesGeneres)
+  }
+
+  function champManquant() {
+    return templateActif?.champs.some(c => c.requis && !(champVals[c.cle] ?? '').trim()) ?? false
+  }
+
   const formFields = (isNew: boolean) => (
     <>
       {isNew && (
@@ -418,6 +455,39 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
           {(categorie === 'Offre de stage' ? TYPES_STAGE : TYPES).map(o => <option key={o} value={o}>{o}</option>)}
         </select>
       </div>
+
+      {templateActif && (
+        <div style={{ border: '1.5px solid var(--abed-green)', background: '#f0fdf4', borderRadius: 10, padding: 14, marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+            <Sparkles size={15} color="var(--abed-green)" />
+            <strong style={{ fontSize: 13, color: 'var(--abed-green)' }}>Modèle disponible : {templateActif.nom}</strong>
+          </div>
+          <p style={{ fontSize: 11.5, color: '#374151', margin: '0 0 10px' }}>
+            Remplissez les champs ci-dessous, puis générez le texte — vous pourrez encore l'ajuster avant l'envoi.
+            Le poste et les dates de début/fin déjà saisis ci-dessus sont repris automatiquement.
+          </p>
+          {templateActif.champs.map((c: ChampTemplate) => (
+            <div key={c.cle} style={{ marginBottom: 8 }}>
+              <label style={{ fontSize: 11.5, fontWeight: 600, display: 'block', marginBottom: 3 }}>
+                {c.libelle}{c.requis ? ' *' : ''}
+              </label>
+              {c.type === 'textarea' ? (
+                <textarea value={champVals[c.cle] ?? ''} onChange={e => setChampVals(v => ({ ...v, [c.cle]: e.target.value }))} rows={3} style={{ ...inputStyle, resize: 'vertical', fontSize: 13, background: 'white' }} />
+              ) : (
+                <input type={c.type === 'date' ? 'date' : c.type === 'number' ? 'number' : 'text'} value={champVals[c.cle] ?? ''} onChange={e => setChampVals(v => ({ ...v, [c.cle]: e.target.value }))} style={{ ...inputStyle, fontSize: 13, background: 'white' }} />
+              )}
+              {c.aide && <p style={{ fontSize: 10.5, color: '#9ca3af', margin: '3px 0 0' }}>{c.aide}</p>}
+            </div>
+          ))}
+          <button type="button" onClick={genererDepuisModele} disabled={champManquant()} style={{
+            marginTop: 4, padding: '7px 16px', borderRadius: 8, fontSize: 12.5, fontWeight: 700, cursor: champManquant() ? 'default' : 'pointer',
+            background: champManquant() ? '#d1d5db' : 'var(--abed-green)', color: 'white', border: 'none',
+          }}>
+            Générer les articles à partir du modèle
+          </button>
+        </div>
+      )}
+
       <div style={{ marginBottom: 12 }}>
         <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>
           {categorie === 'Offre de stage' ? 'Modalités du stage (supervision, horaires, home office...)' : 'Objet du document'}
@@ -514,9 +584,14 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
     <div className="page-container" onClick={(e) => { if (!(e.target as HTMLElement).closest('[data-delete-btn]')) Object.keys(deleteStep).forEach(id => resetDeleteStep(id)) }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <h2 style={{ color: 'var(--abed-green)', fontSize: 20, margin: 0 }}>Documents RH ({filtered.length})</h2>
-        <button onClick={openNew} style={{ padding: '8px 18px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: 'var(--abed-green)', color: 'white', border: 'none' }}>
-          + Nouveau document
-        </button>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <Link href="/rh/contrats/templates" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 700, background: 'white', color: '#374151', border: '1px solid var(--abed-border)', textDecoration: 'none' }}>
+            <Settings size={14} /> Modèles
+          </Link>
+          <button onClick={openNew} style={{ padding: '8px 18px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: 'var(--abed-green)', color: 'white', border: 'none' }}>
+            + Nouveau document
+          </button>
+        </div>
       </div>
       <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
         <input placeholder="Rechercher..." value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} style={{ ...inputStyle, maxWidth: 240 }} />
