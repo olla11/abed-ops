@@ -314,7 +314,7 @@ export function construireContratHtml(d: ContratPdfData): string {
   <div class="section">
     <h2>Entre les soussignés</h2>
     <p class="preambule">
-      <strong>ABED-ONG</strong>, représentée par son ${d.representantEmployeur}, ${d.repNom}, Tél ${d.repTel}, Email : ${d.repEmail}, demeurant à ${d.repAdresse}, et ci-après dénommée <strong>« ABED »</strong>, d'une part,
+      <strong>ABED-ONG</strong>, représentée par ${d.representantCivilite === 'Mme' ? 'sa' : 'son'} ${d.representantEmployeur}, ${d.repNom}, Tél ${d.repTel}, Email : ${d.repEmail}, demeurant à ${d.repAdresse}, et ci-après dénommée <strong>« ABED »</strong>, d'une part,
     </p>
     <p class="preambule">Et</p>
     <p class="preambule">

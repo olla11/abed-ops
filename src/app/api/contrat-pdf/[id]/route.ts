@@ -72,8 +72,6 @@ export async function GET(
     parentNumero = parent?.numero ?? null
     parentCategorie = parent?.categorie_document ?? null
   }
-  const representantEmployeur = isDE ? "Président du Conseil d'Administration" : 'Directeur Exécutif'
-  const sigLeft = isDE ? "Le Président du Conseil d'Administration" : "Le Directeur Exécutif"
   const partieEmploye = partieLabel(contrat.type_contrat)
   const sigRight = partieEmploye === 'Employé(e)' ? "L'Employé(e)" : `${p?.civilite === 'Mme' ? 'La' : 'Le'} ${partieEmploye}`
   const dateDebut = contrat.date_debut ? new Date(contrat.date_debut).toLocaleDateString('fr-FR') : '—'
@@ -103,6 +101,17 @@ export async function GET(
     repProfile = data
   }
   const repNom = `${repProfile?.prenoms ?? ''} ${repProfile?.nom ?? ''}`.trim() || '—'
+  // Le titre affiché (préambule + bloc de signature) doit accorder le genre
+  // avec la personne qui a effectivement signé (repProfile), pas un
+  // masculin générique — sinon une Directrice Exécutive femme se retrouve
+  // affichée "Le Directeur Exécutif" sur le document.
+  const civiliteRep = repProfile?.civilite
+  const representantEmployeur = isDE
+    ? (civiliteRep === 'Mme' ? "Présidente du Conseil d'Administration" : "Président du Conseil d'Administration")
+    : (civiliteRep === 'Mme' ? 'Directrice Exécutive' : 'Directeur Exécutif')
+  const sigLeft = isDE
+    ? (civiliteRep === 'Mme' ? "La Présidente du Conseil d'Administration" : "Le Président du Conseil d'Administration")
+    : (civiliteRep === 'Mme' ? 'La Directrice Exécutive' : 'Le Directeur Exécutif')
   // Le préambule "Entre les soussignés" présente l'organisation ABED-ONG :
   // ses coordonnées officielles (celles de l'entête), pas le téléphone/
   // l'adresse personnelle du représentant qui signe pour son compte.
