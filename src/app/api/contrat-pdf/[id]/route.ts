@@ -138,6 +138,17 @@ export async function GET(
 
   const articles: Array<{ titre: string; contenu: string }> = Array.isArray(contrat.articles) ? contrat.articles : []
 
+  // Date d'établissement affichée dans "Parakou, le ..." : la date de
+  // signature la plus ancienne si le document est déjà signé (fixe, ne
+  // change plus jamais), sinon la date du jour tant que le contrat est en
+  // cours de rédaction.
+  const datesSignature = [contrat.signe_employe_le, contrat.signe_signataire_le]
+    .filter(Boolean)
+    .map((d: string) => new Date(d).getTime())
+  const dateEtablissement = datesSignature.length > 0
+    ? new Date(Math.min(...datesSignature)).toLocaleDateString('fr-FR')
+    : today
+
   const pdfData: ContratPdfData = {
     numero,
     categorie,
@@ -146,7 +157,7 @@ export async function GET(
     direction: contrat.direction,
     dateDebut,
     dateFin,
-    today,
+    dateEtablissement,
     parentNumero,
     objet: contrat.objet,
     articles,

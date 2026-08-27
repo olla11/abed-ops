@@ -21,7 +21,13 @@ export interface ContratPdfData {
   direction: string | null
   dateDebut: string
   dateFin: string
-  today: string
+  // Date affichée dans "Parakou, le ..." — la date d'établissement réelle du
+  // document (date de signature la plus ancienne si le contrat est déjà
+  // finalisé, sinon la date du jour pour un contrat en cours de rédaction).
+  // Fixée une fois pour toutes plutôt que recalculée à chaque consultation,
+  // pour qu'un contrat déjà signé continue d'afficher sa vraie date même
+  // consulté des mois plus tard.
+  dateEtablissement: string
   parentNumero: string | null
   objet: string | null
   articles: ContratPdfArticle[]
@@ -59,6 +65,54 @@ function isPrestataireType(typeContrat: string | null | undefined): boolean {
   return (typeContrat ?? '').toLowerCase().includes('prestataire')
 }
 
+// Un sous-titre de sous-article ("4.1. Normes de Performances", "7.2 Résiliation
+// pour manquement" — avec ou sans point après le second chiffre) est isolé sur sa
+// propre ligne et court, contrairement aux paragraphes qui se terminent par une
+// ponctuation de phrase — on le distingue en gras italique.
+function renderArticleBody(contenu: string): string {
+  const lignes = (contenu || '').split('\n')
+  return lignes.map(ligne => {
+    const t = ligne.trim()
+    const estSousTitre = /^\d+\.\d+\.?\s+\S.{1,58}$/.test(t) && !/[.,;:]$/.test(t)
+    return estSousTitre ? `<strong><em>${t}</em></strong>` : ligne
+  }).join('<br/>')
+}
+
+// Icônes de contact (traits fins, style feather-icons) pour l'entête
+const ICON_PHONE = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#e08e00" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>`
+const ICON_MAIL = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#e08e00" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 6-10 7L2 6"/></svg>`
+const ICON_GLOBE = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#e08e00" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`
+const ICON_PIN = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#e08e00" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg>`
+
+// Entête façon lettre à en-tête ABED : bannière ondulée verte/or, logo et
+// coordonnées de contact — remplace l'ancien bandeau logo + texte centré.
+function letterheadHtml(): string {
+  return `
+  <div class="letterhead">
+    <div class="letterhead-wave">
+      <svg viewBox="0 0 1200 170" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M0,0 H1200 V70 C950,150 850,20 600,70 C350,120 250,10 0,90 Z" fill="#f4b93e"/>
+        <path d="M0,0 H1200 V55 C950,135 850,5 600,55 C350,105 250,-5 0,75 Z" fill="#1f7a1f"/>
+      </svg>
+    </div>
+    <div class="letterhead-body">
+      <img class="letterhead-logo" src="data:image/png;base64,${LOGO_COLOR_PNG_B64}" alt="Logo ABED">
+      <div class="letterhead-text">
+        <div class="letterhead-title">Agriculture pour le Bien Etre et le Développement</div>
+        <div class="letterhead-reg">N° 2019-4/0008 /PDB/SG/SAG du 16 Janvier 2019 ; J.OFF du 15 Juin 2022</div>
+        <div class="letterhead-contact-row">
+          <span class="lh-item">${ICON_PHONE} +229 01 97 95 60 50</span>
+          <span class="lh-item">${ICON_MAIL} contact@abedong.org</span>
+        </div>
+        <div class="letterhead-contact-row">
+          <span class="lh-item">${ICON_GLOBE} abedong.org</span>
+          <span class="lh-item">${ICON_PIN} Parakou, Wanssirou, derrière le lycée MB</span>
+        </div>
+      </div>
+    </div>
+  </div>`
+}
+
 // Bloc de signature : le nom manuscrit (cursif) repose sur le trait, le nom réel imprimé apparaît en dessous
 function sigBlockHtml(role: string, nomCursif: string | null, nomReel: string, dateStr: string | null, avant = ''): string {
   return `
@@ -82,7 +136,7 @@ export function construireContratHtml(d: ContratPdfData): string {
     ? d.articles.map((art, i) => `
       <div class="article">
         <div class="article-title">${categorie === 'Avenant' ? (art.titre || '') : `Article ${i + 1} — ${art.titre || ''}`}</div>
-        <div class="article-body">${(art.contenu || '').replace(/\n/g, '<br/>')}</div>
+        <div class="article-body">${renderArticleBody(art.contenu || '')}</div>
       </div>`).join('')
     : ''
 
@@ -113,7 +167,7 @@ export function construireContratHtml(d: ContratPdfData): string {
     <h1>Offre de stage</h1>
   </div>
   <div class="doc-ref">
-    Réf. : <strong>${d.numero ?? 'N/A'}</strong> &nbsp;·&nbsp; Parakou, le ${d.today}
+    Réf. : <strong>${d.numero ?? 'N/A'}</strong> &nbsp;·&nbsp; Parakou, le ${d.dateEtablissement}
   </div>
 
   <p class="lettre-corps"><strong>Objet : Offre de stage</strong></p>
@@ -153,7 +207,7 @@ export function construireContratHtml(d: ContratPdfData): string {
     <h1>${categorie} de ${d.typeContrat}</h1>
   </div>
   <div class="doc-ref">
-    Réf. : <strong>${d.numero ?? 'N/A'}</strong> &nbsp;·&nbsp; Parakou, le ${d.today}
+    Réf. : <strong>${d.numero ?? 'N/A'}</strong> &nbsp;·&nbsp; Parakou, le ${d.dateEtablissement}
     ${categorie === 'Avenant' && d.parentNumero ? `<br/>À la convention N° <strong>${d.parentNumero}</strong>` : ''}
   </div>
 
@@ -207,13 +261,17 @@ export function construireContratHtml(d: ContratPdfData): string {
   <title>${categorie} ${d.numero ?? ''} — ${d.employePrenoms} ${d.employeNom}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Times New Roman', serif; font-size: 12pt; color: #111; background: #fff; padding: 48px 56px; max-width: 820px; margin: 0 auto; }
-    .header { display: flex; align-items: center; gap: 16px; border-bottom: 3px double #16a34a; padding-bottom: 16px; margin-bottom: 24px; }
-    .header img { height: 72px; width: auto; flex-shrink: 0; }
-    .header .org-text { flex: 1; text-align: center; }
-    .header .org-name { font-size: 12.5pt; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; color: #111; }
-    .header .org-acronym { font-size: 13pt; font-weight: bold; margin-top: 2px; }
-    .header .org-sub { font-size: 8.5pt; color: #555; margin-top: 3px; line-height: 1.5; }
+    body { font-family: 'Times New Roman', serif; font-size: 12pt; color: #111; background: #fff; padding: 0 56px 48px; max-width: 820px; margin: 0 auto; }
+    .letterhead { margin: 0 -56px 20px; }
+    .letterhead-wave svg { display: block; width: 100%; height: 96px; }
+    .letterhead-body { display: flex; align-items: center; gap: 18px; padding: 8px 56px 4px; }
+    .letterhead-logo { height: 76px; width: auto; flex-shrink: 0; }
+    .letterhead-text { flex: 1; }
+    .letterhead-title { font-family: Arial, sans-serif; font-size: 13pt; font-weight: 800; text-transform: uppercase; color: #1f7a1f; letter-spacing: .2px; line-height: 1.25; }
+    .letterhead-reg { font-family: Arial, sans-serif; font-size: 8.5pt; font-weight: 800; text-transform: uppercase; color: #e08e00; margin-top: 5px; letter-spacing: .2px; }
+    .letterhead-contact-row { display: flex; gap: 26px; margin-top: 6px; font-family: Arial, sans-serif; font-size: 9pt; color: #222; }
+    .lh-item { display: flex; align-items: center; gap: 6px; }
+    .lh-item svg { flex-shrink: 0; }
     .doc-title { text-align: center; margin: 20px 0 8px; }
     .doc-title h1 { font-size: 15pt; text-transform: uppercase; letter-spacing: 2px; border: 2px solid #111; display: inline-block; padding: 6px 24px; }
     .doc-ref { text-align: center; font-size: 10pt; color: #555; margin-bottom: 28px; }
@@ -241,19 +299,7 @@ export function construireContratHtml(d: ContratPdfData): string {
   </style>
 </head>
 <body>
-  <div class="header">
-    <img src="data:image/png;base64,${LOGO_COLOR_PNG_B64}" alt="Logo ABED">
-    <div class="org-text">
-      <div class="org-name">Agriculture pour le Bien-être et le Développement Durable</div>
-      <div class="org-acronym">(ABED-ONG)</div>
-      <div class="org-sub">
-        Enregistrée sous le N° 2019-4/0008 /PDB/SG/SAG du 16 Janvier 2019<br>
-        Parakou, Quartier Zongo, Troisième vons après le CS/Zongo, Bénin &nbsp;·&nbsp; Tél. : +229 0167779141<br>
-        Email : contact@abedong.org &nbsp;|&nbsp; abedcontactpk@gmail.com
-      </div>
-    </div>
-    <img src="data:image/png;base64,${LOGO_COLOR_PNG_B64}" alt="Logo ABED">
-  </div>
+  ${letterheadHtml()}
 
   ${corpsHtml}
 
