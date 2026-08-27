@@ -20,12 +20,13 @@ type ContratActif = {
   type_contrat: string
   date_fin: string | null
   poste: string | null
-  profile: Profile | null
+  profile: (Profile & { manager_id: string | null }) | null
 }
 
 type Props = {
   evaluations: Evaluation[]
   contratsActifs: ContratActif[]
+  personnel: Profile[]
 }
 
 const STATUTS: Record<string, { label: string; color: string; bg: string; border: string }> = {
@@ -48,16 +49,30 @@ function BadgeStatut({ statut }: { statut: string }) {
   )
 }
 
-export default function EvaluationsRHClient({ evaluations: initial, contratsActifs }: Props) {
+export default function EvaluationsRHClient({ evaluations: initial, contratsActifs, personnel }: Props) {
   const [evaluations, setEvaluations] = useState<Evaluation[]>(initial)
   const [filtreStatut, setFiltreStatut] = useState('')
   const [filtreMois, setFiltreMois] = useState('')
   const [page, setPage] = useState(1)
   const [showModal, setShowModal] = useState(false)
   const [selectedContrat, setSelectedContrat] = useState('')
+  // Évaluateur et responsable de département sont proposés (évaluateur
+  // préreempli depuis le manager du contrat) mais la RH garde la main pour
+  // les changer avant de déclencher — y compris pour assigner la même
+  // personne aux deux rôles, ce qui arrive couramment en pratique.
+  const [selectedEvaluateur, setSelectedEvaluateur] = useState('')
+  const [selectedResponsable, setSelectedResponsable] = useState('')
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+
+  function onContratChange(contratId: string) {
+    setSelectedContrat(contratId)
+    const c = contratsActifs.find(x => x.id === contratId)
+    const managerId = c?.profile?.manager_id ?? ''
+    setSelectedEvaluateur(managerId)
+    setSelectedResponsable(managerId)
+  }
 
   const filtered = useMemo(() => {
     return evaluations.filter(e => {
@@ -77,13 +92,19 @@ export default function EvaluationsRHClient({ evaluations: initial, contratsActi
       const res = await fetch('/api/rh/evaluations/declencher', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contrat_id: selectedContrat }),
+        body: JSON.stringify({
+          contrat_id: selectedContrat,
+          evaluateur_id: selectedEvaluateur || null,
+          responsable_id: selectedResponsable || null,
+        }),
       })
       const data = await res.json()
       if (!res.ok) { setErr(data.error ?? 'Erreur'); return }
       setSuccess('Évaluation déclenchée avec succès.')
       setShowModal(false)
       setSelectedContrat('')
+      setSelectedEvaluateur('')
+      setSelectedResponsable('')
       // Refresh
       const r2 = await fetch('/api/rh/evaluations')
       if (r2.ok) {
@@ -253,7 +274,7 @@ export default function EvaluationsRHClient({ evaluations: initial, contratsActi
             <h3 style={{ margin: '0 0 20px', color: 'var(--abed-green)' }}>📝 Déclencher une évaluation</h3>
             <div style={{ marginBottom: 16 }}>
               <label style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 6 }}>Sélectionner un contrat actif *</label>
-              <select value={selectedContrat} onChange={e => setSelectedContrat(e.target.value)} style={inputStyle}>
+              <select value={selectedContrat} onChange={e => onContratChange(e.target.value)} style={inputStyle}>
                 <option value="">— Choisir un contrat —</option>
                 {contratsActifs.map(c => (
                   <option key={c.id} value={c.id}>
@@ -262,18 +283,46 @@ export default function EvaluationsRHClient({ evaluations: initial, contratsActi
                 ))}
               </select>
             </div>
+            {selectedContrat && (
+              <>
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 6 }}>Évaluateur *</label>
+                  <select value={selectedEvaluateur} onChange={e => setSelectedEvaluateur(e.target.value)} style={inputStyle}>
+                    <option value="">— Choisir —</option>
+                    {personnel.map(p => (
+                      <option key={p.id} value={p.id}>{p.prenoms} {p.nom}</option>
+                    ))}
+                  </select>
+                  <p style={{ fontSize: 11.5, color: 'var(--abed-muted)', margin: '5px 0 0' }}>
+                    Préempli avec le manager renseigné sur le profil — modifiable.
+                  </p>
+                </div>
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 6 }}>Responsable de département *</label>
+                  <select value={selectedResponsable} onChange={e => setSelectedResponsable(e.target.value)} style={inputStyle}>
+                    <option value="">— Choisir —</option>
+                    {personnel.map(p => (
+                      <option key={p.id} value={p.id}>{p.prenoms} {p.nom}</option>
+                    ))}
+                  </select>
+                  <p style={{ fontSize: 11.5, color: 'var(--abed-muted)', margin: '5px 0 0' }}>
+                    Émet l'avis en Section VIII. Peut être la même personne que l'évaluateur.
+                  </p>
+                </div>
+              </>
+            )}
             {err && <div style={{ color: '#c0392b', fontSize: 13, marginBottom: 12 }}>{err}</div>}
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button onClick={() => { setShowModal(false); setSelectedContrat(''); setErr(null) }} style={{
+              <button onClick={() => { setShowModal(false); setSelectedContrat(''); setSelectedEvaluateur(''); setSelectedResponsable(''); setErr(null) }} style={{
                 padding: '9px 20px', borderRadius: 8, fontSize: 14, cursor: 'pointer',
                 background: 'white', border: '1px solid var(--abed-border)', color: '#374151',
               }}>
                 Annuler
               </button>
-              <button onClick={handleDeclencher} disabled={!selectedContrat || loading} style={{
+              <button onClick={handleDeclencher} disabled={!selectedContrat || !selectedEvaluateur || !selectedResponsable || loading} style={{
                 padding: '9px 20px', borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: 'pointer',
                 background: 'var(--abed-green)', color: 'white', border: 'none',
-                opacity: !selectedContrat || loading ? 0.6 : 1,
+                opacity: !selectedContrat || !selectedEvaluateur || !selectedResponsable || loading ? 0.6 : 1,
               }}>
                 {loading ? 'Déclenchement...' : 'Déclencher'}
               </button>

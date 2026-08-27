@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { estRH } from '@/lib/roles'
+import { estRH, estCAF } from '@/lib/roles'
 
 type Profile = { id: string; nom: string; prenoms: string; email: string; role?: string }
 type Contrat = { id: string; type_contrat: string; date_debut: string; date_fin: string | null; poste: string | null }
@@ -33,10 +33,12 @@ type Evaluation = {
   signature_responsable: string | null
   date_responsable: string | null
   decision_evaluateur: Record<string, string>
-  decision_rh: Record<string, string>
+  decision_caf: Record<string, string>
   decision_de: Record<string, string>
   profile: Profile | null
   evaluateur: Profile | null
+  responsable: Profile | null
+  responsable_id: string | null
   contrat: Contrat | null
   declenchee_le: string
 }
@@ -112,12 +114,14 @@ const GRILLE: { cat: string; items: { key: string; label: string }[] }[] = [
 ]
 
 const EVALUATION_GENERALE_OPTIONS = [
-  'Excellent(e) — Dépasse largement les attentes',
-  'Très bien — Dépasse les attentes',
-  'Bien — Répond aux attentes',
-  'Assez bien — Répond partiellement aux attentes',
-  'Insuffisant(e) — Ne répond pas aux attentes',
+  'Parfaite maîtrise du poste',
+  'Bonne maîtrise du poste',
+  'Besoin d\'amélioration au poste',
+  'Difficultés d\'adaptation au poste',
+  'Insuffisance au poste',
 ]
+
+const DECISION_OPTIONS = ['Renouveler le contrat', 'Ne pas renouveler le contrat', 'Proposer une promotion']
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -163,25 +167,44 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole }: Props) 
   const [submitting, setSubmitting] = useState(false)
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
 
-  // Determine what this user can edit
-  const isEvaluateur = ev.evaluateur?.id === myId || estRH(myRole) || myRole === 'admin'
+  // Determine what this user can edit — le circuit implique 4 acteurs
+  // distincts : évaluateur (sections I-VI), évalué·e (VII), responsable de
+  // département assigné (VIII), puis 3 décideurs indépendants en section X
+  // (l'évaluateur peut être la même personne que le responsable — cas
+  // fréquent en pratique, les deux jeux de droits s'appliquent alors ensemble).
+  const isAdmin = myRole === 'admin'
+  const isEvaluateur = ev.evaluateur?.id === myId || isAdmin
   const isEvalue = ev.profile?.id === myId
-  const isRH = estRH(myRole) || ['admin', 'de', 'dp'].includes(myRole)
+  const isResponsable = (ev.responsable_id ?? ev.responsable?.id) === myId || isAdmin
 
   const canEditSec1to6 = ev.statut === 'en_attente' && isEvaluateur
   const canEditSec7 = ev.statut === 'evaluateur_complete' && isEvalue
-  const canEditSec8 = ev.statut === 'evalue_complete' && (isEvaluateur || isRH)
-  const canEditSec10 = ev.statut === 'responsable_complete' && isRH
-  const canEdit = canEditSec1to6 || canEditSec7 || canEditSec8 || canEditSec10
+  const canEditSec8 = ev.statut === 'evalue_complete' && isResponsable
+
+  // Section X — décision indépendante de trois personnes : l'évaluateur, la
+  // CAF, la Direction Exécutive. Chacune ne peut renseigner que sa propre
+  // décision, pas celle des deux autres.
+  const canEditDecEval = ev.statut === 'responsable_complete' && (ev.evaluateur?.id === myId || isAdmin)
+  const canEditDecCaf = ev.statut === 'responsable_complete' && (estCAF(myRole) || isAdmin)
+  const canEditDecDe = ev.statut === 'responsable_complete' && (['de', 'dp'].includes(myRole) || isAdmin)
+  const canEditSec10 = canEditDecEval || canEditDecCaf || canEditDecDe
+  // La clôture (bouton "Valider et soumettre" une fois les 3 décisions
+  // rendues) reste un geste RH/DE/admin, distinct du droit de remplir sa
+  // propre décision.
+  const canCloturer = ev.statut === 'responsable_complete' && (estRH(myRole) || ['admin', 'de', 'dp'].includes(myRole))
+  const canEdit = canEditSec1to6 || canEditSec7 || canEditSec8 || canEditSec10 || canCloturer
 
   // Form state — Section I
   const [poste, setPoste] = useState(ev.poste ?? '')
   const [direction, setDirection] = useState(ev.direction ?? '')
   const [supHier, setSupHier] = useState(ev.superieur_hierarchique ?? '')
   const [supFonc, setSupFonc] = useState(ev.superieur_fonctionnel ?? '')
-  const [respDept, setRespDept] = useState(ev.responsable_departement ?? '')
-  const [nomEval, setNomEval] = useState(ev.nom_evaluateur ?? '')
   const [descTaches, setDescTaches] = useState(ev.description_taches ?? '')
+  // Responsable de département et évaluateur sont désormais assignés par la
+  // RH au déclenchement (pas retapés ici) — affichage seul, depuis les
+  // profils liés par ev.responsable_id / ev.evaluateur.id.
+  const nomResponsableAffiche = ev.responsable ? `${ev.responsable.prenoms} ${ev.responsable.nom}` : (ev.responsable_departement ?? '—')
+  const nomEvaluateurAffiche = ev.evaluateur ? `${ev.evaluateur.prenoms} ${ev.evaluateur.nom}` : (ev.nom_evaluateur ?? '—')
 
   // Section II — grille
   const [notes, setNotes] = useState<Record<string, number>>(ev.grille_notes ?? {})
@@ -212,9 +235,9 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole }: Props) 
   const [sigResp, setSigResp] = useState(ev.signature_responsable ?? '')
   const [dateResp, setDateResp] = useState(ev.date_responsable ?? '')
 
-  // Section X
+  // Section X — chaque décideur ne renseigne que sa propre décision
   const [decEval, setDecEval] = useState<Record<string, string>>(ev.decision_evaluateur ?? {})
-  const [decRH, setDecRH] = useState<Record<string, string>>(ev.decision_rh ?? {})
+  const [decCaf, setDecCaf] = useState<Record<string, string>>(ev.decision_caf ?? {})
   const [decDE, setDecDE] = useState<Record<string, string>>(ev.decision_de ?? {})
 
   function buildPayload(soumettre = false) {
@@ -224,8 +247,6 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole }: Props) 
         poste, direction,
         superieur_hierarchique: supHier,
         superieur_fonctionnel: supFonc,
-        responsable_departement: respDept,
-        nom_evaluateur: nomEval,
         description_taches: descTaches,
         grille_notes: notes,
         qualites, points_amelioration: pointsAmel,
@@ -251,13 +272,9 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole }: Props) 
         date_responsable: dateResp || null,
       })
     }
-    if (canEditSec10) {
-      Object.assign(base, {
-        decision_evaluateur: decEval,
-        decision_rh: decRH,
-        decision_de: decDE,
-      })
-    }
+    if (canEditDecEval) base.decision_evaluateur = decEval
+    if (canEditDecCaf) base.decision_caf = decCaf
+    if (canEditDecDe) base.decision_de = decDE
     return base
   }
 
@@ -300,6 +317,16 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole }: Props) 
 
   const statutColor = ev.statut === 'cloture' ? '#166534' : ev.statut === 'en_attente' ? '#92400e' : '#1e40af'
   const statutBg = ev.statut === 'cloture' ? '#f0fdf4' : ev.statut === 'en_attente' ? '#fffbeb' : '#eff6ff'
+
+  // En section X, seul un rôle habilité à clôturer (RH/DE/admin) ferme le
+  // dossier — les 3 décideurs qui ne renseignent que leur propre décision
+  // voient un libellé qui ne laisse pas croire qu'ils clôturent le dossier.
+  const troisDecisionsRendues = !!(decEval.decision && decCaf.decision && decDE.decision)
+  const submitLabel = canEditSec10 && !canCloturer
+    ? '✅ Enregistrer ma décision'
+    : canCloturer && ev.statut === 'responsable_complete'
+      ? (troisDecisionsRendues ? '✅ Clôturer le dossier' : '⏳ En attente des 3 décisions')
+      : '✅ Valider et soumettre'
 
   return (
     <div>
@@ -345,10 +372,10 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole }: Props) 
             <input value={supFonc} onChange={e => setSupFonc(e.target.value)} readOnly={!canEditSec1to6} style={canEditSec1to6 ? inputStyle : readonlyStyle} />
           </Field>
           <Field label="Responsable département">
-            <input value={respDept} onChange={e => setRespDept(e.target.value)} readOnly={!canEditSec1to6} style={canEditSec1to6 ? inputStyle : readonlyStyle} />
+            <input value={nomResponsableAffiche} readOnly style={readonlyStyle} title="Assigné par la RH au déclenchement de l'évaluation" />
           </Field>
           <Field label="Nom de l'évaluateur">
-            <input value={nomEval} onChange={e => setNomEval(e.target.value)} readOnly={!canEditSec1to6} style={canEditSec1to6 ? inputStyle : readonlyStyle} />
+            <input value={nomEvaluateurAffiche} readOnly style={readonlyStyle} title="Assigné par la RH au déclenchement de l'évaluation" />
           </Field>
           <Field label="Type de contrat">
             <input value={ev.contrat?.type_contrat ?? ''} readOnly style={readonlyStyle} />
@@ -539,15 +566,27 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole }: Props) 
           </p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+            <p style={{ fontSize: 12.5, color: 'var(--abed-muted)', margin: 0 }}>
+              Trois décisions indépendantes sont requises avant de pouvoir clôturer le dossier. Chaque personne ne peut renseigner que sa propre décision.
+            </p>
             {[
-              { label: 'Décision de l\'évaluateur', key: 'eval', state: decEval, setter: setDecEval, editable: canEditSec10 },
-              { label: 'Décision des Ressources Humaines', key: 'rh', state: decRH, setter: setDecRH, editable: canEditSec10 },
-              { label: 'Décision de la Direction Exécutive (DE)', key: 'de', state: decDE, setter: setDecDE, editable: canEditSec10 },
+              { label: 'Décision de l\'évaluateur', key: 'eval', state: decEval, setter: setDecEval, editable: canEditDecEval },
+              { label: 'Décision de la CAF', key: 'caf', state: decCaf, setter: setDecCaf, editable: canEditDecCaf },
+              { label: 'Décision de la Direction Exécutive (DE)', key: 'de', state: decDE, setter: setDecDE, editable: canEditDecDe },
             ].map(({ label, key, state, setter, editable }) => (
               <div key={key}>
-                <div style={{ fontWeight: 600, fontSize: 14, color: '#374151', marginBottom: 8 }}>{label}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <span style={{ fontWeight: 600, fontSize: 14, color: '#374151' }}>{label}</span>
+                  <span style={{
+                    fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
+                    background: state.decision ? '#f0fdf4' : '#f3f4f6',
+                    color: state.decision ? '#166534' : '#9ca3af',
+                  }}>
+                    {state.decision ? '✓ Rendue' : 'En attente'}
+                  </span>
+                </div>
                 <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-                  {['Renouveler le contrat', 'Ne pas renouveler le contrat', 'Proposer une promotion'].map(opt => (
+                  {DECISION_OPTIONS.map(opt => (
                     <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, cursor: editable ? 'pointer' : 'default' }}>
                       <input
                         type="radio"
@@ -591,7 +630,7 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole }: Props) 
               cursor: 'pointer', opacity: submitting ? 0.7 : 1,
             }}
           >
-            {submitting ? 'Soumission...' : '✅ Valider et soumettre'}
+            {submitting ? 'Soumission...' : submitLabel}
           </button>
         </div>
       )}

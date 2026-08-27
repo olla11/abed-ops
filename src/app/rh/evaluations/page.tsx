@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
-import { getCachedProfile, getCachedEvaluations } from '@/lib/cache'
+import { getCachedProfile, getCachedEvaluations, getCachedPersonnel } from '@/lib/cache'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { unstable_cache } from 'next/cache'
 import { estRH } from '@/lib/roles'
@@ -17,9 +17,11 @@ const getContratsActifs = unstable_cache(
     // Un contrat peut faire partie d'une chaîne (Offre → Convention/Contrat →
     // Avenant) — seule la racine (sans contrat_parent_id) est un engagement
     // distinct à évaluer, sinon une personne apparaît plusieurs fois.
+    // manager_id sert à préremplir l'évaluateur proposé dans le formulaire
+    // de déclenchement (la RH garde la main pour le changer).
     const { data } = await service
       .from('contrats')
-      .select('id, type_contrat, date_fin, poste, profile:profiles!profile_id(id, nom, prenoms)')
+      .select('id, type_contrat, date_fin, poste, profile:profiles!profile_id(id, nom, prenoms, manager_id)')
       .eq('statut', 'actif')
       .is('contrat_parent_id', null)
       .not('date_fin', 'is', null)
@@ -38,15 +40,17 @@ export default async function EvaluationsRHPage() {
   const me = await getCachedProfile(user.id)
   if (!(estRH(me?.role) || me?.role === 'admin')) redirect('/rh/conges')
 
-  const [evaluations, contratsActifs] = await Promise.all([
+  const [evaluations, contratsActifs, personnel] = await Promise.all([
     getCachedEvaluations(),
     getContratsActifs(),
+    getCachedPersonnel(),
   ])
 
   return (
     <EvaluationsRHClient
       evaluations={evaluations as any[]}
       contratsActifs={contratsActifs as any[]}
+      personnel={(personnel ?? []).map((p: any) => ({ id: p.id, nom: p.nom, prenoms: p.prenoms }))}
     />
   )
 }

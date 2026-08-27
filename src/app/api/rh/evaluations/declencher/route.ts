@@ -25,7 +25,10 @@ export async function POST(req: NextRequest) {
   )
 
   const body = await req.json().catch(() => ({}))
-  const { contrat_id } = body
+  // evaluateur_id / responsable_id : choisis par la RH au moment du
+  // déclenchement manuel (un seul contrat) — ignorés pour le déclenchement
+  // automatique en masse, qui retombe sur le manager du profil.
+  const { contrat_id, evaluateur_id: evaluateurChoisi, responsable_id: responsableChoisi } = body
 
   let contratsATraiter: { id: string; profile_id: string; type_contrat: string; date_debut: string; date_fin: string; poste: string | null }[] = []
 
@@ -84,13 +87,28 @@ export async function POST(req: NextRequest) {
     const fin = contrat.date_fin ? new Date(contrat.date_fin) : new Date()
     const dureeJours = Math.round((fin.getTime() - debut.getTime()) / (1000 * 60 * 60 * 24))
 
-    // Trouver l'évaluateur (manager)
-    let evaluateur_id: string | null = profile.manager_id ?? null
+    // Évaluateur : celui choisi par la RH au déclenchement manuel, sinon le
+    // manager renseigné sur le profil (déclenchement automatique en masse).
+    let evaluateur_id: string | null = (contrat_id ? evaluateurChoisi : null) ?? profile.manager_id ?? null
     let nomEvaluateur = ''
 
     if (evaluateur_id) {
       const { data: mgr } = await service.from('profiles').select('nom, prenoms').eq('id', evaluateur_id).single()
       if (mgr) nomEvaluateur = `${mgr.prenoms ?? ''} ${mgr.nom ?? ''}`.trim()
+    }
+
+    // Responsable de département : choisi par la RH au déclenchement manuel
+    // (peut être la même personne que l'évaluateur — assez courant en
+    // pratique), sinon on retombe aussi sur le manager pour le mode automatique.
+    const responsable_id: string | null = (contrat_id ? responsableChoisi : null) ?? profile.manager_id ?? null
+    let nomResponsable = ''
+    if (responsable_id) {
+      if (responsable_id === evaluateur_id) {
+        nomResponsable = nomEvaluateur
+      } else {
+        const { data: resp } = await service.from('profiles').select('nom, prenoms').eq('id', responsable_id).single()
+        if (resp) nomResponsable = `${resp.prenoms ?? ''} ${resp.nom ?? ''}`.trim()
+      }
     }
 
     const { data: eval_, error: errEval } = await service
@@ -99,9 +117,11 @@ export async function POST(req: NextRequest) {
         contrat_id: contrat.id,
         profile_id: contrat.profile_id,
         evaluateur_id,
+        responsable_id,
         poste: contrat.poste,
         direction: (profile as any).direction ?? null,
         nom_evaluateur: nomEvaluateur || null,
+        responsable_departement: nomResponsable || null,
         statut: 'en_attente',
       })
       .select('id')

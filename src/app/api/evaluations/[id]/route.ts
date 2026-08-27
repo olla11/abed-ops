@@ -31,6 +31,7 @@ export async function GET(_req: NextRequest, ctx: RouteContext) {
       *,
       profile:profiles!profile_id(id, nom, prenoms, email, role),
       evaluateur:profiles!evaluateur_id(id, nom, prenoms, email),
+      responsable:profiles!responsable_id(id, nom, prenoms, email),
       contrat:contrats(id, type_contrat, date_debut, date_fin, poste, statut)
     `)
     .eq('id', id)
@@ -43,6 +44,7 @@ export async function GET(_req: NextRequest, ctx: RouteContext) {
   const canAccess =
     ev.profile_id === user.id ||
     ev.evaluateur_id === user.id ||
+    ev.responsable_id === user.id ||
     estRH(me?.role) || ['admin', 'de', 'dp'].includes(me?.role ?? '')
 
   if (!canAccess) return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
@@ -91,24 +93,47 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
   let notifLien = `/evaluations/${id}`
   const nomEmploye = `${(ev.profile as any)?.prenoms ?? ''} ${(ev.profile as any)?.nom ?? ''}`.trim()
 
+  // Section X (décisions finales) implique trois personnes distinctes —
+  // évaluateur, CAF, Direction Exécutive — la clôture n'est autorisée que
+  // lorsque les trois ont effectivement rendu leur décision.
+  const decisionsCompletes = (obj: unknown) => !!(obj && typeof obj === 'object' && (obj as Record<string, unknown>).decision)
+  const decEvalFinal = (fields.decision_evaluateur ?? ev.decision_evaluateur) as unknown
+  const decCafFinal = (fields.decision_caf ?? ev.decision_caf) as unknown
+  const decDeFinal = (fields.decision_de ?? ev.decision_de) as unknown
+  const troisDecisionsPresentes = decisionsCompletes(decEvalFinal) && decisionsCompletes(decCafFinal) && decisionsCompletes(decDeFinal)
+
+  let notifsMultiples: { userId: string; titre: string; message: string }[] = []
+
   if (soumettre) {
-    if (ev.statut === 'en_attente' && (ev.evaluateur_id === user.id || estRH(myRole) || myRole === 'admin')) {
+    if (ev.statut === 'en_attente' && (ev.evaluateur_id === user.id || myRole === 'admin')) {
       newStatut = 'evaluateur_complete'
       notifUserId = ev.profile_id
       notifTitre = 'Évaluation à commenter'
       notifMessage = `Votre évaluateur a complété votre fiche d'évaluation. Veuillez y ajouter vos commentaires.`
     } else if (ev.statut === 'evaluateur_complete' && ev.profile_id === user.id) {
       newStatut = 'evalue_complete'
-      // Notifier le responsable/RH
-      notifUserId = ev.evaluateur_id
+      // Notifier le responsable de département désigné à l'ouverture de l'évaluation
+      notifUserId = ev.responsable_id
       notifTitre = 'Évaluation — commentaires de l\'évalué(e)'
-      notifMessage = `${nomEmploye} a ajouté ses commentaires sur sa fiche d'évaluation.`
-    } else if (ev.statut === 'evalue_complete' && (ev.evaluateur_id === user.id || (estRH(myRole) || ['admin', 'de', 'dp'].includes(myRole)))) {
+      notifMessage = `${nomEmploye} a ajouté ses commentaires sur sa fiche d'évaluation. Votre avis de responsable est requis.`
+    } else if (ev.statut === 'evalue_complete' && (ev.responsable_id === user.id || myRole === 'admin')) {
       newStatut = 'responsable_complete'
-      // Notifier RH/admin
-      notifTitre = 'Évaluation — avis responsable complété'
-      notifMessage = `Le responsable a émis son avis sur l'évaluation de ${nomEmploye}. Décision requise.`
-    } else if (ev.statut === 'responsable_complete' && (estRH(myRole) || ['admin', 'de', 'dp'].includes(myRole))) {
+      // Décision requise de trois personnes distinctes : l'évaluateur, la CAF, la Direction Exécutive
+      const { data: decideurs } = await service.from('profiles').select('id, email, prenoms, nom, role').in('role', ['caf', 'de', 'dp'])
+      const cible = new Set<string>()
+      if (ev.evaluateur_id) cible.add(ev.evaluateur_id)
+      for (const d of decideurs ?? []) cible.add(d.id)
+      for (const uid of cible) {
+        notifsMultiples.push({
+          userId: uid,
+          titre: 'Évaluation — décision requise',
+          message: `Le responsable a émis son avis sur l'évaluation de ${nomEmploye}. Votre décision (renouvellement, durée...) est requise en Section X.`,
+        })
+      }
+    } else if (ev.statut === 'responsable_complete' && (myRole === 'admin' || estRH(myRole) || ['de', 'dp'].includes(myRole))) {
+      if (!troisDecisionsPresentes) {
+        return NextResponse.json({ error: "Les trois décisions (évaluateur, CAF, Direction Exécutive) doivent être renseignées avant de clôturer." }, { status: 400 })
+      }
       newStatut = 'cloture'
       notifUserId = ev.profile_id
       notifTitre = 'Évaluation clôturée'
@@ -135,6 +160,9 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
       message: notifMessage,
       lien: notifLien,
     })
+  }
+  for (const n of notifsMultiples) {
+    await service.from('notifications').insert({ user_id: n.userId, titre: n.titre, message: n.message, lien: notifLien })
   }
 
   // Emails selon la transition
@@ -168,28 +196,35 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
         }).catch(() => {})
       }
     } else if (newStatut === 'evalue_complete') {
-      const { data: evaluateur } = await service.from('profiles').select('email, prenoms, nom').eq('id', ev.evaluateur_id).single()
-      if (evaluateur?.email) {
+      const { data: responsable } = await service.from('profiles').select('email, prenoms, nom').eq('id', ev.responsable_id).single()
+      if (responsable?.email) {
         await sendEmail({
-          to: evaluateur.email,
+          to: responsable.email,
           subject: `${nomEmploye} a commenté son évaluation`,
-          html: emailBlock(`${evaluateur.prenoms} ${evaluateur.nom}`,
+          html: emailBlock(`${responsable.prenoms} ${responsable.nom}`,
             "Commentaires de l'évalué(e)",
             `<strong>${nomEmploye}</strong> a ajouté ses commentaires sur sa fiche d'évaluation. Votre avis de responsable est maintenant requis.`),
         }).catch(() => {})
       }
     } else if (newStatut === 'responsable_complete') {
-      const { data: rhUsers } = await service.from('profiles').select('email, prenoms, nom').in('role', ['rh', 'admin', 'caf'])
-      for (const rh of rhUsers ?? []) {
-        if (rh.email) {
-          await sendEmail({
-            to: rh.email,
-            subject: `Évaluation ${nomEmploye} — décision finale requise`,
-            html: emailBlock(`${rh.prenoms} ${rh.nom}`,
-              'Décision finale requise',
-              `L'évaluation de <strong>${nomEmploye}</strong> a été complétée par toutes les parties. Votre décision finale (RH/DE) est requise pour clôturer le dossier.`),
-          }).catch(() => {})
-        }
+      // Décision requise de trois personnes distinctes : évaluateur, CAF, Direction Exécutive
+      const { data: decideurs } = await service.from('profiles').select('id, email, prenoms, nom, role').in('role', ['caf', 'de', 'dp'])
+      const destinataires = new Map<string, { email: string; prenoms: string; nom: string }>()
+      for (const d of decideurs ?? []) {
+        if (d.email) destinataires.set(d.id, { email: d.email, prenoms: d.prenoms, nom: d.nom })
+      }
+      if (ev.evaluateur_id && !destinataires.has(ev.evaluateur_id)) {
+        const { data: evaluateur } = await service.from('profiles').select('email, prenoms, nom').eq('id', ev.evaluateur_id).single()
+        if (evaluateur?.email) destinataires.set(ev.evaluateur_id, evaluateur)
+      }
+      for (const dest of destinataires.values()) {
+        await sendEmail({
+          to: dest.email,
+          subject: `Évaluation ${nomEmploye} — décision requise`,
+          html: emailBlock(`${dest.prenoms} ${dest.nom}`,
+            'Décision requise',
+            `L'évaluation de <strong>${nomEmploye}</strong> a été complétée par l'évaluateur, l'évalué(e) et le responsable. Votre décision (Section X) est requise pour permettre la clôture du dossier.`),
+        }).catch(() => {})
       }
     } else if (newStatut === 'cloture') {
       const { data: employe } = await service.from('profiles').select('email, prenoms, nom').eq('id', ev.profile_id).single()

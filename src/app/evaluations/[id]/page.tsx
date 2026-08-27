@@ -27,6 +27,7 @@ export default async function EvaluationPage({ params }: { params: Promise<{ id:
       *,
       profile:profiles!profile_id(id, nom, prenoms, email, role),
       evaluateur:profiles!evaluateur_id(id, nom, prenoms, email),
+      responsable:profiles!responsable_id(id, nom, prenoms, email),
       contrat:contrats(id, type_contrat, date_debut, date_fin, poste)
     `)
     .eq('id', id)
@@ -38,6 +39,7 @@ export default async function EvaluationPage({ params }: { params: Promise<{ id:
   const canAccess =
     ev.profile_id === user.id ||
     ev.evaluateur_id === user.id ||
+    ev.responsable_id === user.id ||
     estRH(role) || ['admin', 'de', 'dp'].includes(role)
 
   if (!canAccess) redirect('/evaluations')

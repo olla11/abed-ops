@@ -21,30 +21,46 @@ type Evaluation = {
   score_moyen: number | null
   profile_id: string
   evaluateur_id: string
+  responsable_id: string | null
   profile: { nom: string; prenoms: string } | null
   contrat: { type_contrat: string; date_fin: string | null; poste: string | null } | null
 }
 
-function monRole(e: Evaluation, myId: string): 'evaluateur' | 'evalue' | null {
-  if (e.evaluateur_id === myId) return 'evaluateur'
-  if (e.profile_id === myId) return 'evalue'
-  return null
+type MonRole = 'evaluateur' | 'evalue' | 'responsable' | null
+
+// Une même personne peut cumuler plusieurs rôles sur une évaluation (p. ex.
+// évaluateur et responsable de département) — on retient celui qui exige
+// une action de sa part en priorité, à défaut le premier rôle détenu.
+function monRole(e: Evaluation, myId: string): MonRole {
+  const roles: MonRole[] = []
+  if (e.evaluateur_id === myId) roles.push('evaluateur')
+  if (e.responsable_id === myId) roles.push('responsable')
+  if (e.profile_id === myId) roles.push('evalue')
+  const enAttente = roles.find(r => actionRequise(e, r))
+  return enAttente ?? roles[0] ?? null
 }
 
 // Action requise de ma part, selon mon rôle sur cette évaluation et son
-// étape actuelle dans le circuit évaluateur → évalué → responsable.
-function actionRequise(e: Evaluation, role: 'evaluateur' | 'evalue' | null): boolean {
+// étape actuelle dans le circuit évaluateur → évalué → responsable → décideurs.
+function actionRequise(e: Evaluation, role: MonRole): boolean {
   if (role === 'evaluateur') return e.statut === 'en_attente'
   if (role === 'evalue') return e.statut === 'evaluateur_complete'
+  if (role === 'responsable') return e.statut === 'evalue_complete'
   return false
 }
 
 function EvalCard({ e, myId, urgent }: { e: Evaluation; myId: string; urgent?: boolean }) {
   const s = STATUTS[e.statut] ?? { label: e.statut, color: '#6b7280', bg: '#f3f4f6' }
   const role = monRole(e, myId)
-  const titre = role === 'evaluateur'
+  const titre = role === 'evaluateur' || role === 'responsable'
     ? `${e.profile?.prenoms ?? ''} ${e.profile?.nom ?? ''}`.trim() || 'Personnel'
     : (e.contrat?.poste ?? 'Poste N/A')
+  const ROLE_BADGE: Record<string, { label: string; bg: string; color: string }> = {
+    evaluateur: { label: 'Vous êtes l’évaluateur', bg: '#ede9fe', color: '#6d28d9' },
+    responsable: { label: 'Vous êtes le/la responsable', bg: '#fef3c7', color: '#92400e' },
+    evalue: { label: 'Votre évaluation', bg: '#dbeafe', color: '#1e40af' },
+  }
+  const roleBadge = ROLE_BADGE[role ?? 'evalue'] ?? ROLE_BADGE.evalue
 
   return (
     <Link href={`/evaluations/${e.id}`} style={{
@@ -64,14 +80,13 @@ function EvalCard({ e, myId, urgent }: { e: Evaluation; myId: string; urgent?: b
           <span style={{
             fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.03em',
             padding: '2px 8px', borderRadius: 20,
-            background: role === 'evaluateur' ? '#ede9fe' : '#dbeafe',
-            color: role === 'evaluateur' ? '#6d28d9' : '#1e40af',
+            background: roleBadge.bg, color: roleBadge.color,
           }}>
-            {role === 'evaluateur' ? 'Vous êtes l’évaluateur' : 'Votre évaluation'}
+            {roleBadge.label}
           </span>
         </div>
         <div style={{ fontSize: 13, color: 'var(--abed-muted)', marginTop: 5 }}>
-          {e.contrat?.type_contrat ?? ''}{e.contrat?.poste && role === 'evaluateur' ? ` — ${e.contrat.poste}` : ''}
+          {e.contrat?.type_contrat ?? ''}{e.contrat?.poste && (role === 'evaluateur' || role === 'responsable') ? ` — ${e.contrat.poste}` : ''}
           {e.contrat?.date_fin && <> · Fin de contrat : {e.contrat.date_fin}</>}
           {e.declenchee_le && <> · Déclenchée le {new Date(e.declenchee_le).toLocaleDateString('fr-FR')}</>}
         </div>

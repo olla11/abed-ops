@@ -32,15 +32,16 @@ export default async function MesEvaluationsPage() {
     .eq('id', user.id)
     .single()
 
-  // Évaluations où l'utilisateur est l'évalué ou l'évaluateur
+  // Évaluations où l'utilisateur est l'évalué, l'évaluateur, ou le
+  // responsable de département assigné (Section VIII).
   const { data: evaluations } = await service
     .from('evaluations')
     .select(`
-      id, statut, declenchee_le, score_moyen, profile_id, evaluateur_id,
+      id, statut, declenchee_le, score_moyen, profile_id, evaluateur_id, responsable_id,
       profile:profiles!profile_id(nom, prenoms),
       contrat:contrats(type_contrat, date_fin, poste)
     `)
-    .or(`profile_id.eq.${user.id},evaluateur_id.eq.${user.id}`)
+    .or(`profile_id.eq.${user.id},evaluateur_id.eq.${user.id},responsable_id.eq.${user.id}`)
     .order('declenchee_le', { ascending: false })
 
   const showRH = estRH(profile?.role)
