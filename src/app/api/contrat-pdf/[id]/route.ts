@@ -167,6 +167,7 @@ export async function GET(
     observations: contrat.observations,
     salaireBrut: contrat.salaire_brut,
     representantEmployeur,
+    representantCivilite: repProfile?.civilite ?? null,
     sigLeft,
     sigRight,
     repNom,

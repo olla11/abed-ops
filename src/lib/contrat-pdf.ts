@@ -11,9 +11,10 @@ import chromium from '@sparticuz/chromium'
 // Coordonnées officielles ABED-ONG (celles de l'entête) — utilisées aussi
 // dans « Entre les soussignés » : c'est l'organisation qui est partie au
 // contrat, pas le téléphone/l'adresse personnelle du représentant qui signe.
-export const ORG_TEL = '+229 01 97 95 60 50'
+// Alignées sur celles déjà utilisées sur les ordres de mission (src/app/api/om-pdf/route.ts).
+export const ORG_TEL = '+229 01 67 77 91 41'
 export const ORG_EMAIL = 'contact@abedong.org'
-export const ORG_ADRESSE = 'Parakou, Wanssirou, derrière le lycée MB'
+export const ORG_ADRESSE = 'Parakou, Quartier Zongo, Bénin'
 
 export interface ContratPdfArticle {
   titre: string
@@ -41,6 +42,7 @@ export interface ContratPdfData {
   observations: string | null
   salaireBrut: number | null
   representantEmployeur: string
+  representantCivilite: string | null
   sigLeft: string
   sigRight: string
   repNom: string
@@ -108,12 +110,12 @@ function letterheadHtml(): string {
         <div class="letterhead-title">Agriculture pour le Bien Etre et le Développement Durable (ABED-ONG)</div>
         <div class="letterhead-reg">N° 2019-4/0008 /PDB/SG/SAG du 16 Janvier 2019 ; J.OFF du 15 Juin 2022</div>
         <div class="letterhead-contact-row">
-          <span class="lh-item">${ICON_PHONE} +229 01 97 95 60 50</span>
-          <span class="lh-item">${ICON_MAIL} contact@abedong.org</span>
+          <span class="lh-item">${ICON_PHONE} ${ORG_TEL}</span>
+          <span class="lh-item">${ICON_MAIL} ${ORG_EMAIL}</span>
         </div>
         <div class="letterhead-contact-row">
           <span class="lh-item">${ICON_GLOBE} abedong.org</span>
-          <span class="lh-item">${ICON_PIN} Parakou, Wanssirou, derrière le lycée MB</span>
+          <span class="lh-item">${ICON_PIN} ${ORG_ADRESSE}</span>
         </div>
       </div>
     </div>
@@ -181,15 +183,14 @@ export function construireContratHtml(d: ContratPdfData): string {
 
   <p class="lettre-corps">${p.civilite ?? ''}, ${p.prenoms ?? ''} ${p.nom ?? ''},</p>
 
+  ${d.objet ? `<p class="lettre-corps">${d.objet.replace(/\n/g, '<br/>')}</p>` : `
   <p class="lettre-corps">
     En référence à votre candidature au poste de stagiaire ${d.poste ?? ''}, et pour donner suite à l'entretien,
     nous avons le plaisir de vous informer que vous êtes retenu${accordE(p.civilite)} pour effectuer un stage
     professionnel au sein de notre organisation, à compter du ${d.dateDebut}.
-  </p>
+  </p>`}
 
   ${d.direction ? `<p class="lettre-corps">Vous effectuerez ce stage au sein de notre ${d.direction}.</p>` : ''}
-
-  ${d.objet ? `<p class="lettre-corps">${d.objet.replace(/\n/g, '<br/>')}</p>` : ''}
 
   ${d.salaireBrut ? `<p class="lettre-corps">Une allocation mensuelle de ${Number(d.salaireBrut).toLocaleString('fr-FR')} FCFA vous sera versée durant cette période.</p>` : ''}
 
@@ -207,7 +208,7 @@ export function construireContratHtml(d: ContratPdfData): string {
 
   <div class="sig-block">
     ${sigBlockHtml(`Pour ${p.civilite === 'Mme' ? 'la' : 'le'} stagiaire`, d.employeSigneLe ? formatSignatureDisplayName(p.prenoms, p.nom) : null, employeNomReel, d.employeSigneLe)}
-    ${sigBlockHtml(titreDirecteur(null), d.signataireNom, d.signataireNomReel, d.signataireSigneLe, d.repCachetUrl ? `<img src="${d.repCachetUrl}" alt="Cachet ABED" style="height:70px;margin-top:8px;" />` : '')}
+    ${sigBlockHtml(titreDirecteur(d.representantCivilite), d.signataireNom, d.signataireNomReel, d.signataireSigneLe, d.repCachetUrl ? `<img src="${d.repCachetUrl}" alt="Cachet ABED" style="height:70px;margin-top:8px;" />` : '')}
   </div>
   ` : `
   <div class="doc-title">
