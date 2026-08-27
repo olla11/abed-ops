@@ -3,6 +3,7 @@ import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { sendEmail } from '@/lib/resend'
 import { revalidateTag } from 'next/cache'
 import { estRH } from '@/lib/roles'
+import { signContratExterneToken } from '@/lib/contrat-externe-token'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://myabed.app'
 
@@ -187,6 +188,47 @@ export async function POST(
 
     revalidateTag('contrats')
     return NextResponse.json({ ok: true, workflow_statut: 'envoye_employe' })
+  }
+
+  // ── Renvoyer le lien externe (destinataire sans compte My ABED) ──
+  if (action === 'renvoyer_lien_externe') {
+    if (contrat.profile_id || !contrat.destinataire_email) {
+      return NextResponse.json({ error: 'Ce document n\'attend pas de destinataire externe.' }, { status: 400 })
+    }
+    const now = new Date()
+    const expireLe = new Date(now.getTime() + 72 * 60 * 60 * 1000)
+    await admin.from('contrats').update({
+      lien_externe_genere_le: now.toISOString(),
+      lien_externe_expire_le: expireLe.toISOString(),
+    }).eq('id', id)
+
+    const lienToken = signContratExterneToken(id, contrat.destinataire_email)
+    const lien = `${APP_URL}/contrats/externe?t=${lienToken}`
+    try {
+      await sendEmail({
+        to: contrat.destinataire_email,
+        subject: `[ABED ONG] Votre ${(contrat.categorie_document ?? 'document').toLowerCase()} — ${ref}`,
+        html: `
+<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;">
+  <div style="background:#064e3b;color:white;padding:20px 28px;border-radius:8px 8px 0 0;">
+    <h1 style="margin:0;font-size:19px;">ABED ONG — ${contrat.categorie_document ?? 'Document'} à consulter</h1>
+  </div>
+  <div style="background:#f9fafb;padding:24px 28px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
+    <p style="font-size:14px;color:#374151;">Un nouveau lien vous permet de consulter, signer ou commenter votre document (réf. <strong>${ref}</strong>).</p>
+    <a href="${lien}" style="display:inline-block;background:#064e3b;color:white;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">
+      Consulter le document →
+    </a>
+    <p style="font-size:12px;color:#9ca3af;margin-top:20px;">Ce lien est personnel et expire dans 72 heures. ABED-ONG · my.abedong.org</p>
+  </div>
+</div>`,
+      })
+    } catch (e) {
+      console.error('[contrat action] email lien externe:', e)
+      return NextResponse.json({ error: 'Échec de l\'envoi de l\'email.' }, { status: 500 })
+    }
+
+    revalidateTag('contrats')
+    return NextResponse.json({ ok: true, lien_externe_expire_le: expireLe.toISOString() })
   }
 
   return NextResponse.json({ error: 'Action inconnue' }, { status: 400 })

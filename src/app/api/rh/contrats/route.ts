@@ -3,6 +3,19 @@ import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { revalidateTag } from 'next/cache'
 import { sendEmail } from '@/lib/resend'
 import { estRH } from '@/lib/roles'
+import { signContratExterneToken } from '@/lib/contrat-externe-token'
+
+// Catégories pour lesquelles le destinataire peut ne pas encore avoir de
+// compte My ABED (l'offre/la convention précède souvent son intégration) —
+// un CDD/CDI ou un Avenant suppose au contraire une personne déjà en place.
+function categorieAutoriseDestinataireExterne(categorie: string, typeContrat: string): boolean {
+  // "Offre de stage" suit un circuit à part (le DE signe en premier, avant
+  // même que le/la stagiaire ne soit notifié·e) — pas encore câblé avec un
+  // destinataire externe, donc exclu ici pour ne pas casser ce circuit.
+  if (categorie === 'Offre') return true
+  if (categorie === 'Convention' && ['Bourse de formation', 'Consultant'].includes(typeContrat)) return true
+  return false
+}
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://myabed.app'
 
@@ -37,14 +50,28 @@ export async function POST(req: NextRequest) {
     profile_id, type_contrat, date_debut, poste, direction, date_fin,
     salaire_brut, observations, categorie_document, contrat_parent_id,
     objet, articles, commentaires_rh, source_financement, template_id,
+    destinataire_email,
   } = body
-
-  if (!profile_id || !type_contrat || !date_debut) {
-    return NextResponse.json({ error: 'Employé, type et date de début sont obligatoires.' }, { status: 400 })
-  }
 
   const categorie = categorie_document || 'Contrat'
   const isOffreStage = categorie === 'Offre de stage'
+  const emailDestinataire = (destinataire_email ?? '').trim().toLowerCase() || null
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+  if (!type_contrat || !date_debut) {
+    return NextResponse.json({ error: 'Type et date de début sont obligatoires.' }, { status: 400 })
+  }
+  if (!profile_id && !emailDestinataire) {
+    return NextResponse.json({ error: 'Employé (ou email du destinataire) est obligatoire.' }, { status: 400 })
+  }
+  if (emailDestinataire) {
+    if (!EMAIL_RE.test(emailDestinataire)) {
+      return NextResponse.json({ error: 'Adresse email du destinataire invalide.' }, { status: 400 })
+    }
+    if (!categorieAutoriseDestinataireExterne(categorie, type_contrat)) {
+      return NextResponse.json({ error: "Un destinataire sans compte n'est possible que pour une Offre ou une Convention de bourse/consultant." }, { status: 400 })
+    }
+  }
 
   const service = createAdminClient()
 
@@ -69,7 +96,9 @@ export async function POST(req: NextRequest) {
 
   // Insert the contract
   const { data: contrat, error: insertError } = await service.from('contrats').insert({
-    profile_id, type_contrat, date_debut,
+    profile_id: profile_id || null,
+    destinataire_email: emailDestinataire,
+    type_contrat, date_debut,
     poste: poste || null,
     direction: direction || null,
     date_fin: date_fin || null,
@@ -112,9 +141,11 @@ export async function POST(req: NextRequest) {
 
   // Determine signatory based on employee role.
   // Offre de stage : toujours le DE (il signe en premier, avant le stagiaire).
+  // Destinataire externe (sans compte) : toujours le DE aussi — on ne peut
+  // pas savoir si cette personne occupera un jour un rôle de direction.
   let signataireProfile: { id: string; nom: string; prenoms: string; email?: string | null } | null = null
-  if (profile) {
-    const signatoryRole = isOffreStage ? 'de' : (['de', 'dp'].includes(profile.role) ? 'administrateur' : 'de')
+  if (profile || emailDestinataire) {
+    const signatoryRole = (profile && !isOffreStage && ['de', 'dp'].includes(profile.role)) ? 'administrateur' : 'de'
     const { data: signatories } = await service
       .from('profiles')
       .select('id, nom, prenoms, email')
@@ -185,6 +216,51 @@ export async function POST(req: NextRequest) {
           console.error('[POST /api/rh/contrats] Email DE error:', emailErr)
         }
       }
+    }
+  } else if (emailDestinataire) {
+    // Destinataire sans compte My ABED : pas de notification in-app possible
+    // — on envoie un lien signé (72h) donnant accès au document sans
+    // authentification. Si la personne rejoint ABED plus tard avec la même
+    // adresse email, ce document lui sera rattaché automatiquement.
+    const now = new Date()
+    const expireLe = new Date(now.getTime() + 72 * 60 * 60 * 1000)
+    await service.from('contrats').update({
+      lien_externe_genere_le: now.toISOString(),
+      lien_externe_expire_le: expireLe.toISOString(),
+    }).eq('id', contrat.id)
+
+    const lienToken = signContratExterneToken(contrat.id, emailDestinataire)
+    const lienExterne = `${APP_URL}/contrats/externe?t=${lienToken}`
+    try {
+      await sendEmail({
+        to: emailDestinataire,
+        subject: `Votre ${categorie} ${type_contrat} — ABED ONG`,
+        html: `
+          <div style="font-family:sans-serif;max-width:600px;margin:0 auto;">
+            <h2 style="color:#16a34a;">ABED ONG — ${categorie}</h2>
+            <p>Bonjour,</p>
+            <p>Un nouveau ${categorie.toLowerCase()} a été établi à votre attention :</p>
+            <ul>
+              <li><strong>Référence :</strong> ${numero}</li>
+              <li><strong>Catégorie :</strong> ${categorie}</li>
+              <li><strong>Type :</strong> ${type_contrat}</li>
+              ${poste ? `<li><strong>Poste :</strong> ${poste}</li>` : ''}
+              <li><strong>Date de début :</strong> ${date_debut}</li>
+              ${date_fin ? `<li><strong>Date de fin :</strong> ${date_fin}</li>` : ''}
+            </ul>
+            <p>Cliquez ci-dessous pour consulter le document, indiquer votre nom et le signer (ou le commenter). Aucun compte n'est nécessaire.</p>
+            <p>
+              <a href="${lienExterne}"
+                 style="display:inline-block;background:#16a34a;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold;">
+                Consulter le document →
+              </a>
+            </p>
+            <p style="color:#6b7280;font-size:12px;">Ce lien est personnel et expire dans 72 heures. ABED ONG — Système de gestion RH</p>
+          </div>
+        `,
+      })
+    } catch (emailErr) {
+      console.error('[POST /api/rh/contrats] Email destinataire externe error:', emailErr)
     }
   } else {
     // Notification in-app à l'employé

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { formatSignatureDisplayName as formatSignatureName } from '@/lib/signature-name'
 import { genererContratPdf, nomFichierContratPdf, ORG_TEL, ORG_EMAIL, ORG_ADRESSE, type ContratPdfData } from '@/lib/contrat-pdf'
+import { verifyContratExterneToken } from '@/lib/contrat-externe-token'
 
 // Rendu via Chromium headless (au lieu du "Imprimer" du navigateur) — c'est
 // le seul moyen d'obtenir un vrai fichier PDF avec marges fixées par le
@@ -21,14 +22,10 @@ function partieLabel(typeContrat: string | null | undefined): string {
 }
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
-
   const admin = createAdminClient()
   const { data: contrat, error } = await admin
     .from('contrats')
@@ -38,9 +35,28 @@ export async function GET(
 
   if (error || !contrat) return NextResponse.json({ error: 'Contrat introuvable' }, { status: 404 })
 
-  const me = await admin.from('profiles').select('role').eq('id', user.id).single()
-  const role = me.data?.role ?? ''
-  const canView = ['rh', 'admin', 'de', 'dp', 'administrateur', 'aaf', 'caf'].includes(role) || contrat.profile_id === user.id
+  // Accès public par lien signé (destinataire sans compte My ABED — voir
+  // /contrats/externe) OU accès authentifié classique (RH/direction/employé
+  // titulaire du contrat).
+  let canView = false
+  const token = req.nextUrl.searchParams.get('t')
+  if (token) {
+    const payload = verifyContratExterneToken(token)
+    if (
+      payload && payload.contratId === id && contrat.destinataire_email &&
+      payload.email.toLowerCase() === contrat.destinataire_email.toLowerCase()
+    ) {
+      canView = true
+    }
+  }
+  if (!canView) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+    const me = await admin.from('profiles').select('role').eq('id', user.id).single()
+    const role = me.data?.role ?? ''
+    canView = ['rh', 'admin', 'de', 'dp', 'administrateur', 'aaf', 'caf'].includes(role) || contrat.profile_id === user.id
+  }
   if (!canView) return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
 
   // Backfill : certains contrats plus anciens n'ont jamais reçu de numero (échec silencieux à la création)
@@ -189,11 +205,13 @@ export async function GET(
     repEmail,
     repAdresse,
     repCachetUrl,
+    // Sans compte My ABED, l'identité vient du destinataire renseigné par la
+    // personne elle-même sur le lien externe (voir /contrats/externe).
     employeCivilite: p?.civilite ?? null,
-    employePrenoms: p?.prenoms ?? '',
-    employeNom: p?.nom ?? '',
+    employePrenoms: p?.prenoms ?? contrat.destinataire_prenoms ?? '',
+    employeNom: p?.nom ?? contrat.destinataire_nom ?? '',
     employeTelephone: p?.telephone ?? null,
-    employeEmail: p?.email ?? null,
+    employeEmail: p?.email ?? contrat.destinataire_email ?? null,
     employeAdresse: p?.adresse ?? null,
     employeSigneLe,
     signataireNom,

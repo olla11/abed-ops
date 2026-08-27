@@ -8,7 +8,7 @@ import { genererDepuisTemplate, formatDateLettres, type ContratTemplate, type Ch
 type Article = { titre: string; contenu: string }
 
 type Contrat = {
-  id: string; profile_id: string; type_contrat: string; poste: string | null
+  id: string; profile_id: string | null; type_contrat: string; poste: string | null
   direction: string | null; date_debut: string; date_fin: string | null
   statut: string; salaire_brut: number | null; observations: string | null
   numero: string | null; categorie_document: string | null
@@ -18,7 +18,18 @@ type Contrat = {
   commentaires_signataire: string | null
   workflow_statut: string | null; signe_employe_le: string | null
   signataire_id: string | null
+  destinataire_email: string | null; destinataire_prenoms: string | null; destinataire_nom: string | null
+  lien_externe_expire_le: string | null
   profile: { id: string; nom: string; prenoms: string; email: string | null; role: string } | null
+}
+
+// Catégories pour lesquelles la RH peut établir le document en ne
+// renseignant qu'un email — utile quand la personne n'a pas encore intégré
+// ABED et donc pas encore de compte My ABED (voir /contrats/externe).
+function categorieAutoriseDestinataireExterne(categorie: string, typeContrat: string): boolean {
+  if (categorie === 'Offre') return true
+  if (categorie === 'Convention' && ['Bourse de formation', 'Consultant'].includes(typeContrat)) return true
+  return false
 }
 
 const WF_LABELS: Record<string, { label: string; color: string; bg: string }> = {
@@ -159,6 +170,8 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
   const [draftRestoredAt, setDraftRestoredAt] = useState<number | null>(null)
   const [templates, setTemplates] = useState<ContratTemplate[]>([])
   const [champVals, setChampVals] = useState<Record<string, string>>({})
+  const [destinataireExterne, setDestinataireExterne] = useState(false)
+  const [renvoyerLienLoadingId, setRenvoyerLienLoadingId] = useState<string | null>(null)
 
   const anyModalOpen = showNew || !!editTarget || !!renewTarget || !!resilierTarget || !!commentTarget || !!wfTarget
 
@@ -224,7 +237,9 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
 
   const filtered = contrats.filter(c => {
     const q = search.toLowerCase()
-    const name = `${c.profile?.prenoms ?? ''} ${c.profile?.nom ?? ''}`.toLowerCase()
+    const name = c.profile
+      ? `${c.profile.prenoms} ${c.profile.nom}`.toLowerCase()
+      : `${c.destinataire_prenoms ?? ''} ${c.destinataire_nom ?? ''} ${c.destinataire_email ?? ''}`.toLowerCase()
     return (!q || name.includes(q) || (c.poste ?? '').toLowerCase().includes(q) || (c.numero ?? '').toLowerCase().includes(q)) &&
       (!filterStatut || c.statut === filterStatut) &&
       (!filterCat || (c.categorie_document ?? 'Contrat') === filterCat)
@@ -243,6 +258,7 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
     const draft = loadDraft(DRAFT_KEY_NEW)
     if (draft) { setForm(draft.form); setArticles(draft.articles); setDraftRestoredAt(draft.savedAt) }
     else { setForm({ categorie_document: 'Contrat' }); setArticles([]); setDraftRestoredAt(null) }
+    setDestinataireExterne(false)
     setErr(null); setShowNew(true)
   }
 
@@ -352,6 +368,19 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
     finally { setLoading(false) }
   }
 
+  async function renvoyerLienExterne(id: string) {
+    setRenvoyerLienLoadingId(id); setErr(null)
+    try {
+      const res = await fetch(`/api/contrats/${id}/action`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'renvoyer_lien_externe' }) })
+      const d = await res.json()
+      if (res.ok) {
+        setContrats(cs => cs.map(c => c.id === id ? { ...c, lien_externe_expire_le: d.lien_externe_expire_le } : c))
+        alert('Nouveau lien envoyé par email.')
+      } else setErr(d.error ?? 'Erreur')
+    } catch { setErr('Erreur réseau') }
+    finally { setRenvoyerLienLoadingId(null) }
+  }
+
   function advanceDeleteStep(id: string) {
     const next = (deleteStep[id] ?? 1) + 1
     if (next > 3) return
@@ -411,10 +440,32 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
         <>
           <div style={{ marginBottom: 12 }}>
             <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Employé *</label>
-            <select value={form.profile_id ?? ''} onChange={e => handleEmployeChange(e.target.value)} style={inputStyle}>
-              <option value="">— Choisir —</option>
-              {personnel.map(p => <option key={p.id} value={p.id}>{p.prenoms} {p.nom}</option>)}
-            </select>
+            {(() => {
+              const destinataireExterneDisponible = categorieAutoriseDestinataireExterne(categorie, form.type_contrat ?? '')
+              const modeExterne = destinataireExterne && destinataireExterneDisponible
+              return modeExterne ? (
+                <>
+                  <input type="email" placeholder="email@exemple.com" value={form.destinataire_email ?? ''}
+                    onChange={e => setForm((f: any) => ({ ...f, destinataire_email: e.target.value, profile_id: '' }))}
+                    style={inputStyle} />
+                  <p style={{ fontSize: 11, color: 'var(--abed-muted)', margin: '5px 0 0' }}>
+                    La personne recevra un lien sécurisé (valable 72h) pour consulter, signer ou commenter le document — sans compte My ABED. Si elle rejoint ABED plus tard avec cette même adresse email, ce document lui sera automatiquement rattaché.
+                  </p>
+                </>
+              ) : (
+                <select value={form.profile_id ?? ''} onChange={e => handleEmployeChange(e.target.value)} style={inputStyle}>
+                  <option value="">— Choisir —</option>
+                  {personnel.map(p => <option key={p.id} value={p.id}>{p.prenoms} {p.nom}</option>)}
+                </select>
+              )
+            })()}
+            {categorieAutoriseDestinataireExterne(categorie, form.type_contrat ?? '') && (
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, fontSize: 12, color: '#374151', cursor: 'pointer' }}>
+                <input type="checkbox" checked={destinataireExterne}
+                  onChange={e => { setDestinataireExterne(e.target.checked); setForm((f: any) => ({ ...f, profile_id: '', destinataire_email: '' })) }} />
+                Cette personne n&apos;a pas encore de compte My ABED
+              </label>
+            )}
           </div>
           <div style={{ marginBottom: 12 }}>
             <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Catégorie *</label>
@@ -647,7 +698,20 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
                     <td style={{ padding: '10px 12px' }}>
                       <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: catStyle.bg, color: catStyle.color }}>{cat}</span>
                     </td>
-                    <td style={{ padding: '10px 12px', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}>{c.profile?.prenoms} {c.profile?.nom}</td>
+                    <td style={{ padding: '10px 12px', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                      {c.profile ? `${c.profile.prenoms} ${c.profile.nom}` : (
+                        c.destinataire_prenoms
+                          ? <>{c.destinataire_prenoms} {c.destinataire_nom}</>
+                          : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 600, color: '#6d28d9' }}>
+                              ✉️ {c.destinataire_email}
+                            </span>
+                      )}
+                      {!c.profile_id && c.destinataire_email && (
+                        <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 2, fontWeight: 400 }}>
+                          Sans compte — lien {c.lien_externe_expire_le && new Date(c.lien_externe_expire_le) < new Date() ? 'expiré' : `valide jusqu'au ${c.lien_externe_expire_le ? new Date(c.lien_externe_expire_le).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'}`}
+                        </div>
+                      )}
+                    </td>
                     <td style={{ padding: '10px 12px', fontSize: 12 }}>{c.type_contrat}</td>
                     <td style={{ padding: '10px 12px', fontSize: 12, color: '#6b7280', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.poste ?? '—'}</td>
                     <td style={{ padding: '10px 12px', fontSize: 12, whiteSpace: 'nowrap' }}>{c.date_debut}</td>
@@ -686,6 +750,12 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
                               style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 14px', fontSize: 12.5, color: '#1d4ed8', textDecoration: 'none', borderBottom: '1px solid #f3f4f6' }}>
                               <FileText size={14} /> Voir le PDF
                             </a>
+                            {c.statut === 'actif' && !c.profile_id && c.destinataire_email && (
+                              <button onClick={() => { renvoyerLienExterne(c.id); setMenuOpenId(null) }} disabled={renvoyerLienLoadingId === c.id}
+                                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 14px', fontSize: 12.5, cursor: 'pointer', background: 'white', border: 'none', borderBottom: '1px solid #f3f4f6', color: '#6d28d9', textAlign: 'left' }}>
+                                <Send size={14} /> {renvoyerLienLoadingId === c.id ? 'Envoi...' : 'Renvoyer le lien (72h)'}
+                              </button>
+                            )}
                             {c.statut === 'actif' && (
                               <>
                                 <button onClick={() => { openEdit(c); setMenuOpenId(null) }}
