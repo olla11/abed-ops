@@ -38,16 +38,16 @@ export async function POST(req: NextRequest) {
     if (!c) return NextResponse.json({ error: 'Contrat introuvable' }, { status: 404 })
     contratsATraiter = [c]
   } else {
-    // Contrats actifs avec date_fin dans 30 jours — un avenant modifie un
-    // contrat existant plutôt que d'en constituer un nouveau, on l'exclut
-    // pour ne pas déclencher deux évaluations pour la même personne.
+    // Contrats actifs avec date_fin dans 30 jours — un contrat peut faire
+    // partie d'une chaîne (Offre → Convention/Contrat → Avenant), seule la
+    // racine (sans contrat_parent_id) déclenche une évaluation.
     const now = new Date()
     const in30 = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
     const { data: contrats } = await service
       .from('contrats')
       .select('id, profile_id, type_contrat, date_debut, date_fin, poste')
       .eq('statut', 'actif')
-      .neq('categorie_document', 'Avenant')
+      .is('contrat_parent_id', null)
       .not('date_fin', 'is', null)
       .lte('date_fin', in30.toISOString().split('T')[0])
       .gte('date_fin', now.toISOString().split('T')[0])

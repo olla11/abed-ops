@@ -37,6 +37,11 @@ export interface ContratPdfData {
   // consulté des mois plus tard.
   dateEtablissement: string
   parentNumero: string | null
+  // Catégorie du document parent (ex. "Offre", "Convention") — sert à
+  // formuler dynamiquement la mention "À la Convention N°..." / "Suite à
+  // l'Offre N°..." sous la référence, quel que soit le niveau de la chaîne
+  // (Offre → Convention/Contrat → Avenant).
+  parentCategorie: string | null
   objet: string | null
   articles: ContratPdfArticle[]
   observations: string | null
@@ -72,6 +77,32 @@ function titreDirecteur(civilite: string | null | undefined): string {
 // Les prestataires sont payés à l'heure (taux CAF), pas sur un salaire fixe mensuel
 function isPrestataireType(typeContrat: string | null | undefined): boolean {
   return (typeContrat ?? '').toLowerCase().includes('prestataire')
+}
+
+// Intitulé d'une offre (avant signature d'un contrat/convention) selon le
+// type — d'après les offres réellement signées, toutes disent « Objet :
+// Offre de X » et « Pour le/la bénéficiaire », jamais « Offre de stagiaire »
+// ou « Pour le stagiaire ».
+function objetOffreLabel(typeContrat: string | null | undefined): string {
+  const t = (typeContrat ?? '').toLowerCase()
+  if (t.includes('stage')) return 'Offre de stage'
+  if (t.includes('bénévol')) return 'Offre de bénévolat'
+  if (t.includes('prestataire')) return 'Offre de prestation'
+  if (t.includes('consultant')) return 'Offre de consultation'
+  return "Offre d'emploi"
+}
+
+// Article + nom pour la mention "À la Convention N°..." / "Suite à
+// l'Offre N°..." sous la référence, en fonction de la catégorie du document parent.
+const PARENT_CATEGORIE_LABELS: Record<string, string> = {
+  Offre: "l'Offre",
+  Convention: 'la Convention',
+  Contrat: 'le Contrat',
+  Avenant: "l'Avenant",
+  'Offre de stage': "l'Offre de stage",
+}
+function parentCategorieLabel(categorie: string | null | undefined): string {
+  return PARENT_CATEGORIE_LABELS[categorie ?? ''] ?? `le document`
 }
 
 // Un sous-titre de sous-article ("4.1. Normes de Performances", "7.2 Résiliation
@@ -138,8 +169,14 @@ function sigBlockHtml(role: string, nomCursif: string | null, nomReel: string, d
 
 export function construireContratHtml(d: ContratPdfData): string {
   const { categorie } = d
-  const isOffreStage = categorie === 'Offre de stage'
+  // Une offre (de stage, de bénévolat, de prestation...) précède toujours la
+  // signature d'un contrat/convention — c'est une lettre, pas un document
+  // "entre les soussignés" avec des articles numérotés.
+  const isOffre = categorie === 'Offre de stage' || categorie === 'Offre'
   const objetApresParties = categorie === 'Convention' || categorie === 'Avenant'
+  const parentLabelHtml = d.parentNumero
+    ? `<br/>${categorie === 'Avenant' ? 'À' : 'Suite à'} ${parentCategorieLabel(d.parentCategorie)} N° <strong>${d.parentNumero}</strong>`
+    : ''
 
   const articlesHtml = d.articles.length > 0
     ? d.articles.map((art, i) => `
@@ -171,15 +208,15 @@ export function construireContratHtml(d: ContratPdfData): string {
   const p = { civilite: d.employeCivilite, prenoms: d.employePrenoms, nom: d.employeNom, telephone: d.employeTelephone, email: d.employeEmail, adresse: d.employeAdresse }
   const employeNomReel = `${d.employePrenoms} ${d.employeNom}`.trim()
 
-  const corpsHtml = isOffreStage ? `
+  const corpsHtml = isOffre ? `
   <div class="doc-title">
-    <h1>Offre de stage</h1>
+    <h1>${objetOffreLabel(d.typeContrat)}</h1>
   </div>
   <div class="doc-ref">
     Réf. : <strong>${d.numero ?? 'N/A'}</strong> &nbsp;·&nbsp; Parakou, le ${d.dateEtablissement}
   </div>
 
-  <p class="lettre-corps"><strong>Objet : Offre de stage</strong></p>
+  <p class="lettre-corps"><strong>Objet : ${objetOffreLabel(d.typeContrat)}</strong></p>
 
   <p class="lettre-corps">${p.civilite ?? ''}, ${p.prenoms ?? ''} ${p.nom ?? ''},</p>
 
@@ -190,7 +227,7 @@ export function construireContratHtml(d: ContratPdfData): string {
     professionnel au sein de notre organisation, à compter du ${d.dateDebut}.
   </p>`}
 
-  ${d.direction ? `<p class="lettre-corps">Vous effectuerez ce stage au sein de notre ${d.direction}.</p>` : ''}
+  ${d.direction ? `<p class="lettre-corps">Vous exercerez vos fonctions au sein de notre ${d.direction}.</p>` : ''}
 
   ${d.salaireBrut ? `<p class="lettre-corps">Une allocation mensuelle de ${Number(d.salaireBrut).toLocaleString('fr-FR')} FCFA vous sera versée durant cette période.</p>` : ''}
 
@@ -202,12 +239,12 @@ export function construireContratHtml(d: ContratPdfData): string {
     Nous vous prions de signer cette offre et de nous la retourner dans les plus brefs délais si elle vous convient.
   </p>
   <p class="lettre-corps">
-    Espérant que ce stage vous permettra d'apprendre et de développer de nouvelles compétences, nous vous souhaitons
-    une riche période d'apprentissage au sein de notre organisation.
+    Espérant que cette opportunité vous permettra d'apprendre et de développer de nouvelles compétences, nous vous
+    souhaitons une riche période au sein de notre organisation.
   </p>
 
   <div class="sig-block">
-    ${sigBlockHtml(`Pour ${p.civilite === 'Mme' ? 'la' : 'le'} stagiaire`, d.employeSigneLe ? formatSignatureDisplayName(p.prenoms, p.nom) : null, employeNomReel, d.employeSigneLe)}
+    ${sigBlockHtml(`Pour ${p.civilite === 'Mme' ? 'la' : 'le'} bénéficiaire`, d.employeSigneLe ? formatSignatureDisplayName(p.prenoms, p.nom) : null, employeNomReel, d.employeSigneLe)}
     ${sigBlockHtml(titreDirecteur(d.representantCivilite), d.signataireNom, d.signataireNomReel, d.signataireSigneLe, d.repCachetUrl ? `<img src="${d.repCachetUrl}" alt="Cachet ABED" style="height:70px;margin-top:8px;" />` : '')}
   </div>
   ` : `
@@ -216,7 +253,7 @@ export function construireContratHtml(d: ContratPdfData): string {
   </div>
   <div class="doc-ref">
     Réf. : <strong>${d.numero ?? 'N/A'}</strong> &nbsp;·&nbsp; Parakou, le ${d.dateEtablissement}
-    ${categorie === 'Avenant' && d.parentNumero ? `<br/>À la convention N° <strong>${d.parentNumero}</strong>` : ''}
+    ${parentLabelHtml}
   </div>
 
   ${!objetApresParties ? objetHtml : ''}

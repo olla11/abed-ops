@@ -62,12 +62,15 @@ export async function GET(
   const isDE = ['de', 'dp'].includes(p?.role)
   const categorie = contrat.categorie_document ?? 'Contrat'
 
-  // Avenant : on affiche à quelle convention/contrat il se rattache, sous le
-  // titre — le contrat parent porte déjà la référence via contrat_parent_id.
+  // Un document peut se rattacher à un document précédent de la même chaîne
+  // (Offre → Convention/Contrat → Avenant) — on affiche à quoi il se
+  // rattache, sous le titre, quel que soit le niveau de la chaîne.
   let parentNumero: string | null = null
-  if (categorie === 'Avenant' && contrat.contrat_parent_id) {
+  let parentCategorie: string | null = null
+  if (contrat.contrat_parent_id) {
     const { data: parent } = await admin.from('contrats').select('numero, categorie_document').eq('id', contrat.contrat_parent_id).single()
     parentNumero = parent?.numero ?? null
+    parentCategorie = parent?.categorie_document ?? null
   }
   const representantEmployeur = isDE ? "Président du Conseil d'Administration" : 'Directeur Exécutif'
   const sigLeft = isDE ? "Le Président du Conseil d'Administration" : "Le Directeur Exécutif"
@@ -162,6 +165,7 @@ export async function GET(
     dateFin,
     dateEtablissement,
     parentNumero,
+    parentCategorie,
     objet: contrat.objet,
     articles,
     observations: contrat.observations,

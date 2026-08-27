@@ -56,7 +56,7 @@ function clearDraft(key: string) {
 
 const TYPES = ['CDD', 'CDI', 'Stage N1', 'Stage N2', 'Bénévolat', 'Prestataire direct', 'Prestataire à crédit', 'Consultant']
 const TYPES_STAGE = ['Stage N1', 'Stage N2']
-const CATEGORIES = ['Contrat', 'Convention', 'Avenant', 'Offre de stage']
+const CATEGORIES = ['Offre', 'Contrat', 'Convention', 'Avenant', 'Offre de stage']
 const SOURCES_FINANCEMENT = ['Expertise France (CLEE-2i)', 'Prometiers', 'ABED Directe', 'Réserve', 'Autre']
 
 function statutBadge(statut: string, dateFin: string | null) {
@@ -490,10 +490,10 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
 
       <div style={{ marginBottom: 12 }}>
         <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>
-          {categorie === 'Offre de stage' ? 'Modalités du stage (supervision, horaires, home office...)' : 'Objet du document'}
+          {categorie === 'Offre de stage' || categorie === 'Offre' ? 'Corps de la lettre (modalités, supervision, horaires...)' : 'Objet du document'}
         </label>
         <textarea value={form.objet ?? ''} onChange={e => setForm((f: any) => ({ ...f, objet: e.target.value }))} rows={2}
-          placeholder={categorie === 'Offre de stage' ? 'Ce texte apparaît tel quel dans le corps de la lettre envoyée au stagiaire...' : "Décrivez l'objet de ce document..."}
+          placeholder={categorie === 'Offre de stage' || categorie === 'Offre' ? 'Ce texte apparaît tel quel dans le corps de la lettre envoyée au bénéficiaire...' : "Décrivez l'objet de ce document..."}
           style={{ ...inputStyle, resize: 'vertical' }} />
       </div>
       <div style={{ marginBottom: 12 }}>
@@ -539,7 +539,7 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
         </div>
       ) : (
         <div style={{ marginBottom: 12 }}>
-          {categorie !== 'Offre de stage' && grilles.length > 0 && (
+          {categorie !== 'Offre de stage' && categorie !== 'Offre' && grilles.length > 0 && (
             <div className="grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 8 }}>
               <div>
                 <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Grade (grille salariale)</label>
@@ -567,7 +567,7 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
             </div>
           )}
           <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>
-            {categorie === 'Offre de stage' ? 'Allocation mensuelle (FCFA)' : 'Salaire brut (FCFA)'}
+            {categorie === 'Offre de stage' || categorie === 'Offre' ? 'Allocation mensuelle (FCFA)' : 'Salaire brut (FCFA)'}
           </label>
           <input type="number" value={form.salaire_brut ?? ''} onChange={e => setForm((f: any) => ({ ...f, salaire_brut: e.target.value }))} style={inputStyle} />
         </div>
@@ -626,7 +626,7 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
                   <tr key={c.id} style={{ background: i % 2 === 0 ? 'white' : '#fafafa' }}>
                     <td style={{ padding: '10px 12px', fontSize: 11, color: '#6b7280', whiteSpace: 'nowrap' }}>
                       {c.numero ?? '—'}
-                      {cat === 'Avenant' && c.contrat_parent_id && (() => {
+                      {c.contrat_parent_id && (() => {
                         const parent = contrats.find(p => p.id === c.contrat_parent_id)
                         return parent ? (
                           <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 2 }}>
