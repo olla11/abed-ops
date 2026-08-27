@@ -38,6 +38,8 @@ const inputStyle: React.CSSProperties = {
   border: '1px solid var(--abed-border)', outline: 'none', boxSizing: 'border-box',
 }
 
+const PAGE_SIZE = 20
+
 const DRAFT_KEY_NEW = 'abed_rh_contrat_draft_new'
 const draftKeyEdit = (id: string) => `abed_rh_contrat_draft_edit_${id}`
 
@@ -148,7 +150,7 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
   const [wfAction, setWfAction] = useState<string>('')
   const [wfSignataireId, setWfSignataireId] = useState('')
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null)
-  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null)
+  const [menuPos, setMenuPos] = useState<{ top?: number; bottom?: number; right: number } | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const [tauxCaf, setTauxCaf] = useState<{ direct: number; credit: number } | null>(null)
   const [grilles, setGrilles] = useState<{ grade: string; echelon: string; salaire_brut: number; prime_diverses: number }[]>([])
@@ -200,7 +202,14 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
   function toggleMenu(id: string, e: React.MouseEvent<HTMLButtonElement>) {
     if (menuOpenId === id) { setMenuOpenId(null); return }
     const rect = e.currentTarget.getBoundingClientRect()
-    setMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right })
+    // Le menu peut compter jusqu'à ~8 entrées (~330px) — s'il n'y a pas la
+    // place de l'ouvrir vers le bas sans sortir du viewport (dernières
+    // lignes du tableau), on l'ouvre vers le haut à la place.
+    const spaceBelow = window.innerHeight - rect.bottom
+    const openUpward = spaceBelow < 330 && rect.top > spaceBelow
+    setMenuPos(openUpward
+      ? { bottom: window.innerHeight - rect.top + 4, right: window.innerWidth - rect.right }
+      : { top: rect.bottom + 4, right: window.innerWidth - rect.right })
     setMenuOpenId(id)
   }
 
@@ -618,7 +627,7 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
               </tr>
             </thead>
             <tbody>
-              {paginate(filtered, page).map((c, i) => {
+              {paginate(filtered, page, PAGE_SIZE).map((c, i) => {
                 const badge = statutBadge(c.statut, c.date_fin)
                 const cat = c.categorie_document ?? 'Contrat'
                 const catStyle = categorieBadge(cat)
@@ -668,10 +677,10 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
                         </button>
                         {menuOpenId === c.id && menuPos && (
                           <div ref={menuRef} style={{
-                            position: 'fixed', top: menuPos.top, right: menuPos.right, zIndex: 500,
+                            position: 'fixed', top: menuPos.top, bottom: menuPos.bottom, right: menuPos.right, zIndex: 500,
                             background: 'white', border: '1px solid var(--abed-border)', borderRadius: 8,
-                            boxShadow: '0 8px 24px rgba(0,0,0,.14)', minWidth: 210, overflow: 'hidden',
-                            display: 'flex', flexDirection: 'column', textAlign: 'left',
+                            boxShadow: '0 8px 24px rgba(0,0,0,.14)', minWidth: 210, maxHeight: '80vh',
+                            display: 'flex', flexDirection: 'column', textAlign: 'left', overflowY: 'auto',
                           }}>
                             <a href={`/api/contrat-pdf/${c.id}`} target="_blank" rel="noreferrer" onClick={() => setMenuOpenId(null)}
                               style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 14px', fontSize: 12.5, color: '#1d4ed8', textDecoration: 'none', borderBottom: '1px solid #f3f4f6' }}>
@@ -735,7 +744,7 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
               )}
             </tbody>
           </table>
-          <Pagination page={page} total={filtered.length} onChange={p => { setPage(p) }} />
+          <Pagination page={page} total={filtered.length} pageSize={PAGE_SIZE} onChange={p => { setPage(p) }} />
         </div>
       </div>
 
