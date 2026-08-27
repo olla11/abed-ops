@@ -126,7 +126,59 @@ const ICON_PIN = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" st
 
 // Entête façon lettre à en-tête ABED : bannière ondulée verte/or, logo et
 // coordonnées de contact — remplace l'ancien bandeau logo + texte centré.
-function letterheadHtml(): string {
+// Styles de base partagés par tous les PDF "à en-tête ABED" (contrats,
+// évaluations...) — bannière, marges façon Word, blocs de signature. Chaque
+// document ajoute ses propres styles spécifiques par-dessus.
+export const PDF_BASE_STYLE = `
+    /* Marges façon Word (2,54 cm, marges "Normal" par défaut) sur toutes les
+       pages — sauf le haut de la 1ère page, nul pour que la bannière couvre
+       tout le haut de la feuille. Gauche/droite restent nulles au niveau
+       physique partout : .page-content réintroduit une marge de lecture de
+       2,54 cm via son padding, identique sur toutes les pages pour un
+       alignement cohérent d'une page à l'autre. Nécessite preferCSSPageSize
+       dans page.pdf() pour que ces règles @page priment sur l'option margin JS. */
+    @page { size: A4; margin: 2.54cm 0 2.54cm 0; }
+    @page :first { margin: 0 0 2.54cm 0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Times New Roman', serif; font-size: 12pt; color: #111; background: #fff; padding: 0; max-width: 820px; margin: 0 auto; }
+    .page-content { padding: 0 2.54cm; }
+    .letterhead { margin: 0 0 28px 0; }
+    .letterhead-wave svg { display: block; width: 100%; height: 104px; }
+    .letterhead-body { display: flex; align-items: center; gap: 20px; padding: 10px 2.54cm 4px; }
+    .letterhead-logo { height: 108px; width: auto; flex-shrink: 0; }
+    .letterhead-text { flex: 1; }
+    .letterhead-title { font-family: Arial, sans-serif; font-size: 13pt; font-weight: 800; text-transform: uppercase; color: #1f7a1f; letter-spacing: .2px; line-height: 1.25; }
+    .letterhead-reg { font-family: Arial, sans-serif; font-size: 8.5pt; font-weight: 800; text-transform: uppercase; color: #e08e00; margin-top: 5px; letter-spacing: .2px; }
+    .letterhead-contact-row { display: flex; gap: 26px; margin-top: 6px; font-family: Arial, sans-serif; font-size: 9pt; color: #222; }
+    .lh-item { display: flex; align-items: center; gap: 6px; }
+    .lh-item svg { flex-shrink: 0; }
+    .doc-title { text-align: center; margin: 20px 0 8px; }
+    .doc-title h1 { font-size: 15pt; text-transform: uppercase; letter-spacing: 2px; border: 2px solid #111; display: inline-block; padding: 6px 24px; }
+    .doc-ref { text-align: center; font-size: 10pt; color: #555; margin-bottom: 28px; }
+    .section { margin-bottom: 20px; }
+    .section h2 { font-size: 10.5pt; text-transform: uppercase; font-weight: bold; border-bottom: 1.5px solid #222; padding-bottom: 3px; margin-bottom: 10px; letter-spacing: 1px; }
+    .row { display: flex; gap: 12px; margin-bottom: 6px; font-size: 11pt; }
+    .label { font-weight: bold; min-width: 170px; }
+    .value { flex: 1; }
+    .preambule { font-size: 11pt; line-height: 1.9; text-align: justify; margin-bottom: 10px; }
+    .lettre-corps { font-size: 11pt; line-height: 1.9; text-align: justify; margin-bottom: 14px; }
+    .article { margin-bottom: 16px; }
+    .article-title { font-size: 11pt; font-weight: bold; margin-bottom: 4px; }
+    .article-body { font-size: 10.5pt; line-height: 1.8; text-align: justify; }
+    @font-face { font-family: 'BrittanySignature'; src: url('${BRITTANY_SIGNATURE_FONT_DATA_URI}') format('truetype'); font-weight: normal; font-style: normal; }
+    .sig-block { display: flex; justify-content: space-between; margin-top: 64px; }
+    .sig { text-align: center; width: 45%; }
+    .sig-role { font-size: 10pt; font-weight: bold; margin-bottom: 4px; }
+    .sig-area { min-height: 54px; margin-top: 30px; display: flex; align-items: flex-end; justify-content: center; }
+    .sig-cursive { font-family: 'BrittanySignature', cursive; font-size: 28pt; line-height: 1; color: #1e3a8a; transform: translateY(-16px); }
+    .sig-rule { border-top: 1px solid #000; }
+    .sig-realname { font-size: 10.5pt; font-weight: bold; margin-top: 14px; color: #111; }
+    .sig-pending { font-size: 10pt; color: #9ca3af; margin-top: 6px; }
+    .sig-stamp { font-size: 8.5pt; color: #16a34a; margin-top: 3px; font-family: Arial, sans-serif; font-weight: bold; }
+    .footer { text-align: center; font-size: 8.5pt; color: #888; margin-top: 40px; border-top: 1px solid #e5e7eb; padding-top: 10px; }
+`
+
+export function letterheadHtml(): string {
   return `
   <div class="letterhead">
     <div class="letterhead-wave">
@@ -305,54 +357,7 @@ export function construireContratHtml(d: ContratPdfData): string {
 <head>
   <meta charset="UTF-8">
   <title>${categorie} ${d.numero ?? ''} — ${d.employePrenoms} ${d.employeNom}</title>
-  <style>
-    /* Marges façon Word (2,54 cm, marges "Normal" par défaut) sur toutes les
-       pages — sauf le haut de la 1ère page, nul pour que la bannière couvre
-       tout le haut de la feuille. Gauche/droite restent nulles au niveau
-       physique partout : .page-content réintroduit une marge de lecture de
-       2,54 cm via son padding, identique sur toutes les pages pour un
-       alignement cohérent d'une page à l'autre. Nécessite preferCSSPageSize
-       dans page.pdf() pour que ces règles @page priment sur l'option margin JS. */
-    @page { size: A4; margin: 2.54cm 0 2.54cm 0; }
-    @page :first { margin: 0 0 2.54cm 0; }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Times New Roman', serif; font-size: 12pt; color: #111; background: #fff; padding: 0; max-width: 820px; margin: 0 auto; }
-    .page-content { padding: 0 2.54cm; }
-    .letterhead { margin: 0 0 28px 0; }
-    .letterhead-wave svg { display: block; width: 100%; height: 104px; }
-    .letterhead-body { display: flex; align-items: center; gap: 20px; padding: 10px 2.54cm 4px; }
-    .letterhead-logo { height: 108px; width: auto; flex-shrink: 0; }
-    .letterhead-text { flex: 1; }
-    .letterhead-title { font-family: Arial, sans-serif; font-size: 13pt; font-weight: 800; text-transform: uppercase; color: #1f7a1f; letter-spacing: .2px; line-height: 1.25; }
-    .letterhead-reg { font-family: Arial, sans-serif; font-size: 8.5pt; font-weight: 800; text-transform: uppercase; color: #e08e00; margin-top: 5px; letter-spacing: .2px; }
-    .letterhead-contact-row { display: flex; gap: 26px; margin-top: 6px; font-family: Arial, sans-serif; font-size: 9pt; color: #222; }
-    .lh-item { display: flex; align-items: center; gap: 6px; }
-    .lh-item svg { flex-shrink: 0; }
-    .doc-title { text-align: center; margin: 20px 0 8px; }
-    .doc-title h1 { font-size: 15pt; text-transform: uppercase; letter-spacing: 2px; border: 2px solid #111; display: inline-block; padding: 6px 24px; }
-    .doc-ref { text-align: center; font-size: 10pt; color: #555; margin-bottom: 28px; }
-    .section { margin-bottom: 20px; }
-    .section h2 { font-size: 10.5pt; text-transform: uppercase; font-weight: bold; border-bottom: 1.5px solid #222; padding-bottom: 3px; margin-bottom: 10px; letter-spacing: 1px; }
-    .row { display: flex; gap: 12px; margin-bottom: 6px; font-size: 11pt; }
-    .label { font-weight: bold; min-width: 170px; }
-    .value { flex: 1; }
-    .preambule { font-size: 11pt; line-height: 1.9; text-align: justify; margin-bottom: 10px; }
-    .lettre-corps { font-size: 11pt; line-height: 1.9; text-align: justify; margin-bottom: 14px; }
-    .article { margin-bottom: 16px; }
-    .article-title { font-size: 11pt; font-weight: bold; margin-bottom: 4px; }
-    .article-body { font-size: 10.5pt; line-height: 1.8; text-align: justify; }
-    @font-face { font-family: 'BrittanySignature'; src: url('${BRITTANY_SIGNATURE_FONT_DATA_URI}') format('truetype'); font-weight: normal; font-style: normal; }
-    .sig-block { display: flex; justify-content: space-between; margin-top: 64px; }
-    .sig { text-align: center; width: 45%; }
-    .sig-role { font-size: 10pt; font-weight: bold; margin-bottom: 4px; }
-    .sig-area { min-height: 54px; margin-top: 30px; display: flex; align-items: flex-end; justify-content: center; }
-    .sig-cursive { font-family: 'BrittanySignature', cursive; font-size: 28pt; line-height: 1; color: #1e3a8a; transform: translateY(-16px); }
-    .sig-rule { border-top: 1px solid #000; }
-    .sig-realname { font-size: 10.5pt; font-weight: bold; margin-top: 14px; color: #111; }
-    .sig-pending { font-size: 10pt; color: #9ca3af; margin-top: 6px; }
-    .sig-stamp { font-size: 8.5pt; color: #16a34a; margin-top: 3px; font-family: Arial, sans-serif; font-weight: bold; }
-    .footer { text-align: center; font-size: 8.5pt; color: #888; margin-top: 40px; border-top: 1px solid #e5e7eb; padding-top: 10px; }
-  </style>
+  <style>${PDF_BASE_STYLE}</style>
 </head>
 <body>
   ${letterheadHtml()}

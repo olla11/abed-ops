@@ -252,13 +252,24 @@ export default function EvaluationsRHClient({ evaluations: initial, contratsActi
                   ) : <span style={{ color: '#9ca3af' }}>—</span>}
                 </td>
                 <td style={{ padding: '10px 14px' }}>
-                  <Link href={`/evaluations/${e.id}`} style={{
-                    padding: '4px 12px', borderRadius: 6, fontSize: 13, fontWeight: 600,
-                    background: '#f0fdf4', color: 'var(--abed-green)', border: '1px solid #bbf7d0',
-                    textDecoration: 'none', display: 'inline-block',
-                  }}>
-                    👁 Voir
-                  </Link>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <Link href={`/evaluations/${e.id}`} style={{
+                      padding: '4px 12px', borderRadius: 6, fontSize: 13, fontWeight: 600,
+                      background: '#f0fdf4', color: 'var(--abed-green)', border: '1px solid #bbf7d0',
+                      textDecoration: 'none', display: 'inline-block',
+                    }}>
+                      👁 Voir
+                    </Link>
+                    {e.statut === 'cloture' && (
+                      <a href={`/api/evaluations/${e.id}/pdf`} target="_blank" rel="noopener noreferrer" style={{
+                        padding: '4px 12px', borderRadius: 6, fontSize: 13, fontWeight: 600,
+                        background: '#eff6ff', color: '#1e40af', border: '1px solid #bfdbfe',
+                        textDecoration: 'none', display: 'inline-block',
+                      }}>
+                        📄 PDF
+                      </a>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
