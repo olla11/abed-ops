@@ -79,7 +79,12 @@ export default function RHDashboardClient({ personnel, contrats, contratsExpiran
     ? Math.round((avecGenre.filter(p => p.genre === 'F').length / avecGenre.length) * 100)
     : null
 
-  const contratsActifsList = contrats.filter(c => c.statut === 'actif' && !c.contrat_parent_id)
+  // Comme pour la paie, on ne retient que le document le plus récent de
+  // chaque chaîne (Offre → Convention/Contrat → Avenant) — pas la racine,
+  // dont le salaire peut être dépassé par un avenant ultérieur.
+  const actifs = contrats.filter(c => c.statut === 'actif')
+  const idsReferencesCommeParent = new Set(actifs.map(c => c.contrat_parent_id).filter(Boolean))
+  const contratsActifsList = actifs.filter(c => !idsReferencesCommeParent.has(c.id))
   const masseSalariale = contratsActifsList.reduce((sum, c) => sum + (c.salaire_brut ?? 0), 0)
 
   const salairesF = contratsActifsList.filter(c => genreById[c.profile_id] === 'F' && c.salaire_brut).map(c => c.salaire_brut as number)

@@ -29,7 +29,13 @@ export default async function PaiePage() {
     supabase.from('parametres').select('cle, valeur').in('cle', ['taux_cnss_employe', 'bareme_its']),
   ])
 
-  const contratsActifs = (contrats ?? []).filter((c: any) => c.statut === 'actif')
+  // Un même engagement peut être réparti sur plusieurs documents chaînés
+  // (Offre → Convention/Contrat → Avenant) — la paie ne doit compter que le
+  // document le plus récent de chaque chaîne (celui vers lequel personne
+  // d'autre ne pointe comme parent), pas chaque maillon séparément.
+  const actifs = (contrats ?? []).filter((c: any) => c.statut === 'actif')
+  const idsReferencesCommeParent = new Set(actifs.map((c: any) => c.contrat_parent_id).filter(Boolean))
+  const contratsActifs = actifs.filter((c: any) => !idsReferencesCommeParent.has(c.id))
 
   const tauxCnss = Number(params?.find(p => p.cle === 'taux_cnss_employe')?.valeur ?? 3.6)
   let bareme = DEFAUT_BAREME
