@@ -267,11 +267,17 @@ export function construireContratHtml(d: ContratPdfData): string {
   <meta charset="UTF-8">
   <title>${categorie} ${d.numero ?? ''} — ${d.employePrenoms} ${d.employeNom}</title>
   <style>
+    /* Marge physique de la page : nulle en haut de la 1ère page seulement
+       (pour que la bannière couvre tout le haut de la feuille), normale sur
+       les pages suivantes pour que le texte ne les touche pas. Gauche/droite
+       restent nulles partout — .page-content réintroduit une marge de lecture
+       identique sur toutes les pages via son padding, pour un alignement
+       cohérent d'une page à l'autre. Nécessite preferCSSPageSize dans
+       page.pdf() pour que ces règles @page priment sur l'option margin JS. */
+    @page { size: A4; margin: 1.5cm 0 1.3cm 0; }
+    @page :first { margin: 0 0 1.3cm 0; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Times New Roman', serif; font-size: 12pt; color: #111; background: #fff; padding: 0; max-width: 820px; margin: 0 auto; }
-    /* La marge physique de la page (cf. page.pdf()) est nulle pour que la
-       bannière couvre tout le haut de la feuille, comme sur le modèle papier —
-       .page-content réintroduit la marge de lecture habituelle pour le texte. */
     .page-content { padding: 28px 56px 48px; }
     .letterhead { margin: 0 0 20px 0; }
     .letterhead-wave svg { display: block; width: 100%; height: 104px; }
@@ -336,10 +342,10 @@ export async function genererContratPdf(d: ContratPdfData): Promise<Buffer> {
     const pdfBuffer = await page.pdf({
       format: 'A4',
       printBackground: true,
-      // Marge nulle en haut/gauche/droite : la bannière d'entête doit couvrir
-      // tout le haut de la page (voir .letterhead / .page-content plus haut,
-      // qui réintroduisent la marge de lecture pour le texte).
-      margin: { top: '0cm', bottom: '1.3cm', left: '0cm', right: '0cm' },
+      // Les marges viennent des règles @page / @page:first du <style> (marge
+      // du haut nulle uniquement sur la 1ère page, pour la bannière) —
+      // preferCSSPageSize fait primer ces règles sur cette option.
+      preferCSSPageSize: true,
     })
     return Buffer.from(pdfBuffer)
   } finally {
