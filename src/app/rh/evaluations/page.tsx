@@ -14,10 +14,14 @@ const getContratsActifs = unstable_cache(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
+    // Un avenant modifie un contrat existant, ce n'est pas un engagement
+    // distinct à évaluer — sans ce filtre, une personne ayant un avenant
+    // apparaît deux fois dans la liste de sélection.
     const { data } = await service
       .from('contrats')
       .select('id, type_contrat, date_fin, poste, profile:profiles!profile_id(id, nom, prenoms)')
       .eq('statut', 'actif')
+      .neq('categorie_document', 'Avenant')
       .not('date_fin', 'is', null)
       .order('date_fin', { ascending: true })
     return data ?? []

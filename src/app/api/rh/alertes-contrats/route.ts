@@ -19,10 +19,13 @@ export async function GET(_req: NextRequest) {
   const today = new Date().toISOString().split('T')[0]
   const in30 = new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0]
 
+  // Un avenant modifie un contrat existant, ce n'est pas un engagement
+  // distinct — l'exclure évite d'alerter deux fois sur la même échéance.
   const { data } = await service
     .from('contrats')
     .select('*, profile:profiles!profile_id(nom, prenoms, email)')
     .eq('statut', 'actif')
+    .neq('categorie_document', 'Avenant')
     .gte('date_fin', today)
     .lte('date_fin', in30)
     .order('date_fin')
