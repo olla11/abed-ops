@@ -113,7 +113,8 @@ export default function PersonnelClient({ personnel, managers }: { personnel: P[
       </div>
 
       <div style={{ background: 'white', border: '1px solid var(--abed-border)', borderRadius: 10, overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <div className="table-wrap">
+        <table style={{ width: '100%', minWidth: 900, borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: '#f9fafb' }}>
               {['Nom', 'Genre', 'Rôle / Type', 'Fonction', 'Direction', 'Email', 'Téléphone', ''].map(h => (
@@ -154,6 +155,7 @@ export default function PersonnelClient({ personnel, managers }: { personnel: P[
             )}
           </tbody>
         </table>
+        </div>
         <Pagination page={page} total={filtered.length} onChange={p => { setPage(p) }} />
       </div>
 
