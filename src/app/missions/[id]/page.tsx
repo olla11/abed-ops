@@ -45,7 +45,11 @@ export default async function MissionDetail({ params }: { params: Promise<{ id: 
   const estPresidentCA = role === 'administrateur' && profile?.titre === 'president_ca'
   const peutSignerOM = missionnaireEstDE ? (role === 'caf' || estPresidentCA) : role === 'de'
   const canSign = peutSignerOM && ['soumis', 'brouillon'].includes(mission.status)
-  const canEdit = ['caf', 'de', 'dp', 'admin', 'administrateur'].includes(role) && ['soumis', 'brouillon'].includes(mission.status)
+  // Admin et superadmin peuvent modifier un OM à tout moment (même déjà
+  // signé) tant que le dossier n'est pas clôturé (isLocked ci-dessus gère ce
+  // dernier cas) — les autres rôles restent limités à avant signature.
+  const canEditAnyStatus = ['admin', 'superadmin'].includes(role)
+  const canEdit = canEditAnyStatus || (['caf', 'de', 'dp', 'administrateur'].includes(role) && ['soumis', 'brouillon'].includes(mission.status))
   const canDelete = role === 'admin'
   const pdfDispo = !['brouillon', 'soumis'].includes(mission.status)
   const canReconcile = user.id === mission.missionnaire_id

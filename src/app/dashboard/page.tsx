@@ -9,6 +9,7 @@ import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
 import { getImpersonationInfo } from '@/lib/impersonation'
 import MissionsTable from './MissionsTable'
 import { estRH, estAAF, estBD } from '@/lib/roles'
+import { Plus } from 'lucide-react'
 
 export default async function Dashboard() {
   const supabase = await createClient()
@@ -24,7 +25,7 @@ export default async function Dashboard() {
   const role = await getEffectiveRole(realRole)
   const previewRole = await getRolePreview()
   const impersonation = await getImpersonationInfo()
-  const isManager = ['admin', 'rh', 'caf', 'de', 'dp', 'administrateur'].includes(role)
+  const isManager = ['admin', 'superadmin', 'rh', 'caf', 'de', 'dp', 'administrateur'].includes(role)
   // Deux cas de signature d'OM, mutuellement exclusifs (même règle que
   // missions/[id]/page.tsx et signer/route.ts) : le DE signe les OM de tout
   // le monde SAUF les siens ("autres") ; le CAF ou le Président du CA signent
@@ -93,7 +94,10 @@ export default async function Dashboard() {
               </p>
             )}
           </div>
-          <Link href="/missions/nouveau" className="btn" style={{ fontSize: 13 }}>+ Nouvel OM</Link>
+          <Link href="/missions/nouveau" className="btn" style={{ fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Plus size={16} strokeWidth={2.5} />
+            Nouvel OM
+          </Link>
         </div>
         <MissionsTable
           missions={(missions ?? []) as any}

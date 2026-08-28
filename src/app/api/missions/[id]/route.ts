@@ -1,7 +1,8 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
 
-// PATCH /api/missions/[id] — mise a jour avant signature (caf/de/admin uniquement)
+// PATCH /api/missions/[id] — mise a jour avant signature (caf/de/dp/administrateur),
+// ou a tout moment hors cloture pour admin/superadmin
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -14,7 +15,7 @@ export async function PATCH(
   const { data: profile } = await supabase
     .from('profiles').select('role').eq('id', user.id).single()
 
-  if (!profile || !['caf', 'de', 'dp', 'admin', 'administrateur'].includes(profile.role)) {
+  if (!profile || !['caf', 'de', 'dp', 'admin', 'administrateur', 'superadmin'].includes(profile.role)) {
     return NextResponse.json({ error: 'acces refuse' }, { status: 403 })
   }
 
@@ -22,7 +23,12 @@ export async function PATCH(
     .from('missions').select('status').eq('id', id).single()
 
   if (!existing) return NextResponse.json({ error: 'introuvable' }, { status: 404 })
-  if (!['brouillon', 'soumis'].includes(existing.status)) {
+  if (existing.status === 'cloture') {
+    return NextResponse.json({ error: 'Dossier cloture, edition impossible' }, { status: 403 })
+  }
+
+  const canEditAnyStatus = ['admin', 'superadmin'].includes(profile.role)
+  if (!canEditAnyStatus && !['brouillon', 'soumis'].includes(existing.status)) {
     return NextResponse.json({ error: 'Mission deja signee, edition impossible' }, { status: 403 })
   }
 

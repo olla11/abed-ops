@@ -3,7 +3,7 @@ import React from 'react'
 import Link from 'next/link'
 import { useState } from 'react'
 import Pagination, { paginate } from '@/components/Pagination'
-import { PenLine, Plane, FolderOpen, FileCheck } from 'lucide-react'
+import { PenLine, Plane, FolderOpen, FileCheck, Hourglass, CheckCircle2 } from 'lucide-react'
 
 export type Mission = {
   id: string
@@ -198,12 +198,16 @@ export default function MissionsTable({
     ...(canValidateReconc ? [VALIDER_CAF_TAB] : []),
     ...(canAutoriserDE ? [AUTORISER_DE_TAB] : []),
   ]
-  const hasTabs = actionTabs.length > 0 || isAAF
+  // Un manager qui voit à la fois ses propres OM et ceux des autres (isManager)
+  // a besoin de la séparation Mes OM / Tous les OM, même sans onglet d'action
+  // à traiter (ex. admin, superadmin, dp, administrateur, rh) — sinon les OM
+  // de tout le monde apparaissent mélangés dans une seule liste plate.
+  const hasTabs = actionTabs.length > 0 || isAAF || isManager
 
   const [tab, setTab] = useState<string>(actionTabs[0]?.key ?? 'mes')
 
   if (!hasTabs) {
-    // Vue simple : missionnaire standard, manager non-signataire/AAF (rh)
+    // Vue simple : missionnaire standard sans droit d'oversight sur les OM.
     return <MissionsTableSimple missions={missions} showMissionnaire={isManager} />
   }
 
@@ -262,7 +266,7 @@ export default function MissionsTable({
             {list.length > 0 ? (
               <>
                 <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 10, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ fontSize: 18 }}>⏳</span>
+                  <Hourglass size={18} strokeWidth={2} color="#92400e" />
                   <div>
                     <strong style={{ fontSize: 14, color: '#92400e' }}>{b.title}</strong>
                     <p style={{ fontSize: 12, color: '#b45309', margin: '2px 0 0' }}>{b.desc}</p>
@@ -272,7 +276,7 @@ export default function MissionsTable({
               </>
             ) : (
               <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--abed-muted)' }}>
-                <div style={{ fontSize: 40, marginBottom: 12 }}>✅</div>
+                <CheckCircle2 size={40} strokeWidth={1.5} color="#16a34a" style={{ marginBottom: 12 }} />
                 <p style={{ fontSize: 15, fontWeight: 600, color: '#374151', marginBottom: 4 }}>Rien en attente</p>
                 <p style={{ fontSize: 13 }}>Aucun ordre de mission ne nécessite votre action pour le moment.</p>
               </div>
@@ -286,7 +290,7 @@ export default function MissionsTable({
         <div>
           {mesMissions.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--abed-muted)' }}>
-              <div style={{ fontSize: 40, marginBottom: 12 }}>✈️</div>
+              <Plane size={40} strokeWidth={1.5} color="var(--abed-muted)" style={{ marginBottom: 12 }} />
               <p style={{ fontSize: 15, fontWeight: 600, color: '#374151', marginBottom: 4 }}>Aucune mission personnelle</p>
               <p style={{ fontSize: 13 }}>Vous n'avez pas encore soumis d'ordre de mission.</p>
             </div>
