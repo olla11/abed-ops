@@ -1,6 +1,5 @@
 'use client'
 import { useState } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { estRH, estCAF } from '@/lib/roles'
 
@@ -332,7 +331,13 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole }: Props) 
     <div>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-        <Link href="/evaluations" style={{ fontSize: 13, color: 'var(--abed-muted)', textDecoration: 'none' }}>← Retour</Link>
+        <button
+          type="button"
+          onClick={() => router.back()}
+          style={{ fontSize: 13, color: 'var(--abed-muted)', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+        >
+          ← Retour
+        </button>
         <h2 style={{ margin: 0, color: 'var(--abed-green)', flex: 1 }}>Fiche d&apos;évaluation</h2>
         <span style={{
           background: statutBg, color: statutColor,
