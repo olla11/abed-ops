@@ -1,10 +1,10 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { FileText, GraduationCap, IdCard, Paperclip, Upload, Trash2, Loader2 } from 'lucide-react'
+import { FileText, Image, GraduationCap, IdCard, Paperclip, Upload, Trash2, Loader2 } from 'lucide-react'
 
 type Doc = {
   id: string
-  categorie: 'cv' | 'diplome' | 'piece_identite' | 'autre'
+  categorie: 'cv' | 'photo' | 'diplome' | 'piece_identite' | 'autre'
   nom_fichier: string
   storage_path: string
   uploaded_by: string
@@ -13,6 +13,7 @@ type Doc = {
 
 const CATEGORIES: { key: Doc['categorie']; label: string; icon: React.ElementType }[] = [
   { key: 'cv', label: 'CV', icon: FileText },
+  { key: 'photo', label: 'Photo', icon: Image },
   { key: 'diplome', label: 'Diplômes', icon: GraduationCap },
   { key: 'piece_identite', label: "Pièce d'identité", icon: IdCard },
   { key: 'autre', label: 'Autre', icon: Paperclip },

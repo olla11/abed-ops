@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
   if (!profileId || !categorie || !file) {
     return NextResponse.json({ error: 'profileId, categorie et fichier requis' }, { status: 400 })
   }
-  if (!['cv', 'diplome', 'piece_identite', 'autre'].includes(categorie)) {
+  if (!['cv', 'photo', 'diplome', 'piece_identite', 'autre'].includes(categorie)) {
     return NextResponse.json({ error: 'catégorie invalide' }, { status: 400 })
   }
   if (profileId !== user.id && !isRH) {
