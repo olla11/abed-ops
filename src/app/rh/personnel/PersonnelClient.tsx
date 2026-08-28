@@ -114,7 +114,17 @@ export default function PersonnelClient({ personnel, managers }: { personnel: P[
 
       <div style={{ background: 'white', border: '1px solid var(--abed-border)', borderRadius: 10, overflow: 'hidden' }}>
         <div className="table-wrap">
-        <table style={{ width: '100%', minWidth: 900, borderCollapse: 'collapse' }}>
+        <table style={{ width: '100%', minWidth: 1150, borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+          <colgroup>
+            <col style={{ width: 160 }} />
+            <col style={{ width: 60 }} />
+            <col style={{ width: 130 }} />
+            <col style={{ width: 160 }} />
+            <col style={{ width: 150 }} />
+            <col style={{ width: 190 }} />
+            <col style={{ width: 130 }} />
+            <col style={{ width: 170 }} />
+          </colgroup>
           <thead>
             <tr style={{ background: '#f9fafb' }}>
               {['Nom', 'Genre', 'Rôle / Type', 'Fonction', 'Direction', 'Email', 'Téléphone', ''].map(h => (
@@ -135,7 +145,7 @@ export default function PersonnelClient({ personnel, managers }: { personnel: P[
                 <td style={{ padding: '10px 14px', fontSize: 12, color: '#374151' }}>{p.direction ?? '—'}</td>
                 <td style={{ padding: '10px 14px', fontSize: 12, color: '#374151' }}>{p.email ?? '—'}</td>
                 <td style={{ padding: '10px 14px', fontSize: 12, color: '#374151' }}>{p.telephone ?? '—'}</td>
-                <td style={{ padding: '10px 14px' }}>
+                <td style={{ padding: '10px 14px', overflow: 'visible', textOverflow: 'clip', whiteSpace: 'normal' }}>
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button onClick={() => openEdit(p)} style={{
                       padding: '4px 12px', fontSize: 12, cursor: 'pointer', borderRadius: 6,
