@@ -36,10 +36,10 @@ export default async function OverviewPage() {
   // L'AAF (seul) accède à Vue d'ensemble depuis le menu AAF — cette page est
   // hors de /aaf/*, donc sans la barre d'onglets alignée (AAFNav) par défaut :
   // on la réaffiche ici pour ne pas la faire disparaître en cours de
-  // navigation. La CAF, elle, a désormais son propre menu CAF Pro distinct
-  // (voir AppHeader) — lui montrer la barre AAF ici serait trompeur, comme
-  // si ces onglets étaient un sous-menu de Vue d'ensemble.
-  const showAAFNav = role === 'aaf' || ['admin', 'superadmin'].includes(role)
+  // navigation. Les autres rôles (admin/superadmin compris) ont leur propre
+  // accès à Vue d'ensemble sans lien avec le menu AAF — la leur montrer
+  // porterait à confusion.
+  const showAAFNav = role === 'aaf'
 
   return (
     <>
