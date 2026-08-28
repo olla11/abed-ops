@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import Pagination, { paginate } from '@/components/Pagination'
 import { deriveVilleFromAdresse } from '@/lib/rh-derive'
 
@@ -134,10 +135,17 @@ export default function PersonnelClient({ personnel, managers }: { personnel: P[
                 <td style={{ padding: '10px 14px', fontSize: 12, color: '#374151' }}>{p.email ?? '—'}</td>
                 <td style={{ padding: '10px 14px', fontSize: 12, color: '#374151' }}>{p.telephone ?? '—'}</td>
                 <td style={{ padding: '10px 14px' }}>
-                  <button onClick={() => openEdit(p)} style={{
-                    padding: '4px 12px', fontSize: 12, cursor: 'pointer', borderRadius: 6,
-                    background: 'white', border: '1px solid var(--abed-border)', color: '#374151',
-                  }}>Modifier</button>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={() => openEdit(p)} style={{
+                      padding: '4px 12px', fontSize: 12, cursor: 'pointer', borderRadius: 6,
+                      background: 'white', border: '1px solid var(--abed-border)', color: '#374151',
+                    }}>Modifier</button>
+                    <Link href={`/rh/personnel/${p.id}`} style={{
+                      padding: '4px 12px', fontSize: 12, cursor: 'pointer', borderRadius: 6,
+                      background: 'white', border: '1px solid var(--abed-border)', color: '#374151',
+                      textDecoration: 'none', display: 'inline-block',
+                    }}>Dossier</Link>
+                  </div>
                 </td>
               </tr>
             ))}

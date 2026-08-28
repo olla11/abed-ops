@@ -9,6 +9,7 @@ import { getImpersonationInfo } from '@/lib/impersonation'
 import ProfileEditForm from '@/components/ProfileEditForm'
 import ProfileAssetForm from '@/components/ProfileAssetForm'
 import NotificationTopicsForm from '@/components/NotificationTopicsForm'
+import PersonnelDossierClient from '@/components/PersonnelDossierClient'
 import { estRH, estAAF } from '@/lib/roles'
 
 export default async function ProfilePage() {
@@ -73,6 +74,14 @@ export default async function ProfilePage() {
             />
           </div>
         )}
+
+        <div className="card" style={{ marginBottom: 24 }}>
+          <h3 style={{ marginBottom: 4, fontSize: 15 }}>Mon dossier</h3>
+          <p style={{ fontSize: 12, color: 'var(--abed-muted)', marginBottom: 16 }}>
+            CV, diplômes, pièce d&apos;identité — visibles par vous et par les RH.
+          </p>
+          <PersonnelDossierClient profileId={user.id} canDelete={false} />
+        </div>
 
         <div className="card">
           <h3 style={{ marginBottom: 8, fontSize: 15 }}>Préférences de communication</h3>
