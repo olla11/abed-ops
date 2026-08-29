@@ -46,7 +46,7 @@ export async function GET(_req: NextRequest, ctx: RouteContext) {
     ev.profile_id === user.id ||
     ev.evaluateur_id === user.id ||
     ev.responsable_id === user.id ||
-    estRH(me?.role) || ['admin', 'de', 'dp'].includes(me?.role ?? '')
+    estRH(me?.role) || ['admin', 'superadmin', 'de', 'dp'].includes(me?.role ?? '')
 
   if (!canAccess) return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
 
@@ -126,7 +126,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
   let notifsMultiples: { userId: string; titre: string; message: string }[] = []
 
   if (soumettre) {
-    if (ev.statut === 'en_attente' && (ev.evaluateur_id === user.id || myRole === 'admin')) {
+    if (ev.statut === 'en_attente' && (ev.evaluateur_id === user.id || isAdminRole)) {
       newStatut = 'evaluateur_complete'
       notifUserId = ev.profile_id
       notifTitre = 'Évaluation à commenter'
@@ -137,7 +137,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
       notifUserId = ev.responsable_id
       notifTitre = 'Évaluation — commentaires de l\'évalué(e)'
       notifMessage = `${nomEmploye} a ajouté ses commentaires sur sa fiche d'évaluation. Votre avis de responsable est requis.`
-    } else if (ev.statut === 'evalue_complete' && (ev.responsable_id === user.id || myRole === 'admin')) {
+    } else if (ev.statut === 'evalue_complete' && (ev.responsable_id === user.id || isAdminRole)) {
       newStatut = 'responsable_complete'
       // Décision requise de trois personnes distinctes : l'évaluateur, la CAF, la Direction Exécutive
       const { data: decideurs } = await service.from('profiles').select('id, email, prenoms, nom, role').in('role', ['caf', 'de', 'dp'])
@@ -151,7 +151,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
           message: `Le responsable a émis son avis sur l'évaluation de ${nomEmploye}. Votre décision (renouvellement, durée...) est requise en Section X.`,
         })
       }
-    } else if (ev.statut === 'responsable_complete' && (myRole === 'admin' || estRH(myRole) || ['de', 'dp'].includes(myRole))) {
+    } else if (ev.statut === 'responsable_complete' && (isAdminRole || estRH(myRole) || ['de', 'dp'].includes(myRole))) {
       if (!troisDecisionsPresentes) {
         return NextResponse.json({ error: "Les trois décisions (évaluateur, CAF, Direction Exécutive) doivent être renseignées avant de clôturer." }, { status: 400 })
       }
@@ -162,7 +162,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
 
       // La RH doit aussi être notifiée à la clôture — c'est elle qui garde la
       // trace du dossier final et le télécharge depuis son interface.
-      const { data: rhProfiles } = await service.from('profiles').select('id').in('role', ['rh', 'caf', 'admin'])
+      const { data: rhProfiles } = await service.from('profiles').select('id').in('role', ['rh', 'caf', 'admin', 'superadmin'])
       for (const rhP of rhProfiles ?? []) {
         notifsMultiples.push({
           userId: rhP.id,

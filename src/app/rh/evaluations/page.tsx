@@ -38,7 +38,7 @@ export default async function EvaluationsRHPage() {
   if (!user) redirect('/login')
 
   const me = await getCachedProfile(user.id)
-  if (!(estRH(me?.role) || me?.role === 'admin')) redirect('/rh/conges')
+  if (!(estRH(me?.role) || ['admin', 'superadmin'].includes(me?.role ?? ''))) redirect('/rh/conges')
 
   const [evaluations, contratsActifs, personnel] = await Promise.all([
     getCachedEvaluations(),
