@@ -171,7 +171,7 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole }: Props) 
   // département assigné (VIII), puis 3 décideurs indépendants en section X
   // (l'évaluateur peut être la même personne que le responsable — cas
   // fréquent en pratique, les deux jeux de droits s'appliquent alors ensemble).
-  const isAdmin = myRole === 'admin'
+  const isAdmin = ['admin', 'superadmin'].includes(myRole)
   const isEvaluateur = ev.evaluateur?.id === myId || isAdmin
   const isEvalue = ev.profile?.id === myId
   const isResponsable = (ev.responsable_id ?? ev.responsable?.id) === myId || isAdmin
@@ -190,7 +190,7 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole }: Props) 
   // La clôture (bouton "Valider et soumettre" une fois les 3 décisions
   // rendues) reste un geste RH/DE/admin, distinct du droit de remplir sa
   // propre décision.
-  const canCloturer = ev.statut === 'responsable_complete' && (estRH(myRole) || ['admin', 'de', 'dp'].includes(myRole))
+  const canCloturer = ev.statut === 'responsable_complete' && (estRH(myRole) || ['admin', 'superadmin', 'de', 'dp'].includes(myRole))
   const canEdit = canEditSec1to6 || canEditSec7 || canEditSec8 || canEditSec10 || canCloturer
 
   // Form state — Section I

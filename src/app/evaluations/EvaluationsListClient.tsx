@@ -14,6 +14,7 @@ const STATUTS: Record<string, { label: string; color: string; bg: string }> = {
   cloture:              { label: 'Clôturé',              color: '#166534', bg: '#f0fdf4' },
 }
 
+type Decision = { decision?: string } | null
 type Evaluation = {
   id: string
   statut: string
@@ -22,20 +23,28 @@ type Evaluation = {
   profile_id: string
   evaluateur_id: string
   responsable_id: string | null
+  decision_caf: Decision
+  decision_de: Decision
   profile: { nom: string; prenoms: string } | null
   contrat: { type_contrat: string; date_fin: string | null; poste: string | null } | null
 }
 
-type MonRole = 'evaluateur' | 'evalue' | 'responsable' | null
+type MonRole = 'evaluateur' | 'evalue' | 'responsable' | 'decideur_caf' | 'decideur_de' | null
 
 // Une même personne peut cumuler plusieurs rôles sur une évaluation (p. ex.
 // évaluateur et responsable de département) — on retient celui qui exige
 // une action de sa part en priorité, à défaut le premier rôle détenu.
-function monRole(e: Evaluation, myId: string): MonRole {
+// decideur_caf/decideur_de : le CAF (resp. DE/DP) rend sa décision en
+// Section X une fois le dossier au stade "responsable_complete" — ce rôle
+// n'est pas lié à evaluateur_id/profile_id/responsable_id, il découle
+// uniquement du rôle système de la personne connectée (myRole).
+function monRole(e: Evaluation, myId: string, myRole: string): MonRole {
   const roles: MonRole[] = []
   if (e.evaluateur_id === myId) roles.push('evaluateur')
   if (e.responsable_id === myId) roles.push('responsable')
   if (e.profile_id === myId) roles.push('evalue')
+  if (myRole === 'caf' && ['responsable_complete', 'cloture'].includes(e.statut)) roles.push('decideur_caf')
+  if (['de', 'dp'].includes(myRole) && ['responsable_complete', 'cloture'].includes(e.statut)) roles.push('decideur_de')
   const enAttente = roles.find(r => actionRequise(e, r))
   return enAttente ?? roles[0] ?? null
 }
@@ -46,19 +55,31 @@ function actionRequise(e: Evaluation, role: MonRole): boolean {
   if (role === 'evaluateur') return e.statut === 'en_attente'
   if (role === 'evalue') return e.statut === 'evaluateur_complete'
   if (role === 'responsable') return e.statut === 'evalue_complete'
+  if (role === 'decideur_caf') return e.statut === 'responsable_complete' && !e.decision_caf?.decision
+  if (role === 'decideur_de') return e.statut === 'responsable_complete' && !e.decision_de?.decision
   return false
 }
 
-function EvalCard({ e, myId, urgent }: { e: Evaluation; myId: string; urgent?: boolean }) {
+function EvalCard({ e, myId, myRole, urgent }: { e: Evaluation; myId: string; myRole: string; urgent?: boolean }) {
   const s = STATUTS[e.statut] ?? { label: e.statut, color: '#6b7280', bg: '#f3f4f6' }
-  const role = monRole(e, myId)
-  const titre = role === 'evaluateur' || role === 'responsable'
+  const role = monRole(e, myId, myRole)
+  const titre = ['evaluateur', 'responsable', 'decideur_caf', 'decideur_de'].includes(role ?? '')
     ? `${e.profile?.prenoms ?? ''} ${e.profile?.nom ?? ''}`.trim() || 'Personnel'
     : (e.contrat?.poste ?? 'Poste N/A')
+  // Pour les décideurs, le libellé dépend de si leur décision est déjà
+  // rendue (dossier consultable après coup) ou encore attendue.
+  const decisionDejaRendue = role === 'decideur_caf' ? !!e.decision_caf?.decision
+    : role === 'decideur_de' ? !!e.decision_de?.decision : false
   const ROLE_BADGE: Record<string, { label: string; bg: string; color: string }> = {
     evaluateur: { label: 'Vous êtes l’évaluateur', bg: '#ede9fe', color: '#6d28d9' },
     responsable: { label: 'Vous êtes le/la responsable', bg: '#fef3c7', color: '#92400e' },
     evalue: { label: 'Votre évaluation', bg: '#dbeafe', color: '#1e40af' },
+    decideur_caf: decisionDejaRendue
+      ? { label: 'Décision CAF donnée', bg: '#f0fdf4', color: '#166534' }
+      : { label: 'Décision CAF requise', bg: '#fee2e2', color: '#b91c1c' },
+    decideur_de: decisionDejaRendue
+      ? { label: 'Décision DE donnée', bg: '#f0fdf4', color: '#166534' }
+      : { label: 'Décision DE requise', bg: '#fee2e2', color: '#b91c1c' },
   }
   const roleBadge = ROLE_BADGE[role ?? 'evalue'] ?? ROLE_BADGE.evalue
 
@@ -106,10 +127,10 @@ function EvalCard({ e, myId, urgent }: { e: Evaluation; myId: string; urgent?: b
   )
 }
 
-export default function EvaluationsListClient({ evaluations, myId }: { evaluations: Evaluation[]; myId: string }) {
+export default function EvaluationsListClient({ evaluations, myId, myRole }: { evaluations: Evaluation[]; myId: string; myRole: string }) {
   const [page, setPage] = useState(1)
 
-  const aTraiter = evaluations.filter(e => actionRequise(e, monRole(e, myId)))
+  const aTraiter = evaluations.filter(e => actionRequise(e, monRole(e, myId, myRole)))
   const enCours = evaluations.filter(e => e.statut !== 'cloture')
   const paged = paginate(evaluations, page, PAGE_SIZE)
 
@@ -161,7 +182,7 @@ export default function EvaluationsListClient({ evaluations, myId }: { evaluatio
                 <h3 style={{ margin: 0, fontSize: 15, color: '#92400e' }}>À traiter ({aTraiter.length})</h3>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {aTraiter.map(e => <EvalCard key={e.id} e={e} myId={myId} urgent />)}
+                {aTraiter.map(e => <EvalCard key={e.id} e={e} myId={myId} myRole={myRole} urgent />)}
               </div>
             </div>
           )}
@@ -172,7 +193,7 @@ export default function EvaluationsListClient({ evaluations, myId }: { evaluatio
             <h3 style={{ margin: 0, fontSize: 15, color: '#374151' }}>Toutes mes évaluations</h3>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {paged.map(e => <EvalCard key={e.id} e={e} myId={myId} />)}
+            {paged.map(e => <EvalCard key={e.id} e={e} myId={myId} myRole={myRole} />)}
           </div>
           <Pagination page={page} total={evaluations.length} pageSize={PAGE_SIZE} onChange={setPage} />
         </>

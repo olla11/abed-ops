@@ -33,15 +33,25 @@ export default async function MesEvaluationsPage() {
     .single()
 
   // Évaluations où l'utilisateur est l'évalué, l'évaluateur, ou le
-  // responsable de département assigné (Section VIII).
+  // responsable de département assigné (Section VIII) — et, pour CAF/DE/DP
+  // qui rendent une décision en Section X, tous les dossiers arrivés à ce
+  // stade (responsable_complete/cloture) même sans lien personnel avec le
+  // dossier, sinon ils n'ont aucun moyen de les retrouver dans le système.
+  const role = profile?.role ?? ''
+  const isDecideur = ['caf', 'de', 'dp'].includes(role)
+  const orFilter = isDecideur
+    ? `profile_id.eq.${user.id},evaluateur_id.eq.${user.id},responsable_id.eq.${user.id},statut.eq.responsable_complete,statut.eq.cloture`
+    : `profile_id.eq.${user.id},evaluateur_id.eq.${user.id},responsable_id.eq.${user.id}`
+
   const { data: evaluations } = await service
     .from('evaluations')
     .select(`
       id, statut, declenchee_le, score_moyen, profile_id, evaluateur_id, responsable_id,
+      decision_caf, decision_de,
       profile:profiles!profile_id(nom, prenoms),
       contrat:contrats(type_contrat, date_fin, poste)
     `)
-    .or(`profile_id.eq.${user.id},evaluateur_id.eq.${user.id},responsable_id.eq.${user.id}`)
+    .or(orFilter)
     .order('declenchee_le', { ascending: false })
 
   const showRH = estRH(profile?.role)
@@ -66,7 +76,7 @@ export default async function MesEvaluationsPage() {
           <Link href="/dashboard" style={{ fontSize: 13, color: 'var(--abed-muted)', textDecoration: 'none' }}>← Retour</Link>
         </div>
 
-        <EvaluationsListClient evaluations={(evaluations ?? []) as any} myId={user.id} />
+        <EvaluationsListClient evaluations={(evaluations ?? []) as any} myId={user.id} myRole={role} />
       </div>
     </>
   )
