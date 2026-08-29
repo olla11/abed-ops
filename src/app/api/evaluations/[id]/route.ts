@@ -125,6 +125,43 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
 
   let notifsMultiples: { userId: string; titre: string; message: string }[] = []
 
+  // Gabarit d'email commun, utilisé aussi bien par les transitions d'étape
+  // ci-dessous que par les notifications de décision Section X (qui ne
+  // dépendent pas de soumettre — une décision se sauvegarde aussi bien
+  // depuis "Enregistrer (brouillon)" que depuis le bouton principal).
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://myabed.vercel.app'
+  const lienEval = `${appUrl}/evaluations/${id}`
+  const emailBlock = (dest: string, titre: string, corps: string) => `
+      <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#f9fafb;border-radius:12px">
+        <h2 style="color:#16a34a;margin:0 0 20px">📝 ${titre}</h2>
+        <div style="background:white;border-radius:10px;padding:24px;border:1px solid #e5e7eb">
+          <p style="margin:0 0 16px;font-size:14px;color:#374151">Bonjour <strong>${dest}</strong>,</p>
+          <p style="margin:0 0 20px;font-size:14px;color:#374151;line-height:1.6">${corps}</p>
+          <a href="${lienEval}" style="display:block;text-align:center;background:#16a34a;color:white;padding:12px 0;border-radius:8px;font-size:14px;font-weight:700;text-decoration:none">
+            Accéder à l'évaluation →
+          </a>
+        </div>
+        <p style="text-align:center;font-size:12px;color:#9ca3af;margin-top:20px">My ABED — ABED ONG</p>
+      </div>
+    `
+
+  // Notifie le décideur suivant en Section X dès qu'une décision est rendue
+  // ou modifiée — indépendant de soumettre, et distinct des notifications de
+  // transition d'étape ci-dessous (le statut du dossier ne change pas ici).
+  async function notifierDecideurSuivant(roles: string[], titre: string, corps: string) {
+    const { data: cibles } = await service.from('profiles').select('id, email, prenoms, nom').in('role', roles)
+    for (const c of cibles ?? []) {
+      await service.from('notifications').insert({ user_id: c.id, titre, message: corps, lien: lienEval })
+      if (c.email) {
+        await sendEmail({
+          to: c.email,
+          subject: titre,
+          html: emailBlock(`${c.prenoms ?? ''} ${c.nom ?? ''}`.trim(), titre, corps),
+        }).catch(() => {})
+      }
+    }
+  }
+
   if (soumettre) {
     if (ev.statut === 'en_attente' && (ev.evaluateur_id === user.id || isAdminRole)) {
       newStatut = 'evaluateur_complete'
@@ -139,14 +176,13 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
       notifMessage = `${nomEmploye} a ajouté ses commentaires sur sa fiche d'évaluation. Votre avis de responsable est requis.`
     } else if (ev.statut === 'evalue_complete' && (ev.responsable_id === user.id || isAdminRole)) {
       newStatut = 'responsable_complete'
-      // Décision requise de trois personnes distinctes : l'évaluateur, la CAF, la Direction Exécutive
-      const { data: decideurs } = await service.from('profiles').select('id, email, prenoms, nom, role').in('role', ['caf', 'de', 'dp'])
-      const cible = new Set<string>()
-      if (ev.evaluateur_id) cible.add(ev.evaluateur_id)
-      for (const d of decideurs ?? []) cible.add(d.id)
-      for (const uid of cible) {
+      // Les 3 décisions de Section X sont rendues dans l'ordre (évaluateur
+      // → CAF → DE) — seul l'évaluateur peut agir dès ce stade, la CAF et la
+      // DE ne sont notifiées qu'à leur tour (voir notifierDecideurSuivant
+      // plus bas), sinon on leur dit "à vous" alors que c'est bloqué.
+      if (ev.evaluateur_id) {
         notifsMultiples.push({
-          userId: uid,
+          userId: ev.evaluateur_id,
           titre: 'Évaluation — décision requise',
           message: `Le responsable a émis son avis sur l'évaluation de ${nomEmploye}. Votre décision (renouvellement, durée...) est requise en Section X.`,
         })
@@ -184,6 +220,30 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
+  // Décision Section X rendue ou modifiée — notifie le décideur suivant.
+  // Placé après l'update réussi pour ne jamais notifier sur un
+  // enregistrement qui a en fait échoué.
+  if ('decision_evaluateur' in fields && aUneDecision(fields.decision_evaluateur)) {
+    const estModification = aUneDecision(ev.decision_evaluateur)
+    await notifierDecideurSuivant(
+      ['caf'],
+      estModification ? 'Décision de l\'évaluateur modifiée' : 'Décision requise (CAF)',
+      estModification
+        ? `L'évaluateur a modifié sa décision pour l'évaluation de ${nomEmploye}. Vérifiez si votre propre décision (CAF) doit être reconfirmée.`
+        : `L'évaluateur a rendu sa décision pour l'évaluation de ${nomEmploye}. Votre décision (CAF) est maintenant requise en Section X.`
+    )
+  }
+  if ('decision_caf' in fields && aUneDecision(fields.decision_caf)) {
+    const estModification = aUneDecision(ev.decision_caf)
+    await notifierDecideurSuivant(
+      ['de', 'dp'],
+      estModification ? 'Décision de la CAF modifiée' : 'Décision requise (Direction Exécutive)',
+      estModification
+        ? `La CAF a modifié sa décision pour l'évaluation de ${nomEmploye}. Vérifiez si votre propre décision (Direction Exécutive) doit être reconfirmée.`
+        : `La CAF a rendu sa décision pour l'évaluation de ${nomEmploye}. Votre décision (Direction Exécutive) est maintenant requise en Section X.`
+    )
+  }
+
   // Notification in-app
   if (notifUserId && notifTitre) {
     await service.from('notifications').insert({
@@ -199,23 +259,6 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
 
   // Emails selon la transition
   if (newStatut && soumettre) {
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://myabed.vercel.app'
-    const lien = `${appUrl}/evaluations/${id}`
-
-    const emailBlock = (dest: string, titre: string, corps: string) => `
-      <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#f9fafb;border-radius:12px">
-        <h2 style="color:#16a34a;margin:0 0 20px">📝 ${titre}</h2>
-        <div style="background:white;border-radius:10px;padding:24px;border:1px solid #e5e7eb">
-          <p style="margin:0 0 16px;font-size:14px;color:#374151">Bonjour <strong>${dest}</strong>,</p>
-          <p style="margin:0 0 20px;font-size:14px;color:#374151;line-height:1.6">${corps}</p>
-          <a href="${lien}" style="display:block;text-align:center;background:#16a34a;color:white;padding:12px 0;border-radius:8px;font-size:14px;font-weight:700;text-decoration:none">
-            Accéder à l'évaluation →
-          </a>
-        </div>
-        <p style="text-align:center;font-size:12px;color:#9ca3af;margin-top:20px">My ABED — ABED ONG</p>
-      </div>
-    `
-
     if (newStatut === 'evaluateur_complete') {
       const { data: employe } = await service.from('profiles').select('email, prenoms, nom').eq('id', ev.profile_id).single()
       if (employe?.email) {
@@ -239,24 +282,20 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
         }).catch(() => {})
       }
     } else if (newStatut === 'responsable_complete') {
-      // Décision requise de trois personnes distinctes : évaluateur, CAF, Direction Exécutive
-      const { data: decideurs } = await service.from('profiles').select('id, email, prenoms, nom, role').in('role', ['caf', 'de', 'dp'])
-      const destinataires = new Map<string, { email: string; prenoms: string; nom: string }>()
-      for (const d of decideurs ?? []) {
-        if (d.email) destinataires.set(d.id, { email: d.email, prenoms: d.prenoms, nom: d.nom })
-      }
-      if (ev.evaluateur_id && !destinataires.has(ev.evaluateur_id)) {
+      // Seul l'évaluateur peut agir dès ce stade (décisions rendues dans
+      // l'ordre) — CAF et DE reçoivent leur propre email via
+      // notifierDecideurSuivant quand ce sera effectivement leur tour.
+      if (ev.evaluateur_id) {
         const { data: evaluateur } = await service.from('profiles').select('email, prenoms, nom').eq('id', ev.evaluateur_id).single()
-        if (evaluateur?.email) destinataires.set(ev.evaluateur_id, evaluateur)
-      }
-      for (const dest of destinataires.values()) {
-        await sendEmail({
-          to: dest.email,
-          subject: `Évaluation ${nomEmploye} — décision requise`,
-          html: emailBlock(`${dest.prenoms} ${dest.nom}`,
-            'Décision requise',
-            `L'évaluation de <strong>${nomEmploye}</strong> a été complétée par l'évaluateur, l'évalué(e) et le responsable. Votre décision (Section X) est requise pour permettre la clôture du dossier.`),
-        }).catch(() => {})
+        if (evaluateur?.email) {
+          await sendEmail({
+            to: evaluateur.email,
+            subject: `Évaluation ${nomEmploye} — décision requise`,
+            html: emailBlock(`${evaluateur.prenoms} ${evaluateur.nom}`,
+              'Décision requise',
+              `L'évaluation de <strong>${nomEmploye}</strong> a été complétée par l'évaluateur, l'évalué(e) et le responsable. Votre décision (Section X) est requise pour permettre la clôture du dossier.`),
+          }).catch(() => {})
+        }
       }
     } else if (newStatut === 'cloture') {
       const { data: employe } = await service.from('profiles').select('email, prenoms, nom').eq('id', ev.profile_id).single()
