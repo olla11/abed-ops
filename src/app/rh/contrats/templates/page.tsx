@@ -11,7 +11,7 @@ export default async function ContratTemplatesPage() {
   if (!user) redirect('/login')
 
   const { data: me } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  if (!(estRH(me?.role) || me?.role === 'admin')) redirect('/rh/conges')
+  if (!(estRH(me?.role) || ['admin', 'superadmin'].includes(me?.role ?? ''))) redirect('/rh/conges')
 
   const service = createAdminClient()
   const { data: templates } = await service.from('contrat_templates').select('*').order('created_at', { ascending: false })

@@ -23,7 +23,7 @@ const inputStyle: React.CSSProperties = {
 }
 
 export default function CongesRHClient({ conges: initial, role }: { conges: Conge[]; role: string }) {
-  const canValiderN1 = estRH(role) || role === 'admin'
+  const canValiderN1 = estRH(role) || ['admin', 'superadmin'].includes(role)
   const canValiderFinal = ['de', 'dp', 'administrateur', 'admin'].includes(role)
   const [conges, setConges] = useState(initial)
   const [filterStatut, setFilterStatut] = useState('')

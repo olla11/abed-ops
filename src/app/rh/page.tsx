@@ -14,7 +14,7 @@ export default async function RHDashboardPage() {
   if (!user) redirect('/login')
 
   const me = await getCachedProfile(user.id)
-  if (!(estRH(me?.role) || me?.role === 'admin')) redirect('/rh/conges')
+  if (!(estRH(me?.role) || ['admin', 'superadmin'].includes(me?.role ?? ''))) redirect('/rh/conges')
 
   const service = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

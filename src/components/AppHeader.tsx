@@ -40,7 +40,12 @@ export default function AppHeader({ userName, userRole, userTitre, typeEmploi, s
   // fourni la prop explicitement — évite la classe de bug déjà rencontrée
   // avec showAAF (des pages qui oubliaient de la passer perdaient le menu).
   const effectiveShowAAF = showAAF ?? roleEstAAF(userRole)
-  const effectiveShowRH = showRH ?? roleEstRH(userRole)
+  // Admin/superadmin doivent pouvoir agir directement sur les dossiers RH
+  // (personnel, évaluations...) sans passer par l'aperçu de rôle — l'onglet
+  // RH leur reste donc accessible même quand la page appelante a transmis
+  // showRH={estRH(role)} (false pour eux), d'où le OR après le repli au
+  // lieu d'un simple ??.
+  const effectiveShowRH = (showRH ?? roleEstRH(userRole)) || ['admin', 'superadmin'].includes(userRole ?? '')
   // Le menu CAF (déroulant CAF Pro / AAF / RH) remplace les onglets AAF et RH
   // séparés pour la CAF — exclusif à ce rôle, pas de repli par défaut ailleurs.
   const effectiveShowCAF = showCAF ?? roleEstCAF(userRole)
