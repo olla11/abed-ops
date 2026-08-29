@@ -151,7 +151,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
           message: `Le responsable a émis son avis sur l'évaluation de ${nomEmploye}. Votre décision (renouvellement, durée...) est requise en Section X.`,
         })
       }
-    } else if (ev.statut === 'responsable_complete' && (isAdminRole || estRH(myRole) || ['de', 'dp'].includes(myRole))) {
+    } else if (ev.statut === 'responsable_complete' && myRole === 'rh') {
       if (!troisDecisionsPresentes) {
         return NextResponse.json({ error: "Les trois décisions (évaluateur, CAF, Direction Exécutive) doivent être renseignées avant de clôturer." }, { status: 400 })
       }

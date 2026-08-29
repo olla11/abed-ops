@@ -195,13 +195,13 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole }: Props) 
   const canEditDecCaf = isAdmin || (ev.statut === 'responsable_complete' && estCAF(myRole) && !!ev.decision_evaluateur?.decision)
   const canEditDecDe = isAdmin || (ev.statut === 'responsable_complete' && ['de', 'dp'].includes(myRole) && !!ev.decision_caf?.decision)
   const canEditSec10 = canEditDecEval || canEditDecCaf || canEditDecDe
-  // La clôture (bouton "Valider et soumettre" une fois les 3 décisions
-  // rendues) reste un geste RH/DE/admin, distinct du droit de remplir sa
-  // propre décision — volontairement le rôle RH littéral, pas estRH() qui
-  // inclurait aussi la CAF : la CAF est l'un des 3 décideurs ici, pas la
-  // personne qui clôture, sinon elle perd son propre bouton "Enregistrer
-  // ma décision" au profit du bouton de clôture.
-  const canCloturer = ev.statut === 'responsable_complete' && (myRole === 'rh' || ['admin', 'superadmin', 'de', 'dp'].includes(myRole))
+  // La clôture est un geste RH exclusivement — chacun (évaluateur, évalué,
+  // responsable, décideurs) pouvant revenir sur son avis à tout moment via
+  // "Modifier ma réponse", seule la RH décide quand le dossier est
+  // définitivement figé. Ni CAF, ni DE/DP, ni même admin/superadmin ne
+  // clôturent — volontairement le rôle RH littéral, pas estRH() qui
+  // inclurait aussi la CAF.
+  const canCloturer = ev.statut === 'responsable_complete' && myRole === 'rh'
   const canEdit = canEditSec1to6 || canEditSec7 || canEditSec8 || canEditSec10 || canCloturer
 
   // Form state — Section I
