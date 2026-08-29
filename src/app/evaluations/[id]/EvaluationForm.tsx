@@ -1,7 +1,8 @@
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { estRH, estCAF } from '@/lib/roles'
+import { estCAF } from '@/lib/roles'
+import { Save, CheckCircle2, Hourglass, Lock, FileDown } from 'lucide-react'
 
 type Profile = { id: string; nom: string; prenoms: string; email: string; role?: string }
 type Contrat = { id: string; type_contrat: string; date_debut: string; date_fin: string | null; poste: string | null }
@@ -189,8 +190,11 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole }: Props) 
   const canEditSec10 = canEditDecEval || canEditDecCaf || canEditDecDe
   // La clôture (bouton "Valider et soumettre" une fois les 3 décisions
   // rendues) reste un geste RH/DE/admin, distinct du droit de remplir sa
-  // propre décision.
-  const canCloturer = ev.statut === 'responsable_complete' && (estRH(myRole) || ['admin', 'superadmin', 'de', 'dp'].includes(myRole))
+  // propre décision — volontairement le rôle RH littéral, pas estRH() qui
+  // inclurait aussi la CAF : la CAF est l'un des 3 décideurs ici, pas la
+  // personne qui clôture, sinon elle perd son propre bouton "Enregistrer
+  // ma décision" au profit du bouton de clôture.
+  const canCloturer = ev.statut === 'responsable_complete' && (myRole === 'rh' || ['admin', 'superadmin', 'de', 'dp'].includes(myRole))
   const canEdit = canEditSec1to6 || canEditSec7 || canEditSec8 || canEditSec10 || canCloturer
 
   // Form state — Section I
@@ -322,10 +326,15 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole }: Props) 
   // voient un libellé qui ne laisse pas croire qu'ils clôturent le dossier.
   const troisDecisionsRendues = !!(decEval.decision && decCaf.decision && decDE.decision)
   const submitLabel = canEditSec10 && !canCloturer
-    ? '✅ Enregistrer ma décision'
+    ? 'Enregistrer ma décision'
     : canCloturer && ev.statut === 'responsable_complete'
-      ? (troisDecisionsRendues ? '✅ Clôturer le dossier' : '⏳ En attente des 3 décisions')
-      : '✅ Valider et soumettre'
+      ? (troisDecisionsRendues ? 'Clôturer le dossier' : 'En attente des 3 décisions')
+      : 'Valider et soumettre'
+  const SubmitIcon = canEditSec10 && !canCloturer
+    ? CheckCircle2
+    : canCloturer && ev.statut === 'responsable_complete'
+      ? (troisDecisionsRendues ? Lock : Hourglass)
+      : CheckCircle2
 
   return (
     <div>
@@ -587,7 +596,11 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole }: Props) 
                     background: state.decision ? '#f0fdf4' : '#f3f4f6',
                     color: state.decision ? '#166534' : '#9ca3af',
                   }}>
-                    {state.decision ? '✓ Rendue' : 'En attente'}
+                    {state.decision ? (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        <CheckCircle2 size={12} strokeWidth={2.5} /> Rendue
+                      </span>
+                    ) : 'En attente'}
                   </span>
                 </div>
                 <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
@@ -619,22 +632,26 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole }: Props) 
             onClick={handleSave}
             disabled={saving || submitting}
             style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
               padding: '10px 24px', borderRadius: 8, fontSize: 14, fontWeight: 600,
               background: 'white', border: '1px solid var(--abed-border)', color: '#374151',
               cursor: 'pointer', opacity: saving ? 0.7 : 1,
             }}
           >
-            {saving ? 'Enregistrement...' : '💾 Enregistrer (brouillon)'}
+            <Save size={16} strokeWidth={2} />
+            {saving ? 'Enregistrement...' : 'Enregistrer (brouillon)'}
           </button>
           <button
             onClick={handleSubmit}
             disabled={saving || submitting}
             style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
               padding: '10px 24px', borderRadius: 8, fontSize: 14, fontWeight: 700,
               background: 'var(--abed-green)', color: 'white', border: 'none',
               cursor: 'pointer', opacity: submitting ? 0.7 : 1,
             }}
           >
+            <SubmitIcon size={16} strokeWidth={2} />
             {submitting ? 'Soumission...' : submitLabel}
           </button>
         </div>
@@ -642,7 +659,9 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole }: Props) 
 
       {ev.statut === 'cloture' && (
         <div style={{ textAlign: 'center', padding: '24px', background: '#f0fdf4', borderRadius: 10, marginTop: 8 }}>
-          <span style={{ fontSize: 16, fontWeight: 700, color: '#166534' }}>✅ Évaluation clôturée</span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 16, fontWeight: 700, color: '#166534' }}>
+            <CheckCircle2 size={18} strokeWidth={2} /> Évaluation clôturée
+          </span>
           {ev.score_moyen && (
             <div style={{ fontSize: 28, fontWeight: 900, color: 'var(--abed-green)', marginTop: 8 }}>
               Score final : {Number(ev.score_moyen).toFixed(2)}/5
@@ -653,7 +672,7 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole }: Props) 
             padding: '10px 22px', borderRadius: 8, fontSize: 14, fontWeight: 700,
             background: 'var(--abed-green)', color: 'white', textDecoration: 'none',
           }}>
-            📄 Télécharger le rapport PDF
+            <FileDown size={16} strokeWidth={2} /> Télécharger le rapport PDF
           </a>
         </div>
       )}
