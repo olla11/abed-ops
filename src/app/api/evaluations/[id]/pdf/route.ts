@@ -36,7 +36,7 @@ export async function GET(
   const me = await admin.from('profiles').select('role').eq('id', user.id).single()
   const role = me.data?.role ?? ''
   const canView =
-    estRH(role) || ['admin', 'de', 'dp', 'administrateur', 'aaf', 'caf'].includes(role) ||
+    estRH(role) || ['admin', 'superadmin', 'de', 'dp', 'administrateur', 'aaf', 'caf'].includes(role) ||
     ev.profile_id === user.id || ev.evaluateur_id === user.id || ev.responsable_id === user.id
   if (!canView) return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
 

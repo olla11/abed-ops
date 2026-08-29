@@ -40,7 +40,7 @@ export default async function EvaluationPage({ params }: { params: Promise<{ id:
     ev.profile_id === user.id ||
     ev.evaluateur_id === user.id ||
     ev.responsable_id === user.id ||
-    estRH(role) || ['admin', 'de', 'dp'].includes(role)
+    estRH(role) || ['admin', 'superadmin', 'de', 'dp'].includes(role)
 
   if (!canAccess) redirect('/evaluations')
 
