@@ -177,18 +177,23 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole }: Props) 
   const isEvalue = ev.profile?.id === myId
   const isResponsable = (ev.responsable_id ?? ev.responsable?.id) === myId || isAdmin
 
-  const canEditSec1to6 = ev.statut === 'en_attente' && isEvaluateur
+  // Admin/superadmin peuvent corriger n'importe quelle section à tout
+  // moment, quel que soit le statut actuel du dossier (y compris déjà
+  // clôturé) — un vrai droit de correction, pas seulement une permission
+  // limitée à l'étape en cours. Seule la Section VII (les mots propres de
+  // l'évalué·e sur sa performance) reste hors de cette dérogation.
+  const canEditSec1to6 = isAdmin || (ev.statut === 'en_attente' && isEvaluateur)
   const canEditSec7 = ev.statut === 'evaluateur_complete' && isEvalue
-  const canEditSec8 = ev.statut === 'evalue_complete' && isResponsable
+  const canEditSec8 = isAdmin || (ev.statut === 'evalue_complete' && isResponsable)
 
   // Section X — décision de trois personnes : l'évaluateur, la CAF, la
   // Direction Exécutive, rendues dans cet ordre — la CAF ne peut renseigner
   // sa décision qu'une fois celle de l'évaluateur enregistrée, et la DE
   // qu'une fois celle de la CAF enregistrée. L'admin/superadmin passe outre
-  // cet ordre (droit de dépannage déjà accordé ailleurs dans ce circuit).
-  const canEditDecEval = ev.statut === 'responsable_complete' && (ev.evaluateur?.id === myId || isAdmin)
-  const canEditDecCaf = ev.statut === 'responsable_complete' && (estCAF(myRole) || isAdmin) && (isAdmin || !!ev.decision_evaluateur?.decision)
-  const canEditDecDe = ev.statut === 'responsable_complete' && (['de', 'dp'].includes(myRole) || isAdmin) && (isAdmin || !!ev.decision_caf?.decision)
+  // cet ordre ET le statut du dossier (droit de correction).
+  const canEditDecEval = isAdmin || (ev.statut === 'responsable_complete' && ev.evaluateur?.id === myId)
+  const canEditDecCaf = isAdmin || (ev.statut === 'responsable_complete' && estCAF(myRole) && !!ev.decision_evaluateur?.decision)
+  const canEditDecDe = isAdmin || (ev.statut === 'responsable_complete' && ['de', 'dp'].includes(myRole) && !!ev.decision_caf?.decision)
   const canEditSec10 = canEditDecEval || canEditDecCaf || canEditDecDe
   // La clôture (bouton "Valider et soumettre" une fois les 3 décisions
   // rendues) reste un geste RH/DE/admin, distinct du droit de remplir sa
@@ -535,7 +540,7 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole }: Props) 
 
       {/* Section VIII — Avis responsable */}
       <Section title="Section VIII — Avis du responsable de département">
-        {['en_attente', 'evaluateur_complete'].includes(ev.statut) ? (
+        {!isAdmin && ['en_attente', 'evaluateur_complete'].includes(ev.statut) ? (
           <p style={{ color: '#9ca3af', fontSize: 14, fontStyle: 'italic' }}>
             Cette section sera disponible après la signature de l&apos;évalué(e).
           </p>
@@ -576,7 +581,7 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole }: Props) 
 
       {/* Section X — Décisions finales */}
       <Section title="Section X — Décisions finales">
-        {ev.statut !== 'responsable_complete' && ev.statut !== 'cloture' ? (
+        {!isAdmin && ev.statut !== 'responsable_complete' && ev.statut !== 'cloture' ? (
           <p style={{ color: '#9ca3af', fontSize: 14, fontStyle: 'italic' }}>
             Cette section sera disponible une fois l&apos;avis du responsable soumis.
           </p>
@@ -605,7 +610,7 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole }: Props) 
                     ) : 'En attente'}
                   </span>
                 </div>
-                {lockedReason && !state.decision && (
+                {lockedReason && !state.decision && !editable && (
                   <p style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--abed-muted)', margin: '0 0 8px' }}>
                     <Lock size={12} strokeWidth={2} /> {lockedReason}
                   </p>
