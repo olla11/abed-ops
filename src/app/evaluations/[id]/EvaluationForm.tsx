@@ -304,6 +304,7 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole }: Props) 
       const data = await res.json()
       if (!res.ok) { setMsg({ type: 'err', text: data.error ?? 'Erreur' }); return }
       setMsg({ type: 'ok', text: 'Enregistré.' })
+      setEditingDecisions(new Set())
     } catch { setMsg({ type: 'err', text: 'Erreur réseau' }) }
     finally { setSaving(false) }
   }
@@ -319,6 +320,7 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole }: Props) 
       const data = await res.json()
       if (!res.ok) { setMsg({ type: 'err', text: data.error ?? 'Erreur' }); return }
       setMsg({ type: 'ok', text: 'Soumis avec succès.' })
+      setEditingDecisions(new Set())
       setTimeout(() => router.refresh(), 1000)
     } catch { setMsg({ type: 'err', text: 'Erreur réseau' }) }
     finally { setSubmitting(false) }
