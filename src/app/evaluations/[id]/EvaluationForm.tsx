@@ -181,12 +181,14 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole }: Props) 
   const canEditSec7 = ev.statut === 'evaluateur_complete' && isEvalue
   const canEditSec8 = ev.statut === 'evalue_complete' && isResponsable
 
-  // Section X — décision indépendante de trois personnes : l'évaluateur, la
-  // CAF, la Direction Exécutive. Chacune ne peut renseigner que sa propre
-  // décision, pas celle des deux autres.
+  // Section X — décision de trois personnes : l'évaluateur, la CAF, la
+  // Direction Exécutive, rendues dans cet ordre — la CAF ne peut renseigner
+  // sa décision qu'une fois celle de l'évaluateur enregistrée, et la DE
+  // qu'une fois celle de la CAF enregistrée. L'admin/superadmin passe outre
+  // cet ordre (droit de dépannage déjà accordé ailleurs dans ce circuit).
   const canEditDecEval = ev.statut === 'responsable_complete' && (ev.evaluateur?.id === myId || isAdmin)
-  const canEditDecCaf = ev.statut === 'responsable_complete' && (estCAF(myRole) || isAdmin)
-  const canEditDecDe = ev.statut === 'responsable_complete' && (['de', 'dp'].includes(myRole) || isAdmin)
+  const canEditDecCaf = ev.statut === 'responsable_complete' && (estCAF(myRole) || isAdmin) && (isAdmin || !!ev.decision_evaluateur?.decision)
+  const canEditDecDe = ev.statut === 'responsable_complete' && (['de', 'dp'].includes(myRole) || isAdmin) && (isAdmin || !!ev.decision_caf?.decision)
   const canEditSec10 = canEditDecEval || canEditDecCaf || canEditDecDe
   // La clôture (bouton "Valider et soumettre" une fois les 3 décisions
   // rendues) reste un geste RH/DE/admin, distinct du droit de remplir sa
@@ -581,13 +583,13 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole }: Props) 
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
             <p style={{ fontSize: 12.5, color: 'var(--abed-muted)', margin: 0 }}>
-              Trois décisions indépendantes sont requises avant de pouvoir clôturer le dossier. Chaque personne ne peut renseigner que sa propre décision.
+              Trois décisions sont requises avant de pouvoir clôturer le dossier, rendues dans l&apos;ordre : évaluateur, puis CAF, puis Direction Exécutive.
             </p>
             {[
-              { label: 'Décision de l\'évaluateur', key: 'eval', state: decEval, setter: setDecEval, editable: canEditDecEval },
-              { label: 'Décision de la CAF', key: 'caf', state: decCaf, setter: setDecCaf, editable: canEditDecCaf },
-              { label: 'Décision de la Direction Exécutive (DE)', key: 'de', state: decDE, setter: setDecDE, editable: canEditDecDe },
-            ].map(({ label, key, state, setter, editable }) => (
+              { label: 'Décision de l\'évaluateur', key: 'eval', state: decEval, setter: setDecEval, editable: canEditDecEval, lockedReason: null },
+              { label: 'Décision de la CAF', key: 'caf', state: decCaf, setter: setDecCaf, editable: canEditDecCaf, lockedReason: !ev.decision_evaluateur?.decision ? 'En attente de la décision de l\'évaluateur' : null },
+              { label: 'Décision de la Direction Exécutive (DE)', key: 'de', state: decDE, setter: setDecDE, editable: canEditDecDe, lockedReason: !ev.decision_caf?.decision ? 'En attente de la décision de la CAF' : null },
+            ].map(({ label, key, state, setter, editable, lockedReason }) => (
               <div key={key}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                   <span style={{ fontWeight: 600, fontSize: 14, color: '#374151' }}>{label}</span>
@@ -603,6 +605,11 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole }: Props) 
                     ) : 'En attente'}
                   </span>
                 </div>
+                {lockedReason && !state.decision && (
+                  <p style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--abed-muted)', margin: '0 0 8px' }}>
+                    <Lock size={12} strokeWidth={2} /> {lockedReason}
+                  </p>
+                )}
                 <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
                   {DECISION_OPTIONS.map(opt => (
                     <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, cursor: editable ? 'pointer' : 'default' }}>

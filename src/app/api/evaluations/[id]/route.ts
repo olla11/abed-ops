@@ -84,6 +84,20 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
   const body = await req.json()
   const { soumettre, ...fields } = body
 
+  // Section X : la CAF ne peut rendre sa décision qu'une fois celle de
+  // l'évaluateur enregistrée, la DE qu'une fois celle de la CAF enregistrée
+  // — même règle que côté client (EvaluationForm.tsx), revalidée ici pour
+  // ne pas dépendre uniquement du verrouillage de l'UI. Admin/superadmin
+  // passent outre, comme partout ailleurs dans ce circuit.
+  const isAdminRole = ['admin', 'superadmin'].includes(myRole)
+  const aUneDecision = (obj: unknown) => !!(obj && typeof obj === 'object' && (obj as Record<string, unknown>).decision)
+  if ('decision_caf' in fields && !isAdminRole && !aUneDecision(ev.decision_evaluateur)) {
+    return NextResponse.json({ error: "La décision de l'évaluateur doit être rendue avant celle de la CAF." }, { status: 400 })
+  }
+  if ('decision_de' in fields && !isAdminRole && !aUneDecision(fields.decision_caf ?? ev.decision_caf)) {
+    return NextResponse.json({ error: 'La décision de la CAF doit être rendue avant celle de la Direction Exécutive.' }, { status: 400 })
+  }
+
   const updates: Record<string, unknown> = { ...fields, updated_at: new Date().toISOString() }
 
   // Calculer score moyen si grille_notes fourni
