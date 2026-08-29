@@ -245,10 +245,15 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole }: Props) 
   const [sigResp, setSigResp] = useState(ev.signature_responsable ?? '')
   const [dateResp, setDateResp] = useState(ev.date_responsable ?? '')
 
-  // Section X — chaque décideur ne renseigne que sa propre décision
+  // Section X — chaque décideur ne renseigne que sa propre décision. Une
+  // fois rendue, la décision s'affiche en lecture seule avec un bouton
+  // "Modifier ma réponse" plutôt que de laisser les boutons radio cliquables
+  // en permanence — editingDecisions retient quelle(s) décision(s) sont
+  // repassées en mode édition par leur auteur.
   const [decEval, setDecEval] = useState<Record<string, string>>(ev.decision_evaluateur ?? {})
   const [decCaf, setDecCaf] = useState<Record<string, string>>(ev.decision_caf ?? {})
   const [decDE, setDecDE] = useState<Record<string, string>>(ev.decision_de ?? {})
+  const [editingDecisions, setEditingDecisions] = useState<Set<string>>(new Set())
 
   function buildPayload(soumettre = false) {
     const base: Record<string, unknown> = { soumettre }
@@ -332,10 +337,20 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole }: Props) 
   // dossier — les 3 décideurs qui ne renseignent que leur propre décision
   // voient un libellé qui ne laisse pas croire qu'ils clôturent le dossier.
   const troisDecisionsRendues = !!(decEval.decision && decCaf.decision && decDE.decision)
+  // Le libellé du bouton de clôture reflète qui manque encore, pas un
+  // compte figé à "3" qui ne bouge jamais tant que tout le monde n'a pas
+  // répondu — trompeur dès qu'une décision est déjà rendue.
+  const decideursManquants: string[] = []
+  if (!decEval.decision) decideursManquants.push("l'évaluateur")
+  if (!decCaf.decision) decideursManquants.push('la CAF')
+  if (!decDE.decision) decideursManquants.push('la Direction Exécutive')
+  const joinFr = (items: string[]) => items.length <= 1
+    ? (items[0] ?? '')
+    : `${items.slice(0, -1).join(', ')} et ${items[items.length - 1]}`
   const submitLabel = canEditSec10 && !canCloturer
     ? 'Enregistrer ma décision'
     : canCloturer && ev.statut === 'responsable_complete'
-      ? (troisDecisionsRendues ? 'Clôturer le dossier' : 'En attente des 3 décisions')
+      ? (troisDecisionsRendues ? 'Clôturer le dossier' : `En attente de ${joinFr(decideursManquants)}`)
       : 'Valider et soumettre'
   const SubmitIcon = canEditSec10 && !canCloturer
     ? CheckCircle2
@@ -591,10 +606,13 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole }: Props) 
               Trois décisions sont requises avant de pouvoir clôturer le dossier, rendues dans l&apos;ordre : évaluateur, puis CAF, puis Direction Exécutive.
             </p>
             {[
-              { label: 'Décision de l\'évaluateur', key: 'eval', state: decEval, setter: setDecEval, editable: canEditDecEval, lockedReason: null },
-              { label: 'Décision de la CAF', key: 'caf', state: decCaf, setter: setDecCaf, editable: canEditDecCaf, lockedReason: !ev.decision_evaluateur?.decision ? 'En attente de la décision de l\'évaluateur' : null },
-              { label: 'Décision de la Direction Exécutive (DE)', key: 'de', state: decDE, setter: setDecDE, editable: canEditDecDe, lockedReason: !ev.decision_caf?.decision ? 'En attente de la décision de la CAF' : null },
-            ].map(({ label, key, state, setter, editable, lockedReason }) => (
+              { label: 'Décision de l\'évaluateur', key: 'eval', state: decEval, setter: setDecEval, editable: canEditDecEval, lockedReason: null, original: ev.decision_evaluateur },
+              { label: 'Décision de la CAF', key: 'caf', state: decCaf, setter: setDecCaf, editable: canEditDecCaf, lockedReason: !ev.decision_evaluateur?.decision ? 'En attente de la décision de l\'évaluateur' : null, original: ev.decision_caf },
+              { label: 'Décision de la Direction Exécutive (DE)', key: 'de', state: decDE, setter: setDecDE, editable: canEditDecDe, lockedReason: !ev.decision_caf?.decision ? 'En attente de la décision de la CAF' : null, original: ev.decision_de },
+            ].map(({ label, key, state, setter, editable, lockedReason, original }) => {
+              const isEditingRow = editingDecisions.has(key)
+              const showReadOnly = !!state.decision && !isEditingRow
+              return (
               <div key={key}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                   <span style={{ fontWeight: 600, fontSize: 14, color: '#374151' }}>{label}</span>
@@ -615,24 +633,52 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole }: Props) 
                     <Lock size={12} strokeWidth={2} /> {lockedReason}
                   </p>
                 )}
-                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-                  {DECISION_OPTIONS.map(opt => (
-                    <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, cursor: editable ? 'pointer' : 'default' }}>
-                      <input
-                        type="radio"
-                        name={`decision_${key}`}
-                        value={opt}
-                        checked={state.decision === opt}
-                        onChange={() => editable && setter({ decision: opt })}
-                        disabled={!editable}
-                        style={{ accentColor: 'var(--abed-green)' }}
-                      />
-                      {opt}
-                    </label>
-                  ))}
-                </div>
+                {showReadOnly ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                    <span style={{ fontSize: 14, color: '#374151' }}>{state.decision}</span>
+                    {editable && (
+                      <button
+                        type="button"
+                        onClick={() => setEditingDecisions(prev => new Set(prev).add(key))}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, color: 'var(--abed-green)', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                      >
+                        Modifier ma réponse
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+                    {DECISION_OPTIONS.map(opt => (
+                      <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, cursor: editable ? 'pointer' : 'default' }}>
+                        <input
+                          type="radio"
+                          name={`decision_${key}`}
+                          value={opt}
+                          checked={state.decision === opt}
+                          onChange={() => editable && setter({ decision: opt })}
+                          disabled={!editable}
+                          style={{ accentColor: 'var(--abed-green)' }}
+                        />
+                        {opt}
+                      </label>
+                    ))}
+                    {isEditingRow && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setter(original ?? {})
+                          setEditingDecisions(prev => { const next = new Set(prev); next.delete(key); return next })
+                        }}
+                        style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--abed-muted)', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                      >
+                        Annuler
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </Section>
