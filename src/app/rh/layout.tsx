@@ -18,7 +18,7 @@ export default async function RHLayout({ children }: { children: React.ReactNode
   const { data: profile } = await supabase
     .from('profiles').select('role, nom, prenoms, avatar_url, type_emploi').eq('id', user.id).single()
 
-  if (!profile || !['rh', 'admin', 'de', 'dp', 'administrateur', 'caf'].includes(profile.role)) redirect('/dashboard')
+  if (!profile || !['rh', 'admin', 'superadmin', 'de', 'dp', 'administrateur', 'caf'].includes(profile.role)) redirect('/dashboard')
 
   const realRole = profile.role
   const role = await getEffectiveRole(realRole)
