@@ -37,6 +37,13 @@ export async function sendEmail({
     return
   }
 
+  // Resend rejette tout retour à la ligne dans le sujet (422) — de nombreux
+  // sujets interpolent un titre saisi par un utilisateur (opportunité BD,
+  // TdR...), qui peut contenir un \n s'il a été collé depuis un texte
+  // multi-lignes. Nettoyé ici une fois pour tous les appelants plutôt que
+  // dans chaque route qui construit un sujet.
+  const safeSubject = subject.replace(/[\r\n]+/g, ' ').trim()
+
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -46,7 +53,7 @@ export async function sendEmail({
     body: JSON.stringify({
       from: fromEmail,
       to: Array.isArray(to) ? to : [to],
-      subject,
+      subject: safeSubject,
       html: `${html}${disclaimerEmail()}`,
       ...(attachments && attachments.length > 0 ? { attachments } : {}),
       // Disable link tracking so Resend does not pre-fetch OTP links before the user clicks
