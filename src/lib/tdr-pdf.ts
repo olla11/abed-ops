@@ -6,8 +6,7 @@
 import { formatSignatureDisplayName } from '@/lib/signature-name'
 import { CHAPITRE_CLES, labelSignataireRole, type Chapitre, type SignataireRole } from '@/lib/tdr'
 import { sanitizeChapitreTexte } from '@/lib/tdr-sanitize'
-import { BRITTANY_SIGNATURE_FONT_DATA_URI } from '@/lib/signature-font-data'
-import { LOGO_COLOR_PNG_B64 } from '@/lib/logo-color-b64'
+import { PDF_BASE_STYLE, letterheadHtml } from '@/lib/contrat-pdf'
 import puppeteer from 'puppeteer-core'
 import chromium from '@sparticuz/chromium'
 
@@ -88,15 +87,10 @@ export function construireTdrHtml(tdr: any, exclureCles: Set<string> = new Set()
 <meta charset="utf-8">
 <title>TdR ${esc(tdr.numero ?? '')} — ${esc(tdr.titre_activite)}</title>
 <style>
-  @font-face { font-family: 'BrittanySignature'; src: url('${BRITTANY_SIGNATURE_FONT_DATA_URI}') format('truetype'); font-weight: normal; font-style: normal; }
+  ${PDF_BASE_STYLE}
   * { box-sizing: border-box; }
-  body { font-family: 'Georgia', 'Times New Roman', serif; font-size: 11pt; color: #111827; padding: 0; margin: 0; line-height: 1.55; }
+  body { font-family: 'Georgia', 'Times New Roman', serif; font-size: 11pt; color: #111827; padding: 0; margin: 0 auto; line-height: 1.55; max-width: 820px; }
   .apercu-banner { font-size: 10pt; color: #92400e; background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 8px 14px; margin-bottom: 18px; font-family: Arial, sans-serif; }
-  .header { display: flex; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 2px solid #16a34a; padding-bottom: 14px; margin-bottom: 20px; }
-  .header img { height: 64px; }
-  .org-text { text-align: center; flex: 1; }
-  .org-name { font-size: 11pt; font-weight: bold; }
-  .org-sub { font-size: 8pt; color: #555; margin-top: 4px; }
   h1.titre-doc { text-align: center; font-size: 15pt; letter-spacing: 2px; margin: 0 0 18px; }
   .meta { background: #f9fafb; border-radius: 8px; padding: 14px 18px; margin-bottom: 24px; font-size: 10.5pt; }
   .meta div { margin-bottom: 4px; }
@@ -119,7 +113,7 @@ export function construireTdrHtml(tdr: any, exclureCles: Set<string> = new Set()
   .rte-content ul, .rte-content ol { margin: 0 0 10px; padding-left: 22px; }
   .sig-block { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 50px; page-break-inside: avoid; }
   .sig { text-align: center; }
-  .sig-role { font-size: 9pt; font-weight: bold; margin-bottom: 4px; min-height: 26px; }
+  .sig-role { font-size: 9pt; font-weight: bold; line-height: 1.3; margin-bottom: 4px; min-height: 90px; display: flex; align-items: flex-end; justify-content: center; text-align: center; }
   .sig-area { min-height: 44px; margin-top: 20px; display: flex; align-items: flex-end; justify-content: center; }
   .sig-cursive { font-family: 'BrittanySignature', cursive; font-size: 22pt; line-height: 1; color: #1e3a8a; transform: translateY(-10px); }
   .sig-rule { border-top: 1px solid #000; }
@@ -131,16 +125,10 @@ export function construireTdrHtml(tdr: any, exclureCles: Set<string> = new Set()
 </style>
 </head>
 <body>
-  ${apercu ? '<div class="apercu-banner">👁️ Aperçu — brouillon : les signatures manquantes apparaîtront une fois complétées.</div>' : ''}
+  ${letterheadHtml()}
 
-  <div class="header">
-    <img src="data:image/png;base64,${LOGO_COLOR_PNG_B64}" alt="Logo ABED">
-    <div class="org-text">
-      <div class="org-name">Agriculture pour le Bien-être et le Développement Durable (ABED-ONG)</div>
-      <div class="org-sub">Parakou, Quartier Zongo, Troisième vons après le CS/Zongo &nbsp;·&nbsp; Tél. : +229 0167779141<br>Email : contact@abedong.org &nbsp;|&nbsp; abedong.org</div>
-    </div>
-    <img src="data:image/png;base64,${LOGO_COLOR_PNG_B64}" alt="Logo ABED">
-  </div>
+  <div class="page-content">
+  ${apercu ? '<div class="apercu-banner">👁️ Aperçu — brouillon : les signatures manquantes apparaîtront une fois complétées.</div>' : ''}
 
   <h1 class="titre-doc">TERMES DE RÉFÉRENCE</h1>
 
@@ -166,6 +154,7 @@ export function construireTdrHtml(tdr: any, exclureCles: Set<string> = new Set()
   </div>
 
   <div class="footer">ABED ONG · Parakou, Quartier Zongo, Bénin · Système de gestion des TdR</div>
+  </div>
 </body>
 </html>`
 }
@@ -185,11 +174,14 @@ export async function genererTdrPdf(tdr: any, exclureCles: Set<string> = new Set
     const pdfBuffer = await page.pdf({
       format: 'A4',
       printBackground: true,
-      margin: { top: '2.54cm', bottom: '2.54cm', left: '2.54cm', right: '2.54cm' },
+      // Les marges viennent des règles @page / @page:first du <style>
+      // (marge du haut nulle uniquement sur la 1ère page, pour la bannière
+      // à en-tête) — preferCSSPageSize fait primer ces règles sur cette option.
+      preferCSSPageSize: true,
       displayHeaderFooter: true,
       headerTemplate: '<span></span>',
       footerTemplate: `
-        <div style="width:100%;font-size:8px;text-align:center;color:#888;font-family:Georgia,'Times New Roman',serif;">
+        <div style="width:100%;font-size:8px;text-align:center;color:#888;font-family:Georgia,'Times New Roman',serif;padding-bottom:6px;">
           Page <span class="pageNumber"></span> / <span class="totalPages"></span>
         </div>
       `,
