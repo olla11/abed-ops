@@ -82,12 +82,21 @@ export const SIGNATAIRE_ROLE_LABELS: Record<SignataireRole, string> = {
   de: 'Autorisé par le Directeur Exécutif',
 }
 
-// Le libellé du rôle "de" nomme directement la personne (Directeur/Directrice
-// Exécutif/Exécutive) — contrairement aux autres rôles, il doit s'accorder
-// avec la civilité de la personne qui occupe ce poste.
+// Les libellés "initiateur", "caf" et "de" nomment directement la personne
+// (Initiateur/Initiatrice, le/la CAF, Directeur/Directrice Exécutif/Exécutive)
+// — contrairement à "responsable_technique" (« responsable » est épicène),
+// ils doivent s'accorder avec la civilité de la personne qui occupe ce poste.
+// Le participe passé entre parenthèses (« élaboré par », « visé », « autorisé »)
+// qualifie le TDR lui-même, pas la personne — il reste invariable.
 export function labelSignataireRole(role: SignataireRole, civilite?: string | null): string {
   if (role === 'de') {
     return accordGenre(civilite, 'Autorisé par le Directeur Exécutif', 'Autorisé par la Directrice Exécutive')
+  }
+  if (role === 'caf') {
+    return accordGenre(civilite, 'Visé par le CAF', 'Visé par la CAF')
+  }
+  if (role === 'initiateur') {
+    return accordGenre(civilite, 'Initiateur (élaboré par)', 'Initiatrice (élaboré par)')
   }
   return SIGNATAIRE_ROLE_LABELS[role]
 }

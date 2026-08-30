@@ -56,7 +56,7 @@ export default async function TdrDetailPage({ params }: { params: Promise<{ id: 
 
   if (idsReferences.size > 0) {
     const { data: annuaire } = await supabase
-      .from('profiles_annuaire').select('id, nom, prenoms, fonction').in('id', [...idsReferences])
+      .from('profiles_annuaire').select('id, nom, prenoms, fonction, civilite').in('id', [...idsReferences])
     const parId = new Map((annuaire ?? []).map(p => [p.id, p]))
 
     if (!tdr.initiateur && tdr.initiateur_id) tdr.initiateur = parId.get(tdr.initiateur_id) ?? null
