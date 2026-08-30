@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { sendEmail } from '@/lib/resend'
+import { resolveAttachments, type PieceJointeMeta } from '@/lib/announcements'
 
 function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -18,11 +19,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'acces refuse' }, { status: 403 })
   }
 
-  const { userIds, sujet, corps, canaux } = await req.json() as {
+  const { userIds, sujet, corps, canaux, piecesJointes, scheduledAt } = await req.json() as {
     userIds: string[]
     sujet: string
     corps: string
     canaux?: string[]
+    piecesJointes?: PieceJointeMeta[]
+    scheduledAt?: string | null
   }
 
   if (!userIds?.length || !sujet?.trim() || !corps?.trim()) {
@@ -30,6 +33,7 @@ export async function POST(req: NextRequest) {
   }
 
   const sendCanaux = new Set((canaux?.length ? canaux : ['email']).filter(c => c === 'email' || c === 'notification'))
+  const pieces = piecesJointes ?? []
 
   const admin = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -44,6 +48,27 @@ export async function POST(req: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
   const recipients = (targets ?? []).filter(t => !!t.email)
+
+  // Envoi programmé : on n'envoie rien maintenant, on enregistre le dossier
+  // et le cron /api/cron/announcements-programmees s'en charge à l'heure dite.
+  const scheduledDate = scheduledAt ? new Date(scheduledAt) : null
+  if (scheduledDate && scheduledDate.getTime() > Date.now()) {
+    const { error: insertError } = await admin.from('announcements').insert({
+      sender_id: user.id,
+      sujet,
+      corps,
+      canaux: [...sendCanaux],
+      destinataires_count: recipients.length,
+      destinataire_ids: userIds,
+      pieces_jointes: pieces,
+      status: 'pending',
+      scheduled_at: scheduledDate.toISOString(),
+    })
+    if (insertError) return NextResponse.json({ error: insertError.message }, { status: 400 })
+    return NextResponse.json({ scheduled: true, scheduledAt: scheduledDate.toISOString(), total: recipients.length })
+  }
+
+  const attachments = pieces.length > 0 ? await resolveAttachments(admin, pieces) : []
   const results: { email: string; ok: boolean; error?: string }[] = []
 
   if (sendCanaux.has('email')) {
@@ -58,6 +83,7 @@ export async function POST(req: NextRequest) {
           to: target.email!,
           subject: sujet,
           html: `<div style="white-space:pre-wrap;font-size:14px;line-height:1.6;color:#1f2a17;">${escapeHtml(corpsPersonnalise)}</div>`,
+          attachments: attachments.length > 0 ? attachments : undefined,
         })
         results.push({ email: target.email!, ok: true })
       } catch (e: any) {
@@ -85,6 +111,10 @@ export async function POST(req: NextRequest) {
     corps,
     canaux: [...sendCanaux],
     destinataires_count: recipients.length,
+    destinataire_ids: userIds,
+    pieces_jointes: pieces,
+    status: 'sent',
+    sent_at: new Date().toISOString(),
   })
 
   const sent = sendCanaux.has('email') ? results.filter(r => r.ok).length : recipients.length

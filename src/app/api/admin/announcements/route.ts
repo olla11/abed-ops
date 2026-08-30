@@ -20,7 +20,7 @@ export async function GET() {
 
   const { data } = await admin
     .from('announcements')
-    .select('id, sujet, canaux, destinataires_count, created_at, sender_id, profiles!announcements_sender_id_fkey(nom, prenoms)')
+    .select('id, sujet, canaux, destinataires_count, created_at, sender_id, status, scheduled_at, sent_at, pieces_jointes, profiles!announcements_sender_id_fkey(nom, prenoms)')
     .order('created_at', { ascending: false })
     .limit(20)
 
