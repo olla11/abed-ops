@@ -35,7 +35,7 @@ export default async function RessourcesPage() {
   const role = await getEffectiveRole(realRole)
   const previewRole = await getRolePreview()
   const impersonation = await getImpersonationInfo()
-  const isManager = (estRH(realRole) || realRole === 'admin') && !previewRole
+  const isManager = (estRH(realRole) || ['admin', 'superadmin', 'dp'].includes(realRole)) && !previewRole
 
   const admin = createAdminClient()
   const { data: ressources, error: ressourcesErr } = await admin

@@ -10,7 +10,7 @@ async function requireManager() {
   if (!user) return { error: NextResponse.json({ error: 'Non authentifié' }, { status: 401 }) }
 
   const { data: me } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  if (!(estRH(me?.role) || me?.role === 'admin')) {
+  if (!(estRH(me?.role) || ['admin', 'superadmin', 'dp'].includes(me?.role ?? ''))) {
     return { error: NextResponse.json({ error: 'Accès refusé' }, { status: 403 }) }
   }
   return { user }
