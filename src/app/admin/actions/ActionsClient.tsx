@@ -1,9 +1,9 @@
 'use client'
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { TYPE_EMPLOI_LABELS } from '@/lib/roles'
 import { NOTIFICATION_TOPICS } from '@/lib/notification-topics'
 import Pagination, { paginate } from '@/components/Pagination'
-import { Paperclip, X, Clock, Send, Ban } from 'lucide-react'
+import { Paperclip, X, Clock, Send, Ban, Bold, Italic, List } from 'lucide-react'
 
 const PAGE_SIZE = 10
 
@@ -71,6 +71,41 @@ export default function ActionsClient({
   const [files, setFiles] = useState<File[]>([])
   const [programmer, setProgrammer] = useState(false)
   const [scheduledAt, setScheduledAt] = useState('')
+  const corpsRef = useRef<HTMLTextAreaElement>(null)
+
+  // Mise en forme légère du corps du message — entoure la sélection de
+  // marqueurs **gras**/*italique*, convertis en HTML côté serveur à
+  // l'envoi (voir corpsToHtml dans @/lib/announcements).
+  function wrapSelection(marker: string) {
+    const el = corpsRef.current
+    if (!el) return
+    const start = el.selectionStart
+    const end = el.selectionEnd
+    const selected = corps.slice(start, end) || 'texte'
+    const next = corps.slice(0, start) + marker + selected + marker + corps.slice(end)
+    setCorps(next)
+    requestAnimationFrame(() => {
+      el.focus()
+      el.selectionStart = start + marker.length
+      el.selectionEnd = start + marker.length + selected.length
+    })
+  }
+
+  function insertBulletList() {
+    const el = corpsRef.current
+    if (!el) return
+    const start = el.selectionStart
+    const end = el.selectionEnd
+    const selected = corps.slice(start, end) || 'Élément'
+    const withBullets = selected.split('\n').map(l => (l.startsWith('- ') ? l : `- ${l}`)).join('\n')
+    const next = corps.slice(0, start) + withBullets + corps.slice(end)
+    setCorps(next)
+    requestAnimationFrame(() => {
+      el.focus()
+      el.selectionStart = start
+      el.selectionEnd = start + withBullets.length
+    })
+  }
 
   // ── Historique des communications ──
   const [history, setHistory] = useState<Announcement[] | null>(null)
@@ -307,9 +342,27 @@ export default function ActionsClient({
             </div>
             <div className="field" style={{ marginBottom: 14 }}>
               <label className="label">Corps du message *</label>
-              <textarea className="input" rows={8} value={corps} onChange={e => setCorps(e.target.value)}
+              <div style={{ display: 'flex', gap: 4, marginBottom: 6 }}>
+                <button type="button" title="Gras" onClick={() => wrapSelection('**')}
+                  style={{ display: 'flex', alignItems: 'center', padding: '5px 8px', borderRadius: 6, border: '1px solid var(--abed-border)', background: 'white', cursor: 'pointer' }}>
+                  <Bold size={14} />
+                </button>
+                <button type="button" title="Italique" onClick={() => wrapSelection('*')}
+                  style={{ display: 'flex', alignItems: 'center', padding: '5px 8px', borderRadius: 6, border: '1px solid var(--abed-border)', background: 'white', cursor: 'pointer' }}>
+                  <Italic size={14} />
+                </button>
+                <button type="button" title="Liste à puces" onClick={insertBulletList}
+                  style={{ display: 'flex', alignItems: 'center', padding: '5px 8px', borderRadius: 6, border: '1px solid var(--abed-border)', background: 'white', cursor: 'pointer' }}>
+                  <List size={14} />
+                </button>
+              </div>
+              <textarea ref={corpsRef} className="input" rows={8} value={corps} onChange={e => setCorps(e.target.value)}
                 style={{ resize: 'vertical', fontFamily: 'inherit' }}
                 placeholder={'Bonjour {prenom},\n\nNous vous rappelons de soumettre votre timesheet du mois en cours.\n\nCordialement,\nL\'équipe ABED'} />
+              <p style={{ fontSize: 11, color: 'var(--abed-muted)', margin: '4px 0 0' }}>
+                Sélectionnez du texte puis cliquez sur un bouton, ou tapez directement <code style={{ background: '#f3f4f6', padding: '0 3px', borderRadius: 3 }}>**gras**</code>,{' '}
+                <code style={{ background: '#f3f4f6', padding: '0 3px', borderRadius: 3 }}>*italique*</code>, <code style={{ background: '#f3f4f6', padding: '0 3px', borderRadius: 3 }}>- puce</code>.
+              </p>
             </div>
 
             <div className="field" style={{ marginBottom: 14 }}>

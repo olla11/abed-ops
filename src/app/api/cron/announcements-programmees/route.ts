@@ -1,11 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase-server'
 import { sendEmail } from '@/lib/resend'
-import { resolveAttachments, type PieceJointeMeta } from '@/lib/announcements'
-
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}
+import { resolveAttachments, corpsToHtml, corpsToPlainText, type PieceJointeMeta } from '@/lib/announcements'
 
 // Cron — vérifie régulièrement les communications ciblées programmées dont
 // l'heure est arrivée (announcements.status = 'pending' et scheduled_at <=
@@ -50,7 +46,7 @@ export async function GET(req: Request) {
             await sendEmail({
               to: target.email!,
               subject: a.sujet as string,
-              html: `<div style="white-space:pre-wrap;font-size:14px;line-height:1.6;color:#1f2a17;">${escapeHtml(corpsPersonnalise)}</div>`,
+              html: `<div style="font-size:14px;line-height:1.6;color:#1f2a17;">${corpsToHtml(corpsPersonnalise)}</div>`,
               attachments: attachments.length > 0 ? attachments : undefined,
             })
           } catch (e) {
@@ -64,10 +60,10 @@ export async function GET(req: Request) {
           recipients.map(target => ({
             user_id: target.id,
             titre: a.sujet as string,
-            message: (a.corps as string)
+            message: corpsToPlainText((a.corps as string)
               .replace(/\{prenom\}/gi, target.prenoms ?? '')
               .replace(/\{nom\}/gi, target.nom ?? '')
-              .replace(/\{email\}/gi, target.email ?? ''),
+              .replace(/\{email\}/gi, target.email ?? '')),
           }))
         )
       }

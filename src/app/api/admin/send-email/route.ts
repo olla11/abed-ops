@@ -2,11 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { sendEmail } from '@/lib/resend'
-import { resolveAttachments, type PieceJointeMeta } from '@/lib/announcements'
-
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}
+import { resolveAttachments, corpsToHtml, corpsToPlainText, type PieceJointeMeta } from '@/lib/announcements'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -82,7 +78,7 @@ export async function POST(req: NextRequest) {
         await sendEmail({
           to: target.email!,
           subject: sujet,
-          html: `<div style="white-space:pre-wrap;font-size:14px;line-height:1.6;color:#1f2a17;">${escapeHtml(corpsPersonnalise)}</div>`,
+          html: `<div style="font-size:14px;line-height:1.6;color:#1f2a17;">${corpsToHtml(corpsPersonnalise)}</div>`,
           attachments: attachments.length > 0 ? attachments : undefined,
         })
         results.push({ email: target.email!, ok: true })
@@ -97,10 +93,10 @@ export async function POST(req: NextRequest) {
       recipients.map(target => ({
         user_id: target.id,
         titre: sujet,
-        message: corps
+        message: corpsToPlainText(corps
           .replace(/\{prenom\}/gi, target.prenoms ?? '')
           .replace(/\{nom\}/gi, target.nom ?? '')
-          .replace(/\{email\}/gi, target.email ?? ''),
+          .replace(/\{email\}/gi, target.email ?? '')),
       }))
     )
   }
