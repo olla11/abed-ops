@@ -7,6 +7,7 @@ import { Eye, EyeOff } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase-client'
 import { useLocale } from 'next-intl'
+import AuthToast from '@/components/AuthToast'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -39,6 +40,7 @@ export default function LoginPage() {
       setErr('Votre compte est en attente d\'activation par l\'administrateur système. Vous serez notifié(e) par email dès que votre accès sera configuré.')
       return
     }
+    try { sessionStorage.setItem('abed_auth_toast', 'Connexion réussie !') } catch { /* ignore */ }
     if (profile?.must_change_password) {
       router.push('/auth/changer-mot-de-passe')
     } else {
@@ -55,6 +57,7 @@ export default function LoginPage() {
       padding: '16px',
       background: 'var(--abed-bg, #f4f6f9)',
     }}>
+      <AuthToast />
       {/* Card */}
       <div style={{
         background: 'white',

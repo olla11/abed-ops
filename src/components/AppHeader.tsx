@@ -7,6 +7,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import UserAvatar from './UserAvatar'
 import AgaWidget from './AgaWidget'
 import NotificationBell from './NotificationBell'
+import AuthToast from './AuthToast'
 import { estAAF as roleEstAAF, estRH as roleEstRH, estCAF as roleEstCAF, estDE as roleEstDE, estBD as titreEstBD } from '@/lib/roles'
 
 type Props = {
@@ -153,6 +154,7 @@ export default function AppHeader({ userName, userRole, userTitre, typeEmploi, s
 
   return (
     <>
+    <AuthToast />
     <nav style={{
       position: 'fixed', top: 0, left: 0, right: 0, zIndex: 200,
       background: 'white',

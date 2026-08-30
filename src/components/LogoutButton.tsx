@@ -13,6 +13,7 @@ export default function LogoutButton() {
     setLoading(true)
     const supabase = createClient()
     await supabase.auth.signOut()
+    try { sessionStorage.setItem('abed_auth_toast', 'Déconnexion réussie.') } catch { /* ignore */ }
     router.push('/login')
   }
 

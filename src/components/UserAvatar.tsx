@@ -41,6 +41,7 @@ export default function UserAvatar({ userName, userRole, avatarUrl }: Props) {
 
   async function signOut() {
     await supabase.auth.signOut()
+    try { sessionStorage.setItem('abed_auth_toast', 'Déconnexion réussie.') } catch { /* ignore */ }
     router.push('/login')
   }
 
