@@ -43,7 +43,13 @@ export async function proxy(req: NextRequest, event: NextFetchEvent) {
     path.startsWith('/signatures/externe') ||
     path.startsWith('/api/signatures/externe') ||
     path.startsWith('/verify/om') ||
-    path.startsWith('/api/verify/om')
+    path.startsWith('/api/verify/om') ||
+    // Tâches planifiées (Vercel Cron, ou tout appel serveur-à-serveur type
+    // pg_cron/pg_net) : jamais de session utilisateur sur ces appels, donc
+    // sans cette exception le middleware les redirigeait vers /login avant
+    // même d'atteindre la route — leur propre vérification CRON_SECRET
+    // (dans chaque route) reste le vrai garde-fou, pas la session.
+    path.startsWith('/api/cron/')
 
   if (!user && !isPublic) {
     return NextResponse.redirect(new URL('/login', req.url))
