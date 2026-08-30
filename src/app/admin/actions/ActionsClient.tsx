@@ -144,6 +144,15 @@ export default function ActionsClient({
     setFilterRole(''); setFilterType(''); setFilterManager(''); setFilterTopic(''); setFilterSearch(''); setPage(1)
   }
 
+  // Remet la fenêtre à zéro pour la prochaine ouverture — utilisé pour la
+  // fermer aussi bien avant qu'après un envoi/une programmation.
+  function closeModal() {
+    setShowEmail(false)
+    setSujet(''); setCorps(''); setFiles([])
+    setProgrammer(false); setScheduledAt('')
+    setEmailResult(null)
+  }
+
   async function sendEmail() {
     if (!sujet.trim() || !corps.trim()) { alert('Sujet et corps requis.'); return }
     if (!canalEmail && !canalNotif) { alert('Choisissez au moins un canal d’envoi.'); return }
@@ -314,7 +323,7 @@ export default function ActionsClient({
               <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Send size={17} /> Communication ciblée — {selected.size} destinataire{selected.size > 1 ? 's' : ''}
               </h3>
-              <button onClick={() => setShowEmail(false)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer' }}>×</button>
+              <button onClick={closeModal} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer' }}>×</button>
             </div>
 
             <div className="field" style={{ marginBottom: 14 }}>
@@ -442,15 +451,21 @@ export default function ActionsClient({
             )}
 
             <div style={{ display: 'flex', gap: 10 }}>
-              <button className="btn" onClick={sendEmail} disabled={sending} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                {programmer ? <Clock size={15} /> : <Send size={15} />}
-                {sending
-                  ? (programmer ? 'Programmation…' : 'Envoi…')
-                  : programmer
-                    ? `Programmer pour ${selected.size} personne${selected.size > 1 ? 's' : ''}`
-                    : `Envoyer à ${selected.size} personne${selected.size > 1 ? 's' : ''}`}
-              </button>
-              <button className="btn secondary" onClick={() => setShowEmail(false)}>Annuler</button>
+              {emailResult ? (
+                <button className="btn" onClick={closeModal}>Fermer</button>
+              ) : (
+                <>
+                  <button className="btn" onClick={sendEmail} disabled={sending} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                    {programmer ? <Clock size={15} /> : <Send size={15} />}
+                    {sending
+                      ? (programmer ? 'Programmation…' : 'Envoi…')
+                      : programmer
+                        ? `Programmer pour ${selected.size} personne${selected.size > 1 ? 's' : ''}`
+                        : `Envoyer à ${selected.size} personne${selected.size > 1 ? 's' : ''}`}
+                  </button>
+                  <button className="btn secondary" onClick={closeModal}>Annuler</button>
+                </>
+              )}
             </div>
           </div>
         </div>
