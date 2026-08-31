@@ -3,7 +3,17 @@ import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import { sendEmail } from '@/lib/resend'
 import { estRH } from '@/lib/roles'
+import { accordGenre } from '@/lib/genre'
 import { genererEvaluationPdf, nomFichierEvaluationPdf, type EvaluationPdfData } from '@/lib/evaluation-pdf'
+
+// "CAF" et "DE" désignent directement la personne qui occupe le poste (le/la
+// CAF, le Directeur/la Directrice Exécutif(ve)) — même logique d'accord que
+// pour le circuit de signature des TdR (cf. src/lib/tdr.ts).
+function labelDecideur(role: 'caf' | 'de', civilite?: string | null): string {
+  return role === 'caf'
+    ? accordGenre(civilite, 'le CAF', 'la CAF')
+    : accordGenre(civilite, 'le Directeur Exécutif', 'la Directrice Exécutive')
+}
 
 export const dynamic = 'force-dynamic'
 
@@ -145,18 +155,25 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
       </div>
     `
 
-  // Notifie le décideur suivant en Section X dès qu'une décision est rendue
-  // ou modifiée — indépendant de soumettre, et distinct des notifications de
-  // transition d'étape ci-dessous (le statut du dossier ne change pas ici).
-  async function notifierDecideurSuivant(roles: string[], titre: string, corps: string) {
-    const { data: cibles } = await service.from('profiles').select('id, email, prenoms, nom').in('role', roles)
+  // Notifie le décideur suivant en Section X dès qu'une décision est
+  // nouvellement rendue — indépendant de soumettre, et distinct des
+  // notifications de transition d'étape ci-dessous (le statut du dossier ne
+  // change pas ici). Chaque destinataire a potentiellement une civilité
+  // différente, donc le libellé de son rôle (le/la CAF, le Directeur/la
+  // Directrice Exécutif·ve) est accordé individuellement par destinataire.
+  // Une décision déjà rendue puis modifiée ne redéclenche volontairement
+  // aucune notification — seule l'entrée en jeu d'un décideur en déclenche une.
+  async function notifierDecideurSuivant(roles: string[], roleDecideur: 'caf' | 'de', titre: string, corps: (label: string) => string) {
+    const { data: cibles } = await service.from('profiles').select('id, email, prenoms, nom, civilite').in('role', roles)
     for (const c of cibles ?? []) {
-      await service.from('notifications').insert({ user_id: c.id, titre, message: corps, lien: lienEval })
+      const label = labelDecideur(roleDecideur, c.civilite)
+      const message = corps(label)
+      await service.from('notifications').insert({ user_id: c.id, titre, message, lien: lienEval })
       if (c.email) {
         await sendEmail({
           to: c.email,
           subject: titre,
-          html: emailBlock(`${c.prenoms ?? ''} ${c.nom ?? ''}`.trim(), titre, corps),
+          html: emailBlock(`${c.prenoms ?? ''} ${c.nom ?? ''}`.trim(), titre, message),
         }).catch(() => {})
       }
     }
@@ -220,27 +237,24 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Décision Section X rendue ou modifiée — notifie le décideur suivant.
-  // Placé après l'update réussi pour ne jamais notifier sur un
-  // enregistrement qui a en fait échoué.
-  if ('decision_evaluateur' in fields && aUneDecision(fields.decision_evaluateur)) {
-    const estModification = aUneDecision(ev.decision_evaluateur)
+  // Décision Section X nouvellement rendue — notifie le décideur suivant.
+  // Une modification d'une décision déjà rendue ne notifie personne (sur
+  // demande explicite). Placé après l'update réussi pour ne jamais notifier
+  // sur un enregistrement qui a en fait échoué.
+  if ('decision_evaluateur' in fields && aUneDecision(fields.decision_evaluateur) && !aUneDecision(ev.decision_evaluateur)) {
     await notifierDecideurSuivant(
       ['caf'],
-      estModification ? 'Décision de l\'évaluateur modifiée' : 'Décision requise (CAF)',
-      estModification
-        ? `L'évaluateur a modifié sa décision pour l'évaluation de ${nomEmploye}. Vérifiez si votre propre décision (CAF) doit être reconfirmée.`
-        : `L'évaluateur a rendu sa décision pour l'évaluation de ${nomEmploye}. Votre décision (CAF) est maintenant requise en Section X.`
+      'caf',
+      'Décision requise (CAF)',
+      label => `L'évaluateur a rendu sa décision pour l'évaluation de ${nomEmploye}. Votre décision en tant que ${label} est maintenant requise en Section X.`
     )
   }
-  if ('decision_caf' in fields && aUneDecision(fields.decision_caf)) {
-    const estModification = aUneDecision(ev.decision_caf)
+  if ('decision_caf' in fields && aUneDecision(fields.decision_caf) && !aUneDecision(ev.decision_caf)) {
     await notifierDecideurSuivant(
       ['de', 'dp'],
-      estModification ? 'Décision de la CAF modifiée' : 'Décision requise (Direction Exécutive)',
-      estModification
-        ? `La CAF a modifié sa décision pour l'évaluation de ${nomEmploye}. Vérifiez si votre propre décision (Direction Exécutive) doit être reconfirmée.`
-        : `La CAF a rendu sa décision pour l'évaluation de ${nomEmploye}. Votre décision (Direction Exécutive) est maintenant requise en Section X.`
+      'de',
+      'Décision requise (DE)',
+      label => `La CAF a rendu sa décision pour l'évaluation de ${nomEmploye}. Votre décision en tant que ${label} est maintenant requise en Section X.`
     )
   }
 
