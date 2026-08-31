@@ -41,6 +41,7 @@ export const TITRES = [
   'president_ca',
   'secretaire_general_ca',
   'tresorier_ca',
+  'stagiaire_academique',
 ] as const
 export type Titre = (typeof TITRES)[number]
 
@@ -68,6 +69,7 @@ export const TITRE_LABELS: Record<Titre, string> = {
   president_ca: "Président du Conseil d'Administration",
   secretaire_general_ca: "Secrétaire Général du Conseil d'Administration",
   tresorier_ca: "Trésorier Général du Conseil d'Administration",
+  stagiaire_academique: 'Stagiaire académique',
 }
 
 export const TYPE_EMPLOI_LABELS: Record<TypeEmploi, string> = {
@@ -103,6 +105,7 @@ export const TITRE_TO_ACCESS: Record<Titre, AccessRole> = {
   president_ca: 'administrateur',
   secretaire_general_ca: 'administrateur',
   tresorier_ca: 'administrateur',
+  stagiaire_academique: 'missionnaire',
 }
 
 export function accessFromTitre(titre: Titre): AccessRole {
