@@ -2,9 +2,10 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { estCAF } from '@/lib/roles'
+import { accordGenre } from '@/lib/genre'
 import { Save, CheckCircle2, Hourglass, Lock, FileDown } from 'lucide-react'
 
-type Profile = { id: string; nom: string; prenoms: string; email: string; role?: string }
+type Profile = { id: string; nom: string; prenoms: string; email: string; role?: string; civilite?: string | null }
 type Contrat = { id: string; type_contrat: string; date_debut: string; date_fin: string | null; poste: string | null }
 type Evaluation = {
   id: string
@@ -47,6 +48,10 @@ type Props = {
   evaluation: Evaluation
   myId: string
   myRole: string
+  // Civilité de la personne qui a réellement rendu la décision CAF/DE — n'importe
+  // quel profil ayant ce rôle peut décider, donc inconnue tant que non rendue.
+  civiliteCafDecideur?: string | null
+  civiliteDeDecideur?: string | null
 }
 
 const STATUT_LABELS: Record<string, string> = {
@@ -161,7 +166,7 @@ const readonlyStyle: React.CSSProperties = {
   ...inputStyle, background: '#f9fafb', color: '#374151',
 }
 
-export default function EvaluationForm({ evaluation: ev, myId, myRole }: Props) {
+export default function EvaluationForm({ evaluation: ev, myId, myRole, civiliteCafDecideur, civiliteDeDecideur }: Props) {
   const router = useRouter()
   const [saving, setSaving] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -338,14 +343,24 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole }: Props) 
   // En section X, seul un rôle habilité à clôturer (RH/DE/admin) ferme le
   // dossier — les 3 décideurs qui ne renseignent que leur propre décision
   // voient un libellé qui ne laisse pas croire qu'ils clôturent le dossier.
+  // Accord de genre : l'évaluateur est assigné d'avance (civilité connue dès
+  // le départ) ; le CAF et la DE peuvent être rendus par n'importe quel
+  // profil ayant ce rôle — leur civilité n'est donc connue qu'une fois la
+  // décision effectivement rendue (civiliteCafDecideur/civiliteDeDecideur,
+  // transmis depuis la page — null tant qu'en attente, défaut masculin).
+  const civiliteEvaluateur = ev.evaluateur?.civilite ?? null
+  const labelDecEval = accordGenre(civiliteEvaluateur, "Décision de l'évaluateur", "Décision de l'évaluatrice")
+  const labelDecCaf = accordGenre(civiliteCafDecideur, 'Décision du CAF', 'Décision de la CAF')
+  const labelDecDe = accordGenre(civiliteDeDecideur, 'Décision du DE', 'Décision de la DE')
+
   const troisDecisionsRendues = !!(decEval.decision && decCaf.decision && decDE.decision)
   // Le libellé du bouton de clôture reflète qui manque encore, pas un
   // compte figé à "3" qui ne bouge jamais tant que tout le monde n'a pas
   // répondu — trompeur dès qu'une décision est déjà rendue.
   const decideursManquants: string[] = []
-  if (!decEval.decision) decideursManquants.push("l'évaluateur")
-  if (!decCaf.decision) decideursManquants.push('la CAF')
-  if (!decDE.decision) decideursManquants.push('la Direction Exécutive')
+  if (!decEval.decision) decideursManquants.push(accordGenre(civiliteEvaluateur, "l'évaluateur", "l'évaluatrice"))
+  if (!decCaf.decision) decideursManquants.push(accordGenre(civiliteCafDecideur, 'le CAF', 'la CAF'))
+  if (!decDE.decision) decideursManquants.push(accordGenre(civiliteDeDecideur, 'le DE', 'la DE'))
   const joinFr = (items: string[]) => items.length <= 1
     ? (items[0] ?? '')
     : `${items.slice(0, -1).join(', ')} et ${items[items.length - 1]}`
@@ -605,12 +620,12 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole }: Props) 
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
             <p style={{ fontSize: 12.5, color: 'var(--abed-muted)', margin: 0 }}>
-              Trois décisions sont requises avant de pouvoir clôturer le dossier, rendues dans l&apos;ordre : évaluateur, puis CAF, puis Direction Exécutive.
+              Trois décisions sont requises avant de pouvoir clôturer le dossier, rendues dans l&apos;ordre : évaluateur, puis CAF, puis DE.
             </p>
             {[
-              { label: 'Décision de l\'évaluateur', key: 'eval', state: decEval, setter: setDecEval, editable: canEditDecEval, lockedReason: null, original: ev.decision_evaluateur },
-              { label: 'Décision de la CAF', key: 'caf', state: decCaf, setter: setDecCaf, editable: canEditDecCaf, lockedReason: !ev.decision_evaluateur?.decision ? 'En attente de la décision de l\'évaluateur' : null, original: ev.decision_caf },
-              { label: 'Décision de la Direction Exécutive (DE)', key: 'de', state: decDE, setter: setDecDE, editable: canEditDecDe, lockedReason: !ev.decision_caf?.decision ? 'En attente de la décision de la CAF' : null, original: ev.decision_de },
+              { label: labelDecEval, key: 'eval', state: decEval, setter: setDecEval, editable: canEditDecEval, lockedReason: null, original: ev.decision_evaluateur },
+              { label: labelDecCaf, key: 'caf', state: decCaf, setter: setDecCaf, editable: canEditDecCaf, lockedReason: !ev.decision_evaluateur?.decision ? 'En attente de la décision de l\'évaluateur' : null, original: ev.decision_caf },
+              { label: labelDecDe, key: 'de', state: decDE, setter: setDecDE, editable: canEditDecDe, lockedReason: !ev.decision_caf?.decision ? 'En attente de la décision de la CAF' : null, original: ev.decision_de },
             ].map(({ label, key, state, setter, editable, lockedReason, original }) => {
               const isEditingRow = editingDecisions.has(key)
               const showReadOnly = !!state.decision && !isEditingRow

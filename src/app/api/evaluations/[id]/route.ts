@@ -110,6 +110,14 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
 
   const updates: Record<string, unknown> = { ...fields, updated_at: new Date().toISOString() }
 
+  // Le CAF et la DE ne sont pas des personnes assignées d'avance (n'importe
+  // quel profil ayant ce rôle peut rendre la décision) — on enregistre donc
+  // qui a réellement décidé pour pouvoir accorder correctement "le/la CAF" /
+  // "le/la DE" à l'affichage, plutôt que de deviner depuis le rôle courant.
+  if (fields.decision_evaluateur) updates.decision_evaluateur = { ...fields.decision_evaluateur, rendu_par: user.id }
+  if (fields.decision_caf) updates.decision_caf = { ...fields.decision_caf, rendu_par: user.id }
+  if (fields.decision_de) updates.decision_de = { ...fields.decision_de, rendu_par: user.id }
+
   // Calculer score moyen si grille_notes fourni
   if (fields.grille_notes) {
     const score = calcScoreMoyen(fields.grille_notes)

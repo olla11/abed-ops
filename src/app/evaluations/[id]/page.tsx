@@ -26,7 +26,7 @@ export default async function EvaluationPage({ params }: { params: Promise<{ id:
     .select(`
       *,
       profile:profiles!profile_id(id, nom, prenoms, email, role),
-      evaluateur:profiles!evaluateur_id(id, nom, prenoms, email),
+      evaluateur:profiles!evaluateur_id(id, nom, prenoms, email, civilite),
       responsable:profiles!responsable_id(id, nom, prenoms, email),
       contrat:contrats(id, type_contrat, date_debut, date_fin, poste)
     `)
@@ -34,6 +34,22 @@ export default async function EvaluationPage({ params }: { params: Promise<{ id:
     .single()
 
   if (error || !ev) redirect('/evaluations')
+
+  // Les décisions CAF/DE peuvent être rendues par n'importe quelle personne
+  // de ce rôle — contrairement à l'évaluateur (assigné d'avance, sa civilité
+  // vient directement de l'embed ci-dessus), on ne connaît la civilité de
+  // qui a réellement décidé qu'une fois la décision rendue (voir rendu_par,
+  // enregistré côté API) — nécessaire pour accorder "le/la CAF" et "le/la DE"
+  // dans le formulaire.
+  const idsDecideurs = [ev.decision_caf?.rendu_par, ev.decision_de?.rendu_par].filter(Boolean) as string[]
+  let civiliteCafDecideur: string | null = null
+  let civiliteDeDecideur: string | null = null
+  if (idsDecideurs.length > 0) {
+    const { data: decideurs } = await service.from('profiles').select('id, civilite').in('id', idsDecideurs)
+    const parId = new Map((decideurs ?? []).map(p => [p.id, p.civilite]))
+    civiliteCafDecideur = parId.get(ev.decision_caf?.rendu_par) ?? null
+    civiliteDeDecideur = parId.get(ev.decision_de?.rendu_par) ?? null
+  }
 
   const role = profile?.role ?? ''
   const canAccess =
@@ -61,6 +77,8 @@ export default async function EvaluationPage({ params }: { params: Promise<{ id:
           evaluation={ev as any}
           myId={user.id}
           myRole={role}
+          civiliteCafDecideur={civiliteCafDecideur}
+          civiliteDeDecideur={civiliteDeDecideur}
         />
       </div>
     </>
