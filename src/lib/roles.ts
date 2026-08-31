@@ -16,6 +16,7 @@ export const TYPES_EMPLOI = [
   'prestataire_credit',
   'cdd',
   'cdi',
+  'stagiaire_academique',
 ] as const
 export type TypeEmploi = (typeof TYPES_EMPLOI)[number]
 
@@ -80,6 +81,7 @@ export const TYPE_EMPLOI_LABELS: Record<TypeEmploi, string> = {
   prestataire_credit: 'Prestataire à crédit (PC)',
   cdd: 'Contrat à durée déterminée (CDD)',
   cdi: 'Contrat à durée indéterminée (CDI)',
+  stagiaire_academique: 'Stagiaire académique',
 }
 
 // --- Mapping TITRE -> niveau d'accès ---
