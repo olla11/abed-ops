@@ -45,7 +45,7 @@ export default async function Dashboard() {
 
   const { data: missions } = await supabase
     .from('missions')
-    .select('id, reference, objet, lieu, date_depart, date_retour, status, missionnaire_id, missionnaire:profiles!missions_missionnaire_id_fkey(nom, prenoms, role)')
+    .select('id, reference, objet, lieu, date_depart, date_retour, status, missionnaire_id, demandeur_id, missionnaire_externe_nom, missionnaire_externe_prenoms, missionnaire:profiles!missions_missionnaire_id_fkey(nom, prenoms, role)')
     .order('created_at', { ascending: false })
 
   const STATUS_LABELS: Record<string, string> = {

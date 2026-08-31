@@ -15,6 +15,7 @@ export async function GET(req: NextRequest) {
     .select(`
       id, reference, objet, lieu, status, signe_le,
       date_depart, date_retour, moyen_transport, imputation,
+      missionnaire_id, missionnaire_externe_nom, missionnaire_externe_prenoms, missionnaire_externe_fonction,
       missionnaire:profiles!missions_missionnaire_id_fkey(nom, prenoms, fonction),
       signataire:profiles!missions_signe_par_fkey(nom, prenoms, role, civilite)
     `)
@@ -29,7 +30,9 @@ export async function GET(req: NextRequest) {
   }
 
   const sg = m.signataire as any
-  const mn = m.missionnaire as any
+  const mn = (m.missionnaire as any) ?? (!m.missionnaire_id ? {
+    nom: m.missionnaire_externe_nom, prenoms: m.missionnaire_externe_prenoms, fonction: m.missionnaire_externe_fonction,
+  } : null)
 
   // Accord genre pour l'intitulé du signataire
   let signataireLabel: string

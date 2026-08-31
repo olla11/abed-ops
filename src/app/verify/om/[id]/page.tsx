@@ -29,6 +29,7 @@ export default async function VerifyOMPage({ params }: { params: Promise<{ id: s
       id, reference, objet, lieu, status, signe_le,
       date_depart, date_arrivee_destination, date_depart_destination, date_retour,
       moyen_transport, imputation,
+      missionnaire_id, missionnaire_externe_nom, missionnaire_externe_prenoms, missionnaire_externe_fonction, missionnaire_externe_grade_indice,
       missionnaire:profiles!missions_missionnaire_id_fkey(nom, prenoms, fonction, grade_indice),
       signataire:profiles!missions_signe_par_fkey(nom, prenoms, role, civilite)
     `)
@@ -37,7 +38,10 @@ export default async function VerifyOMPage({ params }: { params: Promise<{ id: s
 
   const isSigne = m && ['signe', 'cloture'].includes(m.status)
   const sg = (m?.signataire as any)
-  const mn = (m?.missionnaire as any)
+  const mn = (m?.missionnaire as any) ?? (m && !m.missionnaire_id ? {
+    nom: m.missionnaire_externe_nom, prenoms: m.missionnaire_externe_prenoms,
+    fonction: m.missionnaire_externe_fonction, grade_indice: m.missionnaire_externe_grade_indice,
+  } : null)
 
   let signataireLabel = ''
   if (isSigne) {

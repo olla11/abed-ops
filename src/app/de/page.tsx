@@ -22,22 +22,25 @@ export default async function DEDashboardPage() {
   if (!user) redirect('/login')
 
   const [
-    { count: omASignerCount },
+    { data: omASigner },
     { count: demandesCount },
     { count: rapportsCount },
     { count: reconciliationsCount },
     { count: timesheetsCount },
   ] = await Promise.all([
+    // Compté en JS plutôt qu'avec un `!inner` + `.neq` sur l'embed : un
+    // missionnaire hors système (OM demandé pour un tiers) n'a pas de ligne
+    // profiles à joindre, un inner join l'exclurait à tort du compte.
     supabase
       .from('missions')
-      .select('id, missionnaire:profiles!missions_missionnaire_id_fkey!inner(role)', { count: 'exact', head: true })
-      .in('status', ['soumis', 'brouillon'])
-      .neq('missionnaire.role', 'de'),
+      .select('id, missionnaire_id, missionnaire:profiles!missions_missionnaire_id_fkey(role)')
+      .in('status', ['soumis', 'brouillon']),
     supabase.from('demandes_paiement').select('id', { count: 'exact', head: true }).eq('status', 'valide_caf'),
     supabase.from('rapports_allocations').select('id', { count: 'exact', head: true }).eq('status', 'valide_caf'),
     supabase.from('missions').select('id', { count: 'exact', head: true }).eq('status', 'reconciliation_de'),
     supabase.from('soumissions').select('id', { count: 'exact', head: true }).eq('status', 'valide_caf'),
   ])
+  const omASignerCount = (omASigner ?? []).filter((m: any) => m.missionnaire?.role !== 'de').length
 
   return (
     <div>

@@ -18,14 +18,17 @@ export default async function DEOmASignerPage() {
   // s'auto-signer, seuls le CAF ou le Président du CA le font pour lui, voir
   // src/app/api/missions/[id]/signer/route.ts). On exclut donc les OM dont
   // le missionnaire est lui-même DE, en plus du garde-fou anti-auto-signature.
+  // Filtre fait en JS (pas de `!inner` + `.neq` sur l'embed) : un missionnaire
+  // hors système (missionnaire_id nul, OM demandé pour un tiers) n'a pas de
+  // ligne profiles à joindre — un inner join l'aurait silencieusement exclu
+  // de cette liste alors qu'il attend bien la signature du DE.
   const { data: missions } = await supabase
     .from('missions')
-    .select('id, reference, objet, lieu, date_depart, date_retour, status, missionnaire_id, missionnaire:profiles!missions_missionnaire_id_fkey!inner(nom, prenoms, role)')
+    .select('id, reference, objet, lieu, date_depart, date_retour, status, missionnaire_id, missionnaire_externe_nom, missionnaire_externe_prenoms, missionnaire:profiles!missions_missionnaire_id_fkey(nom, prenoms, role)')
     .in('status', ['soumis', 'brouillon'])
-    .neq('missionnaire.role', 'de')
     .order('date_depart', { ascending: true })
 
-  const aSigner = (missions ?? []).filter((m: any) => m.missionnaire_id !== user.id)
+  const aSigner = (missions ?? []).filter((m: any) => m.missionnaire?.role !== 'de' && m.missionnaire_id !== user.id)
 
   return (
     <div>
@@ -52,7 +55,7 @@ export default async function DEOmASignerPage() {
                     {m.objet} {m.reference ? <span style={{ color: 'var(--abed-muted)', fontWeight: 400 }}>· {m.reference}</span> : null}
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--abed-muted)', marginTop: 2 }}>
-                    {m.missionnaire?.prenoms} {m.missionnaire?.nom} — {m.lieu}
+                    {m.missionnaire_id ? `${m.missionnaire?.prenoms ?? ''} ${m.missionnaire?.nom ?? ''}` : `${m.missionnaire_externe_prenoms ?? ''} ${m.missionnaire_externe_nom ?? ''} (externe)`} — {m.lieu}
                     {m.date_depart && ` — départ le ${new Date(m.date_depart).toLocaleDateString('fr-FR')}`}
                   </div>
                 </div>

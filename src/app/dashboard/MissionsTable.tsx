@@ -13,8 +13,17 @@ export type Mission = {
   date_depart: string
   date_retour: string
   status: string
-  missionnaire_id: string
+  missionnaire_id: string | null
+  demandeur_id?: string | null
   missionnaire?: { nom: string; prenoms: string; role?: string } | null
+  // Missionnaire hors système (OM demandé pour un tiers, sans compte My ABED).
+  missionnaire_externe_nom?: string | null
+  missionnaire_externe_prenoms?: string | null
+}
+
+function missionnaireNomAffiche(m: Mission): string {
+  if (!m.missionnaire_id) return `${m.missionnaire_externe_prenoms ?? ''} ${m.missionnaire_externe_nom ?? ''}`.trim()
+  return `${(m.missionnaire as any)?.prenoms ?? ''} ${(m.missionnaire as any)?.nom ?? ''}`.trim()
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -34,7 +43,7 @@ function MissionsTableSimple({ missions, showMissionnaire }: { missions: Mission
     m.objet.toLowerCase().includes(search.toLowerCase()) ||
     (m.reference ?? '').toLowerCase().includes(search.toLowerCase()) ||
     m.lieu.toLowerCase().includes(search.toLowerCase()) ||
-    `${(m.missionnaire as any)?.prenoms} ${(m.missionnaire as any)?.nom}`.toLowerCase().includes(search.toLowerCase())
+    missionnaireNomAffiche(m).toLowerCase().includes(search.toLowerCase())
   )
   const paged = paginate(filtered, page, 10)
 
@@ -74,7 +83,7 @@ function MissionsTableSimple({ missions, showMissionnaire }: { missions: Mission
                 <td title={m.reference ?? '—'} style={{ fontFamily: 'monospace', fontSize: 12 }}>{m.reference ?? '—'}</td>
                 {showMissionnaire && (
                   <td style={{ fontSize: 13 }}>
-                    {(m.missionnaire as any)?.prenoms} {(m.missionnaire as any)?.nom}
+                    {missionnaireNomAffiche(m)}{!m.missionnaire_id && <span style={{ color: 'var(--abed-muted)' }}> (externe)</span>}
                   </td>
                 )}
                 <td title={m.objet}>{m.objet}</td>
@@ -211,7 +220,11 @@ export default function MissionsTable({
     return <MissionsTableSimple missions={missions} showMissionnaire={isManager} />
   }
 
-  const mesMissions = missions.filter(m => m.missionnaire_id === userId)
+  // "Mes ordres" inclut aussi les OM que j'ai demandés pour un tiers hors
+  // système (missionnaire_id nul, demandeur_id = moi) — sinon ils
+  // n'apparaîtraient nulle part pour leur créateur.
+  const mesMissions = missions.filter(m => m.missionnaire_id === userId || m.demandeur_id === userId)
+  const mesMissionsAffichentTiers = mesMissions.some(m => m.missionnaire_id !== userId)
 
   const tabs: { key: string; label: string; count?: number; icon: React.ElementType; color?: string }[] = [
     ...actionTabs.map(t => {
@@ -295,7 +308,7 @@ export default function MissionsTable({
               <p style={{ fontSize: 13 }}>Vous n'avez pas encore soumis d'ordre de mission.</p>
             </div>
           ) : (
-            <MissionsTableSimple missions={mesMissions} showMissionnaire={false} />
+            <MissionsTableSimple missions={mesMissions} showMissionnaire={mesMissionsAffichentTiers} />
           )}
         </div>
       )}

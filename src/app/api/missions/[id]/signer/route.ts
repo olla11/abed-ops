@@ -1,6 +1,7 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
 import { sendEmail } from '@/lib/resend'
+import { signOmExterneToken } from '@/lib/om-externe-token'
 
 export async function POST(
   _req: NextRequest,
@@ -56,6 +57,13 @@ export async function POST(
     return NextResponse.json({ error: 'Vous ne pouvez pas signer votre propre ordre de mission.' }, { status: 403 })
   }
 
+  // Missionnaire hors système (OM demandé pour un tiers) : pas de compte, donc
+  // pas de réconciliation possible de sa part — l'OM se clôture directement à
+  // la signature plutôt que de passer par le statut intermédiaire "signe" en
+  // attente d'une réconciliation que personne ne fera jamais.
+  const estExterne = !missionCheck.missionnaire_id
+  const statutFinal = estExterne ? 'cloture' : 'signe'
+
   const now = new Date()
   const year2 = String(now.getFullYear()).slice(-2)
 
@@ -74,7 +82,7 @@ export async function POST(
 
   const { error } = await supabase
     .from('missions')
-    .update({ status: 'signe', reference, signe_par: user.id, signe_le: new Date().toISOString() })
+    .update({ status: statutFinal, reference, signe_par: user.id, signe_le: new Date().toISOString() })
     .eq('id', id)
     .in('status', ['soumis', 'brouillon'])
 
@@ -82,27 +90,45 @@ export async function POST(
 
   const { data: mission } = await supabase
     .from('missions')
-    .select('missionnaire_id, objet, date_depart, date_retour, lieu, missionnaire:profiles!missions_missionnaire_id_fkey(nom, prenoms, email, civilite)')
+    .select(`
+      missionnaire_id, demandeur_id, objet, date_depart, date_retour, lieu,
+      missionnaire_externe_nom, missionnaire_externe_prenoms, missionnaire_externe_civilite, missionnaire_externe_email,
+      missionnaire:profiles!missions_missionnaire_id_fkey(nom, prenoms, email, civilite)
+    `)
     .eq('id', id).single()
 
   if (mission) {
-    // Notif in-app
-    await supabase.from('notifications').insert({
-      user_id: mission.missionnaire_id,
-      titre: 'Ordre de Mission signé',
-      message: `Votre OM "${mission.objet}" (réf. ${reference}) est signé et disponible au téléchargement.`,
-      lien: `/missions/${id}`,
-    })
+    // Missionnaire hors système : pas de compte à notifier in-app, et pas de
+    // connexion possible pour télécharger le PDF — un lien de consultation à
+    // jeton (30 jours) est envoyé par email à la place.
+    const m = estExterne
+      ? { nom: mission.missionnaire_externe_nom, prenoms: mission.missionnaire_externe_prenoms, civilite: mission.missionnaire_externe_civilite, email: mission.missionnaire_externe_email }
+      : (mission.missionnaire as any)
 
-    // Email au missionnaire
-    const m = mission.missionnaire as any
+    if (!estExterne) {
+      await supabase.from('notifications').insert({
+        user_id: mission.missionnaire_id,
+        titre: 'Ordre de Mission signé',
+        message: `Votre OM "${mission.objet}" (réf. ${reference}) est signé et disponible au téléchargement.`,
+        lien: `/missions/${id}`,
+      })
+    }
+
     const signedBy = `${profile.prenoms} ${profile.nom}${profile.fonction ? ` — ${profile.fonction}` : ''}${signePourOrdre ? ' (Pour Ordre)' : ''}`
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://myabed.vercel.app'
+    const lienOm = estExterne && m?.email
+      ? `${appUrl}/om/externe?t=${signOmExterneToken(id, m.email)}`
+      : `${appUrl}/missions/${id}`
+    const boutonLabel = estExterne ? "Voir l'ordre de mission" : 'Voir mon ordre de mission'
+    const introTexte = estExterne
+      ? `L'ordre de mission a été <strong style="color:#16a34a">signé</strong>. Vous pouvez dès maintenant le consulter et le télécharger via le lien ci-dessous — aucune connexion n'est nécessaire.`
+      : `Votre ordre de mission a été <strong style="color:#16a34a">signé</strong>. Vous pouvez dès maintenant le télécharger depuis votre espace My ABED.`
+
     if (m?.email) {
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://myabed.vercel.app'
       try {
         await sendEmail({
           to: m.email,
-          subject: `✅ Votre Ordre de Mission est signé — Réf. ${reference}`,
+          subject: `✅ ${estExterne ? "L'" : 'Votre '}Ordre de Mission est signé — Réf. ${reference}`,
           html: `<!DOCTYPE html>
 <html lang="fr">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -124,7 +150,7 @@ export async function POST(
           </div>
           <p style="font-size:16px;color:#111827;margin:0 0 8px;font-weight:700">Bonjour ${m.civilite || ''} ${m.prenoms} ${m.nom},</p>
           <p style="font-size:14px;color:#6b7280;margin:0 0 24px;line-height:1.6">
-            Votre ordre de mission a été <strong style="color:#16a34a">signé</strong>. Vous pouvez dès maintenant le télécharger depuis votre espace My ABED.
+            ${introTexte}
           </p>
           <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:20px 24px;margin-bottom:24px">
             <table width="100%" cellpadding="0" cellspacing="0">
@@ -145,8 +171,8 @@ export async function POST(
             </table>
           </div>
           <div style="text-align:center;margin-bottom:24px">
-            <a href="${appUrl}/missions/${id}" style="display:inline-block;background:#16a34a;color:white;padding:13px 32px;border-radius:8px;font-size:14px;font-weight:700;text-decoration:none">
-              Voir mon ordre de mission
+            <a href="${lienOm}" style="display:inline-block;background:#16a34a;color:white;padding:13px 32px;border-radius:8px;font-size:14px;font-weight:700;text-decoration:none">
+              ${boutonLabel}
             </a>
           </div>
           <p style="font-size:12px;color:#9ca3af;margin:0">Cet email a été envoyé automatiquement par My ABED. Ne pas répondre à cet email.</p>
@@ -163,6 +189,18 @@ export async function POST(
       } catch (e) {
         console.error('[signer] email error:', e)
       }
+    }
+
+    // OM créé pour un tiers : le demandeur (pas le missionnaire, hors
+    // système) reçoit la confirmation de signature — sinon personne côté
+    // "propriétaire" de la demande n'est jamais informé de l'issue.
+    if (estExterne && mission.demandeur_id && mission.demandeur_id !== user.id) {
+      await supabase.from('notifications').insert({
+        user_id: mission.demandeur_id,
+        titre: 'Ordre de Mission signé',
+        message: `L'OM que vous avez demandé pour ${m?.prenoms ?? ''} ${m?.nom ?? ''} (réf. ${reference}) est signé.`,
+        lien: `/missions/${id}`,
+      })
     }
 
     // Le DP, le CAF et les membres du CA (Président compris) sont informés

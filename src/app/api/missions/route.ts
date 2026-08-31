@@ -8,11 +8,20 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
 
   const body = await req.json()
-  const { status, ...fields } = body
+  const { status, pourTiers, ...fields } = body
 
+  // "Pour un tiers" : n'importe qui peut demander un OM pour une personne
+  // hors système (aucun compte My ABED) — son identité est saisie à la main
+  // (missionnaire_externe_*) plutôt que résolue via profiles. demandeur_id
+  // trace qui a réellement fait la demande (= missionnaire_id en libre-service).
   const { data: mission, error } = await supabase
     .from('missions')
-    .insert({ ...fields, missionnaire_id: user.id, status })
+    .insert({
+      ...fields,
+      missionnaire_id: pourTiers ? null : user.id,
+      demandeur_id: user.id,
+      status,
+    })
     .select()
     .single()
 
@@ -24,13 +33,19 @@ export async function POST(req: NextRequest) {
   // Cas général : seul le DE signe les OM, donc seul le DE est notifié.
   // Si c'est le DE lui-même qui soumet (il ne peut pas s'auto-signer), le
   // CAF et le Président du CA sont notifiés à sa place — ce sont les deux
-  // seuls habilités à signer un OM du DE.
+  // seuls habilités à signer un OM du DE. Un missionnaire externe n'est
+  // jamais le DE (pas de rôle), donc suit toujours le cas général.
   if (status === 'soumis') {
-    const { data: missProfile } = await supabase
-      .from('profiles').select('nom, prenoms, civilite, role').eq('id', user.id).single()
-
-    const missNom = `${missProfile?.prenoms ?? ''} ${missProfile?.nom ?? ''}`.trim()
-    const missionnaireEstDE = missProfile?.role === 'de'
+    let missNom: string
+    let missionnaireEstDE = false
+    if (pourTiers) {
+      missNom = `${mission.missionnaire_externe_prenoms ?? ''} ${mission.missionnaire_externe_nom ?? ''}`.trim()
+    } else {
+      const { data: missProfile } = await supabase
+        .from('profiles').select('nom, prenoms, role').eq('id', user.id).single()
+      missNom = `${missProfile?.prenoms ?? ''} ${missProfile?.nom ?? ''}`.trim()
+      missionnaireEstDE = missProfile?.role === 'de'
+    }
     const admin = createAdminClient()
 
     const { data: signataires } = missionnaireEstDE

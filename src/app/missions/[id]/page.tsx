@@ -25,6 +25,7 @@ export default async function MissionDetail({ params }: { params: Promise<{ id: 
     .select(`
       *,
       missionnaire:profiles!missions_missionnaire_id_fkey(nom, prenoms, email, telephone, fonction, role),
+      demandeur:profiles!missions_demandeur_id_fkey(nom, prenoms),
       signataire:profiles!missions_signe_par_fkey(nom, prenoms, fonction, role)
     `)
     .eq('id', id)
@@ -37,6 +38,16 @@ export default async function MissionDetail({ params }: { params: Promise<{ id: 
 
   const role = profile?.role ?? 'missionnaire'
   const isLocked = mission.status === 'cloture'
+  // Missionnaire hors système (OM demandé pour un tiers, sans compte My
+  // ABED) : son identité vient des colonnes missionnaire_externe_* plutôt
+  // que du join profiles (vide puisque missionnaire_id est nul).
+  const estExterne = !mission.missionnaire_id
+  const nomMissionnaireAffiche = estExterne
+    ? `${mission.missionnaire_externe_prenoms ?? ''} ${mission.missionnaire_externe_nom ?? ''}`.trim()
+    : `${mission.missionnaire?.prenoms ?? ''} ${mission.missionnaire?.nom ?? ''}`.trim()
+  const fonctionMissionnaireAffichee = estExterne
+    ? (mission.missionnaire_externe_fonction ?? '—')
+    : (mission.missionnaire?.fonction ?? '—')
   // Trois personnes peuvent signer un OM : le DE, le CAF, le Président du CA.
   // Cas général : seul le DE signe. OM du DE lui-même (il ne peut pas
   // s'auto-signer) : seuls le CAF (Pour Ordre) ou le Président du CA
@@ -128,8 +139,11 @@ export default async function MissionDetail({ params }: { params: Promise<{ id: 
         <h3 style={{ marginBottom: 16, fontSize: 15 }}>Informations de la mission</h3>
         <table>
           <tbody>
-            <Row label="Missionnaire" value={`${mission.missionnaire?.prenoms ?? ''} ${mission.missionnaire?.nom ?? ''}`} />
-            <Row label="Fonction" value={mission.missionnaire?.fonction ?? '—'} />
+            <Row label="Missionnaire" value={estExterne ? `${nomMissionnaireAffiche} (hors système)` : nomMissionnaireAffiche} />
+            <Row label="Fonction" value={fonctionMissionnaireAffichee} />
+            {(mission.demandeur?.prenoms || mission.demandeur?.nom) && (mission.demandeur_id !== mission.missionnaire_id) && (
+              <Row label="Demandé par" value={`${mission.demandeur?.prenoms ?? ''} ${mission.demandeur?.nom ?? ''}`.trim()} />
+            )}
             <Row label="Objet" value={mission.objet} />
             <Row label="Lieu" value={mission.lieu} />
             <Row label="Moyen de transport" value={mission.moyen_transport ?? '—'} />

@@ -27,6 +27,7 @@ export default function NouvelleMission() {
   const supabase = createClient()
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
+  const [pourTiers, setPourTiers] = useState(false)
   const [form, setForm] = useState({
     objet: '',
     lieu: '',
@@ -39,9 +40,30 @@ export default function NouvelleMission() {
     imputation: '',
     a_charge_partenaire: false,
   })
+  // Identité du missionnaire quand l'OM est demandé pour un tiers hors
+  // système (pas de compte My ABED) — mêmes champs que ceux imprimés sur le
+  // PDF de l'OM depuis un profil, mais saisis à la main.
+  const [externe, setExterne] = useState({
+    missionnaire_externe_civilite: '',
+    missionnaire_externe_prenoms: '',
+    missionnaire_externe_nom: '',
+    missionnaire_externe_email: '',
+    missionnaire_externe_telephone: '',
+    missionnaire_externe_fonction: '',
+    missionnaire_externe_ifu: '',
+    missionnaire_externe_nationalite: '',
+    missionnaire_externe_date_naissance: '',
+    missionnaire_externe_lieu_naissance: '',
+    missionnaire_externe_adresse: '',
+    missionnaire_externe_grade_indice: '',
+  })
 
   function set(k: keyof typeof form, v: string | boolean) {
     setForm(f => ({ ...f, [k]: v }))
+  }
+
+  function setExt(k: keyof typeof externe, v: string) {
+    setExterne(f => ({ ...f, [k]: v }))
   }
 
   function validate(): string | null {
@@ -56,12 +78,15 @@ export default function NouvelleMission() {
       const max = maxRetour(form.date_depart)
       if (form.date_retour > max) return 'La durée de la mission ne peut pas dépasser 1 an.'
     }
+    if (pourTiers && (!externe.missionnaire_externe_prenoms.trim() || !externe.missionnaire_externe_nom.trim())) {
+      return 'Prénoms et nom du missionnaire sont obligatoires.'
+    }
     return null
   }
 
   async function submit(e: React.FormEvent, statut: 'brouillon' | 'soumis') {
     e.preventDefault()
-    if (statut === 'soumis') {
+    if (statut === 'soumis' || pourTiers) {
       const validErr = validate()
       if (validErr) { setErr(validErr); return }
     }
@@ -69,12 +94,14 @@ export default function NouvelleMission() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/login'); return }
 
+    const payload = { ...form, ...(pourTiers ? externe : {}) }
+
     if (statut === 'soumis') {
       // Passer par l'API pour déclencher les notifications aux signataires (DE, CAF, administrateur)
       const res = await fetch('/api/missions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, status: statut }),
+        body: JSON.stringify({ ...payload, pourTiers, status: statut }),
       })
       const data = await res.json()
       setSaving(false)
@@ -82,8 +109,9 @@ export default function NouvelleMission() {
       else router.push('/dashboard')
     } else {
       const { error } = await supabase.from('missions').insert({
-        ...form,
-        missionnaire_id: user.id,
+        ...payload,
+        missionnaire_id: pourTiers ? null : user.id,
+        demandeur_id: user.id,
         status: statut,
       })
       setSaving(false)
@@ -101,6 +129,96 @@ export default function NouvelleMission() {
       <h2 style={{ color: 'var(--abed-green)', margin: '12px 0 24px' }}>Demander un Ordre de Mission</h2>
       <div className="card">
         <form>
+
+          <div className="field">
+            <label className="label">Cet OM est demandé pour</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button type="button" onClick={() => setPourTiers(false)}
+                className={pourTiers ? 'btn secondary' : 'btn'} style={{ flex: 1 }}>
+                Moi-même
+              </button>
+              <button type="button" onClick={() => setPourTiers(true)}
+                className={pourTiers ? 'btn' : 'btn secondary'} style={{ flex: 1 }}>
+                Un tiers (sans compte My ABED)
+              </button>
+            </div>
+          </div>
+
+          {pourTiers && (
+            <div style={{ background: '#f9fafb', border: '1px solid var(--abed-border)', borderRadius: 8, padding: 16, marginBottom: 18 }}>
+              <p style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--abed-muted)' }}>
+                Identité du missionnaire — cette personne n&apos;a pas de compte My ABED, ces informations remplacent son profil sur l&apos;OM.
+              </p>
+              <div className="grid-2" style={{ display: 'grid', gridTemplateColumns: '110px 1fr 1fr', gap: 12 }}>
+                <div className="field">
+                  <label className="label">Civilité</label>
+                  <select className="input" value={externe.missionnaire_externe_civilite}
+                    onChange={e => setExt('missionnaire_externe_civilite', e.target.value)}>
+                    <option value="">—</option>
+                    <option value="M.">M.</option>
+                    <option value="Mme">Mme</option>
+                  </select>
+                </div>
+                <div className="field">
+                  <label className="label">Prénoms *</label>
+                  <input className="input" value={externe.missionnaire_externe_prenoms}
+                    onChange={e => setExt('missionnaire_externe_prenoms', e.target.value)} required={pourTiers} />
+                </div>
+                <div className="field">
+                  <label className="label">Nom *</label>
+                  <input className="input" value={externe.missionnaire_externe_nom}
+                    onChange={e => setExt('missionnaire_externe_nom', e.target.value)} required={pourTiers} />
+                </div>
+              </div>
+              <div className="grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div className="field">
+                  <label className="label">Email (pour lui envoyer l&apos;OM signé)</label>
+                  <input className="input" type="email" value={externe.missionnaire_externe_email}
+                    onChange={e => setExt('missionnaire_externe_email', e.target.value)} />
+                </div>
+                <div className="field">
+                  <label className="label">Téléphone</label>
+                  <input className="input" value={externe.missionnaire_externe_telephone}
+                    onChange={e => setExt('missionnaire_externe_telephone', e.target.value)} />
+                </div>
+                <div className="field">
+                  <label className="label">Fonction</label>
+                  <input className="input" value={externe.missionnaire_externe_fonction}
+                    onChange={e => setExt('missionnaire_externe_fonction', e.target.value)} />
+                </div>
+                <div className="field">
+                  <label className="label">Qualité / Grade / Indice</label>
+                  <input className="input" value={externe.missionnaire_externe_grade_indice}
+                    onChange={e => setExt('missionnaire_externe_grade_indice', e.target.value)} />
+                </div>
+                <div className="field">
+                  <label className="label">Numéro IFU</label>
+                  <input className="input" value={externe.missionnaire_externe_ifu}
+                    onChange={e => setExt('missionnaire_externe_ifu', e.target.value)} />
+                </div>
+                <div className="field">
+                  <label className="label">Nationalité</label>
+                  <input className="input" value={externe.missionnaire_externe_nationalite}
+                    onChange={e => setExt('missionnaire_externe_nationalite', e.target.value)} />
+                </div>
+                <div className="field">
+                  <label className="label">Date de naissance</label>
+                  <input className="input" type="date" value={externe.missionnaire_externe_date_naissance}
+                    onChange={e => setExt('missionnaire_externe_date_naissance', e.target.value)} />
+                </div>
+                <div className="field">
+                  <label className="label">Lieu de naissance</label>
+                  <input className="input" value={externe.missionnaire_externe_lieu_naissance}
+                    onChange={e => setExt('missionnaire_externe_lieu_naissance', e.target.value)} />
+                </div>
+                <div className="field" style={{ gridColumn: '1 / -1' }}>
+                  <label className="label">Adresse</label>
+                  <input className="input" value={externe.missionnaire_externe_adresse}
+                    onChange={e => setExt('missionnaire_externe_adresse', e.target.value)} />
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="field">
             <label className="label">Objet de la mission *</label>
@@ -191,7 +309,8 @@ export default function NouvelleMission() {
               {saving ? '…' : 'Enregistrer brouillon'}
             </button>
             <button type="button" className="btn"
-              disabled={saving || !form.objet || !form.lieu || !form.date_depart || !form.date_retour}
+              disabled={saving || !form.objet || !form.lieu || !form.date_depart || !form.date_retour
+                || (pourTiers && (!externe.missionnaire_externe_prenoms.trim() || !externe.missionnaire_externe_nom.trim()))}
               onClick={e => submit(e, 'soumis')}>
               {saving ? 'Envoi…' : 'Soumettre pour signature'}
             </button>

@@ -44,6 +44,13 @@ export async function proxy(req: NextRequest, event: NextFetchEvent) {
     path.startsWith('/api/signatures/externe') ||
     path.startsWith('/verify/om') ||
     path.startsWith('/api/verify/om') ||
+    // Consultation de l'OM d'un missionnaire hors système, sans compte —
+    // accès par jeton (voir om-externe-token.ts), jamais de session ici.
+    // /api/om-pdf reste aussi accessible aux sessions normales : la route
+    // fait elle-même la vérification (session OU jeton), le middleware ne
+    // fait que ne pas la bloquer en amont pour le cas sans session.
+    path.startsWith('/om/externe') ||
+    path.startsWith('/api/om-pdf') ||
     // Tâches planifiées (Vercel Cron, ou tout appel serveur-à-serveur type
     // pg_cron/pg_net) : jamais de session utilisateur sur ces appels, donc
     // sans cette exception le middleware les redirigeait vers /login avant

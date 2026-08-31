@@ -6,6 +6,7 @@ import QRCode from 'qrcode'
 import fs from 'fs'
 import path from 'path'
 import { accordGenre, estFeminin } from '@/lib/genre'
+import { verifyOmExterneToken } from '@/lib/om-externe-token'
 
 const fmt = (d: string | null | undefined) =>
   d ? new Date(d).toLocaleDateString('fr-FR') : '—'
@@ -113,13 +114,22 @@ export async function GET(req: NextRequest) {
   const missionId = req.nextUrl.searchParams.get('missionId')
   if (!missionId) return NextResponse.json({ error: 'missionId requis' }, { status: 400 })
 
-  const supabaseUser = await createClient()
-  const { data: { user } } = await supabaseUser.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
+  // Accès par jeton (missionnaire externe, sans compte) — cf. om-externe-token.ts.
+  const token = req.nextUrl.searchParams.get('t')
+  const tokenPayload = token ? verifyOmExterneToken(token) : null
+  if (token && !tokenPayload) return NextResponse.json({ error: 'lien invalide ou expiré' }, { status: 403 })
 
-  const { data: profile } = await supabaseUser.from('profiles').select('role').eq('id', user.id).single()
-  const privilegedRoles = ['admin', 'superadmin', 'caf', 'de', 'dp', 'aaf', 'rh', 'administrateur', 'manager']
-  const isPrivileged = privilegedRoles.includes(profile?.role ?? '')
+  let userId: string | null = null
+  let isPrivileged = false
+  if (!tokenPayload) {
+    const supabaseUser = await createClient()
+    const { data: { user } } = await supabaseUser.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
+    userId = user.id
+    const { data: profile } = await supabaseUser.from('profiles').select('role').eq('id', user.id).single()
+    const privilegedRoles = ['admin', 'superadmin', 'caf', 'de', 'dp', 'aaf', 'rh', 'administrateur', 'manager']
+    isPrivileged = privilegedRoles.includes(profile?.role ?? '')
+  }
 
   const admin = createAdminClient()
   const { data: m, error } = await admin
@@ -138,8 +148,14 @@ export async function GET(req: NextRequest) {
 
   if (error || !m) return NextResponse.json({ error: 'introuvable' }, { status: 404 })
 
-  // Vérification d'accès : rôle privilégié OU missionnaire de la mission
-  if (!isPrivileged && m.missionnaire_id !== user.id) {
+  if (tokenPayload) {
+    // Le lien ne donne accès qu'à SA mission, avec le même email que celui
+    // pour lequel il a été émis.
+    if (tokenPayload.missionId !== m.id || tokenPayload.email !== m.missionnaire_externe_email) {
+      return NextResponse.json({ error: 'accès refusé' }, { status: 403 })
+    }
+  } else if (!isPrivileged && m.missionnaire_id !== userId && m.demandeur_id !== userId) {
+    // Vérification d'accès : rôle privilégié, missionnaire, ou demandeur (OM créé pour un tiers)
     return NextResponse.json({ error: 'accès refusé' }, { status: 403 })
   }
 
@@ -171,7 +187,22 @@ export async function GET(req: NextRequest) {
   const MB = 72   // bas
   const W = MR - ML  // largeur utile = 451
 
-  const mn = m.missionnaire as any
+  // Missionnaire hors système (pas de compte) : mêmes champs repris depuis
+  // les colonnes missionnaire_externe_* saisies à la création plutôt que
+  // depuis le join profiles (vide puisque missionnaire_id est nul).
+  const mn = m.missionnaire ?? {
+    nom: m.missionnaire_externe_nom,
+    prenoms: m.missionnaire_externe_prenoms,
+    civilite: m.missionnaire_externe_civilite,
+    ifu: m.missionnaire_externe_ifu,
+    fonction: m.missionnaire_externe_fonction,
+    grade_indice: m.missionnaire_externe_grade_indice,
+    adresse: m.missionnaire_externe_adresse,
+    date_naissance: m.missionnaire_externe_date_naissance,
+    lieu_naissance: m.missionnaire_externe_lieu_naissance,
+    nationalite: m.missionnaire_externe_nationalite,
+    telephone: m.missionnaire_externe_telephone,
+  }
   const sg = m.signataire as any
 
   let y = MT + 14  // on démarre un peu au-dessus de la marge pour le header
