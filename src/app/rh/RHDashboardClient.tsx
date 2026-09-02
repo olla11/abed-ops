@@ -1,5 +1,6 @@
 'use client'
-import { Users, FileText, Palmtree, ClipboardEdit, BarChart3, Wallet, Scale } from 'lucide-react'
+import Link from 'next/link'
+import { Users, FileText, Palmtree, ClipboardEdit, BarChart3, Wallet, Scale, RefreshCw } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 type Personnel = { id: string; nom: string; prenoms: string; role: string; type_emploi: string | null; direction: string | null; fonction: string | null; genre: string | null }
@@ -245,6 +246,12 @@ export default function RHDashboardClient({ personnel, contrats, contratsExpiran
                       }}>
                         J-{days}
                       </span>
+                      <Link href={`/rh/contrats?renouveler=${c.id}`} style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700,
+                        color: 'var(--abed-green)', textDecoration: 'none', whiteSpace: 'nowrap',
+                      }}>
+                        <RefreshCw size={13} /> Renouveler
+                      </Link>
                     </div>
                   </div>
                 )

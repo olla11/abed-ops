@@ -1,23 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { revalidateTag } from 'next/cache'
-import { sendEmail } from '@/lib/resend'
 import { estRH } from '@/lib/roles'
-import { signContratExterneToken } from '@/lib/contrat-externe-token'
+import { creerContratEtDemarrerCircuit } from '@/lib/contrat-creation'
 
 // Catégories pour lesquelles le destinataire peut ne pas encore avoir de
 // compte My ABED (l'offre/la convention précède souvent son intégration) —
 // un CDD/CDI ou un Avenant suppose au contraire une personne déjà en place.
 function categorieAutoriseDestinataireExterne(categorie: string, typeContrat: string): boolean {
-  // "Offre de stage" suit un circuit à part (le DE signe en premier, avant
-  // même que le/la stagiaire ne soit notifié·e) — pas encore câblé avec un
-  // destinataire externe, donc exclu ici pour ne pas casser ce circuit.
-  if (categorie === 'Offre') return true
+  if (categorie === 'Offre' || categorie === 'Offre de stage') return true
   if (categorie === 'Convention' && ['Bourse de formation', 'Consultant'].includes(typeContrat)) return true
   return false
 }
-
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://myabed.app'
 
 export async function GET(_req: NextRequest) {
   const supabase = await createClient()
@@ -54,7 +48,6 @@ export async function POST(req: NextRequest) {
   } = body
 
   const categorie = categorie_document || 'Contrat'
-  const isOffreStage = categorie === 'Offre de stage'
   const emailDestinataire = (destinataire_email ?? '').trim().toLowerCase() || null
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -94,8 +87,7 @@ export async function POST(req: NextRequest) {
     parentId = contrat_parent_id
   }
 
-  // Insert the contract
-  const { data: contrat, error: insertError } = await service.from('contrats').insert({
+  const resultat = await creerContratEtDemarrerCircuit(service, user.id, {
     profile_id: profile_id || null,
     destinataire_email: emailDestinataire,
     type_contrat, date_debut,
@@ -104,212 +96,18 @@ export async function POST(req: NextRequest) {
     date_fin: date_fin || null,
     salaire_brut: salaire_brut || null,
     observations: observations || null,
-    source_financement: source_financement || null,
     categorie_document: categorie,
     contrat_parent_id: parentId,
+    renouvele_depuis: null,
     objet: objet || null,
     articles: articles || [],
     commentaires_rh: commentaires_rh || null,
+    source_financement: source_financement || null,
     template_id: template_id || null,
-    statut: 'actif',
-    workflow_statut: isOffreStage ? 'envoye_de' : 'envoye_employe',
-  }).select('*, profile:profiles!profile_id(id, nom, prenoms, email, role, civilite)').single()
+  })
 
-  if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 })
-
-  // Generate contract number: 001 /ABED-ONG/DE/DAF/CAF/2026
-  const year = new Date().getFullYear()
-  let numero: string
-
-  const { data: seqData, error: seqError } = await service
-    .rpc('nextval_contrats_seq' as Parameters<typeof service.rpc>[0])
-
-  if (!seqError && seqData != null) {
-    numero = `${String(Number(seqData)).padStart(3, '0')} /ABED-ONG/DE/DAF/CAF/${year}`
-  } else {
-    const { count } = await service.from('contrats').select('id', { count: 'exact', head: true })
-    numero = `${String(count ?? 1).padStart(3, '0')} /ABED-ONG/DE/DAF/CAF/${year}`
-  }
-
-  const { error: numeroErr } = await service.from('contrats').update({ numero }).eq('id', contrat.id)
-  if (numeroErr) console.error('[POST /api/rh/contrats] échec écriture numero:', numeroErr)
-
-  type ProfileRow = {
-    id: string; nom: string; prenoms: string; email: string | null; role: string; civilite: string | null
-  }
-  const profile = contrat.profile as ProfileRow | null
-
-  // Determine signatory based on employee role.
-  // Offre de stage : toujours le DE (il signe en premier, avant le stagiaire).
-  // Destinataire externe (sans compte) : toujours le DE aussi — on ne peut
-  // pas savoir si cette personne occupera un jour un rôle de direction.
-  let signataireProfile: { id: string; nom: string; prenoms: string; email?: string | null } | null = null
-  if (profile || emailDestinataire) {
-    const signatoryRole = (profile && !isOffreStage && ['de', 'dp'].includes(profile.role)) ? 'administrateur' : 'de'
-    const { data: signatories } = await service
-      .from('profiles')
-      .select('id, nom, prenoms, email')
-      .eq('role', signatoryRole)
-      .limit(1)
-    if (signatories && signatories.length > 0) {
-      signataireProfile = signatories[0] as { id: string; nom: string; prenoms: string; email?: string | null }
-    }
-  }
-
-  // Create demande_signature and signataire
-  let demandeId: string | null = null
-  if (signataireProfile && profile) {
-    const titre = `${categorie} ${type_contrat} — ${profile.prenoms} ${profile.nom}`
-    const { data: demande, error: demandeError } = await service.from('demandes_signature').insert({
-      titre,
-      description: `${categorie} ${numero}`,
-      createur_id: user.id,
-      statut: 'en_attente',
-    }).select('id').single()
-
-    if (!demandeError && demande) {
-      demandeId = (demande as { id: string }).id
-
-      await service.from('signataires').insert({
-        demande_id: demandeId,
-        profile_id: signataireProfile.id,
-        signe: false,
-        ordre: 1,
-      })
-
-      await service.from('contrats').update({ demande_signature_id: demandeId }).eq('id', contrat.id)
-    }
-  }
-
-  if (isOffreStage) {
-    // Offre de stage : le DE signe en premier, le stagiaire n'est pas encore notifié
-    if (signataireProfile) {
-      const { error: notifDeErr } = await service.from('notifications').insert({
-        user_id: signataireProfile.id,
-        titre: 'Offre de stage à signer',
-        message: `Offre de stage pour ${profile?.prenoms ?? ''} ${profile?.nom ?? ''} (réf. ${numero}) — à signer avant envoi au stagiaire.`,
-        lien: '/signatures',
-      })
-      if (notifDeErr) console.error('[POST /api/rh/contrats] notif in-app DE:', notifDeErr)
-
-      if (signataireProfile.email) {
-        try {
-          await sendEmail({
-            to: signataireProfile.email,
-            subject: `Offre de stage à signer — ${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`,
-            html: `
-              <div style="font-family:sans-serif;max-width:600px;margin:0 auto;">
-                <h2 style="color:#16a34a;">ABED ONG — Offre de stage à signer</h2>
-                <p>Bonjour ${signataireProfile.prenoms} ${signataireProfile.nom},</p>
-                <p>Une nouvelle offre de stage a été établie pour <strong>${profile?.prenoms ?? ''} ${profile?.nom ?? ''}</strong> (réf. ${numero}) et attend votre signature avant envoi au stagiaire.</p>
-                <p>
-                  <a href="${APP_URL}/signatures"
-                     style="display:inline-block;background:#16a34a;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold;">
-                    Accéder aux signatures
-                  </a>
-                </p>
-                <p style="color:#6b7280;font-size:12px;">ABED ONG — Système de gestion RH</p>
-              </div>
-            `,
-          })
-        } catch (emailErr) {
-          console.error('[POST /api/rh/contrats] Email DE error:', emailErr)
-        }
-      }
-    }
-  } else if (emailDestinataire) {
-    // Destinataire sans compte My ABED : pas de notification in-app possible
-    // — on envoie un lien signé (72h) donnant accès au document sans
-    // authentification. Si la personne rejoint ABED plus tard avec la même
-    // adresse email, ce document lui sera rattaché automatiquement.
-    const now = new Date()
-    const expireLe = new Date(now.getTime() + 72 * 60 * 60 * 1000)
-    await service.from('contrats').update({
-      lien_externe_genere_le: now.toISOString(),
-      lien_externe_expire_le: expireLe.toISOString(),
-    }).eq('id', contrat.id)
-
-    const lienToken = signContratExterneToken(contrat.id, emailDestinataire)
-    const lienExterne = `${APP_URL}/contrats/externe?t=${lienToken}`
-    try {
-      await sendEmail({
-        to: emailDestinataire,
-        subject: `Votre ${categorie} ${type_contrat} — ABED ONG`,
-        html: `
-          <div style="font-family:sans-serif;max-width:600px;margin:0 auto;">
-            <h2 style="color:#16a34a;">ABED ONG — ${categorie}</h2>
-            <p>Bonjour,</p>
-            <p>Un nouveau ${categorie.toLowerCase()} a été établi à votre attention :</p>
-            <ul>
-              <li><strong>Référence :</strong> ${numero}</li>
-              <li><strong>Catégorie :</strong> ${categorie}</li>
-              <li><strong>Type :</strong> ${type_contrat}</li>
-              ${poste ? `<li><strong>Poste :</strong> ${poste}</li>` : ''}
-              <li><strong>Date de début :</strong> ${date_debut}</li>
-              ${date_fin ? `<li><strong>Date de fin :</strong> ${date_fin}</li>` : ''}
-            </ul>
-            <p>Cliquez ci-dessous pour consulter le document, indiquer votre nom et le signer (ou le commenter). Aucun compte n'est nécessaire.</p>
-            <p>
-              <a href="${lienExterne}"
-                 style="display:inline-block;background:#16a34a;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold;">
-                Consulter le document →
-              </a>
-            </p>
-            <p style="color:#6b7280;font-size:12px;">Ce lien est personnel et expire dans 72 heures. ABED ONG — Système de gestion RH</p>
-          </div>
-        `,
-      })
-    } catch (emailErr) {
-      console.error('[POST /api/rh/contrats] Email destinataire externe error:', emailErr)
-    }
-  } else {
-    // Notification in-app à l'employé
-    const { error: notifError } = await service.from('notifications').insert({
-      user_id: profile_id,
-      titre: `Nouveau ${categorie} établi à votre nom`,
-      message: `${categorie} ${type_contrat} (réf. ${numero}) — Consultez et signez votre document sur My ABED.`,
-      lien: '/mes-contrats',
-    })
-    if (notifError) console.error('[POST /api/rh/contrats] notif in-app employé:', notifError)
-
-    // Send email to employee
-    if (profile?.email) {
-      const civilite = profile.civilite ?? ''
-      try {
-        await sendEmail({
-          to: profile.email,
-          subject: `Votre ${categorie} ${type_contrat} — ABED ONG`,
-          html: `
-            <div style="font-family:sans-serif;max-width:600px;margin:0 auto;">
-              <h2 style="color:#16a34a;">ABED ONG — ${categorie}</h2>
-              <p>Bonjour ${civilite} ${profile.prenoms} ${profile.nom},</p>
-              <p>Un nouveau ${categorie.toLowerCase()} a été établi à votre nom :</p>
-              <ul>
-                <li><strong>Référence :</strong> ${numero}</li>
-                <li><strong>Catégorie :</strong> ${categorie}</li>
-                <li><strong>Type :</strong> ${type_contrat}</li>
-                <li><strong>Poste :</strong> ${poste ?? '—'}</li>
-                <li><strong>Date de début :</strong> ${date_debut}</li>
-                ${date_fin ? `<li><strong>Date de fin :</strong> ${date_fin}</li>` : ''}
-              </ul>
-              <p>Ce document requiert votre signature électronique. Vous pouvez aussi y ajouter des commentaires.</p>
-              <p>
-                <a href="${APP_URL}/signatures"
-                   style="display:inline-block;background:#16a34a;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold;">
-                  Accéder aux signatures
-                </a>
-              </p>
-              <p style="color:#6b7280;font-size:12px;">ABED ONG — Système de gestion RH</p>
-            </div>
-          `,
-        })
-      } catch (emailErr) {
-        console.error('[POST /api/rh/contrats] Email error:', emailErr)
-      }
-    }
-  }
+  if ('error' in resultat) return NextResponse.json({ error: resultat.error }, { status: resultat.status })
 
   revalidateTag('contrats')
-  const finalContrat = { ...contrat, numero, demande_signature_id: demandeId }
-  return NextResponse.json({ contrat: finalContrat })
+  return NextResponse.json({ contrat: resultat.contrat })
 }

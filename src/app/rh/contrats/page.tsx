@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
+import { Suspense } from 'react'
 import { getCachedProfile, getCachedContrats, getCachedPersonnel } from '@/lib/cache'
 import { estRH } from '@/lib/roles'
 import ContratsClient from './ContratsClient'
@@ -19,5 +20,9 @@ export default async function ContratsPage() {
     getCachedPersonnel(),
   ])
 
-  return <ContratsClient contrats={contrats as any[]} personnel={personnel as any[]} />
+  return (
+    <Suspense>
+      <ContratsClient contrats={contrats as any[]} personnel={personnel as any[]} />
+    </Suspense>
+  )
 }

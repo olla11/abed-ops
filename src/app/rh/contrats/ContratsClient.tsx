@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { FileText, Pencil, MessageSquare, Send, PartyPopper, RotateCcw, Ban, RefreshCw, Trash2, Sparkles, Settings } from 'lucide-react'
 import Pagination, { paginate } from '@/components/Pagination'
 import { genererDepuisTemplate, formatDateLettres, type ContratTemplate, type ChampTemplate } from '@/lib/contrat-template'
@@ -12,7 +13,7 @@ type Contrat = {
   direction: string | null; date_debut: string; date_fin: string | null
   statut: string; salaire_brut: number | null; observations: string | null
   numero: string | null; categorie_document: string | null
-  contrat_parent_id: string | null; objet: string | null
+  contrat_parent_id: string | null; renouvele_depuis: string | null; objet: string | null
   articles: Article[] | null
   commentaires_employe: string | null; commentaires_rh: string | null
   commentaires_signataire: string | null
@@ -27,7 +28,7 @@ type Contrat = {
 // renseignant qu'un email — utile quand la personne n'a pas encore intégré
 // ABED et donc pas encore de compte My ABED (voir /contrats/externe).
 function categorieAutoriseDestinataireExterne(categorie: string, typeContrat: string): boolean {
-  if (categorie === 'Offre') return true
+  if (categorie === 'Offre' || categorie === 'Offre de stage') return true
   if (categorie === 'Convention' && ['Bourse de formation', 'Consultant'].includes(typeContrat)) return true
   return false
 }
@@ -71,6 +72,17 @@ const TYPES = ['CDD', 'CDI', 'Stage N1', 'Stage N2', 'Bénévolat', 'Prestataire
 const TYPES_STAGE = ['Stage N1', 'Stage N2']
 const CATEGORIES = ['Offre', 'Contrat', 'Convention', 'Avenant', 'Offre de stage']
 const SOURCES_FINANCEMENT = ['Expertise France (CLEE-2i)', 'Prometiers', 'ABED Directe', 'Réserve', 'Autre']
+
+// Renouvelable : déjà expiré/résilié, OU encore actif mais dont la fin
+// approche (≤30 jours) — pas la peine d'attendre l'expiration effective pour
+// s'en occuper, sinon le bouton "Renouveler" ne sert à rien tant qu'on n'a
+// pas laissé le contrat lapser.
+function estRenouvelable(c: { statut: string; date_fin: string | null }): boolean {
+  if (c.statut !== 'actif') return true
+  if (!c.date_fin) return false
+  const in30 = new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0]
+  return c.date_fin <= in30
+}
 
 function statutBadge(statut: string, dateFin: string | null) {
   const today = new Date().toISOString().split('T')[0]
@@ -138,6 +150,8 @@ function ArticlesEditor({ articles, onChange }: { articles: Article[]; onChange:
 }
 
 export default function ContratsClient({ contrats: initial, personnel }: { contrats: Contrat[]; personnel: Personnel[] }) {
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const [contrats, setContrats] = useState(initial)
   const [showNew, setShowNew] = useState(false)
   const [editTarget, setEditTarget] = useState<Contrat | null>(null)
@@ -203,6 +217,19 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
   useEffect(() => {
     fetch('/api/rh/contrat-templates').then(r => r.json()).then(j => setTemplates(j.templates ?? [])).catch(() => {})
   }, [])
+
+  // Lien "Renouveler" depuis l'alerte du tableau de bord RH
+  // (/rh/contrats?renouveler=<id>) — ouvre directement le formulaire de
+  // renouvellement pour ce contrat, sans que la RH ait à le rechercher
+  // dans la liste.
+  useEffect(() => {
+    const idARenouveler = searchParams.get('renouveler')
+    if (!idARenouveler) return
+    const c = contrats.find(x => x.id === idARenouveler)
+    if (c) openRenew(c)
+    router.replace('/rh/contrats')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
 
   function tauxPourType(type: string | undefined, taux: { direct: number; credit: number } | null): number | null {
     if (!taux) return null
@@ -274,6 +301,30 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
     setErr(null)
   }
 
+  // Renouvellement : pré-rempli depuis l'ancien contrat mais tout reste
+  // modifiable (type, poste, direction, salaire...) — même formulaire riche
+  // que la modification (formFields(false)), pas juste 2 dates.
+  function openRenew(c: Contrat) {
+    setRenewTarget(c)
+    const today = new Date().toISOString().split('T')[0]
+    let nouveauDebut = today
+    if (c.date_fin) {
+      const lendemain = new Date(c.date_fin)
+      lendemain.setDate(lendemain.getDate() + 1)
+      const iso = lendemain.toISOString().split('T')[0]
+      nouveauDebut = iso > today ? iso : today
+    }
+    setForm({
+      categorie_document: c.categorie_document ?? 'Contrat', type_contrat: c.type_contrat,
+      poste: c.poste ?? '', direction: c.direction ?? '', date_debut: nouveauDebut, date_fin: '',
+      salaire_brut: c.salaire_brut ?? '', objet: c.objet ?? '', commentaires_rh: '',
+      source_financement: (c as any).source_financement ?? '',
+    })
+    setArticles(Array.isArray(c.articles) ? c.articles : [])
+    setDraftRestoredAt(null)
+    setErr(null)
+  }
+
   function discardDraft() {
     if (showNew) {
       clearDraft(DRAFT_KEY_NEW)
@@ -329,9 +380,12 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
     if (!renewTarget) return
     setLoading(true); setErr(null)
     try {
-      const res = await fetch(`/api/rh/contrats/${renewTarget.id}/renouveler`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date_debut: form.date_debut, date_fin: form.date_fin }) })
-      if (res.ok) { setRenewTarget(null); setForm({}); location.reload() }
-      else { const d = await res.json(); setErr(d.error ?? 'Erreur') }
+      const res = await fetch(`/api/rh/contrats/${renewTarget.id}/renouveler`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, articles }) })
+      const d = await res.json()
+      if (res.ok) {
+        setContrats(cs => [d.contrat, ...cs.map(c => c.id === renewTarget.id ? { ...c, statut: 'expire' } : c)])
+        setRenewTarget(null); setForm({}); setArticles([])
+      } else setErr(d.error ?? 'Erreur lors du renouvellement')
     } catch { setErr('Erreur réseau') }
     finally { setLoading(false) }
   }
@@ -694,6 +748,14 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
                           </div>
                         ) : null
                       })()}
+                      {c.renouvele_depuis && (() => {
+                        const ancien = contrats.find(p => p.id === c.renouvele_depuis)
+                        return (
+                          <div style={{ fontSize: 10, color: '#0f766e', marginTop: 2 }}>
+                            ↻ Renouvellement{ancien ? ` de ${ancien.numero ?? ancien.id.slice(0, 8)}` : ''}
+                          </div>
+                        )
+                      })()}
                     </td>
                     <td style={{ padding: '10px 12px' }}>
                       <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: catStyle.bg, color: catStyle.color }}>{cat}</span>
@@ -790,8 +852,8 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
                                 </button>
                               </>
                             )}
-                            {c.statut !== 'actif' && (
-                              <button onClick={() => { setRenewTarget(c); setForm({}); setErr(null); setMenuOpenId(null) }}
+                            {estRenouvelable(c) && (
+                              <button onClick={() => { openRenew(c); setMenuOpenId(null) }}
                                 style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 14px', fontSize: 12.5, cursor: 'pointer', background: 'white', border: 'none', borderBottom: '1px solid #f3f4f6', color: '#374151', textAlign: 'left' }}>
                                 <RefreshCw size={14} /> Renouveler
                               </button>
@@ -915,18 +977,12 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
       )}
 
       {renewTarget && (
-        <Modal title={`Renouveler — ${renewTarget.profile?.prenoms} ${renewTarget.profile?.nom}`} onSubmit={renouveler} onClose={() => { setRenewTarget(null); setErr(null) }} loading={loading} err={err}>
-          <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 16 }}>{renewTarget.categorie_document ?? 'Contrat'} {renewTarget.type_contrat} — Expiré le {renewTarget.date_fin}</p>
-          <div className="grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Nouveau début *</label>
-              <input type="date" value={form.date_debut ?? ''} onChange={e => setForm((f: any) => ({ ...f, date_debut: e.target.value }))} style={inputStyle} />
-            </div>
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Nouvelle fin</label>
-              <input type="date" value={form.date_fin ?? ''} onChange={e => setForm((f: any) => ({ ...f, date_fin: e.target.value }))} style={inputStyle} />
-            </div>
-          </div>
+        <Modal title={`Renouveler — ${renewTarget.profile?.prenoms} ${renewTarget.profile?.nom}`} onSubmit={renouveler} onClose={() => { setRenewTarget(null); setErr(null) }} loading={loading} err={err} wide>
+          <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 16 }}>
+            Renouvellement de {renewTarget.categorie_document ?? 'Contrat'} <strong>{renewTarget.type_contrat}</strong> ({renewTarget.numero ?? '—'}) — {renewTarget.statut === 'actif' ? `expire le ${renewTarget.date_fin}` : `expiré le ${renewTarget.date_fin}`}.
+            Le type, le poste, la direction et le salaire peuvent être modifiés ci-dessous. Un nouveau document est créé avec son propre circuit de signature ; l&apos;ancien passe à « Expiré ».
+          </p>
+          {formFields(false)}
         </Modal>
       )}
     </div>
