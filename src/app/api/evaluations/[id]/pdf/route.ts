@@ -50,22 +50,21 @@ export async function GET(
     ? new Date(ev.declenchee_le).toLocaleDateString('fr-FR')
     : new Date().toLocaleDateString('fr-FR')
 
-  // Le CAF et la DE ne sont pas des personnes assignées d'avance — n'importe
-  // quel profil ayant ce rôle peut rendre la décision (cf. rendu_par). Pour
-  // afficher leur nom sur le rapport final, il faut donc aller chercher qui
-  // a réellement décidé plutôt que de deviner depuis le rôle courant.
-  const idsDecideurs = [
-    (ev.decision_evaluateur as any)?.rendu_par,
-    (ev.decision_caf as any)?.rendu_par,
-    (ev.decision_de as any)?.rendu_par,
-  ].filter(Boolean) as string[]
-  let nomsDecideurs = new Map<string, string>()
-  if (idsDecideurs.length > 0) {
-    const { data: decideurs } = await admin.from('profiles').select('id, nom, prenoms').in('id', idsDecideurs)
-    nomsDecideurs = new Map((decideurs ?? []).map(pr => [pr.id, `${pr.prenoms} ${pr.nom}`.trim()]))
-  }
-  const nomDecideur = (rp: string | null | undefined) => (rp ? nomsDecideurs.get(rp) ?? null : null)
+  // Le CAF n'est pas une personne assignée d'avance — n'importe quel profil
+  // ayant ce rôle (il peut y en avoir plusieurs) peut rendre la décision,
+  // donc son nom vient de qui a réellement décidé (rendu_par). La DE est un
+  // poste unique (une seule personne peut jamais le porter) : son nom est
+  // directement connu par son rôle, sans dépendre de qui a cliqué — utile
+  // aussi si l'admin a rendu la décision à sa place. Même logique pour
+  // l'évaluateur, assigné d'avance sur le dossier (evaluateur_id).
   const nomEvaluateur = ev.evaluateur ? `${(ev.evaluateur as any).prenoms} ${(ev.evaluateur as any).nom}` : (ev.nom_evaluateur ?? '—')
+  let nomCafDecideur: string | null = null
+  if ((ev.decision_caf as any)?.rendu_par) {
+    const { data: decideurCaf } = await admin.from('profiles').select('nom, prenoms').eq('id', (ev.decision_caf as any).rendu_par).single()
+    nomCafDecideur = decideurCaf ? `${decideurCaf.prenoms} ${decideurCaf.nom}`.trim() : null
+  }
+  const { data: profilDE } = await admin.from('profiles').select('nom, prenoms').eq('role', 'de').single()
+  const nomDE = profilDE ? `${profilDE.prenoms} ${profilDE.nom}`.trim() : null
 
   const pdfData: EvaluationPdfData = {
     employeCivilite: p?.civilite ?? null,
@@ -98,13 +97,13 @@ export async function GET(
     sigResponsable: ev.signature_responsable ?? null,
     dateResponsable: ev.date_responsable ?? null,
     decisionEvaluateur: (ev.decision_evaluateur as any)?.decision ?? null,
-    decisionEvaluateurNom: nomDecideur((ev.decision_evaluateur as any)?.rendu_par) ?? nomEvaluateur ?? null,
+    decisionEvaluateurNom: nomEvaluateur ?? null,
     decisionEvaluateurDate: (ev.decision_evaluateur as any)?.rendu_le ?? null,
     decisionCaf: (ev.decision_caf as any)?.decision ?? null,
-    decisionCafNom: nomDecideur((ev.decision_caf as any)?.rendu_par),
+    decisionCafNom: nomCafDecideur,
     decisionCafDate: (ev.decision_caf as any)?.rendu_le ?? null,
     decisionDe: (ev.decision_de as any)?.decision ?? null,
-    decisionDeNom: nomDecideur((ev.decision_de as any)?.rendu_par),
+    decisionDeNom: nomDE,
     decisionDeDate: (ev.decision_de as any)?.rendu_le ?? null,
     dateEtablissement,
   }

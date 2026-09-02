@@ -337,18 +337,18 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
         try {
           const p = ev.profile as any
           const c = ev.contrat as any
+          // La DE est un poste unique — son nom est connu directement par
+          // son rôle, pas par qui a cliqué (cf. même logique dans la route
+          // PDF dédiée). Seul le CAF (rôle partagé par plusieurs personnes
+          // possibles) dépend de rendu_par.
           const nomEvaluateurCloture = ev.evaluateur ? `${(ev.evaluateur as any).prenoms} ${(ev.evaluateur as any).nom}` : (updated.nom_evaluateur ?? '—')
-          const idsDecideursCloture = [
-            (updated.decision_evaluateur as any)?.rendu_par,
-            (updated.decision_caf as any)?.rendu_par,
-            (updated.decision_de as any)?.rendu_par,
-          ].filter(Boolean) as string[]
-          let nomsDecideursCloture = new Map<string, string>()
-          if (idsDecideursCloture.length > 0) {
-            const { data: decideursCloture } = await service.from('profiles').select('id, nom, prenoms').in('id', idsDecideursCloture)
-            nomsDecideursCloture = new Map((decideursCloture ?? []).map(pr => [pr.id, `${pr.prenoms} ${pr.nom}`.trim()]))
+          let nomCafDecideurCloture: string | null = null
+          if ((updated.decision_caf as any)?.rendu_par) {
+            const { data: decideurCafCloture } = await service.from('profiles').select('nom, prenoms').eq('id', (updated.decision_caf as any).rendu_par).single()
+            nomCafDecideurCloture = decideurCafCloture ? `${decideurCafCloture.prenoms} ${decideurCafCloture.nom}`.trim() : null
           }
-          const nomDecideurCloture = (rp: string | null | undefined) => (rp ? nomsDecideursCloture.get(rp) ?? null : null)
+          const { data: profilDECloture } = await service.from('profiles').select('nom, prenoms').eq('role', 'de').single()
+          const nomDECloture = profilDECloture ? `${profilDECloture.prenoms} ${profilDECloture.nom}`.trim() : null
           const pdfData: EvaluationPdfData = {
             employeCivilite: p?.civilite ?? null,
             employePrenoms: p?.prenoms ?? '',
@@ -380,13 +380,13 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
             sigResponsable: updated.signature_responsable ?? null,
             dateResponsable: updated.date_responsable ?? null,
             decisionEvaluateur: (updated.decision_evaluateur as any)?.decision ?? null,
-            decisionEvaluateurNom: nomDecideurCloture((updated.decision_evaluateur as any)?.rendu_par) ?? nomEvaluateurCloture ?? null,
+            decisionEvaluateurNom: nomEvaluateurCloture ?? null,
             decisionEvaluateurDate: (updated.decision_evaluateur as any)?.rendu_le ?? null,
             decisionCaf: (updated.decision_caf as any)?.decision ?? null,
-            decisionCafNom: nomDecideurCloture((updated.decision_caf as any)?.rendu_par),
+            decisionCafNom: nomCafDecideurCloture,
             decisionCafDate: (updated.decision_caf as any)?.rendu_le ?? null,
             decisionDe: (updated.decision_de as any)?.decision ?? null,
-            decisionDeNom: nomDecideurCloture((updated.decision_de as any)?.rendu_par),
+            decisionDeNom: nomDECloture,
             decisionDeDate: (updated.decision_de as any)?.rendu_le ?? null,
             dateEtablissement: updated.declenchee_le ? new Date(updated.declenchee_le).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR'),
           }

@@ -36,21 +36,22 @@ export default async function EvaluationPage({ params, searchParams }: { params:
 
   if (error || !ev) redirect('/evaluations')
 
-  // Les décisions CAF/DE peuvent être rendues par n'importe quelle personne
-  // de ce rôle — contrairement à l'évaluateur (assigné d'avance, sa civilité
-  // vient directement de l'embed ci-dessus), on ne connaît la civilité de
-  // qui a réellement décidé qu'une fois la décision rendue (voir rendu_par,
-  // enregistré côté API) — nécessaire pour accorder "le/la CAF" et "le/la DE"
-  // dans le formulaire.
-  const idsDecideurs = [ev.decision_caf?.rendu_par, ev.decision_de?.rendu_par].filter(Boolean) as string[]
+  // La décision CAF peut être rendue par n'importe laquelle des personnes
+  // ayant ce rôle (il peut y en avoir plusieurs) — contrairement à
+  // l'évaluateur (assigné d'avance, sa civilité vient directement de l'embed
+  // ci-dessus), on ne connaît la civilité de qui a réellement décidé qu'une
+  // fois la décision rendue (voir rendu_par, enregistré côté API).
+  // La DE, elle, est un poste unique : une seule personne peut jamais porter
+  // ce rôle, donc sa civilité est directement connue par son rôle, sans
+  // dépendre de qui a cliqué (utile aussi si l'admin a rendu la décision à
+  // sa place — rendu_par pointerait alors vers l'admin, pas la DE).
   let civiliteCafDecideur: string | null = null
-  let civiliteDeDecideur: string | null = null
-  if (idsDecideurs.length > 0) {
-    const { data: decideurs } = await service.from('profiles').select('id, civilite').in('id', idsDecideurs)
-    const parId = new Map((decideurs ?? []).map(p => [p.id, p.civilite]))
-    civiliteCafDecideur = parId.get(ev.decision_caf?.rendu_par) ?? null
-    civiliteDeDecideur = parId.get(ev.decision_de?.rendu_par) ?? null
+  if (ev.decision_caf?.rendu_par) {
+    const { data: decideurCaf } = await service.from('profiles').select('civilite').eq('id', ev.decision_caf.rendu_par).single()
+    civiliteCafDecideur = decideurCaf?.civilite ?? null
   }
+  const { data: profilDE } = await service.from('profiles').select('civilite').eq('role', 'de').single()
+  const civiliteDeDecideur = profilDE?.civilite ?? null
 
   const role = profile?.role ?? ''
   const canAccess =
