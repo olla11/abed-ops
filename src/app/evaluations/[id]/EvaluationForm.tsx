@@ -198,7 +198,8 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole, civiliteC
   // cet ordre ET le statut du dossier (droit de correction).
   const canEditDecEval = isAdmin || (ev.statut === 'responsable_complete' && ev.evaluateur?.id === myId)
   const canEditDecCaf = isAdmin || (ev.statut === 'responsable_complete' && estCAF(myRole) && !!ev.decision_evaluateur?.decision)
-  const canEditDecDe = isAdmin || (ev.statut === 'responsable_complete' && ['de', 'dp'].includes(myRole) && !!ev.decision_caf?.decision)
+  // Exclusivement le DE — le DP n'est pas un suppléant pour cette décision.
+  const canEditDecDe = isAdmin || (ev.statut === 'responsable_complete' && myRole === 'de' && !!ev.decision_caf?.decision)
   const canEditSec10 = canEditDecEval || canEditDecCaf || canEditDecDe
   // La clôture est un geste RH exclusivement — chacun (évaluateur, évalué,
   // responsable, décideurs) pouvant revenir sur son avis à tout moment via

@@ -34,8 +34,8 @@ type MonRole = 'evaluateur' | 'evalue' | 'responsable' | 'decideur_caf' | 'decid
 // Une même personne peut cumuler plusieurs rôles sur une évaluation (p. ex.
 // évaluateur et responsable de département) — on retient celui qui exige
 // une action de sa part en priorité, à défaut le premier rôle détenu.
-// decideur_caf/decideur_de : le CAF (resp. DE/DP) rend sa décision en
-// Section X une fois le dossier au stade "responsable_complete" — ce rôle
+// decideur_caf/decideur_de : le CAF (resp. le DE, exclusivement) rend sa
+// décision en Section X une fois le dossier au stade "responsable_complete" — ce rôle
 // n'est pas lié à evaluateur_id/profile_id/responsable_id, il découle
 // uniquement du rôle système de la personne connectée (myRole).
 function monRole(e: Evaluation, myId: string, myRole: string): MonRole {
@@ -44,7 +44,7 @@ function monRole(e: Evaluation, myId: string, myRole: string): MonRole {
   if (e.responsable_id === myId) roles.push('responsable')
   if (e.profile_id === myId) roles.push('evalue')
   if (myRole === 'caf' && ['responsable_complete', 'cloture'].includes(e.statut)) roles.push('decideur_caf')
-  if (['de', 'dp'].includes(myRole) && ['responsable_complete', 'cloture'].includes(e.statut)) roles.push('decideur_de')
+  if (myRole === 'de' && ['responsable_complete', 'cloture'].includes(e.statut)) roles.push('decideur_de')
   const enAttente = roles.find(r => actionRequise(e, r))
   return enAttente ?? roles[0] ?? null
 }

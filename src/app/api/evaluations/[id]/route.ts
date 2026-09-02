@@ -6,13 +6,12 @@ import { estRH } from '@/lib/roles'
 import { accordGenre } from '@/lib/genre'
 import { genererEvaluationPdf, nomFichierEvaluationPdf, type EvaluationPdfData } from '@/lib/evaluation-pdf'
 
-// "CAF" et "DE" désignent directement la personne qui occupe le poste (le/la
+// "CAF"/"DE" désignent directement la personne qui occupe le poste (le/la
 // CAF, le Directeur/la Directrice Exécutif(ve)) — même logique d'accord que
 // pour le circuit de signature des TdR (cf. src/lib/tdr.ts).
-function labelDecideur(role: 'caf' | 'de', civilite?: string | null): string {
-  return role === 'caf'
-    ? accordGenre(civilite, 'le CAF', 'la CAF')
-    : accordGenre(civilite, 'le Directeur Exécutif', 'la Directrice Exécutive')
+function labelDecideur(role: string, civilite?: string | null): string {
+  if (role === 'caf') return accordGenre(civilite, 'le CAF', 'la CAF')
+  return accordGenre(civilite, 'le Directeur Exécutif', 'la Directrice Exécutive')
 }
 
 export const dynamic = 'force-dynamic'
@@ -107,6 +106,12 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
   if ('decision_de' in fields && !isAdminRole && !aUneDecision(fields.decision_caf ?? ev.decision_caf)) {
     return NextResponse.json({ error: 'La décision de la CAF doit être rendue avant celle de la Direction Exécutive.' }, { status: 400 })
   }
+  // Décision Direction Exécutive : exclusivement le DE, jamais le DP (pas de
+  // suppléance sur cette décision) — revalidé ici pour ne pas dépendre
+  // uniquement du verrouillage de l'UI (canEditDecDe dans EvaluationForm.tsx).
+  if ('decision_de' in fields && !isAdminRole && myRole !== 'de') {
+    return NextResponse.json({ error: 'Seul le Directeur Exécutif peut rendre cette décision.' }, { status: 403 })
+  }
 
   const updates: Record<string, unknown> = { ...fields, updated_at: new Date().toISOString() }
 
@@ -171,10 +176,10 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
   // Directrice Exécutif·ve) est accordé individuellement par destinataire.
   // Une décision déjà rendue puis modifiée ne redéclenche volontairement
   // aucune notification — seule l'entrée en jeu d'un décideur en déclenche une.
-  async function notifierDecideurSuivant(roles: string[], roleDecideur: 'caf' | 'de', titre: string, corps: (label: string) => string) {
-    const { data: cibles } = await service.from('profiles').select('id, email, prenoms, nom, civilite').in('role', roles)
+  async function notifierDecideurSuivant(roles: string[], titre: string, corps: (label: string) => string) {
+    const { data: cibles } = await service.from('profiles').select('id, email, prenoms, nom, civilite, role').in('role', roles)
     for (const c of cibles ?? []) {
-      const label = labelDecideur(roleDecideur, c.civilite)
+      const label = labelDecideur(c.role, c.civilite)
       const message = corps(label)
       await service.from('notifications').insert({ user_id: c.id, titre, message, lien: lienEval })
       if (c.email) {
@@ -252,15 +257,13 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
   if ('decision_evaluateur' in fields && aUneDecision(fields.decision_evaluateur) && !aUneDecision(ev.decision_evaluateur)) {
     await notifierDecideurSuivant(
       ['caf'],
-      'caf',
       'Décision requise (CAF)',
       label => `L'évaluateur a rendu sa décision pour l'évaluation de ${nomEmploye}. Votre décision en tant que ${label} est maintenant requise en Section X.`
     )
   }
   if ('decision_caf' in fields && aUneDecision(fields.decision_caf) && !aUneDecision(ev.decision_caf)) {
     await notifierDecideurSuivant(
-      ['de', 'dp'],
-      'de',
+      ['de'],
       'Décision requise (DE)',
       label => `La CAF a rendu sa décision pour l'évaluation de ${nomEmploye}. Votre décision en tant que ${label} est maintenant requise en Section X.`
     )
