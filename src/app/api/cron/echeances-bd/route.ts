@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
 
   const { data: opportunites } = await supabase
     .from('opportunites_bd')
-    .select(`id, titre, bailleur, date_limite, identifie_par, responsable_id, associes_ids,
+    .select(`id, titre, bailleur, date_limite, identifie_par, responsable_id, associes_ids, retard_notifie_le,
       identifieur:profiles!opportunites_bd_identifie_par_fkey(id, nom, prenoms, email),
       responsable:profiles!opportunites_bd_responsable_id_fkey(id, nom, prenoms, email)`)
     .in('statut', ['identifie', 'en_preparation'])
@@ -36,7 +36,10 @@ export async function GET(req: NextRequest) {
     const limite = new Date(opp.date_limite as string)
     limite.setHours(0, 0, 0, 0)
 
-    const isOverdue = limite < today
+    // Le rappel "en retard" ne part qu'une seule fois — sans ça, une
+    // opportunité qui reste en préparation après sa date limite recevrait le
+    // même mail tous les jours indéfiniment.
+    const isOverdue = limite < today && !opp.retard_notifie_le
     const isDueTomorrow = limite.getTime() === tomorrow.getTime()
     const isDueIn3Days = limite.getTime() === in3days.getTime()
     if (!isOverdue && !isDueTomorrow && !isDueIn3Days) continue
@@ -97,6 +100,10 @@ export async function GET(req: NextRequest) {
         }).catch(console.error)
       }
       sent++
+    }
+
+    if (isOverdue) {
+      await supabase.from('opportunites_bd').update({ retard_notifie_le: new Date().toISOString() }).eq('id', opp.id)
     }
   }
 
