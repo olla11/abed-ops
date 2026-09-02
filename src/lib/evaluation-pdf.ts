@@ -93,8 +93,14 @@ export interface EvaluationPdfData {
   sigResponsable: string | null
   dateResponsable: string | null
   decisionEvaluateur: string | null
+  decisionEvaluateurNom: string | null
+  decisionEvaluateurDate: string | null
   decisionCaf: string | null
+  decisionCafNom: string | null
+  decisionCafDate: string | null
   decisionDe: string | null
+  decisionDeNom: string | null
+  decisionDeDate: string | null
   dateEtablissement: string
 }
 
@@ -116,11 +122,14 @@ function blocSignature(nom: string | null | undefined, date: string | null | und
   return `<p style="margin-top:10px;font-size:10.5pt;"><strong>${nom}</strong>${d ? `, ${d}` : ''}</p>`
 }
 
-function blocDecision(titre: string, decision: string | null | undefined): string {
+function blocDecision(titre: string, decision: string | null | undefined, nom: string | null | undefined, date: string | null | undefined): string {
+  const dateStr = date ? new Date(date).toLocaleDateString('fr-FR') : ''
+  const signataire = nom ? `<div class="ev-decision-nom"><strong>${nom}</strong>${dateStr ? `, ${dateStr}` : ''}</div>` : ''
   return `
   <div class="ev-decision">
     <div class="ev-decision-titre">${titre}</div>
     <div class="ev-decision-valeur ${decision ? 'ev-decision-rendue' : 'ev-decision-attente'}">${decision || 'Décision non rendue'}</div>
+    ${signataire}
   </div>`
 }
 
@@ -212,9 +221,9 @@ export function construireEvaluationHtml(d: EvaluationPdfData): string {
   <div class="section">
     <h2>Section X — Décisions finales</h2>
     <div class="ev-decisions">
-      ${blocDecision('Évaluateur', d.decisionEvaluateur)}
-      ${blocDecision('CAF', d.decisionCaf)}
-      ${blocDecision('Direction Exécutive', d.decisionDe)}
+      ${blocDecision('Évaluateur', d.decisionEvaluateur, d.decisionEvaluateurNom, d.decisionEvaluateurDate)}
+      ${blocDecision('CAF', d.decisionCaf, d.decisionCafNom, d.decisionCafDate)}
+      ${blocDecision('Direction Exécutive', d.decisionDe, d.decisionDeNom, d.decisionDeDate)}
     </div>
   </div>
   `
@@ -239,11 +248,12 @@ export function construireEvaluationHtml(d: EvaluationPdfData): string {
     .ev-grille-note { font-size: 10pt; padding: 4px; text-align: right; border-bottom: 1px solid #f3f3f3; white-space: nowrap; }
     .ev-score-moyen { text-align: center; background: #f0fdf4; border-radius: 8px; padding: 10px; font-size: 13pt; color: #166534; margin-top: 8px; }
     .ev-decisions { display: flex; flex-direction: column; gap: 10px; }
-    .ev-decision { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border: 1px solid #e5e7eb; border-radius: 8px; }
+    .ev-decision { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; padding: 8px 12px; border: 1px solid #e5e7eb; border-radius: 8px; }
     .ev-decision-titre { font-weight: bold; font-size: 10.5pt; min-width: 160px; }
     .ev-decision-valeur { font-size: 10.5pt; padding: 3px 10px; border-radius: 20px; }
     .ev-decision-rendue { background: #f0fdf4; color: #166534; font-weight: bold; }
     .ev-decision-attente { background: #f3f4f6; color: #9ca3af; font-style: italic; }
+    .ev-decision-nom { font-size: 10pt; color: #374151; flex-basis: 100%; margin-left: 172px; }
   </style>
 </head>
 <body>

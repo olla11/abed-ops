@@ -50,6 +50,23 @@ export async function GET(
     ? new Date(ev.declenchee_le).toLocaleDateString('fr-FR')
     : new Date().toLocaleDateString('fr-FR')
 
+  // Le CAF et la DE ne sont pas des personnes assignées d'avance — n'importe
+  // quel profil ayant ce rôle peut rendre la décision (cf. rendu_par). Pour
+  // afficher leur nom sur le rapport final, il faut donc aller chercher qui
+  // a réellement décidé plutôt que de deviner depuis le rôle courant.
+  const idsDecideurs = [
+    (ev.decision_evaluateur as any)?.rendu_par,
+    (ev.decision_caf as any)?.rendu_par,
+    (ev.decision_de as any)?.rendu_par,
+  ].filter(Boolean) as string[]
+  let nomsDecideurs = new Map<string, string>()
+  if (idsDecideurs.length > 0) {
+    const { data: decideurs } = await admin.from('profiles').select('id, nom, prenoms').in('id', idsDecideurs)
+    nomsDecideurs = new Map((decideurs ?? []).map(pr => [pr.id, `${pr.prenoms} ${pr.nom}`.trim()]))
+  }
+  const nomDecideur = (rp: string | null | undefined) => (rp ? nomsDecideurs.get(rp) ?? null : null)
+  const nomEvaluateur = ev.evaluateur ? `${(ev.evaluateur as any).prenoms} ${(ev.evaluateur as any).nom}` : (ev.nom_evaluateur ?? '—')
+
   const pdfData: EvaluationPdfData = {
     employeCivilite: p?.civilite ?? null,
     employePrenoms: p?.prenoms ?? '',
@@ -62,7 +79,7 @@ export async function GET(
     supHier: ev.superieur_hierarchique ?? null,
     supFonc: ev.superieur_fonctionnel ?? null,
     nomResponsable: ev.responsable ? `${(ev.responsable as any).prenoms} ${(ev.responsable as any).nom}` : (ev.responsable_departement ?? '—'),
-    nomEvaluateur: ev.evaluateur ? `${(ev.evaluateur as any).prenoms} ${(ev.evaluateur as any).nom}` : (ev.nom_evaluateur ?? '—'),
+    nomEvaluateur,
     descriptionTaches: ev.description_taches ?? null,
     grilleNotes: ev.grille_notes ?? {},
     scoreMoyen: ev.score_moyen ?? null,
@@ -81,8 +98,14 @@ export async function GET(
     sigResponsable: ev.signature_responsable ?? null,
     dateResponsable: ev.date_responsable ?? null,
     decisionEvaluateur: (ev.decision_evaluateur as any)?.decision ?? null,
+    decisionEvaluateurNom: nomDecideur((ev.decision_evaluateur as any)?.rendu_par) ?? nomEvaluateur ?? null,
+    decisionEvaluateurDate: (ev.decision_evaluateur as any)?.rendu_le ?? null,
     decisionCaf: (ev.decision_caf as any)?.decision ?? null,
+    decisionCafNom: nomDecideur((ev.decision_caf as any)?.rendu_par),
+    decisionCafDate: (ev.decision_caf as any)?.rendu_le ?? null,
     decisionDe: (ev.decision_de as any)?.decision ?? null,
+    decisionDeNom: nomDecideur((ev.decision_de as any)?.rendu_par),
+    decisionDeDate: (ev.decision_de as any)?.rendu_le ?? null,
     dateEtablissement,
   }
 

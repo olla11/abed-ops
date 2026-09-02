@@ -119,9 +119,12 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
   // quel profil ayant ce rôle peut rendre la décision) — on enregistre donc
   // qui a réellement décidé pour pouvoir accorder correctement "le/la CAF" /
   // "le/la DE" à l'affichage, plutôt que de deviner depuis le rôle courant.
-  if (fields.decision_evaluateur) updates.decision_evaluateur = { ...fields.decision_evaluateur, rendu_par: user.id }
-  if (fields.decision_caf) updates.decision_caf = { ...fields.decision_caf, rendu_par: user.id }
-  if (fields.decision_de) updates.decision_de = { ...fields.decision_de, rendu_par: user.id }
+  // rendu_le : pour afficher la date de la décision sur le rapport PDF final
+  // (Section X), au même titre que le nom de qui a décidé.
+  const maintenant = new Date().toISOString()
+  if (fields.decision_evaluateur) updates.decision_evaluateur = { ...fields.decision_evaluateur, rendu_par: user.id, rendu_le: maintenant }
+  if (fields.decision_caf) updates.decision_caf = { ...fields.decision_caf, rendu_par: user.id, rendu_le: maintenant }
+  if (fields.decision_de) updates.decision_de = { ...fields.decision_de, rendu_par: user.id, rendu_le: maintenant }
 
   // Calculer score moyen si grille_notes fourni
   if (fields.grille_notes) {
@@ -334,6 +337,18 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
         try {
           const p = ev.profile as any
           const c = ev.contrat as any
+          const nomEvaluateurCloture = ev.evaluateur ? `${(ev.evaluateur as any).prenoms} ${(ev.evaluateur as any).nom}` : (updated.nom_evaluateur ?? '—')
+          const idsDecideursCloture = [
+            (updated.decision_evaluateur as any)?.rendu_par,
+            (updated.decision_caf as any)?.rendu_par,
+            (updated.decision_de as any)?.rendu_par,
+          ].filter(Boolean) as string[]
+          let nomsDecideursCloture = new Map<string, string>()
+          if (idsDecideursCloture.length > 0) {
+            const { data: decideursCloture } = await service.from('profiles').select('id, nom, prenoms').in('id', idsDecideursCloture)
+            nomsDecideursCloture = new Map((decideursCloture ?? []).map(pr => [pr.id, `${pr.prenoms} ${pr.nom}`.trim()]))
+          }
+          const nomDecideurCloture = (rp: string | null | undefined) => (rp ? nomsDecideursCloture.get(rp) ?? null : null)
           const pdfData: EvaluationPdfData = {
             employeCivilite: p?.civilite ?? null,
             employePrenoms: p?.prenoms ?? '',
@@ -346,7 +361,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
             supHier: updated.superieur_hierarchique ?? null,
             supFonc: updated.superieur_fonctionnel ?? null,
             nomResponsable: ev.responsable ? `${(ev.responsable as any).prenoms} ${(ev.responsable as any).nom}` : (updated.responsable_departement ?? '—'),
-            nomEvaluateur: ev.evaluateur ? `${(ev.evaluateur as any).prenoms} ${(ev.evaluateur as any).nom}` : (updated.nom_evaluateur ?? '—'),
+            nomEvaluateur: nomEvaluateurCloture,
             descriptionTaches: updated.description_taches ?? null,
             grilleNotes: updated.grille_notes ?? {},
             scoreMoyen: updated.score_moyen ?? null,
@@ -365,8 +380,14 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
             sigResponsable: updated.signature_responsable ?? null,
             dateResponsable: updated.date_responsable ?? null,
             decisionEvaluateur: (updated.decision_evaluateur as any)?.decision ?? null,
+            decisionEvaluateurNom: nomDecideurCloture((updated.decision_evaluateur as any)?.rendu_par) ?? nomEvaluateurCloture ?? null,
+            decisionEvaluateurDate: (updated.decision_evaluateur as any)?.rendu_le ?? null,
             decisionCaf: (updated.decision_caf as any)?.decision ?? null,
+            decisionCafNom: nomDecideurCloture((updated.decision_caf as any)?.rendu_par),
+            decisionCafDate: (updated.decision_caf as any)?.rendu_le ?? null,
             decisionDe: (updated.decision_de as any)?.decision ?? null,
+            decisionDeNom: nomDecideurCloture((updated.decision_de as any)?.rendu_par),
+            decisionDeDate: (updated.decision_de as any)?.rendu_le ?? null,
             dateEtablissement: updated.declenchee_le ? new Date(updated.declenchee_le).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR'),
           }
           const pdfBuffer = await genererEvaluationPdf(pdfData)
