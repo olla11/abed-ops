@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { sendEmail } from '@/lib/resend'
 import { estRH } from '@/lib/roles'
 import { accordGenre } from '@/lib/genre'
+import { getTitulaireOfficiel } from '@/lib/titre-principal'
 import { genererEvaluationPdf, nomFichierEvaluationPdf, type EvaluationPdfData } from '@/lib/evaluation-pdf'
 
 // "CAF"/"DE" désignent directement la personne qui occupe le poste (le/la
@@ -337,18 +338,25 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
         try {
           const p = ev.profile as any
           const c = ev.contrat as any
-          // La DE est un poste unique — son nom est connu directement par
-          // son rôle, pas par qui a cliqué (cf. même logique dans la route
-          // PDF dédiée). Seul le CAF (rôle partagé par plusieurs personnes
-          // possibles) dépend de rendu_par.
+          // CAF et DE sont des rôles à titre unique côté institution —
+          // titulaire officiel désigné (titres_principaux) plutôt que
+          // deviné via qui a cliqué (cf. même logique dans la route PDF
+          // dédiée).
           const nomEvaluateurCloture = ev.evaluateur ? `${(ev.evaluateur as any).prenoms} ${(ev.evaluateur as any).nom}` : (updated.nom_evaluateur ?? '—')
+          const [titulaireCafCloture, titulaireDECloture] = await Promise.all([
+            getTitulaireOfficiel(service, 'caf'),
+            getTitulaireOfficiel(service, 'de'),
+          ])
           let nomCafDecideurCloture: string | null = null
-          if ((updated.decision_caf as any)?.rendu_par) {
-            const { data: decideurCafCloture } = await service.from('profiles').select('nom, prenoms').eq('id', (updated.decision_caf as any).rendu_par).single()
-            nomCafDecideurCloture = decideurCafCloture ? `${decideurCafCloture.prenoms} ${decideurCafCloture.nom}`.trim() : null
+          if (titulaireCafCloture) {
+            const { data: profilCafCloture } = await service.from('profiles').select('nom, prenoms').eq('id', titulaireCafCloture.id).single()
+            nomCafDecideurCloture = profilCafCloture ? `${profilCafCloture.prenoms} ${profilCafCloture.nom}`.trim() : null
           }
-          const { data: profilDECloture } = await service.from('profiles').select('nom, prenoms').eq('role', 'de').single()
-          const nomDECloture = profilDECloture ? `${profilDECloture.prenoms} ${profilDECloture.nom}`.trim() : null
+          let nomDECloture: string | null = null
+          if (titulaireDECloture) {
+            const { data: profilDECloture } = await service.from('profiles').select('nom, prenoms').eq('id', titulaireDECloture.id).single()
+            nomDECloture = profilDECloture ? `${profilDECloture.prenoms} ${profilDECloture.nom}`.trim() : null
+          }
           const pdfData: EvaluationPdfData = {
             employeCivilite: p?.civilite ?? null,
             employePrenoms: p?.prenoms ?? '',

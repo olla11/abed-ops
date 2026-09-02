@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { genererEvaluationPdf, nomFichierEvaluationPdf, type EvaluationPdfData } from '@/lib/evaluation-pdf'
 import { estRH } from '@/lib/roles'
+import { getTitulaireOfficiel } from '@/lib/titre-principal'
 
 // Rendu via Chromium headless, même moteur que les contrats — cf.
 // src/app/api/contrat-pdf/[id]/route.ts. Le rapport final n'est
@@ -50,21 +51,27 @@ export async function GET(
     ? new Date(ev.declenchee_le).toLocaleDateString('fr-FR')
     : new Date().toLocaleDateString('fr-FR')
 
-  // Le CAF n'est pas une personne assignée d'avance — n'importe quel profil
-  // ayant ce rôle (il peut y en avoir plusieurs) peut rendre la décision,
-  // donc son nom vient de qui a réellement décidé (rendu_par). La DE est un
-  // poste unique (une seule personne peut jamais le porter) : son nom est
-  // directement connu par son rôle, sans dépendre de qui a cliqué — utile
-  // aussi si l'admin a rendu la décision à sa place. Même logique pour
-  // l'évaluateur, assigné d'avance sur le dossier (evaluateur_id).
+  // CAF et DE sont des rôles à titre unique côté institution : même si
+  // plusieurs comptes peuvent techniquement porter le rôle "caf", le système
+  // a un titulaire officiel désigné (titres_principaux) — on l'utilise
+  // plutôt que de deviner via qui a cliqué (rendu_par), pas fiable si un
+  // second compte CAF ou un admin a rendu la décision à sa place. Même
+  // logique pour l'évaluateur, assigné d'avance sur le dossier (evaluateur_id).
   const nomEvaluateur = ev.evaluateur ? `${(ev.evaluateur as any).prenoms} ${(ev.evaluateur as any).nom}` : (ev.nom_evaluateur ?? '—')
+  const [titulaireCaf, titulaireDE] = await Promise.all([
+    getTitulaireOfficiel(admin, 'caf'),
+    getTitulaireOfficiel(admin, 'de'),
+  ])
   let nomCafDecideur: string | null = null
-  if ((ev.decision_caf as any)?.rendu_par) {
-    const { data: decideurCaf } = await admin.from('profiles').select('nom, prenoms').eq('id', (ev.decision_caf as any).rendu_par).single()
-    nomCafDecideur = decideurCaf ? `${decideurCaf.prenoms} ${decideurCaf.nom}`.trim() : null
+  if (titulaireCaf) {
+    const { data: profilCaf } = await admin.from('profiles').select('nom, prenoms').eq('id', titulaireCaf.id).single()
+    nomCafDecideur = profilCaf ? `${profilCaf.prenoms} ${profilCaf.nom}`.trim() : null
   }
-  const { data: profilDE } = await admin.from('profiles').select('nom, prenoms').eq('role', 'de').single()
-  const nomDE = profilDE ? `${profilDE.prenoms} ${profilDE.nom}`.trim() : null
+  let nomDE: string | null = null
+  if (titulaireDE) {
+    const { data: profilDE } = await admin.from('profiles').select('nom, prenoms').eq('id', titulaireDE.id).single()
+    nomDE = profilDE ? `${profilDE.prenoms} ${profilDE.nom}`.trim() : null
+  }
 
   const pdfData: EvaluationPdfData = {
     employeCivilite: p?.civilite ?? null,

@@ -4,6 +4,7 @@ import { createClient as createServiceClient } from '@supabase/supabase-js'
 import AppHeader from '@/components/AppHeader'
 import EvaluationForm from './EvaluationForm'
 import { estRH, estAAF } from '@/lib/roles'
+import { getTitulaireOfficiel } from '@/lib/titre-principal'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,22 +37,25 @@ export default async function EvaluationPage({ params, searchParams }: { params:
 
   if (error || !ev) redirect('/evaluations')
 
-  // La décision CAF peut être rendue par n'importe laquelle des personnes
-  // ayant ce rôle (il peut y en avoir plusieurs) — contrairement à
-  // l'évaluateur (assigné d'avance, sa civilité vient directement de l'embed
-  // ci-dessus), on ne connaît la civilité de qui a réellement décidé qu'une
-  // fois la décision rendue (voir rendu_par, enregistré côté API).
-  // La DE, elle, est un poste unique : une seule personne peut jamais porter
-  // ce rôle, donc sa civilité est directement connue par son rôle, sans
-  // dépendre de qui a cliqué (utile aussi si l'admin a rendu la décision à
-  // sa place — rendu_par pointerait alors vers l'admin, pas la DE).
+  // CAF et DE sont des rôles à titre unique côté institution : même si
+  // plusieurs comptes peuvent techniquement porter le rôle "caf", le système
+  // a un titulaire officiel désigné (titres_principaux) — on l'utilise
+  // plutôt que de deviner via qui a cliqué (rendu_par), pas fiable si un
+  // second compte CAF ou un admin a rendu la décision à sa place.
+  const [titulaireCaf, titulaireDE] = await Promise.all([
+    getTitulaireOfficiel(service, 'caf'),
+    getTitulaireOfficiel(service, 'de'),
+  ])
   let civiliteCafDecideur: string | null = null
-  if (ev.decision_caf?.rendu_par) {
-    const { data: decideurCaf } = await service.from('profiles').select('civilite').eq('id', ev.decision_caf.rendu_par).single()
-    civiliteCafDecideur = decideurCaf?.civilite ?? null
+  if (titulaireCaf) {
+    const { data: profilCaf } = await service.from('profiles').select('civilite').eq('id', titulaireCaf.id).single()
+    civiliteCafDecideur = profilCaf?.civilite ?? null
   }
-  const { data: profilDE } = await service.from('profiles').select('civilite').eq('role', 'de').single()
-  const civiliteDeDecideur = profilDE?.civilite ?? null
+  let civiliteDeDecideur: string | null = null
+  if (titulaireDE) {
+    const { data: profilDE } = await service.from('profiles').select('civilite').eq('id', titulaireDE.id).single()
+    civiliteDeDecideur = profilDE?.civilite ?? null
+  }
 
   const role = profile?.role ?? ''
   const canAccess =
