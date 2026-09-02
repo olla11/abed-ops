@@ -7,8 +7,9 @@ import { estRH, estAAF } from '@/lib/roles'
 
 export const dynamic = 'force-dynamic'
 
-export default async function EvaluationPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function EvaluationPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ depuis?: string }> }) {
   const { id } = await params
+  const { depuis } = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -70,6 +71,11 @@ export default async function EvaluationPage({ params }: { params: Promise<{ id:
         showRH={estRH(role)}
         showAAF={estAAF(role)}
         showAdmin={['admin', 'superadmin'].includes(role)}
+        // Cette page sert à la fois "voir mon propre dossier" (Mon espace,
+        // juste) et "la CAF/RH vient rendre une décision sur le dossier d'un
+        // tiers depuis /rh/évaluations" (lien "Voir" avec ?depuis=rh) — dans
+        // ce second cas, on allume le menu CAF/RH plutôt que "Mon espace".
+        forceRHActive={depuis === 'rh' && estRH(role)}
         avatarUrl={profile?.avatar_url}
       />
       <div className="page-container">

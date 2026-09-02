@@ -21,6 +21,14 @@ type Props = {
   showCAF?: boolean
   showDE?: boolean
   showBD?: boolean
+  // Certaines pages (ex. /evaluations/[id]) sont partagées entre deux
+  // contextes de navigation : l'évalué·e/évaluateur qui consulte SON PROPRE
+  // dossier (à juste titre sous "Mon espace"), et la CAF/RH qui y vient
+  // depuis /rh/évaluations pour rendre une décision sur le dossier de
+  // quelqu'un d'autre — dans ce second cas, "Mon espace" qui s'allume est
+  // trompeur. La page appelante sait laquelle des deux situations c'est
+  // (elle seule connaît le dossier consulté) et le précise ici.
+  forceRHActive?: boolean
   avatarUrl?: string | null
 }
 
@@ -31,7 +39,7 @@ type Props = {
 const OVERVIEW_ROLES = ['de','dp','caf','admin','administrateur','superadmin']
 const RAPPORT_TYPES = ['benevole','stagiaire_n1','stagiaire_n2','cdd','cdi']
 
-export default function AppHeader({ userName, userRole, userTitre, typeEmploi, showAdmin, showRH, showAAF, showCAF, showDE, showBD, avatarUrl }: Props) {
+export default function AppHeader({ userName, userRole, userTitre, typeEmploi, showAdmin, showRH, showAAF, showCAF, showDE, showBD, forceRHActive, avatarUrl }: Props) {
   const pathname = usePathname()
   const locale = useLocale()
   const t = useTranslations('nav')
@@ -131,9 +139,13 @@ export default function AppHeader({ userName, userRole, userTitre, typeEmploi, s
     return match.some(m => pathname === m || pathname.startsWith(m + '/'))
   }
 
-  const dossierActive = subTabs.some(s => isActive(s.match))
+  // forceRHActive : la page consultée est partagée avec "Mon espace" (même
+  // route pour son propre dossier et pour agir en tant que CAF/RH sur celui
+  // d'un tiers) — dans ce second cas, "Mon espace" ne doit pas s'allumer,
+  // et le menu CAF (ou l'onglet RH pour la RH littérale) s'allume à la place.
+  const dossierActive = !forceRHActive && subTabs.some(s => isActive(s.match))
   const aafActive = effectiveShowAAF && (isActive(['/aaf']) || aafTabs.some(s => isActive(s.match)))
-  const cafActive = effectiveShowCAF && cafTabs.some(s => isActive(s.match))
+  const cafActive = effectiveShowCAF && (cafTabs.some(s => isActive(s.match)) || forceRHActive)
   const deActive = effectiveShowDE && isActive(['/de'])
   const bdActive = effectiveShowBD && isActive(['/bd'])
 
@@ -337,7 +349,7 @@ export default function AppHeader({ userName, userRole, userTitre, typeEmploi, s
 
           {/* Autres onglets */}
           {mainTabs.map(tab => (
-            <Link key={tab.href} href={tab.href} style={tabStyle(isActive(tab.match))}>
+            <Link key={tab.href} href={tab.href} style={tabStyle(isActive(tab.match) || (!!forceRHActive && tab.href === '/rh'))}>
               {tab.label}
             </Link>
           ))}
@@ -490,7 +502,7 @@ export default function AppHeader({ userName, userRole, userTitre, typeEmploi, s
             </div>
           )}
           {mainTabs.map(tab => {
-            const active = isActive(tab.match)
+            const active = isActive(tab.match) || (!!forceRHActive && tab.href === '/rh')
             return (
               <Link key={tab.href} href={tab.href} style={{
                 display: 'block', padding: '12px 24px', fontSize: 14,

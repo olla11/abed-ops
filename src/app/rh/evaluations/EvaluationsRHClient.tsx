@@ -292,7 +292,7 @@ export default function EvaluationsRHClient({ evaluations: initial, contratsActi
                 </td>
                 <td style={{ padding: '10px 14px' }}>
                   <div style={{ display: 'flex', gap: 8 }}>
-                    <Link href={`/evaluations/${e.id}`} style={{
+                    <Link href={`/evaluations/${e.id}?depuis=rh`} style={{
                       padding: '4px 12px', borderRadius: 6, fontSize: 13, fontWeight: 600,
                       background: '#f0fdf4', color: 'var(--abed-green)', border: '1px solid #bbf7d0',
                       textDecoration: 'none', display: 'inline-block',
