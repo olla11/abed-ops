@@ -217,7 +217,10 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
           message: `Le responsable a émis son avis sur l'évaluation de ${nomEmploye}. Votre décision (renouvellement, durée...) est requise en Section X.`,
         })
       }
-    } else if (ev.statut === 'responsable_complete' && myRole === 'rh') {
+    } else if (ev.statut === 'responsable_complete' && estRH(myRole)) {
+      // estRH() inclut la CAF, qui hérite des pouvoirs RH/AAF partout
+      // ailleurs dans l'application — cohérent de l'autoriser aussi ici,
+      // même règle que côté client (canCloturer dans EvaluationForm.tsx).
       if (!troisDecisionsPresentes) {
         return NextResponse.json({ error: "Les trois décisions (évaluateur, CAF, Direction Exécutive) doivent être renseignées avant de clôturer." }, { status: 400 })
       }

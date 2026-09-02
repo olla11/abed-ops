@@ -201,13 +201,16 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole, civiliteC
   // Exclusivement le DE — le DP n'est pas un suppléant pour cette décision.
   const canEditDecDe = isAdmin || (ev.statut === 'responsable_complete' && myRole === 'de' && !!ev.decision_caf?.decision)
   const canEditSec10 = canEditDecEval || canEditDecCaf || canEditDecDe
-  // La clôture est un geste RH exclusivement — chacun (évaluateur, évalué,
-  // responsable, décideurs) pouvant revenir sur son avis à tout moment via
-  // "Modifier ma réponse", seule la RH décide quand le dossier est
-  // définitivement figé. Ni CAF, ni DE/DP, ni même admin/superadmin ne
-  // clôturent — volontairement le rôle RH littéral, pas estRH() qui
-  // inclurait aussi la CAF.
-  const canCloturer = ev.statut === 'responsable_complete' && myRole === 'rh'
+  // La clôture est un geste RH — chacun (évaluateur, évalué, responsable,
+  // décideurs) pouvant revenir sur son avis à tout moment via "Modifier ma
+  // réponse", seule la RH décide quand le dossier est définitivement figé.
+  // Le CAF hérite des menus et pouvoirs RH/AAF partout ailleurs dans
+  // l'application (estRH), donc aussi ici : une fois SA PROPRE décision
+  // déjà rendue (sinon le bouton principal resterait ambigu avec "Enregistrer
+  // ma décision", son geste normal en Section X). DE/DP/admin ne clôturent
+  // toujours pas — ce n'est ni leur rôle métier ni un menu qu'ils héritent.
+  const canCloturer = ev.statut === 'responsable_complete'
+    && (myRole === 'rh' || (myRole === 'caf' && !!ev.decision_caf?.decision))
   const canEdit = canEditSec1to6 || canEditSec7 || canEditSec8 || canEditSec10 || canCloturer
 
   // Form state — Section I
@@ -358,17 +361,20 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole, civiliteC
   // Le libellé du bouton de clôture reflète qui manque encore, pas un
   // compte figé à "3" qui ne bouge jamais tant que tout le monde n'a pas
   // répondu — trompeur dès qu'une décision est déjà rendue.
+  // Chaque item porte déjà sa propre préposition contractée (du/de la/de
+  // l') — "En attente " + la liste, sans "de" ajouté à l'extérieur, sinon
+  // "en attente de le DE" (faux) au lieu de "en attente du DE".
   const decideursManquants: string[] = []
-  if (!decEval.decision) decideursManquants.push(accordGenre(civiliteEvaluateur, "l'évaluateur", "l'évaluatrice"))
-  if (!decCaf.decision) decideursManquants.push(accordGenre(civiliteCafDecideur, 'le CAF', 'la CAF'))
-  if (!decDE.decision) decideursManquants.push(accordGenre(civiliteDeDecideur, 'le DE', 'la DE'))
+  if (!decEval.decision) decideursManquants.push(accordGenre(civiliteEvaluateur, "de l'évaluateur", "de l'évaluatrice"))
+  if (!decCaf.decision) decideursManquants.push(accordGenre(civiliteCafDecideur, 'du CAF', 'de la CAF'))
+  if (!decDE.decision) decideursManquants.push(accordGenre(civiliteDeDecideur, 'du DE', 'de la DE'))
   const joinFr = (items: string[]) => items.length <= 1
     ? (items[0] ?? '')
     : `${items.slice(0, -1).join(', ')} et ${items[items.length - 1]}`
   const submitLabel = canEditSec10 && !canCloturer
     ? 'Enregistrer ma décision'
     : canCloturer && ev.statut === 'responsable_complete'
-      ? (troisDecisionsRendues ? 'Clôturer le dossier' : `En attente de ${joinFr(decideursManquants)}`)
+      ? (troisDecisionsRendues ? 'Clôturer le dossier' : `En attente ${joinFr(decideursManquants)}`)
       : 'Valider et soumettre'
   const SubmitIcon = canEditSec10 && !canCloturer
     ? CheckCircle2
@@ -625,8 +631,8 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole, civiliteC
             </p>
             {[
               { label: labelDecEval, key: 'eval', state: decEval, setter: setDecEval, editable: canEditDecEval, lockedReason: null, original: ev.decision_evaluateur },
-              { label: labelDecCaf, key: 'caf', state: decCaf, setter: setDecCaf, editable: canEditDecCaf, lockedReason: !ev.decision_evaluateur?.decision ? 'En attente de la décision de l\'évaluateur' : null, original: ev.decision_caf },
-              { label: labelDecDe, key: 'de', state: decDE, setter: setDecDE, editable: canEditDecDe, lockedReason: !ev.decision_caf?.decision ? 'En attente de la décision de la CAF' : null, original: ev.decision_de },
+              { label: labelDecCaf, key: 'caf', state: decCaf, setter: setDecCaf, editable: canEditDecCaf, lockedReason: !ev.decision_evaluateur?.decision ? `En attente de la décision ${accordGenre(civiliteEvaluateur, "de l'évaluateur", "de l'évaluatrice")}` : null, original: ev.decision_caf },
+              { label: labelDecDe, key: 'de', state: decDE, setter: setDecDE, editable: canEditDecDe, lockedReason: !ev.decision_caf?.decision ? `En attente de la décision ${accordGenre(civiliteCafDecideur, 'du CAF', 'de la CAF')}` : null, original: ev.decision_de },
             ].map(({ label, key, state, setter, editable, lockedReason, original }) => {
               const isEditingRow = editingDecisions.has(key)
               const showReadOnly = !!state.decision && !isEditingRow
