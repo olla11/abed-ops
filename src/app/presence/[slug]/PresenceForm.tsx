@@ -66,6 +66,7 @@ export default function PresenceForm({ slug, motifs, questions }: { slug: string
   const [err, setErr] = useState<string | null>(null)
   const [done, setDone] = useState(false)
 
+  const [logoOk, setLogoOk] = useState(true)
   const dateStr = new Date().toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 
   async function submit(e: React.FormEvent) {
@@ -91,7 +92,11 @@ export default function PresenceForm({ slug, motifs, questions }: { slug: string
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f4f6f4', fontFamily: 'system-ui, sans-serif' }}>
+    // marginTop négatif : globals.css réserve 60px en haut de <body> pour
+    // l'AppHeader fixe des pages authentifiées — cette page publique n'a pas
+    // d'AppHeader, donc sans ce correctif la bannière reste décalée du bord
+    // supérieur au lieu d'être pleine hauteur/pleine largeur.
+    <div style={{ minHeight: '100vh', marginTop: -60, background: '#f4f6f4', fontFamily: 'system-ui, sans-serif' }}>
       <WaveBanner />
 
       <div style={{ maxWidth: 480, margin: '-58px auto 0', padding: '0 16px 48px', textAlign: 'center' }}>
@@ -102,7 +107,11 @@ export default function PresenceForm({ slug, motifs, questions }: { slug: string
         }}>
           {/* <img> plutôt que next/image : logo statique simple, pas besoin du
               pipeline d'optimisation pour une page publique sans session. */}
-          <img src="/logoabed2.png" alt="ABED" width={56} height={56} style={{ objectFit: 'contain' }} />
+          {logoOk ? (
+            <img src="/logoabed2.png" alt="ABED" width={56} height={56} style={{ objectFit: 'contain' }} onError={() => setLogoOk(false)} />
+          ) : (
+            <span style={{ fontSize: 15, fontWeight: 800, color: '#1f7a1f', letterSpacing: '.5px' }}>ABED</span>
+          )}
         </div>
         <h1 style={{ fontSize: 21, fontWeight: 800, color: '#111827', margin: '0 0 4px', letterSpacing: '-.2px' }}>
           Bienvenue chez ABED-ONG
