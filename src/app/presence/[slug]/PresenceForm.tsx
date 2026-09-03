@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import type { PresenceQuestion } from '@/lib/presence'
+import { LOGO_COLOR_PNG_B64 } from '@/lib/logo-color-b64'
 
 const inputStyle: React.CSSProperties = {
   width: '100%', padding: '13px 15px', borderRadius: 12, fontSize: 15,
@@ -58,6 +59,7 @@ export default function PresenceForm({ slug, motifs, questions }: { slug: string
   const [telephone, setTelephone] = useState('')
   const [email, setEmail] = useState('')
   const [motif, setMotif] = useState('')
+  const [motifAutre, setMotifAutre] = useState('')
   const [reponses, setReponses] = useState<Record<string, string>>({})
   // Piège à robots — un champ invisible pour les humains ; s'il est rempli à
   // la soumission, c'est un bot qui a rempli tous les champs du formulaire.
@@ -66,21 +68,24 @@ export default function PresenceForm({ slug, motifs, questions }: { slug: string
   const [err, setErr] = useState<string | null>(null)
   const [done, setDone] = useState(false)
 
-  const [logoOk, setLogoOk] = useState(true)
   const dateStr = new Date().toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     if (!nom.trim() || !prenom.trim() || !telephone.trim()) { setErr('Nom, prénom et téléphone sont obligatoires.'); return }
+    if (motif === 'Autre' && !motifAutre.trim()) { setErr('Précisez le motif de votre visite.'); return }
     for (const q of questions) {
       if (q.requis && !(reponses[q.id] ?? '').trim()) { setErr(`« ${q.label} » est obligatoire.`); return }
     }
     setSaving(true); setErr(null)
+    // Le motif "Autre" seul n'est pas exploitable dans le registre de
+    // l'accueil — on enregistre directement la précision donnée.
+    const motifFinal = motif === 'Autre' && motifAutre.trim() ? motifAutre.trim() : motif
     try {
       const res = await fetch(`/api/presence/${slug}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nom, prenom, telephone, email, motif, reponses, site: piege }),
+        body: JSON.stringify({ nom, prenom, telephone, email, motif: motifFinal, reponses, site: piege }),
       })
       if (res.ok) setDone(true)
       else { const d = await res.json().catch(() => ({})); setErr(d.error ?? "Erreur lors de l'enregistrement.") }
@@ -101,20 +106,18 @@ export default function PresenceForm({ slug, motifs, questions }: { slug: string
 
       <div style={{ maxWidth: 480, margin: '-58px auto 0', padding: '0 16px 48px', textAlign: 'center' }}>
         <div style={{
-          width: 92, height: 92, margin: '0 auto 16px', background: 'white', borderRadius: '50%',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          width: 96, height: 96, margin: '0 auto 16px', background: 'white', borderRadius: '50%',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
           boxShadow: '0 6px 20px rgba(0,0,0,.14)', border: '4px solid white',
         }}>
-          {/* <img> plutôt que next/image : logo statique simple, pas besoin du
-              pipeline d'optimisation pour une page publique sans session. */}
-          {logoOk ? (
-            <img src="/logoabed2.png" alt="ABED" width={56} height={56} style={{ objectFit: 'contain' }} onError={() => setLogoOk(false)} />
-          ) : (
-            <span style={{ fontSize: 15, fontWeight: 800, color: '#1f7a1f', letterSpacing: '.5px' }}>ABED</span>
-          )}
+          {/* Logo encodé en base64 (déjà utilisé pour l'entête des PDF) plutôt
+              qu'un fichier chargé depuis /public : rendu garanti quel que soit
+              l'appareil/réseau, sans dépendre d'une requête réseau séparée qui
+              échouait de façon intermittente sur mobile. */}
+          <img src={`data:image/png;base64,${LOGO_COLOR_PNG_B64}`} alt="ABED" width={80} height={80} style={{ objectFit: 'contain' }} />
         </div>
         <h1 style={{ fontSize: 21, fontWeight: 800, color: '#111827', margin: '0 0 4px', letterSpacing: '-.2px' }}>
-          Bienvenue chez ABED-ONG
+          Bienvenue à ABED-ONG
         </h1>
         <p style={{ fontSize: 12.5, color: '#9ca3af', margin: '0 0 26px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.4px' }}>
           Enregistrement de présence · {dateStr}
@@ -153,7 +156,16 @@ export default function PresenceForm({ slug, motifs, questions }: { slug: string
 
               {motifs.length > 0 && (
                 <Field label="Motif de votre visite">
-                  <ChipGrid options={motifs} value={motif} onChange={setMotif} />
+                  <ChipGrid options={motifs} value={motif} onChange={v => { setMotif(v); if (v !== 'Autre') setMotifAutre('') }} />
+                  {motif === 'Autre' && (
+                    <input
+                      style={{ ...inputStyle, marginTop: 10 }}
+                      placeholder="Précisez le motif de votre visite"
+                      value={motifAutre}
+                      onChange={e => setMotifAutre(e.target.value)}
+                      autoFocus
+                    />
+                  )}
                 </Field>
               )}
 
