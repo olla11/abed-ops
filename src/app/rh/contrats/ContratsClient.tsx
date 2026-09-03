@@ -336,12 +336,13 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
     if (!renewTarget) return
     if (mode === 'promotion') {
       setGradeChoisi(''); setEchelonChoisi('')
+      // La catégorie n'est jamais forcée automatiquement — le sélecteur de
+      // catégorie ci-dessous (maintenant visible en mode promotion) reste le
+      // seul endroit qui la détermine : ce que la RH y choisit réellement
+      // est ce qui est enregistré, sans bascule silencieuse vers une valeur
+      // "par défaut" présumée.
       setForm((f: any) => ({
         ...f,
-        // Une "Offre de stage"/"Offre" ne peut pas accueillir un CDD/CDI —
-        // on bascule vers "Contrat" par défaut pour que tous les types
-        // s'affichent immédiatement (la catégorie reste modifiable ci-dessous).
-        categorie_document: (f.categorie_document === 'Offre de stage' || f.categorie_document === 'Offre') ? 'Contrat' : f.categorie_document,
         type_contrat: '', poste: '', salaire_brut: '',
         commentaires_rh: f.commentaires_rh || 'Renouvellement avec promotion',
       }))
@@ -1027,7 +1028,7 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
             </div>
             <p style={{ fontSize: 11, color: 'var(--abed-muted)', margin: '6px 0 0' }}>
               {renewMode === 'promotion'
-                ? 'La catégorie, le type de contrat, le poste et le salaire ont été réinitialisés — choisissez librement les nouvelles conditions ci-dessous parmi tous les types disponibles.'
+                ? 'Le type de contrat, le poste et le salaire ont été réinitialisés. Choisissez la catégorie voulue ci-dessous (Offre, Contrat, Convention...) : les types disponibles s’adaptent à ce choix.'
                 : 'Le type, le poste et le salaire de l’ancien contrat sont repris tels quels — modifiables si besoin.'}
             </p>
           </div>
