@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { formatSignatureDisplayName as formatSignatureName } from '@/lib/signature-name'
-import { genererContratPdf, nomFichierContratPdf, ORG_TEL, ORG_EMAIL, ORG_ADRESSE, type ContratPdfData } from '@/lib/contrat-pdf'
+import { genererContratPdf, nomFichierContratPdf, libelleRenouvellement, ORG_TEL, ORG_EMAIL, ORG_ADRESSE, type ContratPdfData } from '@/lib/contrat-pdf'
 import { verifyContratExterneToken } from '@/lib/contrat-externe-token'
 
 // Rendu via Chromium headless (au lieu du "Imprimer" du navigateur) — c'est
@@ -90,16 +90,15 @@ export async function GET(
     parentCategorie = parent?.categorie_document ?? null
   }
 
-  // Renouvellement : le nom de fichier doit le préciser (sinon indiscernable
-  // du document d'origine) — et distinguer une simple reconduction d'une
-  // promotion (type ou catégorie différents de l'ancien document).
-  let renouvellementInfo: { estPromotion: boolean; typeContrat: string } | undefined
+  // Renouvellement : le nom de fichier et le titre du document doivent le
+  // préciser (sinon indiscernables du document d'origine) — et distinguer une
+  // simple reconduction d'une promotion (type ou catégorie différents de
+  // l'ancien document). Un seul libellé calculé ici, réutilisé aux deux endroits.
+  let renouvellementLabel: string | null = null
   if (contrat.renouvele_depuis) {
     const { data: ancienContrat } = await admin.from('contrats').select('type_contrat, categorie_document').eq('id', contrat.renouvele_depuis).single()
-    renouvellementInfo = {
-      estPromotion: !!ancienContrat && (ancienContrat.type_contrat !== contrat.type_contrat || ancienContrat.categorie_document !== categorie),
-      typeContrat: contrat.type_contrat,
-    }
+    const estPromotion = !!ancienContrat && (ancienContrat.type_contrat !== contrat.type_contrat || ancienContrat.categorie_document !== categorie)
+    renouvellementLabel = libelleRenouvellement(true, estPromotion, categorie, contrat.type_contrat)
   }
   const partieEmploye = partieLabel(contrat.type_contrat)
   const sigRight = partieEmploye === 'Employé(e)' ? "L'Employé(e)" : `${p?.civilite === 'Mme' ? 'La' : 'Le'} ${partieEmploye}`
@@ -230,13 +229,14 @@ export async function GET(
     signataireNomReel,
     signataireSigneLe,
     partieEmploye,
+    renouvellementLabel,
   }
 
   const pdfBuffer = await genererContratPdf(pdfData)
   return new NextResponse(new Uint8Array(pdfBuffer), {
     headers: {
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `inline; filename="${nomFichierContratPdf(categorie, numero, id, renouvellementInfo)}"`,
+      'Content-Disposition': `inline; filename="${nomFichierContratPdf(categorie, numero, id, renouvellementLabel)}"`,
     },
   })
 }

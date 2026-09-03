@@ -66,6 +66,11 @@ export interface ContratPdfData {
   signataireNomReel: string
   signataireSigneLe: string | null
   partieEmploye: string
+  // Étiquette affichée dans le titre du document (onglet du navigateur /
+  // métadonnée PDF, distincte du nom de fichier de téléchargement) quand ce
+  // document est un renouvellement — ex. "Renouvellement" ou "Renouvellement
+  // et Promotion - Prestataire direct". Null pour un document normal.
+  renouvellementLabel: string | null
 }
 
 function accordE(civilite: string | null | undefined): string {
@@ -169,6 +174,11 @@ export const PDF_BASE_STYLE = `
     .sig-block { display: flex; justify-content: space-between; margin-top: 64px; }
     .sig { text-align: center; width: 45%; }
     .sig-role { font-size: 10pt; font-weight: bold; margin-bottom: 4px; }
+    /* Hauteur réservée fixe, que le cachet soit présent ou non — sinon la
+       colonne avec cachet est poussée plus bas que celle sans, et les
+       traits/mentions "En attente de signature" des deux blocs se
+       retrouvent décalés l'un par rapport à l'autre. */
+    .sig-stamp-slot { height: 74px; margin-top: 6px; display: flex; align-items: flex-end; justify-content: center; }
     .sig-area { min-height: 54px; margin-top: 30px; display: flex; align-items: flex-end; justify-content: center; }
     .sig-cursive { font-family: 'BrittanySignature', cursive; font-size: 28pt; line-height: 1; color: #1e3a8a; transform: translateY(-16px); }
     .sig-rule { border-top: 1px solid #000; }
@@ -210,7 +220,7 @@ function sigBlockHtml(role: string, nomCursif: string | null, nomReel: string, d
   return `
     <div class="sig">
       <div class="sig-role">${role}</div>
-      ${avant}
+      <div class="sig-stamp-slot">${avant}</div>
       <div class="sig-area">${nomCursif ? `<div class="sig-cursive">${nomCursif}</div>` : ''}</div>
       <div class="sig-rule"></div>
       ${nomCursif
@@ -297,7 +307,7 @@ export function construireContratHtml(d: ContratPdfData): string {
 
   <div class="sig-block">
     ${sigBlockHtml(`Pour ${p.civilite === 'Mme' ? 'la' : 'le'} bénéficiaire`, d.employeSigneLe ? formatSignatureDisplayName(p.prenoms, p.nom) : null, employeNomReel, d.employeSigneLe)}
-    ${sigBlockHtml(titreDirecteur(d.representantCivilite), d.signataireNom, d.signataireNomReel, d.signataireSigneLe, d.repCachetUrl ? `<img src="${d.repCachetUrl}" alt="Cachet ABED" style="height:70px;margin-top:8px;" />` : '')}
+    ${sigBlockHtml(titreDirecteur(d.representantCivilite), d.signataireNom, d.signataireNomReel, d.signataireSigneLe, d.repCachetUrl ? `<img src="${d.repCachetUrl}" alt="Cachet ABED" style="height:70px;" />` : '')}
   </div>
   ` : `
   <div class="doc-title">
@@ -355,7 +365,7 @@ export function construireContratHtml(d: ContratPdfData): string {
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <title>${categorie} ${d.numero ?? ''} — ${d.employePrenoms} ${d.employeNom}</title>
+  <title>${d.renouvellementLabel ?? categorie} ${d.numero ?? ''} — ${d.employePrenoms} ${d.employeNom}</title>
   <style>${PDF_BASE_STYLE}</style>
 </head>
 <body>
@@ -405,18 +415,21 @@ export async function genererContratPdf(d: ContratPdfData): Promise<Buffer> {
   }
 }
 
+// Calcule l'étiquette "Renouvellement" / "Renouvellement et Promotion - <type>"
+// utilisée à la fois dans le nom de fichier et dans le titre du document
+// (métadonnée PDF / onglet navigateur) — calculée une seule fois par l'appelant
+// et réutilisée aux deux endroits pour qu'ils restent toujours cohérents.
+export function libelleRenouvellement(
+  estRenouvellement: boolean, estPromotion: boolean, categorie: string, typeContrat: string,
+): string | null {
+  if (!estRenouvellement) return null
+  return estPromotion ? `Renouvellement et Promotion - ${typeContrat}` : `Renouvellement - ${categorie}`
+}
+
 // Un renouvellement doit se voir dans le nom du fichier (sinon il est
 // indiscernable du document d'origine, ex. "Offre de stage-002...pdf" repris
-// tel quel) — et si le renouvellement a changé de type/catégorie (promotion),
-// le nouveau type de contrat apparaît aussi dans le titre.
-export function nomFichierContratPdf(
-  categorie: string, numero: string | null, id: string,
-  renouvellement?: { estPromotion: boolean; typeContrat: string },
-): string {
-  const prefixe = !renouvellement
-    ? categorie
-    : renouvellement.estPromotion
-      ? `Renouvellement et Promotion - ${renouvellement.typeContrat}`
-      : `Renouvellement - ${categorie}`
+// tel quel).
+export function nomFichierContratPdf(categorie: string, numero: string | null, id: string, renouvellementLabel?: string | null): string {
+  const prefixe = renouvellementLabel ?? categorie
   return `${prefixe}-${(numero ?? id).replace(/[^a-zA-Z0-9-_]/g, '_')}.pdf`
 }
