@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
   // Tâches non terminées avec échéance
   const { data: activites } = await supabase
     .from('activites')
-    .select(`id, nom, projet_id, date_echeance, statut, priorite,
+    .select(`id, nom, projet_id, date_echeance, statut, priorite, retard_notifie_le,
       assignee:profiles!activites_assignee_id_fkey(id, nom, prenoms, email),
       projet:projets_internes!activites_projet_id_fkey(nom)`)
     .not('assignee_id', 'is', null)
@@ -39,7 +39,9 @@ export async function GET(req: NextRequest) {
     const echeance = new Date(act.date_echeance)
     echeance.setHours(0, 0, 0, 0)
 
-    const isOverdue = echeance < today
+    // Le rappel "en retard" ne part qu'une seule fois — sinon une tâche
+    // laissée en retard recevrait le même mail tous les jours indéfiniment.
+    const isOverdue = echeance < today && !act.retard_notifie_le
     const isDueTomorrow = echeance.getTime() === tomorrow.getTime()
     const isDueIn3Days = echeance.getTime() === in3days.getTime()
 
@@ -89,6 +91,10 @@ export async function GET(req: NextRequest) {
       }).catch(console.error)
     }
     sent++
+
+    if (isOverdue) {
+      await supabase.from('activites').update({ retard_notifie_le: new Date().toISOString() }).eq('id', act.id)
+    }
   }
 
   return NextResponse.json({ ok: true, sent })
