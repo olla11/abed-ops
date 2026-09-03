@@ -30,10 +30,14 @@ export default async function MesContratsPage() {
 
   let contratsASigner: any[] = []
   if (canSign) {
+    // "Finalisé" = le document est entièrement signé et clos — il n'y a plus
+    // rien à signer, donc plus rien à faire ici. Le RH garde une vue complète
+    // (y compris les documents finalisés) dans RH > Documents.
     const { data: aSigner, error: aSignerError } = await admin
       .from('contrats')
       .select('*, profile:profiles!profile_id(nom, prenoms)')
       .eq('signataire_id', user.id)
+      .neq('workflow_statut', 'finalise')
       .order('created_at', { ascending: false })
     if (aSignerError) {
       console.error('[mes-contrats] échec récupération contrats à signer:', aSignerError)
