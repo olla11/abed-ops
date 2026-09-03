@@ -282,10 +282,6 @@ export function construireContratHtml(d: ContratPdfData): string {
     professionnel au sein de notre organisation, à compter du ${d.dateDebut}.
   </p>`}
 
-  ${d.direction ? `<p class="lettre-corps">Vous exercerez vos fonctions au sein de notre ${d.direction}.</p>` : ''}
-
-  ${d.salaireBrut ? `<p class="lettre-corps">Une allocation mensuelle de ${Number(d.salaireBrut).toLocaleString('fr-FR')} FCFA vous sera versée durant cette période.</p>` : ''}
-
   ${d.observations ? `<p class="lettre-corps">${d.observations.replace(/\n/g, '<br/>')}</p>` : ''}
 
   ${articlesHtml ? `<div class="section"><h2>Dispositions particulières</h2>${articlesHtml}</div>` : ''}
@@ -409,6 +405,18 @@ export async function genererContratPdf(d: ContratPdfData): Promise<Buffer> {
   }
 }
 
-export function nomFichierContratPdf(categorie: string, numero: string | null, id: string): string {
-  return `${categorie}-${(numero ?? id).replace(/[^a-zA-Z0-9-_]/g, '_')}.pdf`
+// Un renouvellement doit se voir dans le nom du fichier (sinon il est
+// indiscernable du document d'origine, ex. "Offre de stage-002...pdf" repris
+// tel quel) — et si le renouvellement a changé de type/catégorie (promotion),
+// le nouveau type de contrat apparaît aussi dans le titre.
+export function nomFichierContratPdf(
+  categorie: string, numero: string | null, id: string,
+  renouvellement?: { estPromotion: boolean; typeContrat: string },
+): string {
+  const prefixe = !renouvellement
+    ? categorie
+    : renouvellement.estPromotion
+      ? `Renouvellement et Promotion - ${renouvellement.typeContrat}`
+      : `Renouvellement - ${categorie}`
+  return `${prefixe}-${(numero ?? id).replace(/[^a-zA-Z0-9-_]/g, '_')}.pdf`
 }

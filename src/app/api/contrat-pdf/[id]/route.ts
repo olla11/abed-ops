@@ -89,6 +89,18 @@ export async function GET(
     parentNumero = parent?.numero ?? null
     parentCategorie = parent?.categorie_document ?? null
   }
+
+  // Renouvellement : le nom de fichier doit le préciser (sinon indiscernable
+  // du document d'origine) — et distinguer une simple reconduction d'une
+  // promotion (type ou catégorie différents de l'ancien document).
+  let renouvellementInfo: { estPromotion: boolean; typeContrat: string } | undefined
+  if (contrat.renouvele_depuis) {
+    const { data: ancienContrat } = await admin.from('contrats').select('type_contrat, categorie_document').eq('id', contrat.renouvele_depuis).single()
+    renouvellementInfo = {
+      estPromotion: !!ancienContrat && (ancienContrat.type_contrat !== contrat.type_contrat || ancienContrat.categorie_document !== categorie),
+      typeContrat: contrat.type_contrat,
+    }
+  }
   const partieEmploye = partieLabel(contrat.type_contrat)
   const sigRight = partieEmploye === 'Employé(e)' ? "L'Employé(e)" : `${p?.civilite === 'Mme' ? 'La' : 'Le'} ${partieEmploye}`
   const dateDebut = contrat.date_debut ? new Date(contrat.date_debut).toLocaleDateString('fr-FR') : '—'
@@ -224,7 +236,7 @@ export async function GET(
   return new NextResponse(new Uint8Array(pdfBuffer), {
     headers: {
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `inline; filename="${nomFichierContratPdf(categorie, numero, id)}"`,
+      'Content-Disposition': `inline; filename="${nomFichierContratPdf(categorie, numero, id, renouvellementInfo)}"`,
     },
   })
 }
