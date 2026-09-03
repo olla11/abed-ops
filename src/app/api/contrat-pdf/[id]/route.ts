@@ -160,12 +160,17 @@ export async function GET(
     : null
 
   // Statut de signature du signataire (DE / PCA / autre) côté employeur.
-  // Source de vérité : contrat.workflow_statut + contrat.signataire_id (jamais le circuit
-  // générique demandes_signature/signataires, qui peut être absent ou désynchronisé).
+  // Source de vérité : contrat.signataire_id + contrat.signe_signataire_le
+  // (jamais le circuit générique demandes_signature/signataires, qui peut
+  // être absent ou désynchronisé). On se base sur la présence de la date de
+  // signature plutôt que sur une liste figée de workflow_statut : pour une
+  // Offre (DE signe en premier), le contrat reste en "envoye_employe" tout
+  // le temps où l'on attend le/la bénéficiaire — un état absent de l'ancienne
+  // liste, qui aurait fait disparaître la signature du DE de l'aperçu PDF.
   let signataireNom: string | null = null
   let signataireNomReel = ''
   let signataireSigneLe: string | null = null
-  if (contrat.signataire_id && ['signe_signataire', 'finalise'].includes(contrat.workflow_statut ?? '')) {
+  if (contrat.signataire_id && contrat.signe_signataire_le) {
     const { data: sigProfile } = await admin
       .from('profiles')
       .select('nom, prenoms')

@@ -95,9 +95,17 @@ export async function creerContratEtDemarrerCircuit(service: any, actorUserId: s
     }
   }
 
+  // Le circuit générique demandes_signature/signataires ne sert plus qu'aux
+  // Contrat/Convention/Avenant (où il reste inutilisé aujourd'hui — le RH
+  // envoie explicitement au signataire via contrats.signataire_id, voir
+  // "envoyer_signataire" dans /api/contrats/[id]/action). Pour une Offre
+  // (de stage ou non), le DE doit apparaître directement dans "Mes contrats
+  // > Contrats à signer" comme n'importe quel autre signataire — donc on
+  // renseigne contrats.signataire_id dès la création, au lieu de passer par
+  // le système générique (qui n'est visible que sur /signatures).
   let demandeId: string | null = null
-  if (signataireProfile && (profile || deSigneAvant)) {
-    const nomPartie = profile ? `${profile.prenoms} ${profile.nom}` : (emailDestinataire ?? '')
+  if (signataireProfile && profile && !deSigneAvant) {
+    const nomPartie = `${profile.prenoms} ${profile.nom}`
     const titre = `${categorie} ${p.type_contrat} — ${nomPartie}`
     const { data: demande, error: demandeError } = await service.from('demandes_signature').insert({
       titre, description: `${categorie} ${numero}`, createur_id: actorUserId, statut: 'en_attente',
@@ -113,11 +121,13 @@ export async function creerContratEtDemarrerCircuit(service: any, actorUserId: s
   if (deSigneAvant) {
     const nomPartieAffiche = profile ? `${profile.prenoms} ${profile.nom}` : (emailDestinataire ?? '')
     if (signataireProfile) {
+      await service.from('contrats').update({ signataire_id: signataireProfile.id }).eq('id', contrat.id)
+
       const { error: notifDeErr } = await service.from('notifications').insert({
         user_id: signataireProfile.id,
         titre: `${categorie} à signer`,
         message: `${categorie} ${p.type_contrat} pour ${nomPartieAffiche} (réf. ${numero}) — à signer avant envoi au/à la bénéficiaire.`,
-        lien: '/signatures',
+        lien: '/mes-contrats',
       })
       if (notifDeErr) console.error('[contrat-creation] notif in-app DE:', notifDeErr)
 
@@ -132,9 +142,9 @@ export async function creerContratEtDemarrerCircuit(service: any, actorUserId: s
                 <p>Bonjour ${signataireProfile.prenoms} ${signataireProfile.nom},</p>
                 <p>Une nouvelle ${categorie.toLowerCase()} (${p.type_contrat}) a été établie pour <strong>${nomPartieAffiche}</strong> (réf. ${numero}) et attend votre signature avant envoi au/à la bénéficiaire.</p>
                 <p>
-                  <a href="${APP_URL}/signatures"
+                  <a href="${APP_URL}/mes-contrats"
                      style="display:inline-block;background:#16a34a;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold;">
-                    Accéder aux signatures
+                    Accéder à Contrats à signer
                   </a>
                 </p>
                 <p style="color:#6b7280;font-size:12px;">ABED ONG — Système de gestion RH</p>

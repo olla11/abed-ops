@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { sendEmail } from '@/lib/resend'
 import { revalidateTag } from 'next/cache'
+import { signContratExterneToken } from '@/lib/contrat-externe-token'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://myabed.app'
 
@@ -23,19 +24,28 @@ export async function POST(
 
   if (!contrat) return NextResponse.json({ error: 'Contrat introuvable' }, { status: 404 })
   if (contrat.signataire_id !== user.id) return NextResponse.json({ error: "Vous n'êtes pas le signataire de ce contrat" }, { status: 403 })
-  if (contrat.workflow_statut !== 'envoye_signataire') {
+  if (!['envoye_signataire', 'envoye_de'].includes(contrat.workflow_statut ?? '')) {
     return NextResponse.json({ error: 'Ce contrat ne peut pas être signé à cette étape' }, { status: 400 })
   }
 
+  // Deux circuits distincts selon l'étape :
+  // - "envoye_signataire" : circuit Contrat/Convention/Avenant classique —
+  //   l'employé a déjà signé, le RH doit encore finaliser après cette étape.
+  // - "envoye_de" : circuit Offre (de stage ou non) — le DE signe en
+  //   premier, sa signature envoie directement le document au/à la
+  //   bénéficiaire (pas d'étape de finalisation RH intermédiaire).
+  const estOffreDePremier = contrat.workflow_statut === 'envoye_de'
+  const prochainStatut = estOffreDePremier ? 'envoye_employe' : 'signe_signataire'
+
   let { error: updateErr } = await admin.from('contrats').update({
-    workflow_statut: 'signe_signataire',
+    workflow_statut: prochainStatut,
     signe_signataire_le: new Date().toISOString(),
   }).eq('id', id)
   if (updateErr) {
     // La colonne signe_signataire_le peut ne pas encore exister (migration non appliquée) :
     // on ne bloque jamais la signature pour ça.
     console.error('[signer-signataire] update avec signe_signataire_le a échoué, retry sans:', updateErr)
-    const retry = await admin.from('contrats').update({ workflow_statut: 'signe_signataire' }).eq('id', id)
+    const retry = await admin.from('contrats').update({ workflow_statut: prochainStatut }).eq('id', id)
     updateErr = retry.error
   }
   if (updateErr) {
@@ -46,16 +56,74 @@ export async function POST(
   const profile = contrat.profile as any
   const nomEmploye = `${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`.trim()
   const ref = contrat.numero ?? contrat.id
+  const categorie = contrat.categorie_document ?? 'contrat'
 
   const { data: signataireProfile } = await admin.from('profiles').select('nom, prenoms').eq('id', user.id).single()
   const nomSignataire = signataireProfile ? `${signataireProfile.prenoms} ${signataireProfile.nom}` : 'Le signataire'
+
+  if (estOffreDePremier) {
+    // Bascule automatique vers le/la bénéficiaire, qui peut avoir un compte
+    // My ABED ou pas encore — même logique que signature-completion.ts pour
+    // le circuit générique.
+    if (contrat.profile_id) {
+      const { data: beneficiaire } = await admin.from('profiles').select('email, prenoms, nom, civilite').eq('id', contrat.profile_id).single()
+      const { error: notifBeneficiaireErr } = await admin.from('notifications').insert({
+        user_id: contrat.profile_id,
+        titre: `${categorie} à signer`,
+        message: `Votre ${categorie.toLowerCase()} (réf. ${ref}) est signée par la direction et attend votre signature.`,
+        lien: '/mes-contrats',
+      })
+      if (notifBeneficiaireErr) console.error('[signer-signataire] notif in-app bénéficiaire:', notifBeneficiaireErr)
+      if (beneficiaire?.email) {
+        try {
+          await sendEmail({
+            to: beneficiaire.email,
+            subject: `[My ABED] Votre ${categorie.toLowerCase()} à signer`,
+            html: `<div style="font-family:sans-serif;max-width:560px;margin:0 auto;">
+              <h2 style="color:#16a34a;">ABED ONG — Votre ${categorie.toLowerCase()}</h2>
+              <p>Bonjour ${beneficiaire.civilite ?? ''} ${beneficiaire.prenoms} ${beneficiaire.nom},</p>
+              <p>Votre ${categorie.toLowerCase()} (réf. ${ref}) a été signée par la direction et est disponible pour votre signature.</p>
+              <a href="${APP_URL}/mes-contrats" style="display:inline-block;background:#16a34a;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold;">Consulter et signer</a>
+              <p style="margin-top:24px;color:#9ca3af;font-size:12px;">ABED-ONG · my.abedong.org</p>
+            </div>`,
+          })
+        } catch (e) { console.error('[signer-signataire] email bénéficiaire:', e) }
+      }
+    } else if (contrat.destinataire_email) {
+      const now = new Date()
+      const expireLe = new Date(now.getTime() + 72 * 60 * 60 * 1000)
+      await admin.from('contrats').update({
+        lien_externe_genere_le: now.toISOString(),
+        lien_externe_expire_le: expireLe.toISOString(),
+      }).eq('id', id)
+
+      const lienToken = signContratExterneToken(id, contrat.destinataire_email)
+      const lienExterne = `${APP_URL}/contrats/externe?t=${lienToken}`
+      try {
+        await sendEmail({
+          to: contrat.destinataire_email,
+          subject: `[ABED ONG] Votre ${categorie.toLowerCase()} à signer`,
+          html: `<div style="font-family:sans-serif;max-width:560px;margin:0 auto;">
+            <h2 style="color:#16a34a;">ABED ONG — Votre ${categorie.toLowerCase()}</h2>
+            <p>Bonjour,</p>
+            <p>Votre ${categorie.toLowerCase()} (réf. ${ref}) a été signée par la direction et est disponible pour votre signature. Aucun compte n'est nécessaire.</p>
+            <a href="${lienExterne}" style="display:inline-block;background:#16a34a;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold;">Consulter et signer</a>
+            <p style="margin-top:24px;color:#9ca3af;font-size:12px;">Ce lien est personnel et expire dans 72 heures. ABED-ONG · my.abedong.org</p>
+          </div>`,
+        })
+      } catch (e) { console.error('[signer-signataire] email bénéficiaire externe:', e) }
+    }
+
+    revalidateTag('contrats')
+    return NextResponse.json({ ok: true, workflow_statut: prochainStatut })
+  }
 
   const { data: rhs } = await admin.from('profiles').select('id, email, prenoms').in('role', ['rh', 'admin', 'caf'])
   for (const rh of rhs ?? []) {
     const { error: notifErr } = await admin.from('notifications').insert({
       user_id: rh.id,
       titre: 'Contrat signé par le signataire ✓',
-      message: `${nomSignataire} a signé le ${contrat.categorie_document ?? 'contrat'} de ${nomEmploye} (réf. ${ref}). Vous pouvez maintenant le finaliser.`,
+      message: `${nomSignataire} a signé le ${categorie} de ${nomEmploye} (réf. ${ref}). Vous pouvez maintenant le finaliser.`,
       lien: '/rh/contrats',
     })
     if (notifErr) console.error('[signer-signataire] notif in-app RH:', notifErr)
@@ -72,7 +140,7 @@ export async function POST(
   <div style="background:#f9fafb;padding:24px 28px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
     <p>Bonjour <strong>${rh.prenoms ?? ''}</strong>,</p>
     <p style="font-size:14px;color:#374151;">
-      <strong>${nomSignataire}</strong> a signé le ${contrat.categorie_document ?? 'contrat'} de <strong>${nomEmploye}</strong> :
+      <strong>${nomSignataire}</strong> a signé le ${categorie} de <strong>${nomEmploye}</strong> :
     </p>
     <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:14px 18px;margin:16px 0;">
       <strong>${ref}</strong><br/>
@@ -91,5 +159,5 @@ export async function POST(
   }
 
   revalidateTag('contrats')
-  return NextResponse.json({ ok: true, workflow_statut: 'signe_signataire' })
+  return NextResponse.json({ ok: true, workflow_statut: prochainStatut })
 }

@@ -53,6 +53,9 @@ const WORKFLOW_LABELS: Record<string, { label: string; color: string; bg: string
 }
 
 const WORKFLOW_LABELS_SIGNATAIRE: Record<string, { label: string; color: string; bg: string; Icon: LucideIcon }> = {
+  // Offre (de stage ou non) : vous signez en premier, avant le/la bénéficiaire.
+  envoye_de:          { label: 'À signer',                      color: '#b45309', bg: '#fef3c7', Icon: PenLine },
+  envoye_employe:     { label: 'Signé par vous — chez le/la bénéficiaire', color: '#6d28d9', bg: '#ede9fe', Icon: Send },
   envoye_signataire:  { label: 'À signer',                      color: '#b45309', bg: '#fef3c7', Icon: PenLine },
   signe_signataire:   { label: 'Signé — en attente du RH',      color: '#065f46', bg: '#d1fae5', Icon: Clock },
   rejete_signataire:  { label: 'Renvoyé par vous — RH informé', color: '#b91c1c', bg: '#fee2e2', Icon: Undo2 },
@@ -130,8 +133,11 @@ export default function MesContratsClient({ contrats, contratsASigner, canSign }
     const json = await res.json().catch(() => ({}))
     setSigningSig(false)
     if (!res.ok) { setErrSig(json.error ?? 'Erreur lors de la signature'); return }
-    setLocalASigner(prev => prev.map(x => x.id === id ? { ...x, workflow_statut: 'signe_signataire' } : x))
-    setSelectedSig(prev => prev?.id === id ? { ...prev, workflow_statut: 'signe_signataire' } : prev)
+    // Le statut suivant dépend du circuit (Offre : DE signe en premier ->
+    // "envoye_employe" ; Contrat/Convention/Avenant classique -> "signe_signataire")
+    const nextStatut = json.workflow_statut ?? 'signe_signataire'
+    setLocalASigner(prev => prev.map(x => x.id === id ? { ...x, workflow_statut: nextStatut } : x))
+    setSelectedSig(prev => prev?.id === id ? { ...prev, workflow_statut: nextStatut } : prev)
   }
 
   async function refuserSignataire(id: string) {
@@ -148,7 +154,7 @@ export default function MesContratsClient({ contrats, contratsASigner, canSign }
     setShowRefuseFormSig(false); setMotifSig('')
   }
 
-  const nbASigner = localASigner.filter(c => c.workflow_statut === 'envoye_signataire').length
+  const nbASigner = localASigner.filter(c => c.workflow_statut === 'envoye_signataire' || c.workflow_statut === 'envoye_de').length
 
   return (
     <div className="page-container">
@@ -270,7 +276,7 @@ export default function MesContratsClient({ contrats, contratsASigner, canSign }
             <div style={{ display: 'grid', gap: 12 }}>
               {localASigner.map(c => {
                 const wf = WORKFLOW_LABELS_SIGNATAIRE[c.workflow_statut ?? ''] ?? DEFAULT_WF
-                const needsAction = c.workflow_statut === 'envoye_signataire'
+                const needsAction = c.workflow_statut === 'envoye_signataire' || c.workflow_statut === 'envoye_de'
                 const nomEmploye = `${c.profile?.prenoms ?? ''} ${c.profile?.nom ?? ''}`.trim() || '—'
                 return (
                   <div
@@ -560,7 +566,7 @@ export default function MesContratsClient({ contrats, contratsASigner, canSign }
                 </div>
               )}
 
-              {selectedSig.workflow_statut === 'envoye_signataire' && showRefuseFormSig && (
+              {(selectedSig.workflow_statut === 'envoye_signataire' || selectedSig.workflow_statut === 'envoye_de') && showRefuseFormSig && (
                 <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: 12 }}>
                   <label style={{ fontSize: 12, fontWeight: 700, color: '#991b1b', display: 'block', marginBottom: 6 }}>
                     Motif du renvoi * (min. 10 caractères)
@@ -585,7 +591,7 @@ export default function MesContratsClient({ contrats, contratsASigner, canSign }
 
               {errSig && <p style={{ color: '#ef4444', fontSize: 13, margin: 0 }}>{errSig}</p>}
 
-              {selectedSig.workflow_statut === 'envoye_signataire' && !showRefuseFormSig && (
+              {(selectedSig.workflow_statut === 'envoye_signataire' || selectedSig.workflow_statut === 'envoye_de') && !showRefuseFormSig && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   <button
                     onClick={() => setConfirmSignIdSig(selectedSig.id)}

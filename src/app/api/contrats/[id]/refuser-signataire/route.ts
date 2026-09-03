@@ -29,7 +29,7 @@ export async function POST(
 
   if (!contrat) return NextResponse.json({ error: 'Contrat introuvable' }, { status: 404 })
   if (contrat.signataire_id !== user.id) return NextResponse.json({ error: "Vous n'êtes pas le signataire de ce contrat" }, { status: 403 })
-  if (contrat.workflow_statut !== 'envoye_signataire') {
+  if (!['envoye_signataire', 'envoye_de'].includes(contrat.workflow_statut ?? '')) {
     return NextResponse.json({ error: 'Ce contrat ne peut pas être renvoyé à cette étape' }, { status: 400 })
   }
 
