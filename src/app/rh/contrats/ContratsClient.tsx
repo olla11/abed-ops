@@ -337,12 +337,18 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
     if (mode === 'promotion') {
       setGradeChoisi(''); setEchelonChoisi('')
       setForm((f: any) => ({
-        ...f, type_contrat: '', poste: '', salaire_brut: '',
+        ...f,
+        // Une "Offre de stage"/"Offre" ne peut pas accueillir un CDD/CDI —
+        // on bascule vers "Contrat" par défaut pour que tous les types
+        // s'affichent immédiatement (la catégorie reste modifiable ci-dessous).
+        categorie_document: (f.categorie_document === 'Offre de stage' || f.categorie_document === 'Offre') ? 'Contrat' : f.categorie_document,
+        type_contrat: '', poste: '', salaire_brut: '',
         commentaires_rh: f.commentaires_rh || 'Renouvellement avec promotion',
       }))
     } else {
       setForm((f: any) => ({
-        ...f, type_contrat: renewTarget.type_contrat, poste: renewTarget.poste ?? '',
+        ...f, categorie_document: renewTarget.categorie_document ?? 'Contrat',
+        type_contrat: renewTarget.type_contrat, poste: renewTarget.poste ?? '',
         salaire_brut: renewTarget.salaire_brut ?? '',
         commentaires_rh: f.commentaires_rh === 'Renouvellement avec promotion' ? '' : f.commentaires_rh,
       }))
@@ -512,75 +518,75 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
     return templateActif?.champs.some(c => c.requis && !(champVals[c.cle] ?? '').trim()) ?? false
   }
 
-  const formFields = (isNew: boolean) => (
+  const formFields = (isNew: boolean, allowCategoryChange = false) => (
     <>
       {isNew && (
-        <>
-          <div style={{ marginBottom: 12 }}>
-            <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Employé *</label>
-            {(() => {
-              const destinataireExterneDisponible = categorieAutoriseDestinataireExterne(categorie, form.type_contrat ?? '')
-              const modeExterne = destinataireExterne && destinataireExterneDisponible
-              return modeExterne ? (
-                <>
-                  <input type="email" placeholder="email@exemple.com" value={form.destinataire_email ?? ''}
-                    onChange={e => setForm((f: any) => ({ ...f, destinataire_email: e.target.value, profile_id: '' }))}
-                    style={inputStyle} />
-                  <p style={{ fontSize: 11, color: 'var(--abed-muted)', margin: '5px 0 0' }}>
-                    La personne recevra un lien sécurisé (valable 72h) pour consulter, signer ou commenter le document — sans compte My ABED. Si elle rejoint ABED plus tard avec cette même adresse email, ce document lui sera automatiquement rattaché.
-                  </p>
-                </>
-              ) : (
-                <select value={form.profile_id ?? ''} onChange={e => handleEmployeChange(e.target.value)} style={inputStyle}>
-                  <option value="">— Choisir —</option>
-                  {personnel.map(p => <option key={p.id} value={p.id}>{p.prenoms} {p.nom}</option>)}
-                </select>
-              )
-            })()}
-            {categorieAutoriseDestinataireExterne(categorie, form.type_contrat ?? '') && (
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, fontSize: 12, color: '#374151', cursor: 'pointer' }}>
-                <input type="checkbox" checked={destinataireExterne}
-                  onChange={e => { setDestinataireExterne(e.target.checked); setForm((f: any) => ({ ...f, profile_id: '', destinataire_email: '' })) }} />
-                Cette personne n&apos;a pas encore de compte My ABED
-              </label>
-            )}
-          </div>
-          <div style={{ marginBottom: 12 }}>
-            <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Catégorie *</label>
-            <div style={{ display: 'flex', gap: 8 }}>
-              {CATEGORIES.map(cat => (
-                <button key={cat} type="button"
-                  onClick={() => setForm((f: any) => {
-                    const allowedTypes = cat === 'Offre de stage' ? TYPES_STAGE : TYPES
-                    const typeStillValid = allowedTypes.includes(f.type_contrat)
-                    return { ...f, categorie_document: cat, contrat_parent_id: '', type_contrat: typeStillValid ? f.type_contrat : '' }
-                  })}
-                  style={{ flex: 1, padding: '7px 0', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontWeight: 700, border: '2px solid', borderColor: categorie === cat ? 'var(--abed-green)' : 'var(--abed-border)', background: categorie === cat ? '#f0fdf4' : 'white', color: categorie === cat ? 'var(--abed-green)' : '#374151' }}>
-                  {cat}
-                </button>
-              ))}
-            </div>
-          </div>
-          {categorie === 'Avenant' && (
-            <div style={{ marginBottom: 12 }}>
-              <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Contrat parent (actif) *</label>
-              {!form.profile_id ? (
-                <p style={{ fontSize: 12, color: '#9ca3af' }}>Sélectionnez d'abord un employé.</p>
-              ) : activeContractsFor(form.profile_id).length > 0 ? (
-                <select value={form.contrat_parent_id ?? ''} onChange={e => setForm((f: any) => ({ ...f, contrat_parent_id: e.target.value }))} style={inputStyle}>
-                  <option value="">— Choisir le contrat —</option>
-                  {activeContractsFor(form.profile_id).map(c => (
-                    <option key={c.id} value={c.id}>{c.numero ?? c.id.slice(0, 8)} — {c.type_contrat} ({c.date_debut})</option>
-                  ))}
-                </select>
-              ) : (
-                <p style={{ fontSize: 12, color: '#dc2626', padding: '8px 12px', background: '#fef2f2', borderRadius: 6 }}>
-                  Cet employé n'a pas de contrat actif. Un avenant requiert un contrat parent actif.
+        <div style={{ marginBottom: 12 }}>
+          <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Employé *</label>
+          {(() => {
+            const destinataireExterneDisponible = categorieAutoriseDestinataireExterne(categorie, form.type_contrat ?? '')
+            const modeExterne = destinataireExterne && destinataireExterneDisponible
+            return modeExterne ? (
+              <>
+                <input type="email" placeholder="email@exemple.com" value={form.destinataire_email ?? ''}
+                  onChange={e => setForm((f: any) => ({ ...f, destinataire_email: e.target.value, profile_id: '' }))}
+                  style={inputStyle} />
+                <p style={{ fontSize: 11, color: 'var(--abed-muted)', margin: '5px 0 0' }}>
+                  La personne recevra un lien sécurisé (valable 72h) pour consulter, signer ou commenter le document — sans compte My ABED. Si elle rejoint ABED plus tard avec cette même adresse email, ce document lui sera automatiquement rattaché.
                 </p>
-              )}
-            </div>
+              </>
+            ) : (
+              <select value={form.profile_id ?? ''} onChange={e => handleEmployeChange(e.target.value)} style={inputStyle}>
+                <option value="">— Choisir —</option>
+                {personnel.map(p => <option key={p.id} value={p.id}>{p.prenoms} {p.nom}</option>)}
+              </select>
+            )
+          })()}
+          {categorieAutoriseDestinataireExterne(categorie, form.type_contrat ?? '') && (
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, fontSize: 12, color: '#374151', cursor: 'pointer' }}>
+              <input type="checkbox" checked={destinataireExterne}
+                onChange={e => { setDestinataireExterne(e.target.checked); setForm((f: any) => ({ ...f, profile_id: '', destinataire_email: '' })) }} />
+              Cette personne n&apos;a pas encore de compte My ABED
+            </label>
           )}
-        </>
+        </div>
+      )}
+      {(isNew || allowCategoryChange) && (
+        <div style={{ marginBottom: 12 }}>
+          <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Catégorie *</label>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {CATEGORIES.map(cat => (
+              <button key={cat} type="button"
+                onClick={() => setForm((f: any) => {
+                  const allowedTypes = cat === 'Offre de stage' ? TYPES_STAGE : TYPES
+                  const typeStillValid = allowedTypes.includes(f.type_contrat)
+                  return { ...f, categorie_document: cat, contrat_parent_id: '', type_contrat: typeStillValid ? f.type_contrat : '' }
+                })}
+                style={{ flex: 1, padding: '7px 0', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontWeight: 700, border: '2px solid', borderColor: categorie === cat ? 'var(--abed-green)' : 'var(--abed-border)', background: categorie === cat ? '#f0fdf4' : 'white', color: categorie === cat ? 'var(--abed-green)' : '#374151' }}>
+                {cat}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {isNew && categorie === 'Avenant' && (
+        <div style={{ marginBottom: 12 }}>
+          <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Contrat parent (actif) *</label>
+          {!form.profile_id ? (
+            <p style={{ fontSize: 12, color: '#9ca3af' }}>Sélectionnez d'abord un employé.</p>
+          ) : activeContractsFor(form.profile_id).length > 0 ? (
+            <select value={form.contrat_parent_id ?? ''} onChange={e => setForm((f: any) => ({ ...f, contrat_parent_id: e.target.value }))} style={inputStyle}>
+              <option value="">— Choisir le contrat —</option>
+              {activeContractsFor(form.profile_id).map(c => (
+                <option key={c.id} value={c.id}>{c.numero ?? c.id.slice(0, 8)} — {c.type_contrat} ({c.date_debut})</option>
+              ))}
+            </select>
+          ) : (
+            <p style={{ fontSize: 12, color: '#dc2626', padding: '8px 12px', background: '#fef2f2', borderRadius: 6 }}>
+              Cet employé n'a pas de contrat actif. Un avenant requiert un contrat parent actif.
+            </p>
+          )}
+        </div>
       )}
       <div style={{ marginBottom: 12 }}>
         <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Type *</label>
@@ -1021,11 +1027,11 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
             </div>
             <p style={{ fontSize: 11, color: 'var(--abed-muted)', margin: '6px 0 0' }}>
               {renewMode === 'promotion'
-                ? 'Le type de contrat, le poste et le salaire ont été réinitialisés — choisissez librement les nouvelles conditions ci-dessous parmi tous les types disponibles.'
+                ? 'La catégorie, le type de contrat, le poste et le salaire ont été réinitialisés — choisissez librement les nouvelles conditions ci-dessous parmi tous les types disponibles.'
                 : 'Le type, le poste et le salaire de l’ancien contrat sont repris tels quels — modifiables si besoin.'}
             </p>
           </div>
-          {formFields(false)}
+          {formFields(false, renewMode === 'promotion')}
         </Modal>
       )}
     </div>
