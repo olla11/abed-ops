@@ -156,6 +156,7 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
   const [showNew, setShowNew] = useState(false)
   const [editTarget, setEditTarget] = useState<Contrat | null>(null)
   const [renewTarget, setRenewTarget] = useState<Contrat | null>(null)
+  const [renewMode, setRenewMode] = useState<'simple' | 'promotion'>('simple')
   const [resilierTarget, setResilierTarget] = useState<Contrat | null>(null)
   const [commentTarget, setCommentTarget] = useState<Contrat | null>(null)
   const [form, setForm] = useState<any>({})
@@ -306,6 +307,7 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
   // que la modification (formFields(false)), pas juste 2 dates.
   function openRenew(c: Contrat) {
     setRenewTarget(c)
+    setRenewMode('simple')
     const today = new Date().toISOString().split('T')[0]
     let nouveauDebut = today
     if (c.date_fin) {
@@ -323,6 +325,28 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
     setArticles(Array.isArray(c.articles) ? c.articles : [])
     setDraftRestoredAt(null)
     setErr(null)
+  }
+
+  // Bascule entre renouvellement simple (type/poste/salaire repris tels
+  // quels de l'ancien contrat, comme avant) et renouvellement + promotion
+  // (ces champs sont vidés pour forcer un choix explicite parmi tous les
+  // types de contrat, plutôt que de reproposer silencieusement l'ancien).
+  function setModeRenouvellement(mode: 'simple' | 'promotion') {
+    setRenewMode(mode)
+    if (!renewTarget) return
+    if (mode === 'promotion') {
+      setGradeChoisi(''); setEchelonChoisi('')
+      setForm((f: any) => ({
+        ...f, type_contrat: '', poste: '', salaire_brut: '',
+        commentaires_rh: f.commentaires_rh || 'Renouvellement avec promotion',
+      }))
+    } else {
+      setForm((f: any) => ({
+        ...f, type_contrat: renewTarget.type_contrat, poste: renewTarget.poste ?? '',
+        salaire_brut: renewTarget.salaire_brut ?? '',
+        commentaires_rh: f.commentaires_rh === 'Renouvellement avec promotion' ? '' : f.commentaires_rh,
+      }))
+    }
   }
 
   function discardDraft() {
@@ -980,8 +1004,27 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
         <Modal title={`Renouveler — ${renewTarget.profile?.prenoms} ${renewTarget.profile?.nom}`} onSubmit={renouveler} onClose={() => { setRenewTarget(null); setErr(null) }} loading={loading} err={err} wide>
           <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 16 }}>
             Renouvellement de {renewTarget.categorie_document ?? 'Contrat'} <strong>{renewTarget.type_contrat}</strong> ({renewTarget.numero ?? '—'}) — {renewTarget.statut === 'actif' ? `expire le ${renewTarget.date_fin}` : `expiré le ${renewTarget.date_fin}`}.
-            Le type, le poste, la direction et le salaire peuvent être modifiés ci-dessous. Un nouveau document est créé avec son propre circuit de signature ; l&apos;ancien passe à « Expiré ».
+            Un nouveau document est créé avec son propre circuit de signature ; l&apos;ancien passe à « Expiré ».
           </p>
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Type de renouvellement</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {([
+                { key: 'simple', label: 'Renouvellement simple' },
+                { key: 'promotion', label: 'Renouvellement & Promotion' },
+              ] as const).map(m => (
+                <button key={m.key} type="button" onClick={() => setModeRenouvellement(m.key)}
+                  style={{ flex: 1, padding: '7px 0', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontWeight: 700, border: '2px solid', borderColor: renewMode === m.key ? 'var(--abed-green)' : 'var(--abed-border)', background: renewMode === m.key ? '#f0fdf4' : 'white', color: renewMode === m.key ? 'var(--abed-green)' : '#374151' }}>
+                  {m.label}
+                </button>
+              ))}
+            </div>
+            <p style={{ fontSize: 11, color: 'var(--abed-muted)', margin: '6px 0 0' }}>
+              {renewMode === 'promotion'
+                ? 'Le type de contrat, le poste et le salaire ont été réinitialisés — choisissez librement les nouvelles conditions ci-dessous parmi tous les types disponibles.'
+                : 'Le type, le poste et le salaire de l’ancien contrat sont repris tels quels — modifiables si besoin.'}
+            </p>
+          </div>
           {formFields(false)}
         </Modal>
       )}
