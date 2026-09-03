@@ -29,26 +29,28 @@ export async function POST(
     return NextResponse.json({ error: 'Ce contrat ne peut pas être signé à cette étape' }, { status: 400 })
   }
 
-  // Offre de stage : le DE a déjà signé en premier, la signature du stagiaire finalise directement le document
-  const isOffreStage = contrat.categorie_document === 'Offre de stage'
+  // Offre (de stage ou non) : le DE a déjà signé en premier, la signature
+  // du/de la bénéficiaire finalise directement le document.
+  const deSigneAvant = contrat.categorie_document === 'Offre de stage' || contrat.categorie_document === 'Offre'
   const now = new Date().toISOString()
   await admin.from('contrats').update({
     signe_employe_le: now,
-    workflow_statut: isOffreStage ? 'finalise' : 'signe_employe',
+    workflow_statut: deSigneAvant ? 'finalise' : 'signe_employe',
   }).eq('id', id)
 
   const profile = contrat.profile as any
   const nomEmploye = `${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`.trim()
+  const categorie = contrat.categorie_document ?? 'contrat'
 
   // Notifier le RH
   const { data: rhs } = await admin.from('profiles').select('id, email, prenoms').in('role', ['rh', 'admin', 'caf'])
   for (const rh of rhs ?? []) {
     const { error: notifRhErr } = await admin.from('notifications').insert({
       user_id: rh.id,
-      titre: isOffreStage ? 'Offre de stage signée ✓' : 'Contrat signé par l\'employé',
-      message: isOffreStage
-        ? `${nomEmploye} a signé son offre de stage (réf. ${contrat.numero ?? contrat.id}). Le document est finalisé.`
-        : `${nomEmploye} a signé son ${contrat.categorie_document ?? 'contrat'} (réf. ${contrat.numero ?? contrat.id}). Vous pouvez maintenant l'envoyer au signataire.`,
+      titre: deSigneAvant ? `${categorie} signée ✓` : 'Contrat signé par l\'employé',
+      message: deSigneAvant
+        ? `${nomEmploye} a signé sa ${categorie.toLowerCase()} (réf. ${contrat.numero ?? contrat.id}). Le document est finalisé.`
+        : `${nomEmploye} a signé son ${categorie} (réf. ${contrat.numero ?? contrat.id}). Vous pouvez maintenant l'envoyer au signataire.`,
       lien: '/rh/contrats',
     })
     if (notifRhErr) console.error('[signer-employe] notif in-app RH:', notifRhErr)
@@ -56,22 +58,22 @@ export async function POST(
       try {
         await sendEmail({
           to: rh.email,
-          subject: isOffreStage ? `[My ABED] Offre de stage finalisée — ${nomEmploye}` : `[My ABED] Contrat signé par ${nomEmploye}`,
+          subject: deSigneAvant ? `[My ABED] ${categorie} finalisée — ${nomEmploye}` : `[My ABED] Contrat signé par ${nomEmploye}`,
           html: `
 <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;">
   <div style="background:#064e3b;color:white;padding:20px 28px;border-radius:8px 8px 0 0;">
-    <h1 style="margin:0;font-size:19px;">My ABED — ${isOffreStage ? 'Offre de stage finalisée ✓' : 'Contrat signé ✓'}</h1>
+    <h1 style="margin:0;font-size:19px;">My ABED — ${deSigneAvant ? `${categorie} finalisée ✓` : 'Contrat signé ✓'}</h1>
   </div>
   <div style="background:#f9fafb;padding:24px 28px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
     <p>Bonjour <strong>${rh.prenoms ?? ''}</strong>,</p>
     <p style="font-size:14px;color:#374151;">
-      <strong>${nomEmploye}</strong> a signé son ${contrat.categorie_document ?? 'contrat'} :
+      <strong>${nomEmploye}</strong> a signé son ${categorie} :
     </p>
     <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:14px 18px;margin:16px 0;">
       <strong>${contrat.numero ?? contrat.id}</strong><br/>
       <span style="font-size:13px;color:#6b7280;">${contrat.type_contrat} — ${contrat.poste ?? '—'}</span>
     </div>
-    <p style="font-size:14px;color:#374151;">${isOffreStage ? 'Le document est entièrement signé et disponible.' : 'Vous pouvez maintenant envoyer le contrat au signataire pour autorisation.'}</p>
+    <p style="font-size:14px;color:#374151;">${deSigneAvant ? 'Le document est entièrement signé et disponible.' : 'Vous pouvez maintenant envoyer le contrat au signataire pour autorisation.'}</p>
     <a href="${APP_URL}/rh/contrats" style="display:inline-block;background:#064e3b;color:white;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">
       Gérer les contrats →
     </a>
@@ -84,5 +86,5 @@ export async function POST(
   }
 
   revalidateTag('contrats')
-  return NextResponse.json({ ok: true, workflow_statut: isOffreStage ? 'finalise' : 'signe_employe' })
+  return NextResponse.json({ ok: true, workflow_statut: deSigneAvant ? 'finalise' : 'signe_employe' })
 }

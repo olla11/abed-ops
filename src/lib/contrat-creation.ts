@@ -35,7 +35,10 @@ export type NouveauContratParams = {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function creerContratEtDemarrerCircuit(service: any, actorUserId: string, p: NouveauContratParams) {
   const categorie = p.categorie_document || 'Contrat'
-  const isOffreStage = categorie === 'Offre de stage'
+  // Une offre — de stage ou non — passe toujours par le DE en premier,
+  // avant d'aller chez le/la bénéficiaire (contrairement à un Contrat/
+  // Convention classique, où l'employé signe en premier).
+  const deSigneAvant = categorie === 'Offre de stage' || categorie === 'Offre'
 
   const { data: contrat, error: insertError } = await service.from('contrats').insert({
     profile_id: p.profile_id || null,
@@ -55,7 +58,7 @@ export async function creerContratEtDemarrerCircuit(service: any, actorUserId: s
     commentaires_rh: p.commentaires_rh || null,
     template_id: p.template_id || null,
     statut: 'actif',
-    workflow_statut: isOffreStage ? 'envoye_de' : 'envoye_employe',
+    workflow_statut: deSigneAvant ? 'envoye_de' : 'envoye_employe',
   }).select('*, profile:profiles!profile_id(id, nom, prenoms, email, role, civilite)').single()
 
   if (insertError) return { error: insertError.message, status: 500 } as const
@@ -80,11 +83,11 @@ export async function creerContratEtDemarrerCircuit(service: any, actorUserId: s
   const profile = contrat.profile as ProfileRow | null
   const emailDestinataire = p.destinataire_email
 
-  // Signataire selon le rôle de l'employé — l'Offre de stage et un
-  // destinataire externe passent toujours par le DE.
+  // Signataire selon le rôle de l'employé — une Offre (de stage ou non) et
+  // un destinataire externe passent toujours par le DE.
   let signataireProfile: { id: string; nom: string; prenoms: string; email?: string | null } | null = null
   if (profile || emailDestinataire) {
-    const signatoryRole = (profile && !isOffreStage && ['de', 'dp'].includes(profile.role)) ? 'administrateur' : 'de'
+    const signatoryRole = (profile && !deSigneAvant && ['de', 'dp'].includes(profile.role)) ? 'administrateur' : 'de'
     const { data: signatories } = await service
       .from('profiles').select('id, nom, prenoms, email').eq('role', signatoryRole).limit(1)
     if (signatories && signatories.length > 0) {
@@ -93,7 +96,7 @@ export async function creerContratEtDemarrerCircuit(service: any, actorUserId: s
   }
 
   let demandeId: string | null = null
-  if (signataireProfile && (profile || isOffreStage)) {
+  if (signataireProfile && (profile || deSigneAvant)) {
     const nomPartie = profile ? `${profile.prenoms} ${profile.nom}` : (emailDestinataire ?? '')
     const titre = `${categorie} ${p.type_contrat} — ${nomPartie}`
     const { data: demande, error: demandeError } = await service.from('demandes_signature').insert({
@@ -107,13 +110,13 @@ export async function creerContratEtDemarrerCircuit(service: any, actorUserId: s
     }
   }
 
-  if (isOffreStage) {
+  if (deSigneAvant) {
     const nomPartieAffiche = profile ? `${profile.prenoms} ${profile.nom}` : (emailDestinataire ?? '')
     if (signataireProfile) {
       const { error: notifDeErr } = await service.from('notifications').insert({
         user_id: signataireProfile.id,
-        titre: 'Offre de stage à signer',
-        message: `Offre de stage pour ${nomPartieAffiche} (réf. ${numero}) — à signer avant envoi au stagiaire.`,
+        titre: `${categorie} à signer`,
+        message: `${categorie} ${p.type_contrat} pour ${nomPartieAffiche} (réf. ${numero}) — à signer avant envoi au/à la bénéficiaire.`,
         lien: '/signatures',
       })
       if (notifDeErr) console.error('[contrat-creation] notif in-app DE:', notifDeErr)
@@ -122,12 +125,12 @@ export async function creerContratEtDemarrerCircuit(service: any, actorUserId: s
         try {
           await sendEmail({
             to: signataireProfile.email,
-            subject: `Offre de stage à signer — ${nomPartieAffiche}`,
+            subject: `${categorie} à signer — ${nomPartieAffiche}`,
             html: `
               <div style="font-family:sans-serif;max-width:600px;margin:0 auto;">
-                <h2 style="color:#16a34a;">ABED ONG — Offre de stage à signer</h2>
+                <h2 style="color:#16a34a;">ABED ONG — ${categorie} à signer</h2>
                 <p>Bonjour ${signataireProfile.prenoms} ${signataireProfile.nom},</p>
-                <p>Une nouvelle offre de stage a été établie pour <strong>${nomPartieAffiche}</strong> (réf. ${numero}) et attend votre signature avant envoi au/à la stagiaire.</p>
+                <p>Une nouvelle ${categorie.toLowerCase()} (${p.type_contrat}) a été établie pour <strong>${nomPartieAffiche}</strong> (réf. ${numero}) et attend votre signature avant envoi au/à la bénéficiaire.</p>
                 <p>
                   <a href="${APP_URL}/signatures"
                      style="display:inline-block;background:#16a34a;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold;">

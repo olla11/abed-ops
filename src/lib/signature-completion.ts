@@ -1,6 +1,7 @@
 import { sendEmail } from '@/lib/resend'
 import { createAdminClient } from '@/lib/supabase-server'
 import { signExternalSignerToken } from '@/lib/external-signer-token'
+import { signContratExterneToken } from '@/lib/contrat-externe-token'
 import { composeSignedPdf } from '@/lib/pdf-signature'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_URL ?? 'https://myabed.app'
@@ -173,7 +174,7 @@ export async function finalizeAfterSignature(
 
   // Si lié à un contrat, mettre à jour le workflow
   const { data: contratLie } = await admin.from('contrats')
-    .select('id, workflow_statut, categorie_document, type_contrat, numero, profile_id')
+    .select('id, workflow_statut, categorie_document, type_contrat, numero, profile_id, destinataire_email')
     .eq('demande_signature_id', demandeId).single()
 
   if (contratLie && contratLie.workflow_statut === 'envoye_signataire') {
@@ -189,28 +190,57 @@ export async function finalizeAfterSignature(
       if (notifRhErr) console.error('[Signatures] notif in-app RH (contrat signataire):', notifRhErr)
     }
   } else if (contratLie && contratLie.workflow_statut === 'envoye_de') {
-    // Offre de stage : le DE vient de signer → bascule automatique vers le stagiaire
+    // Offre (de stage ou non) : le DE vient de signer → bascule automatique
+    // vers le/la bénéficiaire, qui peut avoir un compte My ABED ou pas encore.
     await admin.from('contrats').update({ workflow_statut: 'envoye_employe' }).eq('id', contratLie.id)
-    const { data: stagiaire } = await admin.from('profiles').select('email, prenoms, nom, civilite').eq('id', contratLie.profile_id).single()
-    const { error: notifStagiaireErr } = await admin.from('notifications').insert({
-      user_id: contratLie.profile_id,
-      titre: 'Offre de stage à signer',
-      message: `Votre offre de stage (réf. ${contratLie.numero ?? contratLie.id}) est signée par la direction et attend votre signature.`,
-      lien: '/mes-contrats',
-    })
-    if (notifStagiaireErr) console.error('[Signatures] notif in-app stagiaire:', notifStagiaireErr)
-    if (stagiaire?.email) {
+    const categorie = contratLie.categorie_document ?? 'Offre'
+    const categorieLower = categorie.toLowerCase()
+
+    if (contratLie.profile_id) {
+      const { data: beneficiaire } = await admin.from('profiles').select('email, prenoms, nom, civilite').eq('id', contratLie.profile_id).single()
+      const { error: notifBeneficiaireErr } = await admin.from('notifications').insert({
+        user_id: contratLie.profile_id,
+        titre: `${categorie} à signer`,
+        message: `Votre ${categorieLower} (réf. ${contratLie.numero ?? contratLie.id}) est signée par la direction et attend votre signature.`,
+        lien: '/mes-contrats',
+      })
+      if (notifBeneficiaireErr) console.error('[Signatures] notif in-app bénéficiaire:', notifBeneficiaireErr)
+      if (beneficiaire?.email) {
+        await sendEmail({
+          to: beneficiaire.email,
+          subject: `[My ABED] Votre ${categorieLower} à signer`,
+          html: `<div style="font-family:sans-serif;max-width:560px;margin:0 auto;">
+            <h2 style="color:#16a34a;">ABED ONG — Votre ${categorieLower}</h2>
+            <p>Bonjour ${beneficiaire.civilite ?? ''} ${beneficiaire.prenoms} ${beneficiaire.nom},</p>
+            <p>Votre ${categorieLower} (réf. ${contratLie.numero ?? ''}) a été signée par la direction et est disponible pour votre signature.</p>
+            <a href="${APP_URL}/mes-contrats" style="display:inline-block;background:#16a34a;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold;">Consulter et signer</a>
+            <p style="margin-top:24px;color:#9ca3af;font-size:12px;">ABED-ONG · my.abedong.org</p>
+          </div>`,
+        }).catch(err => console.error('[Signatures] email bénéficiaire error:', err))
+      }
+    } else if (contratLie.destinataire_email) {
+      // Pas encore de compte My ABED — lien signé (72h), même mécanisme que
+      // pour une Offre classique envoyée à un destinataire externe.
+      const now = new Date()
+      const expireLe = new Date(now.getTime() + 72 * 60 * 60 * 1000)
+      await admin.from('contrats').update({
+        lien_externe_genere_le: now.toISOString(),
+        lien_externe_expire_le: expireLe.toISOString(),
+      }).eq('id', contratLie.id)
+
+      const lienToken = signContratExterneToken(contratLie.id, contratLie.destinataire_email)
+      const lienExterne = `${APP_URL}/contrats/externe?t=${lienToken}`
       await sendEmail({
-        to: stagiaire.email,
-        subject: `[My ABED] Votre offre de stage à signer`,
+        to: contratLie.destinataire_email,
+        subject: `[ABED ONG] Votre ${categorieLower} à signer`,
         html: `<div style="font-family:sans-serif;max-width:560px;margin:0 auto;">
-          <h2 style="color:#16a34a;">ABED ONG — Votre offre de stage</h2>
-          <p>Bonjour ${stagiaire.civilite ?? ''} ${stagiaire.prenoms} ${stagiaire.nom},</p>
-          <p>Votre offre de stage (réf. ${contratLie.numero ?? ''}) a été signée par la direction et est disponible pour votre signature.</p>
-          <a href="${APP_URL}/mes-contrats" style="display:inline-block;background:#16a34a;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold;">Consulter et signer</a>
-          <p style="margin-top:24px;color:#9ca3af;font-size:12px;">ABED-ONG · my.abedong.org</p>
+          <h2 style="color:#16a34a;">ABED ONG — Votre ${categorieLower}</h2>
+          <p>Bonjour,</p>
+          <p>Votre ${categorieLower} (réf. ${contratLie.numero ?? ''}) a été signée par la direction et est disponible pour votre signature. Aucun compte n'est nécessaire.</p>
+          <a href="${lienExterne}" style="display:inline-block;background:#16a34a;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold;">Consulter et signer</a>
+          <p style="margin-top:24px;color:#9ca3af;font-size:12px;">Ce lien est personnel et expire dans 72 heures. ABED-ONG · my.abedong.org</p>
         </div>`,
-      }).catch(err => console.error('[Signatures] email stagiaire error:', err))
+      }).catch(err => console.error('[Signatures] email bénéficiaire externe error:', err))
     }
   }
 

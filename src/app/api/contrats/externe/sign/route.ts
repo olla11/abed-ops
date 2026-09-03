@@ -31,40 +31,41 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Ce document ne peut pas être signé à cette étape.' }, { status: 400 })
   }
 
-  const isOffreStage = contrat.categorie_document === 'Offre de stage'
+  const deSigneAvant = contrat.categorie_document === 'Offre de stage' || contrat.categorie_document === 'Offre'
   const now = new Date().toISOString()
   const { error: updErr } = await admin.from('contrats').update({
     signe_employe_le: now,
-    workflow_statut: isOffreStage ? 'finalise' : 'signe_employe',
+    workflow_statut: deSigneAvant ? 'finalise' : 'signe_employe',
   }).eq('id', contrat.id)
   if (updErr) return NextResponse.json({ error: updErr.message }, { status: 500 })
 
   const nomDestinataire = `${contrat.destinataire_prenoms} ${contrat.destinataire_nom}`.trim()
   const ref = contrat.numero ?? contrat.id
+  const categorie = contrat.categorie_document ?? 'document'
 
   const { data: rhs } = await admin.from('profiles').select('id, email, prenoms').in('role', ['rh', 'admin', 'caf'])
   for (const rh of rhs ?? []) {
     await admin.from('notifications').insert({
       user_id: rh.id,
-      titre: isOffreStage ? 'Offre de stage signée ✓' : 'Document signé par le destinataire',
-      message: isOffreStage
-        ? `${nomDestinataire} a signé son offre de stage (réf. ${ref}). Le document est finalisé.`
-        : `${nomDestinataire} a signé son ${contrat.categorie_document ?? 'document'} (réf. ${ref}) via le lien externe. Vous pouvez maintenant l'envoyer au signataire.`,
+      titre: deSigneAvant ? `${categorie} signée ✓` : 'Document signé par le destinataire',
+      message: deSigneAvant
+        ? `${nomDestinataire} a signé sa ${categorie.toLowerCase()} (réf. ${ref}). Le document est finalisé.`
+        : `${nomDestinataire} a signé son ${categorie} (réf. ${ref}) via le lien externe. Vous pouvez maintenant l'envoyer au signataire.`,
       lien: '/rh/contrats',
     })
     if (rh.email) {
       try {
         await sendEmail({
           to: rh.email,
-          subject: isOffreStage ? `[My ABED] Offre de stage finalisée — ${nomDestinataire}` : `[My ABED] Document signé par ${nomDestinataire}`,
+          subject: deSigneAvant ? `[My ABED] ${categorie} finalisée — ${nomDestinataire}` : `[My ABED] Document signé par ${nomDestinataire}`,
           html: `
 <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;">
   <div style="background:#064e3b;color:white;padding:20px 28px;border-radius:8px 8px 0 0;">
-    <h1 style="margin:0;font-size:19px;">My ABED — ${isOffreStage ? 'Offre de stage finalisée ✓' : 'Document signé ✓'}</h1>
+    <h1 style="margin:0;font-size:19px;">My ABED — ${deSigneAvant ? `${categorie} finalisée ✓` : 'Document signé ✓'}</h1>
   </div>
   <div style="background:#f9fafb;padding:24px 28px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
     <p>Bonjour <strong>${rh.prenoms ?? ''}</strong>,</p>
-    <p style="font-size:14px;color:#374151;"><strong>${nomDestinataire}</strong> (${contrat.destinataire_email}) a signé son ${contrat.categorie_document ?? 'document'} via le lien externe (sans compte My ABED) :</p>
+    <p style="font-size:14px;color:#374151;"><strong>${nomDestinataire}</strong> (${contrat.destinataire_email}) a signé son ${categorie} via le lien externe (sans compte My ABED) :</p>
     <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:14px 18px;margin:16px 0;">
       <strong>${ref}</strong><br/>
       <span style="font-size:13px;color:#6b7280;">${contrat.type_contrat} — ${contrat.poste ?? '—'}</span>
@@ -81,5 +82,5 @@ export async function POST(req: NextRequest) {
   }
 
   revalidateTag('contrats')
-  return NextResponse.json({ ok: true, workflow_statut: isOffreStage ? 'finalise' : 'signe_employe' })
+  return NextResponse.json({ ok: true, workflow_statut: deSigneAvant ? 'finalise' : 'signe_employe' })
 }
