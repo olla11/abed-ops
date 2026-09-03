@@ -1,6 +1,8 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { FileEdit, Send, PenLine, Clock, CheckCircle2, PartyPopper, Undo2, FileText, FileQuestion } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 
 type Contrat = {
   id: string
@@ -38,25 +40,25 @@ type ContratASigner = {
   profile: { nom: string; prenoms: string } | null
 }
 
-const WORKFLOW_LABELS: Record<string, { label: string; color: string; bg: string; emoji: string }> = {
-  brouillon:          { label: 'Brouillon',              color: '#6b7280', bg: '#f3f4f6', emoji: '📝' },
-  envoye_de:          { label: 'En attente de signature de la direction', color: '#6d28d9', bg: '#ede9fe', emoji: '📨' },
-  envoye_employe:     { label: 'En attente de votre signature', color: '#b45309', bg: '#fef3c7', emoji: '✍️' },
-  signe_employe:      { label: 'Signé — en attente RH', color: '#1e40af', bg: '#dbeafe', emoji: '⏳' },
-  envoye_signataire:  { label: 'Chez le signataire',    color: '#6d28d9', bg: '#ede9fe', emoji: '📨' },
-  signe_signataire:   { label: 'Signé — en attente finalisation', color: '#065f46', bg: '#d1fae5', emoji: '✅' },
-  finalise:           { label: 'Finalisé ✓',             color: '#166534', bg: '#dcfce7', emoji: '🎉' },
-  rejete_employe:     { label: 'Renvoyé sans signature — RH informé', color: '#b91c1c', bg: '#fee2e2', emoji: '↩️' },
-  rejete_signataire:  { label: 'En cours de révision par la direction', color: '#b91c1c', bg: '#fee2e2', emoji: '↩️' },
+const WORKFLOW_LABELS: Record<string, { label: string; color: string; bg: string; Icon: LucideIcon }> = {
+  brouillon:          { label: 'Brouillon',              color: '#6b7280', bg: '#f3f4f6', Icon: FileEdit },
+  envoye_de:          { label: 'En attente de signature de la direction', color: '#6d28d9', bg: '#ede9fe', Icon: Send },
+  envoye_employe:     { label: 'En attente de votre signature', color: '#b45309', bg: '#fef3c7', Icon: PenLine },
+  signe_employe:      { label: 'Signé — en attente RH', color: '#1e40af', bg: '#dbeafe', Icon: Clock },
+  envoye_signataire:  { label: 'Chez le signataire',    color: '#6d28d9', bg: '#ede9fe', Icon: Send },
+  signe_signataire:   { label: 'Signé — en attente finalisation', color: '#065f46', bg: '#d1fae5', Icon: CheckCircle2 },
+  finalise:           { label: 'Finalisé ✓',             color: '#166534', bg: '#dcfce7', Icon: PartyPopper },
+  rejete_employe:     { label: 'Renvoyé sans signature — RH informé', color: '#b91c1c', bg: '#fee2e2', Icon: Undo2 },
+  rejete_signataire:  { label: 'En cours de révision par la direction', color: '#b91c1c', bg: '#fee2e2', Icon: Undo2 },
 }
 
-const WORKFLOW_LABELS_SIGNATAIRE: Record<string, { label: string; color: string; bg: string; emoji: string }> = {
-  envoye_signataire:  { label: 'À signer',                      color: '#b45309', bg: '#fef3c7', emoji: '✍️' },
-  signe_signataire:   { label: 'Signé — en attente du RH',      color: '#065f46', bg: '#d1fae5', emoji: '⏳' },
-  rejete_signataire:  { label: 'Renvoyé par vous — RH informé', color: '#b91c1c', bg: '#fee2e2', emoji: '↩️' },
-  finalise:           { label: 'Finalisé ✓',                    color: '#166534', bg: '#dcfce7', emoji: '🎉' },
+const WORKFLOW_LABELS_SIGNATAIRE: Record<string, { label: string; color: string; bg: string; Icon: LucideIcon }> = {
+  envoye_signataire:  { label: 'À signer',                      color: '#b45309', bg: '#fef3c7', Icon: PenLine },
+  signe_signataire:   { label: 'Signé — en attente du RH',      color: '#065f46', bg: '#d1fae5', Icon: Clock },
+  rejete_signataire:  { label: 'Renvoyé par vous — RH informé', color: '#b91c1c', bg: '#fee2e2', Icon: Undo2 },
+  finalise:           { label: 'Finalisé ✓',                    color: '#166534', bg: '#dcfce7', Icon: PartyPopper },
 }
-const DEFAULT_WF = { label: 'En cours', color: '#6b7280', bg: '#f3f4f6', emoji: '📄' }
+const DEFAULT_WF = { label: 'En cours', color: '#6b7280', bg: '#f3f4f6', Icon: FileQuestion }
 
 function fmtDate(d: string | null) {
   if (!d) return '—'
@@ -191,7 +193,7 @@ export default function MesContratsClient({ contrats, contratsASigner, canSign }
       {tab === 'mine' ? (
         localContrats.length === 0 ? (
           <div className="card" style={{ textAlign: 'center', padding: '48px 24px' }}>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>📄</div>
+            <FileText size={44} strokeWidth={1.5} color="var(--abed-muted)" style={{ marginBottom: 12 }} />
             <p style={{ color: 'var(--abed-muted)', fontSize: 15 }}>Aucun contrat établi pour le moment.</p>
           </div>
         ) : (
@@ -222,8 +224,8 @@ export default function MesContratsClient({ contrats, contratsASigner, canSign }
                         <span style={{ fontSize: 12, fontFamily: 'monospace', color: '#6b7280' }}>{c.numero ?? '—'}</span>
                         <span style={{
                           fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 999,
-                          background: wf.bg, color: wf.color,
-                        }}>{wf.emoji} {wf.label}</span>
+                          background: wf.bg, color: wf.color, display: 'inline-flex', alignItems: 'center', gap: 4,
+                        }}><wf.Icon size={12} strokeWidth={2.5} /> {wf.label}</span>
                       </div>
                       <div style={{ fontSize: 15, fontWeight: 700, color: '#111827' }}>
                         {c.categorie_document ?? 'Contrat'} {c.type_contrat}
@@ -240,9 +242,10 @@ export default function MesContratsClient({ contrats, contratsASigner, canSign }
                           style={{
                             background: '#b45309', color: 'white', border: 'none',
                             borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                            display: 'inline-flex', alignItems: 'center', gap: 6,
                           }}
                         >
-                          ✍️ Signer
+                          <PenLine size={14} /> Signer
                         </button>
                       )}
                       <span style={{ fontSize: 13, color: 'var(--abed-green)', fontWeight: 600, alignSelf: 'center' }}>Voir →</span>
@@ -256,7 +259,7 @@ export default function MesContratsClient({ contrats, contratsASigner, canSign }
       ) : (
         localASigner.length === 0 ? (
           <div className="card" style={{ textAlign: 'center', padding: '48px 24px' }}>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>✍️</div>
+            <PenLine size={44} strokeWidth={1.5} color="var(--abed-muted)" style={{ marginBottom: 12 }} />
             <p style={{ color: 'var(--abed-muted)', fontSize: 15 }}>Aucun contrat à signer pour le moment.</p>
           </div>
         ) : (
@@ -288,8 +291,8 @@ export default function MesContratsClient({ contrats, contratsASigner, canSign }
                         <span style={{ fontSize: 12, fontFamily: 'monospace', color: '#6b7280' }}>{c.numero ?? '—'}</span>
                         <span style={{
                           fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 999,
-                          background: wf.bg, color: wf.color,
-                        }}>{wf.emoji} {wf.label}</span>
+                          background: wf.bg, color: wf.color, display: 'inline-flex', alignItems: 'center', gap: 4,
+                        }}><wf.Icon size={12} strokeWidth={2.5} /> {wf.label}</span>
                       </div>
                       <div style={{ fontSize: 15, fontWeight: 700, color: '#111827' }}>
                         {c.categorie_document ?? 'Contrat'} {c.type_contrat} — {nomEmploye}
@@ -305,9 +308,10 @@ export default function MesContratsClient({ contrats, contratsASigner, canSign }
                           style={{
                             background: '#b45309', color: 'white', border: 'none',
                             borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                            display: 'inline-flex', alignItems: 'center', gap: 6,
                           }}
                         >
-                          📄 Lire et signer
+                          <FileText size={14} /> Lire et signer
                         </button>
                       )}
                       <span style={{ fontSize: 13, color: 'var(--abed-green)', fontWeight: 600, alignSelf: 'center' }}>Voir →</span>
@@ -343,7 +347,7 @@ export default function MesContratsClient({ contrats, contratsASigner, canSign }
               const wf = WORKFLOW_LABELS[selected.workflow_statut ?? 'envoye_employe']
               return (
                 <div style={{ background: wf.bg, border: `1px solid ${wf.color}30`, borderRadius: 10, padding: '12px 16px', marginBottom: 20 }}>
-                  <span style={{ fontSize: 14, fontWeight: 700, color: wf.color }}>{wf.emoji} {wf.label}</span>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: wf.color, display: 'inline-flex', alignItems: 'center', gap: 6 }}><wf.Icon size={16} strokeWidth={2.25} /> {wf.label}</span>
                 </div>
               )
             })()}
@@ -428,15 +432,15 @@ export default function MesContratsClient({ contrats, contratsASigner, canSign }
                   <button
                     onClick={() => setConfirmSignId(selected.id)}
                     disabled={signing}
-                    style={{ background: 'var(--abed-green)', color: 'white', border: 'none', borderRadius: 10, padding: '12px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
+                    style={{ background: 'var(--abed-green)', color: 'white', border: 'none', borderRadius: 10, padding: '12px', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
                   >
-                    {signing ? 'Signature en cours…' : '✍️ Signer ce contrat'}
+                    {signing ? 'Signature en cours…' : <><PenLine size={16} /> Signer ce contrat</>}
                   </button>
                   <button
                     onClick={() => { setShowRefuseForm(true); setSignErr(null) }}
-                    style={{ background: 'white', color: '#b91c1c', border: '1px solid #fecaca', borderRadius: 10, padding: '12px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
+                    style={{ background: 'white', color: '#b91c1c', border: '1px solid #fecaca', borderRadius: 10, padding: '12px', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
                   >
-                    ↩️ Renvoyer sans signer
+                    <Undo2 size={16} /> Renvoyer sans signer
                   </button>
                 </>
               )}
@@ -444,9 +448,9 @@ export default function MesContratsClient({ contrats, contratsASigner, canSign }
                 href={`/api/contrat-pdf/${selected.id}`}
                 target="_blank"
                 rel="noreferrer"
-                style={{ display: 'block', textAlign: 'center', background: '#f3f4f6', color: '#374151', borderRadius: 10, padding: '12px', fontSize: 14, fontWeight: 600, textDecoration: 'none' }}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, textAlign: 'center', background: '#f3f4f6', color: '#374151', borderRadius: 10, padding: '12px', fontSize: 14, fontWeight: 600, textDecoration: 'none' }}
               >
-                📄 Voir / télécharger le document (PDF)
+                <FileText size={16} /> Voir / télécharger le document (PDF)
               </a>
             </div>
           </div>
@@ -461,7 +465,7 @@ export default function MesContratsClient({ contrats, contratsASigner, canSign }
             style={{ background: 'white', borderRadius: 14, padding: 28, width: '100%', maxWidth: 400, boxShadow: '0 16px 48px rgba(0,0,0,.25)' }}
             onClick={e => e.stopPropagation()}
           >
-            <div style={{ fontSize: 40, textAlign: 'center', marginBottom: 8 }}>✍️</div>
+            <PenLine size={36} strokeWidth={1.75} color="var(--abed-green)" style={{ display: 'block', margin: '0 auto 8px' }} />
             <h3 style={{ margin: '0 0 8px', fontSize: 17, color: '#111827', textAlign: 'center' }}>Confirmer la signature</h3>
             <p style={{ fontSize: 14, color: '#6b7280', textAlign: 'center', margin: '0 0 22px' }}>
               Confirmer votre signature électronique sur ce contrat ?
@@ -513,7 +517,7 @@ export default function MesContratsClient({ contrats, contratsASigner, canSign }
                 const wf = WORKFLOW_LABELS_SIGNATAIRE[selectedSig.workflow_statut ?? ''] ?? DEFAULT_WF
                 return (
                   <div style={{ background: wf.bg, border: `1px solid ${wf.color}30`, borderRadius: 10, padding: '10px 14px' }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: wf.color }}>{wf.emoji} {wf.label}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: wf.color, display: 'inline-flex', alignItems: 'center', gap: 6 }}><wf.Icon size={15} strokeWidth={2.25} /> {wf.label}</span>
                   </div>
                 )
               })()}
@@ -586,15 +590,15 @@ export default function MesContratsClient({ contrats, contratsASigner, canSign }
                   <button
                     onClick={() => setConfirmSignIdSig(selectedSig.id)}
                     disabled={signingSig}
-                    style={{ background: 'var(--abed-green)', color: 'white', border: 'none', borderRadius: 10, padding: '12px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
+                    style={{ background: 'var(--abed-green)', color: 'white', border: 'none', borderRadius: 10, padding: '12px', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
                   >
-                    {signingSig ? 'Signature en cours…' : '✍️ Signer ce contrat'}
+                    {signingSig ? 'Signature en cours…' : <><PenLine size={16} /> Signer ce contrat</>}
                   </button>
                   <button
                     onClick={() => { setShowRefuseFormSig(true); setErrSig(null) }}
-                    style={{ background: 'white', color: '#b91c1c', border: '1px solid #fecaca', borderRadius: 10, padding: '12px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
+                    style={{ background: 'white', color: '#b91c1c', border: '1px solid #fecaca', borderRadius: 10, padding: '12px', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
                   >
-                    ↩️ Renvoyer au RH sans signer
+                    <Undo2 size={16} /> Renvoyer au RH sans signer
                   </button>
                 </div>
               )}
@@ -603,9 +607,9 @@ export default function MesContratsClient({ contrats, contratsASigner, canSign }
                 href={`/api/contrat-pdf/${selectedSig.id}`}
                 target="_blank"
                 rel="noreferrer"
-                style={{ display: 'block', textAlign: 'center', background: '#f3f4f6', color: '#374151', borderRadius: 10, padding: '10px', fontSize: 13, fontWeight: 600, textDecoration: 'none' }}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, textAlign: 'center', background: '#f3f4f6', color: '#374151', borderRadius: 10, padding: '10px', fontSize: 13, fontWeight: 600, textDecoration: 'none' }}
               >
-                📄 Ouvrir dans un nouvel onglet
+                <FileText size={15} /> Ouvrir dans un nouvel onglet
               </a>
             </div>
           </div>
@@ -620,7 +624,7 @@ export default function MesContratsClient({ contrats, contratsASigner, canSign }
             style={{ background: 'white', borderRadius: 14, padding: 28, width: '100%', maxWidth: 400, boxShadow: '0 16px 48px rgba(0,0,0,.25)' }}
             onClick={e => e.stopPropagation()}
           >
-            <div style={{ fontSize: 40, textAlign: 'center', marginBottom: 8 }}>✍️</div>
+            <PenLine size={36} strokeWidth={1.75} color="var(--abed-green)" style={{ display: 'block', margin: '0 auto 8px' }} />
             <h3 style={{ margin: '0 0 8px', fontSize: 17, color: '#111827', textAlign: 'center' }}>Confirmer la signature</h3>
             <p style={{ fontSize: 14, color: '#6b7280', textAlign: 'center', margin: '0 0 22px' }}>
               Confirmer votre signature électronique sur ce contrat, au nom de l&apos;organisation ?
