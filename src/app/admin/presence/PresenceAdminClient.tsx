@@ -23,8 +23,8 @@ function uid() {
   return Math.random().toString(36).slice(2, 10)
 }
 
-export default function PresenceAdminClient({ config, lien, qrDataUrl, enregistrements }: {
-  config: Config | null; lien: string; qrDataUrl: string | null; enregistrements: Enregistrement[]
+export default function PresenceAdminClient({ config, configError, lien, qrDataUrl, enregistrements }: {
+  config: Config | null; configError?: string | null; lien: string; qrDataUrl: string | null; enregistrements: Enregistrement[]
 }) {
   const router = useRouter()
   const [slugEdit, setSlugEdit] = useState(config?.slug ?? '')
@@ -94,7 +94,14 @@ export default function PresenceAdminClient({ config, lien, qrDataUrl, enregistr
     URL.revokeObjectURL(url)
   }
 
-  if (!config) return <p style={{ color: 'var(--abed-muted)' }}>Configuration introuvable.</p>
+  if (!config) return (
+    <div>
+      <p style={{ color: 'var(--abed-muted)' }}>Configuration introuvable.</p>
+      {configError && (
+        <p style={{ color: '#dc2626', fontSize: 12, fontFamily: 'monospace', marginTop: 8 }}>{configError}</p>
+      )}
+    </div>
+  )
 
   return (
     <div>
