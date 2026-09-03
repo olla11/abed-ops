@@ -103,9 +103,18 @@ export default async function SignaturesPage() {
     }
   }
 
-  // Les demandes liées à un contrat (titre généré automatiquement par le RH) sont
-  // gérées dans "Contrats à signer" (Mon espace > Mes contrats), pas ici.
-  const CONTRAT_TITRE_RE = /^(Contrat|Convention|Avenant|Offre de stage) .* — /
+  // Les demandes liées à un Contrat/Convention/Avenant (titre généré
+  // automatiquement par le RH) sont gérées dans "Contrats à signer" (Mon
+  // espace > Mes contrats), pas ici — cette liste n'y devient actionnable
+  // qu'après que l'employé a signé (via l'action RH "envoyer_signataire",
+  // qui renseigne contrats.signataire_id).
+  // Une Offre (de stage ou non) est différente : le DE signe *en premier*,
+  // via ce système générique de demandes_signature, donc dès la création —
+  // contrats.signataire_id n'est jamais renseigné pour ce circuit. Exclure
+  // aussi "Offre"/"Offre de stage" de cette liste les rendrait invisibles
+  // partout pour le DE (elles n'apparaissent nulle part dans "Contrats à
+  // signer" non plus, faute de signataire_id) : elles restent donc ici.
+  const CONTRAT_TITRE_RE = /^(Contrat|Convention|Avenant) .* — /
 
   // Requests where current user is a signatory and hasn't signed yet
   const mesDemandesASign = allDemandes.filter(d =>
