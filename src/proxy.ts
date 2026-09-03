@@ -51,6 +51,10 @@ export async function proxy(req: NextRequest, event: NextFetchEvent) {
     // fait que ne pas la bloquer en amont pour le cas sans session.
     path.startsWith('/om/externe') ||
     path.startsWith('/api/om-pdf') ||
+    // Enregistrement de présence des visiteurs — lien/QR public, jamais de
+    // session (le visiteur n'a pas de compte My ABED).
+    path.startsWith('/presence/') ||
+    path.startsWith('/api/presence/') ||
     // Tâches planifiées (Vercel Cron, ou tout appel serveur-à-serveur type
     // pg_cron/pg_net) : jamais de session utilisateur sur ces appels, donc
     // sans cette exception le middleware les redirigeait vers /login avant
