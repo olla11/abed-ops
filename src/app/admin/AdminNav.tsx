@@ -1,7 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Users, Shield, Tag, Zap, HardDrive, UserPlus, ScrollText, BarChart3, QrCode } from 'lucide-react'
+import { Users, Shield, Tag, Zap, HardDrive, UserPlus, ScrollText, BarChart3, QrCode, History } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { LucideIcon } from 'lucide-react'
 
@@ -18,6 +18,7 @@ const TABS: Tab[] = [
   { href: '/admin/actions',       labelKey: 'batchActions',  Icon: Zap },
   { href: '/admin/stockage',      labelKey: 'storage',       Icon: HardDrive, adminOnly: true },
   { href: '/admin/presence',      labelKey: 'presence',      Icon: QrCode,    adminOnly: true },
+  { href: '/admin/signatures',    labelKey: 'signaturesJournal', Icon: History, adminOnly: true },
   { href: '/admin/journal',       labelKey: 'journal',       Icon: ScrollText, superadminOnly: true },
   { href: '/admin/analytics',     labelKey: 'analytics',     Icon: BarChart3,  superadminOnly: true },
 ]

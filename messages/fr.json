@@ -295,6 +295,7 @@
     "batchActions": "Actions par lot",
     "storage": "Stockage",
     "presence": "Présence",
+    "signaturesJournal": "Journal signatures",
     "journal": "Journal",
     "createAccount": "Créer un compte",
     "allAccounts": "Tous les comptes",

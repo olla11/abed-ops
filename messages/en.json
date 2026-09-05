@@ -295,6 +295,7 @@
     "batchActions": "Batch actions",
     "storage": "Storage",
     "presence": "Attendance",
+    "signaturesJournal": "Signatures log",
     "journal": "Journal",
     "createAccount": "Create account",
     "allAccounts": "All accounts",
