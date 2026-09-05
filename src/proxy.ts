@@ -60,7 +60,11 @@ export async function proxy(req: NextRequest, event: NextFetchEvent) {
     // sans cette exception le middleware les redirigeait vers /login avant
     // même d'atteindre la route — leur propre vérification CRON_SECRET
     // (dans chaque route) reste le vrai garde-fou, pas la session.
-    path.startsWith('/api/cron/')
+    path.startsWith('/api/cron/') ||
+    // CGU et politique de confidentialité — doivent rester lisibles par les
+    // visiteurs et signataires externes sans compte, pas seulement le personnel connecté.
+    path.startsWith('/conditions-utilisation') ||
+    path.startsWith('/politique-confidentialite')
 
   if (!user && !isPublic) {
     return NextResponse.redirect(new URL('/login', req.url))

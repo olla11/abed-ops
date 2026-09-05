@@ -164,6 +164,17 @@ export default function LoginPage() {
             {t('register')}
           </Link>
         </p>
+
+        {/* Legal links */}
+        <p style={{ textAlign: 'center', fontSize: 12, color: '#9ca3af', marginTop: 18, marginBottom: 0 }}>
+          <Link href="/conditions-utilisation" style={{ color: '#9ca3af', textDecoration: 'underline' }}>
+            Conditions d&apos;utilisation
+          </Link>
+          {' · '}
+          <Link href="/politique-confidentialite" style={{ color: '#9ca3af', textDecoration: 'underline' }}>
+            Politique de confidentialité
+          </Link>
+        </p>
       </div>
     </div>
   )
