@@ -50,8 +50,8 @@ export default function LegalPageLayout({
 
 export function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
   return (
-    <section id={id} style={{ marginBottom: 28, scrollMarginTop: 20 }}>
-      <h2 style={{ fontSize: 16.5, fontWeight: 800, color: '#166534', margin: '0 0 10px', paddingBottom: 8, borderBottom: '1.5px solid #e5e7eb' }}>
+    <section id={id} style={{ marginBottom: 30, scrollMarginTop: 20 }}>
+      <h2 style={{ fontSize: 16.5, fontWeight: 800, color: '#166534', margin: '0 0 12px', paddingBottom: 8, borderBottom: '1.5px solid #e5e7eb' }}>
         {title}
       </h2>
       {children}
@@ -59,15 +59,33 @@ export function Section({ id, title, children }: { id: string; title: string; ch
   )
 }
 
-export function Toc({ items }: { items: { id: string; label: string }[] }) {
+// Sous-section numérotée (1.1, 1.2...) à l'intérieur d'une Section — pour les
+// sujets qui comptent plusieurs points distincts plutôt qu'une simple liste.
+export function SubSection({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
+  return (
+    <div id={id} style={{ marginBottom: 16, scrollMarginTop: 20 }}>
+      <h3 style={{ fontSize: 14, fontWeight: 700, color: '#1f2937', margin: '0 0 6px' }}>{title}</h3>
+      {children}
+    </div>
+  )
+}
+
+// Les labels du sommaire portent déjà leur numéro ("1. Objet...", "1.1
+// Définition...") — une liste à puces simple évite la double numérotation
+// qu'un <ol> ajouterait par-dessus.
+export function Toc({ items }: { items: { id: string; label: string; sub?: boolean }[] }) {
   return (
     <nav style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 12, padding: '16px 20px', marginBottom: 32 }}>
       <div style={{ fontSize: 12, fontWeight: 800, color: '#166534', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 10 }}>Sommaire</div>
-      <ol style={{ margin: 0, padding: '0 0 0 18px', fontSize: 13.5, lineHeight: 1.9 }}>
+      <ul style={{ listStyle: 'none', margin: 0, padding: 0, fontSize: 13.5, lineHeight: 1.9 }}>
         {items.map(it => (
-          <li key={it.id}><a href={`#${it.id}`} style={{ color: '#1f7a1f', textDecoration: 'none' }}>{it.label}</a></li>
+          <li key={it.id} style={{ paddingLeft: it.sub ? 18 : 0 }}>
+            <a href={`#${it.id}`} style={{ color: it.sub ? '#4b5563' : '#1f7a1f', fontWeight: it.sub ? 400 : 700, textDecoration: 'none', fontSize: it.sub ? 12.5 : 13.5 }}>
+              {it.label}
+            </a>
+          </li>
         ))}
-      </ol>
+      </ul>
     </nav>
   )
 }
