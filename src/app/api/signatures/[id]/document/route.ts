@@ -24,7 +24,9 @@ export async function GET(
     return NextResponse.json({ error: 'Demande introuvable' }, { status: 404 })
   }
 
-  // Vérifier que l'utilisateur est créateur ou signataire de cette demande
+  // Vérifier que l'utilisateur est créateur, signataire de cette demande,
+  // ou admin/superadmin (accès de consultation via le journal des
+  // signatures en administration, qui couvre toutes les demandes).
   const { data: sigRow } = await admin
     .from('signataires')
     .select('profile_id')
@@ -32,7 +34,10 @@ export async function GET(
     .eq('profile_id', user.id)
     .maybeSingle()
 
-  if (demande.createur_id !== user.id && !sigRow) {
+  const { data: monProfil } = await admin.from('profiles').select('role').eq('id', user.id).single()
+  const estAdmin = ['admin', 'superadmin'].includes(monProfil?.role ?? '')
+
+  if (demande.createur_id !== user.id && !sigRow && !estAdmin) {
     return NextResponse.json({ error: 'accès refusé' }, { status: 403 })
   }
 

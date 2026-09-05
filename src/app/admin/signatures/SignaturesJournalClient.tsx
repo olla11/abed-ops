@@ -1,6 +1,6 @@
 'use client'
 import { useMemo, useState } from 'react'
-import { FileText, CheckCircle2, Clock, XCircle, Eye } from 'lucide-react'
+import { FileText, CheckCircle2, Clock, XCircle, Eye, Download } from 'lucide-react'
 import Pagination, { paginate } from '@/components/Pagination'
 
 type Signataire = {
@@ -53,6 +53,22 @@ export default function SignaturesJournalClient({ demandes }: { demandes: Demand
   const [filterStatut, setFilterStatut] = useState('')
   const [page, setPage] = useState(1)
   const [selected, setSelected] = useState<Demande | null>(null)
+  const [downloadingId, setDownloadingId] = useState<string | null>(null)
+  const [downloadErr, setDownloadErr] = useState<string | null>(null)
+
+  async function telecharger(demandeId: string) {
+    setDownloadingId(demandeId); setDownloadErr(null)
+    try {
+      const res = await fetch(`/api/signatures/${demandeId}/document`)
+      const d = await res.json()
+      if (!res.ok || !d.url) { setDownloadErr(d.error ?? 'Document introuvable pour cette demande.'); return }
+      window.open(d.url, '_blank')
+    } catch {
+      setDownloadErr('Erreur réseau — réessayez.')
+    } finally {
+      setDownloadingId(null)
+    }
+  }
 
   const filtered = useMemo(() => demandes.filter(d => {
     const q = search.toLowerCase()
@@ -118,7 +134,7 @@ export default function SignaturesJournalClient({ demandes }: { demandes: Demand
                     </td>
                     <td style={{ padding: '10px 12px', fontSize: 12, color: '#6b7280', whiteSpace: 'nowrap' }}>{nbSignes}/{signataires.length} signé{nbSignes > 1 ? 's' : ''}</td>
                     <td style={{ padding: '10px 12px' }}>
-                      <button onClick={() => setSelected(d)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', background: 'white', border: '1px solid var(--abed-border)', color: '#374151' }}>
+                      <button onClick={() => { setSelected(d); setDownloadErr(null) }} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', background: 'white', border: '1px solid var(--abed-border)', color: '#374151' }}>
                         <Eye size={13} /> Détail
                       </button>
                     </td>
@@ -142,8 +158,16 @@ export default function SignaturesJournalClient({ demandes }: { demandes: Demand
             onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 6 }}>
               <FileText size={18} color="var(--abed-green)" style={{ flexShrink: 0, marginTop: 2 }} />
-              <h3 style={{ margin: 0, fontSize: 16 }}>{selected.titre}</h3>
+              <h3 style={{ margin: 0, fontSize: 16, flex: 1 }}>{selected.titre}</h3>
+              <button
+                onClick={() => telecharger(selected.id)}
+                disabled={downloadingId === selected.id}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', background: 'var(--abed-green)', color: 'white', border: 'none', flexShrink: 0, opacity: downloadingId === selected.id ? .7 : 1 }}
+              >
+                <Download size={13} /> {downloadingId === selected.id ? 'Chargement...' : 'Télécharger'}
+              </button>
             </div>
+            {downloadErr && <p style={{ color: '#dc2626', fontSize: 12.5, margin: '0 0 10px' }}>{downloadErr}</p>}
             {selected.description && <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 14px' }}>{selected.description}</p>}
 
             <div style={{ fontSize: 13, color: '#374151', marginBottom: 18, background: '#f9fafb', borderRadius: 8, padding: '10px 14px' }}>
