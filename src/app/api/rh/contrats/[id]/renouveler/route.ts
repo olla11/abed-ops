@@ -16,7 +16,7 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
   if (!(estRH(me?.role) || me?.role === 'admin')) return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
 
   const body = await req.json()
-  const { type_contrat, date_debut, poste, direction, date_fin, salaire_brut, objet, articles, commentaires_rh, source_financement, categorie_document } = body
+  const { type_contrat, date_debut, poste, direction, date_fin, salaire_brut, objet, articles, commentaires_rh, source_financement, categorie_document, contrat_parent_id } = body
   if (!type_contrat || !date_debut) {
     return NextResponse.json({ error: 'Type et date de début sont obligatoires.' }, { status: 400 })
   }
@@ -46,7 +46,12 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
     // prime — sinon un stagiaire promu CDI restait coincé en "Offre de
     // stage" côté document malgré le nouveau type sélectionné.
     categorie_document: categorie_document || ancien.categorie_document || 'Contrat',
-    contrat_parent_id: null,
+    // Renseigné par le client uniquement en mode "Avenant" (Contrat/Convention) —
+    // rattache le nouveau document au contrat qu'il modifie. Pas de contrôle
+    // "parent actif" ici comme pour la création classique d'un avenant : le
+    // but même de ce renouvellement est de couvrir un contrat déjà expiré ou
+    // sur le point de l'être.
+    contrat_parent_id: contrat_parent_id || null,
     renouvele_depuis: ancien.id,
     objet: objet ?? ancien.objet,
     articles: articles ?? ancien.articles ?? [],

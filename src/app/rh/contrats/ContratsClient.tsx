@@ -81,8 +81,17 @@ function typesPourCategorie(cat: string): string[] {
   if (cat === 'Contrat') return TYPES_CONTRAT
   return TYPES
 }
-const CATEGORIES = ['Offre', 'Contrat', 'Convention', 'Avenant']
+// Avenant n'est plus proposé comme catégorie de création directe : il ne se
+// crée désormais que via "Renouveler" sur un Contrat ou une Convention
+// existants (voir avenantApplicable), pas comme un document autonome.
+const CATEGORIES = ['Offre', 'Contrat', 'Convention']
 const SOURCES_FINANCEMENT = ['Expertise France (CLEE-2i)', 'Prometiers', 'ABED Directe', 'Réserve', 'Autre']
+
+// L'avenant modifie un Contrat ou une Convention existants — il n'a pas de
+// sens pour une Offre (qui n'est pas encore un engagement en cours).
+function avenantApplicable(categorieDocument: string | null | undefined): boolean {
+  return categorieDocument === 'Convention' || categorieDocument === 'Contrat'
+}
 
 // Renouvelable : déjà expiré/résilié, OU encore actif mais dont la fin
 // approche (≤30 jours) — pas la peine d'attendre l'expiration effective pour
@@ -327,11 +336,16 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
       const iso = lendemain.toISOString().split('T')[0]
       nouveauDebut = iso > today ? iso : today
     }
+    // Mode par défaut : "Avenant" pour un Contrat/Convention (modifie le
+    // document existant, lui reste rattaché via contrat_parent_id), sinon
+    // renouvellement simple classique (nouveau document indépendant).
+    const enAvenant = avenantApplicable(c.categorie_document)
     setForm({
-      categorie_document: c.categorie_document ?? 'Contrat', type_contrat: c.type_contrat,
+      categorie_document: enAvenant ? 'Avenant' : (c.categorie_document ?? 'Contrat'), type_contrat: c.type_contrat,
       poste: c.poste ?? '', direction: c.direction ?? '', date_debut: nouveauDebut, date_fin: '',
       salaire_brut: c.salaire_brut ?? '', objet: c.objet ?? '', commentaires_rh: '',
       source_financement: (c as any).source_financement ?? '',
+      contrat_parent_id: enAvenant ? c.id : '',
     })
     setArticles(Array.isArray(c.articles) ? c.articles : [])
     setDraftRestoredAt(null)
@@ -354,14 +368,16 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
       // "par défaut" présumée.
       setForm((f: any) => ({
         ...f,
-        type_contrat: '', poste: '', salaire_brut: '',
+        type_contrat: '', poste: '', salaire_brut: '', contrat_parent_id: '',
         commentaires_rh: f.commentaires_rh || 'Renouvellement avec promotion',
       }))
     } else {
+      const enAvenant = avenantApplicable(renewTarget.categorie_document)
       setForm((f: any) => ({
-        ...f, categorie_document: renewTarget.categorie_document ?? 'Contrat',
+        ...f, categorie_document: enAvenant ? 'Avenant' : (renewTarget.categorie_document ?? 'Contrat'),
         type_contrat: renewTarget.type_contrat, poste: renewTarget.poste ?? '',
         salaire_brut: renewTarget.salaire_brut ?? '',
+        contrat_parent_id: enAvenant ? renewTarget.id : '',
         commentaires_rh: f.commentaires_rh === 'Renouvellement avec promotion' ? '' : f.commentaires_rh,
       }))
     }
@@ -1028,9 +1044,9 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
             <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Type de renouvellement</label>
             <div style={{ display: 'flex', gap: 8 }}>
               {([
-                { key: 'simple', label: 'Renouvellement simple' },
-                { key: 'promotion', label: 'Renouvellement & Promotion' },
-              ] as const).map(m => (
+                { key: 'simple' as const, label: avenantApplicable(renewTarget.categorie_document) ? 'Avenant' : 'Renouvellement simple' },
+                { key: 'promotion' as const, label: 'Renouvellement & Promotion' },
+              ]).map(m => (
                 <button key={m.key} type="button" onClick={() => setModeRenouvellement(m.key)}
                   style={{ flex: 1, padding: '7px 0', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontWeight: 700, border: '2px solid', borderColor: renewMode === m.key ? 'var(--abed-green)' : 'var(--abed-border)', background: renewMode === m.key ? '#f0fdf4' : 'white', color: renewMode === m.key ? 'var(--abed-green)' : '#374151' }}>
                   {m.label}
@@ -1040,7 +1056,9 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
             <p style={{ fontSize: 11, color: 'var(--abed-muted)', margin: '6px 0 0' }}>
               {renewMode === 'promotion'
                 ? 'Le type de contrat, le poste et le salaire ont été réinitialisés. Choisissez la catégorie voulue ci-dessous (Offre, Contrat, Convention...) : les types disponibles s’adaptent à ce choix.'
-                : 'Le type, le poste et le salaire de l’ancien contrat sont repris tels quels — modifiables si besoin.'}
+                : avenantApplicable(renewTarget.categorie_document)
+                  ? 'Le type, le poste et le salaire de l’ancien contrat sont repris tels quels — modifiables si besoin. Le document créé sera un Avenant, rattaché à ce Contrat/Convention.'
+                  : 'Le type, le poste et le salaire de l’ancien contrat sont repris tels quels — modifiables si besoin.'}
             </p>
           </div>
           {formFields(false, renewMode === 'promotion')}
