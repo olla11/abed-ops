@@ -266,6 +266,20 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
     return null
   }
 
+  // Le taux horaire prestataire n'est pas un champ éditable : c'est
+  // toujours celui, actuel, défini par la CAF (voir tauxPourType) — jamais
+  // celui figé sur le contrat au moment de sa création. Sans cet effet,
+  // l'auto-remplissage ne se déclenchait qu'au changement manuel du menu
+  // Type ; ouvrir un contrat existant (type déjà positionné) ou charger
+  // /api/config/taux après l'ouverture du panneau laissait le champ bloqué
+  // sur "Chargement du taux en vigueur..." (ou sur l'ancien salaire_brut
+  // importé) sans jamais se mettre à jour.
+  useEffect(() => {
+    const taux = tauxPourType(form.type_contrat, tauxCaf)
+    if (taux != null) setForm((f: any) => ({ ...f, salaire_brut: taux }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tauxCaf, form.type_contrat])
+
   function toggleMenu(id: string, e: React.MouseEvent<HTMLButtonElement>) {
     if (menuOpenId === id) { setMenuOpenId(null); return }
     const rect = e.currentTarget.getBoundingClientRect()
