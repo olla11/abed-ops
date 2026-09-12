@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
-import { getCachedProfile, getCachedContrats } from '@/lib/cache'
+import { getCachedContrats } from '@/lib/cache'
 import { estRH } from '@/lib/roles'
 import PaieClient from './PaieClient'
 
@@ -21,7 +21,10 @@ export default async function PaiePage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const me = await getCachedProfile(user.id)
+  // Contrôle d'accès sur une lecture fraîche, jamais sur getCachedProfile
+  // (jusqu'à 5 min de retard sur un changement de rôle) — un droit d'accès
+  // ne doit jamais reposer sur une valeur qui peut être périmée.
+  const { data: me } = await supabase.from('profiles').select('role').eq('id', user.id).single()
   if (!(estRH(me?.role) || ['admin', 'superadmin'].includes(me?.role ?? ''))) redirect('/rh/conges')
 
   const [contrats, { data: params }] = await Promise.all([
