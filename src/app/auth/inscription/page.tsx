@@ -55,13 +55,25 @@ export default function InscriptionPage() {
     telephone: '', fonction: '', adresse: '',
     date_naissance: '', lieu_naissance: '', nationalite: 'Béninoise',
     ifu: '', grade_indice: '',
+    date_prise_service: '', citation_favorite: '', biographie: '', lien_professionnel: '',
+    consentement_communication: '',
   })
+  const [photo, setPhoto] = useState<File | null>(null)
+  const [pieceIdentite, setPieceIdentite] = useState<File | null>(null)
   const [showPwd, setShowPwd] = useState(false)
   const [pwdFocused, setPwdFocused] = useState(false)
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
   const [err, setErr] = useState('')
   const [touched, setTouched] = useState<Record<string, boolean>>({})
+
+  const MAX_FILE_SIZE = 10 * 1024 * 1024
+
+  function pickFile(e: React.ChangeEvent<HTMLInputElement>, setter: (f: File | null) => void) {
+    const f = e.target.files?.[0] ?? null
+    if (f && f.size > MAX_FILE_SIZE) { setErr('Fichier trop volumineux (max. 10 MB).'); e.target.value = ''; setter(null); return }
+    setter(f)
+  }
 
   function set(k: keyof typeof form, v: string) {
     setForm(f => ({ ...f, [k]: v }))
@@ -90,15 +102,18 @@ export default function InscriptionPage() {
     if (!emailValid) { setErr('Adresse email invalide.'); return }
     if (!phoneValid) { setErr(`Numéro invalide pour ${dialCode} — format attendu: ${selectedCountry.hint}`); return }
     if (!pwdValid)   { setErr('Le mot de passe ne respecte pas les critères.'); return }
+    if (!form.consentement_communication) { setErr('Merci de répondre à la question sur l\'autorisation de communication.'); return }
+    if (!photo) { setErr('La photo professionnelle est obligatoire.'); return }
+    if (!pieceIdentite) { setErr('La pièce d\'identité est obligatoire.'); return }
     // Build full phone number
     const fullPhone = `${dialCode} ${localPhone.trim()}`
     setForm(f => ({ ...f, telephone: fullPhone }))
     setLoading(true); setErr('')
-    const res = await fetch('/api/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...form, telephone: `${dialCode} ${localPhone.trim()}` }),
-    })
+    const body = new FormData()
+    Object.entries({ ...form, telephone: fullPhone }).forEach(([k, v]) => body.append(k, v))
+    body.append('photo', photo)
+    body.append('piece_identite', pieceIdentite)
+    const res = await fetch('/api/auth/register', { method: 'POST', body })
     const data = await res.json()
     setLoading(false)
     if (data.ok) { setDone(true) }
@@ -214,7 +229,7 @@ export default function InscriptionPage() {
           {/* Téléphone + Fonction */}
           <div className="insc-grid-2">
             <div>
-              <label style={lbl}>Téléphone <span style={{ color: '#ef4444' }}>*</span></label>
+              <label style={lbl}>Numéro WhatsApp <span style={{ color: '#ef4444' }}>*</span></label>
               <div style={{ display: 'flex', gap: 6 }}>
                 <select
                   value={dialCode}
@@ -280,6 +295,58 @@ export default function InscriptionPage() {
             <div>
               <label style={lbl}>Grade / Indice</label>
               <input style={inp(false)} value={form.grade_indice} onChange={e => set('grade_indice', e.target.value)} placeholder="Facultatif" />
+            </div>
+          </div>
+
+          {/* Date de prise de service */}
+          <div>
+            <label style={lbl}>Date de prise de service <span style={{ color: '#ef4444' }}>*</span></label>
+            <input style={inp(false)} type="date" value={form.date_prise_service} onChange={e => set('date_prise_service', e.target.value)} required />
+          </div>
+
+          {/* Citation favorite */}
+          <div>
+            <label style={lbl}>Votre citation favorite</label>
+            <input style={inp(false)} value={form.citation_favorite} onChange={e => set('citation_favorite', e.target.value)} placeholder="Facultatif" />
+          </div>
+
+          {/* Biographie */}
+          <div>
+            <label style={lbl}>Rédigez une courte biographie (3 à 5 lignes) <span style={{ color: '#ef4444' }}>*</span></label>
+            <textarea style={{ ...inp(false), resize: 'vertical', fontFamily: 'inherit' }} rows={4} value={form.biographie} onChange={e => set('biographie', e.target.value)} required />
+          </div>
+
+          {/* Lien profil professionnel */}
+          <div>
+            <label style={lbl}>Lien vers profil professionnel (LinkedIn, portfolio, etc.)</label>
+            <input style={inp(false)} value={form.lien_professionnel} onChange={e => set('lien_professionnel', e.target.value)} placeholder="Facultatif — https://..." />
+          </div>
+
+          {/* Photo professionnelle */}
+          <div>
+            <label style={lbl}>Photo professionnelle <span style={{ color: '#ef4444' }}>*</span></label>
+            <input style={inp(false)} type="file" accept="image/*" onChange={e => pickFile(e, setPhoto)} required />
+            <p style={{ fontSize: 11, color: '#9ca3af', margin: '4px 0 0' }}>1 fichier, max. 10 MB.</p>
+          </div>
+
+          {/* Pièce d'identité */}
+          <div>
+            <label style={lbl}>Pièce d&apos;identité en cours de validité <span style={{ color: '#ef4444' }}>*</span></label>
+            <input style={inp(false)} type="file" accept="image/*,application/pdf" onChange={e => pickFile(e, setPieceIdentite)} required />
+            <p style={{ fontSize: 11, color: '#9ca3af', margin: '4px 0 0' }}>1 fichier, max. 10 MB.</p>
+          </div>
+
+          {/* Consentement communication */}
+          <div>
+            <label style={lbl}>Autorisez-vous l&apos;utilisation de vos informations et de votre photo pour la communication interne et externe ? <span style={{ color: '#ef4444' }}>*</span></label>
+            <div style={{ display: 'flex', gap: 16 }}>
+              {['Oui', 'Non'].map(v => (
+                <label key={v} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#374151', cursor: 'pointer' }}>
+                  <input type="radio" name="consentement_communication" value={v} checked={form.consentement_communication === v}
+                    onChange={e => set('consentement_communication', e.target.value)} required />
+                  {v}
+                </label>
+              ))}
             </div>
           </div>
 

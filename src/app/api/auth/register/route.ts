@@ -21,18 +21,49 @@ const RegisterSchema = z.object({
   nationalite:    z.string().min(1, 'Nationalité requise').max(100),
   ifu:            z.string().max(20).optional(),
   grade_indice:   z.string().max(50).optional(),
+  date_prise_service:          z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date invalide'),
+  citation_favorite:           z.string().max(500).optional(),
+  biographie:                  z.string().min(1, 'Biographie requise').max(2000),
+  lien_professionnel:          z.string().max(500).optional(),
+  consentement_communication:  z.enum(['Oui', 'Non']),
 })
+
+const FICHIERS_AUTORISES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
+const TAILLE_MAX_FICHIER = 10 * 1024 * 1024
 
 export async function POST(req: NextRequest) {
   const limited = rateLimit(req, { limit: 5, window: 60 })
   if (limited) return limited
 
-  const rawBody = await req.json().catch(() => null)
+  const form = await req.formData().catch(() => null)
+  if (!form) return NextResponse.json({ error: 'Requête invalide' }, { status: 400 })
+
+  const rawBody = Object.fromEntries(
+    ['email', 'password', 'nom', 'prenoms', 'civilite', 'telephone', 'fonction', 'adresse',
+      'date_naissance', 'lieu_naissance', 'nationalite', 'ifu', 'grade_indice',
+      'date_prise_service', 'citation_favorite', 'biographie', 'lien_professionnel', 'consentement_communication',
+    ].map(k => [k, form.get(k)])
+  )
   const v = validate(RegisterSchema, rawBody)
   if ('error' in v) return v.error
 
+  const photo = form.get('photo') as File | null
+  const pieceIdentite = form.get('piece_identite') as File | null
+  if (!photo || !pieceIdentite) {
+    return NextResponse.json({ error: 'Photo professionnelle et pièce d\'identité obligatoires.' }, { status: 400 })
+  }
+  for (const f of [photo, pieceIdentite]) {
+    if (!FICHIERS_AUTORISES.includes(f.type)) {
+      return NextResponse.json({ error: 'Format de fichier non supporté (jpg, png, webp, pdf).' }, { status: 400 })
+    }
+    if (f.size > TAILLE_MAX_FICHIER) {
+      return NextResponse.json({ error: 'Fichier trop volumineux (max. 10 MB).' }, { status: 400 })
+    }
+  }
+
   const { email, password, nom, prenoms, civilite, telephone, fonction,
-    adresse, date_naissance, lieu_naissance, nationalite, ifu, grade_indice } = v.data
+    adresse, date_naissance, lieu_naissance, nationalite, ifu, grade_indice,
+    date_prise_service, citation_favorite, biographie, lien_professionnel, consentement_communication } = v.data
 
   const admin = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -90,11 +121,49 @@ export async function POST(req: NextRequest) {
     nationalite:     nationalite    || null,
     ifu:             ifu            || null,
     grade_indice:    grade_indice   || null,
+    date_embauche:   date_prise_service,
+    citation_favorite: citation_favorite || null,
+    biographie:      biographie,
+    lien_professionnel: lien_professionnel || null,
+    consentement_communication: consentement_communication === 'Oui',
     genre:           civiliteToGenre(civiliteFinale),
     ville:           deriveVilleFromAdresse(adresse),
     registration_status: 'pending_email',
     must_change_password: false,
   }).eq('id', userId)
+
+  // Photo professionnelle : sert d'avatar affiché dans toute l'appli (comme
+  // /api/profile/upload-avatar) ET reste jointe au dossier du personnel.
+  // Pièce d'identité : uniquement dans le dossier (bucket privé), jamais
+  // exposée comme avatar public.
+  try {
+    await admin.storage.createBucket('avatars', { public: true }).catch(() => {})
+    await admin.storage.createBucket('dossiers-personnel', { public: false }).catch(() => {})
+
+    const extPhoto = photo.name.split('.').pop()?.toLowerCase() || 'jpg'
+    const avatarPath = `${userId}/avatar.${extPhoto}`
+    const { error: avatarErr } = await admin.storage.from('avatars')
+      .upload(avatarPath, Buffer.from(await photo.arrayBuffer()), { contentType: photo.type, upsert: true })
+    if (!avatarErr) {
+      const { data: { publicUrl } } = admin.storage.from('avatars').getPublicUrl(avatarPath)
+      await admin.from('profiles').update({ avatar_url: publicUrl }).eq('id', userId)
+      await admin.from('personnel_documents').insert({
+        profile_id: userId, categorie: 'photo', nom_fichier: photo.name, storage_path: avatarPath, uploaded_by: userId,
+      })
+    }
+
+    const safeName = pieceIdentite.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+    const idPath = `${userId}/${Date.now()}_${safeName}`
+    const { error: idErr } = await admin.storage.from('dossiers-personnel')
+      .upload(idPath, Buffer.from(await pieceIdentite.arrayBuffer()), { contentType: pieceIdentite.type, upsert: false })
+    if (!idErr) {
+      await admin.from('personnel_documents').insert({
+        profile_id: userId, categorie: 'piece_identite', nom_fichier: pieceIdentite.name, storage_path: idPath, uploaded_by: userId,
+      })
+    }
+  } catch (e) {
+    console.error('[register] upload documents error:', e)
+  }
 
   // Generate our own HMAC-signed verification token — valid 7 days, immune to scanner consumption
   const token = signVerifyToken(userId, email)
