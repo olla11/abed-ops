@@ -364,13 +364,15 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
     if (!renewTarget) return
     if (mode === 'promotion') {
       setGradeChoisi(''); setEchelonChoisi('')
-      // La catégorie n'est jamais forcée automatiquement — le sélecteur de
-      // catégorie ci-dessous (maintenant visible en mode promotion) reste le
-      // seul endroit qui la détermine : ce que la RH y choisit réellement
-      // est ce qui est enregistré, sans bascule silencieuse vers une valeur
-      // "par défaut" présumée.
+      // La catégorie doit être une valeur choisissable en promotion (Contrat
+      // ou Convention, jamais Offre ni Avenant) dès l'entrée dans ce mode,
+      // sinon le bouton de catégorie n'apparaît pas sélectionné et la liste
+      // des types reste la liste complète non filtrée (typesPourCategorie
+      // ne reconnaît que 'Contrat'/'Convention').
+      const categorieParDefaut = renewTarget.categorie_document === 'Convention' ? 'Convention' : 'Contrat'
       setForm((f: any) => ({
         ...f,
+        categorie_document: categorieParDefaut,
         type_contrat: '', poste: '', salaire_brut: '', contrat_parent_id: '',
         commentaires_rh: f.commentaires_rh || 'Renouvellement avec promotion',
       }))
@@ -549,7 +551,12 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
     return templateActif?.champs.some(c => c.requis && !(champVals[c.cle] ?? '').trim()) ?? false
   }
 
-  const formFields = (isNew: boolean, allowCategoryChange = false) => (
+  const formFields = (isNew: boolean, allowCategoryChange = false) => {
+    // Mode "Avenant" du renouvellement : le type est celui du document
+    // d'origine et ne doit pas pouvoir être changé (l'avenant modifie le
+    // même contrat, il n'en crée pas un nouveau d'un autre type).
+    const enAvenantRenewal = !isNew && !!renewTarget && !allowCategoryChange
+    return (
     <>
       {isNew && (
         <div style={{ marginBottom: 12 }}>
@@ -624,14 +631,23 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
       )}
       <div style={{ marginBottom: 12 }}>
         <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Type *</label>
-        <select value={form.type_contrat ?? ''} onChange={e => {
-          const val = e.target.value
-          const taux = tauxPourType(val, tauxCaf)
-          setForm((f: any) => ({ ...f, type_contrat: val, salaire_brut: taux != null ? taux : f.salaire_brut }))
-        }} style={inputStyle}>
-          <option value="">— Choisir —</option>
-          {typesPourCategorie(categorie).map(o => <option key={o} value={o}>{o}</option>)}
-        </select>
+        {enAvenantRenewal ? (
+          <>
+            <input value={form.type_contrat ?? ''} disabled style={{ ...inputStyle, background: '#f3f4f6', color: '#6b7280' }} />
+            <p style={{ fontSize: 11, color: 'var(--abed-muted)', margin: '4px 0 0' }}>
+              Le type ne peut pas être changé pour un avenant — il reste celui du document d&apos;origine.
+            </p>
+          </>
+        ) : (
+          <select value={form.type_contrat ?? ''} onChange={e => {
+            const val = e.target.value
+            const taux = tauxPourType(val, tauxCaf)
+            setForm((f: any) => ({ ...f, type_contrat: val, salaire_brut: taux != null ? taux : f.salaire_brut }))
+          }} style={inputStyle}>
+            <option value="">— Choisir —</option>
+            {typesPourCategorie(categorie).map(o => <option key={o} value={o}>{o}</option>)}
+          </select>
+        )}
       </div>
 
       {templateActif && (
@@ -756,7 +772,8 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
       </div>
       <ArticlesEditor articles={articles} onChange={setArticles} />
     </>
-  )
+    )
+  }
 
   return (
     <div className="page-container" onClick={(e) => { if (!(e.target as HTMLElement).closest('[data-delete-btn]')) Object.keys(deleteStep).forEach(id => resetDeleteStep(id)) }}>
