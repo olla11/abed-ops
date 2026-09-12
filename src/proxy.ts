@@ -32,7 +32,19 @@ export async function proxy(req: NextRequest, event: NextFetchEvent) {
   // au prix de détecter un compte désactivé/bloqué avec un léger délai
   // (jusqu'à expiration du jeton) plutôt qu'instantanément. Choix assumé
   // pour la réactivité de l'application.
-  const { data: { session } } = await supabase.auth.getSession()
+  //
+  // Si le jeton de rafraîchissement stocké est invalide/périmé (session
+  // révoquée, cookie corrompu...), getSession() lève une AuthApiError —
+  // sans ce filet, ça plantait cette fonction pour TOUTE requête de
+  // l'utilisateur concerné (y compris /login), le bloquant derrière une
+  // page d'erreur générique sans jamais pouvoir se reconnecter.
+  let session = null
+  try {
+    const result = await supabase.auth.getSession()
+    session = result.data.session
+  } catch {
+    session = null
+  }
   const user = session?.user ?? null
   const path = req.nextUrl.pathname
   const isPublic =
