@@ -6,7 +6,11 @@ async function checkAcces(supabase: Awaited<ReturnType<typeof createClient>>) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { ok: false as const, status: 401, error: 'Non autorisé' }
   const { data: me } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  if (!(estRH(me?.role) || me?.role === 'admin')) return { ok: false as const, status: 403, error: 'Accès refusé' }
+  // Doit rester aligné avec l'accès des pages /rh/contrats et
+  // /rh/contrats/templates (estRH || admin/superadmin) — sinon un superadmin
+  // qui y accède se voit refuser la liste des modèles sans le moindre
+  // message, et "Nouveau document" ne propose jamais de modèle.
+  if (!(estRH(me?.role) || ['admin', 'superadmin'].includes(me?.role ?? ''))) return { ok: false as const, status: 403, error: 'Accès refusé' }
   return { ok: true as const, userId: user.id }
 }
 

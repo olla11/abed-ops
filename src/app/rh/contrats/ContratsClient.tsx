@@ -239,7 +239,10 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
     fetch('/api/config/listes?type=directions').then(r => r.json()).then(j => setDirections(j.data ?? [])).catch(() => {})
   }, [])
   useEffect(() => {
-    fetch('/api/rh/contrat-templates').then(r => r.json()).then(j => setTemplates(j.templates ?? [])).catch(() => {})
+    fetch('/api/rh/contrat-templates').then(r => r.json()).then(j => {
+      if (j.templates) setTemplates(j.templates)
+      else console.error('[contrats] échec chargement des modèles :', j.error)
+    }).catch(() => {})
   }, [])
 
   // Lien "Renouveler" depuis l'alerte du tableau de bord RH
