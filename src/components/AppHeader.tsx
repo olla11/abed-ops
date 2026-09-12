@@ -37,14 +37,12 @@ type Props = {
 // premier sous-menu du menu "AAF" (voir aafTabs ci-dessous) plutôt que
 // dupliquée aux deux endroits.
 const OVERVIEW_ROLES = ['de','dp','caf','admin','administrateur','superadmin']
-const RAPPORT_TYPES = ['benevole','stagiaire_n1','stagiaire_n2','cdd','cdi']
 
 export default function AppHeader({ userName, userRole, userTitre, typeEmploi, showAdmin, showRH, showAAF, showCAF, showDE, showBD, forceRHActive, avatarUrl }: Props) {
   const pathname = usePathname()
   const locale = useLocale()
   const t = useTranslations('nav')
   const showOverview = OVERVIEW_ROLES.includes(userRole ?? '')
-  const estRapport = RAPPORT_TYPES.includes(typeEmploi ?? '')
   // Repli calculé directement depuis le rôle effectif si l'appelant n'a pas
   // fourni la prop explicitement — évite la classe de bug déjà rencontrée
   // avec showAAF (des pages qui oubliaient de la passer perdaient le menu).
@@ -65,44 +63,16 @@ export default function AppHeader({ userName, userRole, userTitre, typeEmploi, s
   // titre business_developer partage l'AccessRole 'manager' avec d'autres
   // postes) — le repli se fait donc sur le TITRE, pas sur userRole.
   const effectiveShowBD = showBD ?? titreEstBD(userTitre)
-  const [dossierOpen, setDossierOpen] = useState(false)
-  // Quel sous-groupe (par son label) affiche son survol flottant — plusieurs
-  // groupes peuvent coexister dans "Mon espace" (Doc & Sign, Contrats & Évaluations...).
-  const [openGroup, setOpenGroup] = useState<string | null>(null)
   const [cafOpen, setCafOpen] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const mobileRef = useRef<HTMLDivElement>(null)
 
-  // "Documents" et "Signature directe" étaient un seul lien ambigu (deux
-  // pages différentes derrière le même mot) — désormais un sous-menu "Doc &
-  // Sign" avec une entrée par page, chacune n'affichant plus que la sienne.
-  const docSignTabs = [
-    { href: '/signatures', label: 'Signature directe', match: ['/signatures'] },
-    { href: '/documents', label: 'Documents', match: ['/documents'] },
-  ]
-
-  // "Contrats" était un lien isolé — /evaluations existe mais n'était relié
-  // à aucun menu (seulement atteignable via le lien d'une notification), ce
-  // qui le rendait invisible. Un contrat/convention et l'évaluation qui en
-  // découle en fin de période sont le même dossier RH pour la personne
-  // évaluée — d'où un sous-menu commun plutôt que deux entrées séparées.
-  const contratsEvalTabs = [
-    { href: '/mes-contrats', label: t('contracts'), match: ['/mes-contrats'] },
-    { href: '/evaluations', label: t('evaluations'), match: ['/evaluations'] },
-  ]
-
-  type SubTab =
-    | { kind: 'link'; href: string; label: string; match: string[] }
-    | { kind: 'group'; label: string; match: string[]; children: typeof docSignTabs }
-
-  const subTabs: SubTab[] = [
-    { kind: 'link', href: '/dashboard', label: t('missions'), match: ['/dashboard', '/missions'] },
-    { kind: 'link', href: '/timesheets', label: estRapport ? t('monthlyReport') : t('timesheets'), match: ['/timesheets'] },
-    { kind: 'link', href: '/demandes', label: t('payments'), match: ['/demandes'] },
-    { kind: 'link', href: '/conges', label: t('leaves'), match: ['/conges'] },
-    { kind: 'group', label: 'Doc & Sign', match: ['/documents', '/signatures'], children: docSignTabs },
-    { kind: 'group', label: t('contractsGroup'), match: ['/mes-contrats', '/evaluations'], children: contratsEvalTabs },
-  ]
+  // "Mon espace" n'est plus un menu déroulant : chacune de ses pages affiche
+  // désormais une barre latérale permanente (voir MonEspaceNav), qui liste
+  // ces mêmes destinations (dont "Doc & Sign" et "Contrats & Évaluations",
+  // autrefois des sous-menus en survol). Ici, un simple lien vers /dashboard,
+  // actif dès qu'on est sur l'une de ces pages.
+  const MON_ESPACE_PATHS = ['/dashboard', '/missions', '/timesheets', '/demandes', '/conges', '/documents', '/signatures', '/mes-contrats', '/evaluations']
 
   // Appellations volontairement différentes de "Mon espace" (verbe d'action en
   // tête) : ce menu sert à traiter les dossiers d'autrui, pas à consulter les
@@ -143,7 +113,7 @@ export default function AppHeader({ userName, userRole, userTitre, typeEmploi, s
   // route pour son propre dossier et pour agir en tant que CAF/RH sur celui
   // d'un tiers) — dans ce second cas, "Mon espace" ne doit pas s'allumer,
   // et le menu CAF (ou l'onglet RH pour la RH littérale) s'allume à la place.
-  const dossierActive = !forceRHActive && subTabs.some(s => isActive(s.match))
+  const dossierActive = !forceRHActive && isActive(MON_ESPACE_PATHS)
   const aafActive = effectiveShowAAF && (isActive(['/aaf']) || aafTabs.some(s => isActive(s.match)))
   const cafActive = effectiveShowCAF && (cafTabs.some(s => isActive(s.match)) || forceRHActive)
   const deActive = effectiveShowDE && isActive(['/de'])
@@ -188,95 +158,13 @@ export default function AppHeader({ userName, userRole, userTitre, typeEmploi, s
         {/* Onglets desktop */}
         <div className="nav-desktop" style={{ display: 'flex', alignItems: 'stretch', flex: 1, height: '100%', gap: 2 }}>
 
-          {/* Mon espace (dropdown) */}
-          <div
-            style={{ position: 'relative', display: 'flex', alignItems: 'stretch' }}
-            onMouseEnter={() => setDossierOpen(true)}
-            onMouseLeave={() => setDossierOpen(false)}
-          >
-            <button style={tabStyle(dossierActive)}>
-              {t('dossier')} <span style={{ fontSize: 9, marginLeft: 4, opacity: 0.7 }}>▼</span>
-            </button>
-            {dossierOpen && (
-              <div style={{
-                position: 'absolute', top: '100%', left: 0, zIndex: 200,
-                background: 'white', border: '1px solid var(--abed-border)',
-                borderRadius: '0 0 10px 10px', minWidth: 230,
-                boxShadow: '0 8px 24px rgba(0,0,0,.10)',
-              }}>
-                {subTabs.map(s => {
-                  const active = isActive(s.match)
-                  if (s.kind === 'group') {
-                    return (
-                      <div key={s.label}
-                        style={{ position: 'relative' }}
-                        onMouseEnter={() => setOpenGroup(s.label)}
-                        onMouseLeave={() => setOpenGroup(null)}
-                      >
-                        <div style={{
-                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                          padding: '11px 18px', fontSize: 13,
-                          fontWeight: active ? 700 : 400,
-                          color: active ? 'var(--abed-green)' : '#374151',
-                          background: active ? '#f0fdf4' : 'white',
-                          borderBottom: '1px solid #f3f4f6',
-                          cursor: 'default',
-                        }}>
-                          {s.label} <span style={{ fontSize: 9, opacity: 0.7 }}>▶</span>
-                        </div>
-                        {openGroup === s.label && (
-                          <div style={{
-                            position: 'absolute', top: 0, left: '100%', zIndex: 201,
-                            background: 'white', border: '1px solid var(--abed-border)',
-                            borderRadius: 10, minWidth: 190,
-                            boxShadow: '0 8px 24px rgba(0,0,0,.10)',
-                          }}>
-                            {s.children.map(c => {
-                              const childActive = isActive(c.match)
-                              return (
-                                <Link key={c.href} href={c.href}
-                                  style={{
-                                    display: 'block', padding: '11px 18px', fontSize: 13,
-                                    fontWeight: childActive ? 700 : 400,
-                                    color: childActive ? 'var(--abed-green)' : '#374151',
-                                    background: childActive ? '#f0fdf4' : 'white',
-                                    textDecoration: 'none',
-                                    borderBottom: '1px solid #f3f4f6',
-                                    transition: 'background .1s',
-                                  }}
-                                  onMouseEnter={e => { if (!childActive) (e.currentTarget as HTMLElement).style.background = '#f9fafb' }}
-                                  onMouseLeave={e => { if (!childActive) (e.currentTarget as HTMLElement).style.background = 'white' }}
-                                >
-                                  {c.label}
-                                </Link>
-                              )
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  }
-                  return (
-                    <Link key={s.href} href={s.href}
-                      style={{
-                        display: 'block', padding: '11px 18px', fontSize: 13,
-                        fontWeight: active ? 700 : 400,
-                        color: active ? 'var(--abed-green)' : '#374151',
-                        background: active ? '#f0fdf4' : 'white',
-                        textDecoration: 'none',
-                        borderBottom: '1px solid #f3f4f6',
-                        transition: 'background .1s',
-                      }}
-                      onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = '#f9fafb' }}
-                      onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'white' }}
-                    >
-                      {s.label}
-                    </Link>
-                  )
-                })}
-              </div>
-            )}
-          </div>
+          {/* Mon espace — lien simple ; le sous-menu (dont Doc & Sign et
+              Contrats & Évaluations) vit désormais dans une barre latérale
+              permanente sur chacune de ces pages (voir MonEspaceNav), plutôt
+              que dans un menu déroulant du haut. */}
+          <Link href="/dashboard" style={tabStyle(dossierActive)}>
+            {t('dossier')}
+          </Link>
 
           {/* CAF — menu déroulant regroupant CAF Pro / AAF / RH (rôle CAF
               uniquement). Contrairement à l'ancien essai sur AAF, ce menu ne
@@ -384,52 +272,17 @@ export default function AppHeader({ userName, userRole, userTitre, typeEmploi, s
           background: 'white', borderBottom: '1px solid var(--abed-border)',
           boxShadow: '0 8px 24px rgba(0,0,0,.12)',
         }}>
-          {/* Mon espace */}
-          <div style={{ padding: '8px 16px 4px', fontSize: 11, fontWeight: 700, color: 'var(--abed-muted)', textTransform: 'uppercase', letterSpacing: '.05em' }}>
+          {/* Mon espace — lien simple, comme en desktop (voir plus haut). */}
+          <Link href="/dashboard" style={{
+            display: 'block', padding: '12px 24px', fontSize: 14,
+            fontWeight: dossierActive ? 700 : 400,
+            color: dossierActive ? 'var(--abed-green)' : '#374151',
+            background: dossierActive ? '#f0fdf4' : 'white',
+            textDecoration: 'none',
+            borderBottom: '1px solid #f9fafb',
+          }}>
             {t('dossier')}
-          </div>
-          {subTabs.map(s => {
-            const active = isActive(s.match)
-            if (s.kind === 'group') {
-              return (
-                <div key={s.label}>
-                  <div style={{
-                    padding: '10px 24px 4px', fontSize: 12, fontWeight: 700,
-                    color: active ? 'var(--abed-green)' : '#9ca3af',
-                  }}>
-                    {s.label}
-                  </div>
-                  {s.children.map(c => {
-                    const childActive = isActive(c.match)
-                    return (
-                      <Link key={c.href} href={c.href} style={{
-                        display: 'block', padding: '10px 24px 10px 36px', fontSize: 14,
-                        fontWeight: childActive ? 700 : 400,
-                        color: childActive ? 'var(--abed-green)' : '#374151',
-                        background: childActive ? '#f0fdf4' : 'white',
-                        textDecoration: 'none',
-                        borderBottom: '1px solid #f9fafb',
-                      }}>
-                        {c.label}
-                      </Link>
-                    )
-                  })}
-                </div>
-              )
-            }
-            return (
-              <Link key={s.href} href={s.href} style={{
-                display: 'block', padding: '12px 24px', fontSize: 14,
-                fontWeight: active ? 700 : 400,
-                color: active ? 'var(--abed-green)' : '#374151',
-                background: active ? '#f0fdf4' : 'white',
-                textDecoration: 'none',
-                borderBottom: '1px solid #f9fafb',
-              }}>
-                {s.label}
-              </Link>
-            )
-          })}
+          </Link>
 
           {/* CAF (CAF Pro / AAF / RH) ou AAF seul */}
           {effectiveShowCAF ? (

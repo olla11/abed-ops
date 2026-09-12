@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import AppHeader from '@/components/AppHeader'
+import MonEspaceNav from '@/components/MonEspaceNav'
 import RolePreviewBanner from '@/components/RolePreviewBanner'
 import ImpersonationBanner from '@/components/ImpersonationBanner'
 import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
@@ -78,38 +79,42 @@ export default async function Dashboard() {
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}
       {impersonation && <ImpersonationBanner adminNom={impersonation.adminNom} adminPrenoms={impersonation.adminPrenoms} targetNom={impersonation.targetNom} targetPrenoms={impersonation.targetPrenoms} targetRole={impersonation.targetRole} />}
       <div className="page-container">
-
-      <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: (isSignataire || showReconciliationTabs) ? 4 : 16 }}>
-          <div>
-            <h3 style={{ margin: 0 }}>Ordres de mission</h3>
-            {isSignataire && (
-              <p style={{ fontSize: 13, color: 'var(--abed-muted)', margin: '3px 0 0' }}>
-                Gérez vos missions et signez celles qui vous sont soumises.
-              </p>
-            )}
-            {showReconciliationTabs && (
-              <p style={{ fontSize: 13, color: 'var(--abed-muted)', margin: '3px 0 0' }}>
-                Gérez vos missions et validez les réconciliations qui vous sont soumises.
-              </p>
-            )}
+        <div className="section-with-sidenav">
+          <MonEspaceNav typeEmploi={profile?.type_emploi} />
+          <div className="section-content">
+            <div className="card">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: (isSignataire || showReconciliationTabs) ? 4 : 16 }}>
+                <div>
+                  <h3 style={{ margin: 0 }}>Ordres de mission</h3>
+                  {isSignataire && (
+                    <p style={{ fontSize: 13, color: 'var(--abed-muted)', margin: '3px 0 0' }}>
+                      Gérez vos missions et signez celles qui vous sont soumises.
+                    </p>
+                  )}
+                  {showReconciliationTabs && (
+                    <p style={{ fontSize: 13, color: 'var(--abed-muted)', margin: '3px 0 0' }}>
+                      Gérez vos missions et validez les réconciliations qui vous sont soumises.
+                    </p>
+                  )}
+                </div>
+                <Link href="/missions/nouveau" className="btn" style={{ fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <Plus size={16} strokeWidth={2.5} />
+                  Nouvel OM
+                </Link>
+              </div>
+              <MissionsTable
+                missions={(missions ?? []) as any}
+                isManager={isManager}
+                isSignataire={isSignataire}
+                signerMode={signerMode}
+                isAAF={showReconciliationTabs}
+                canValidateReconc={canValidateReconc}
+                canAutoriserDE={canAutoriserDE}
+                userId={user.id}
+              />
+            </div>
           </div>
-          <Link href="/missions/nouveau" className="btn" style={{ fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <Plus size={16} strokeWidth={2.5} />
-            Nouvel OM
-          </Link>
         </div>
-        <MissionsTable
-          missions={(missions ?? []) as any}
-          isManager={isManager}
-          isSignataire={isSignataire}
-          signerMode={signerMode}
-          isAAF={showReconciliationTabs}
-          canValidateReconc={canValidateReconc}
-          canAutoriserDE={canAutoriserDE}
-          userId={user.id}
-        />
-      </div>
       </div>
     </>
   )

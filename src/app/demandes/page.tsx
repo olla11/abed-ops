@@ -7,6 +7,7 @@ import ImpersonationBanner from '@/components/ImpersonationBanner'
 import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
 import { getImpersonationInfo } from '@/lib/impersonation'
 import DemandesClient from '@/components/DemandesClient'
+import MonEspaceNav from '@/components/MonEspaceNav'
 import { estRH, estAAF } from '@/lib/roles'
 
 export default async function DemandesPage() {
@@ -38,13 +39,18 @@ export default async function DemandesPage() {
       />
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}
       {impersonation && <ImpersonationBanner adminNom={impersonation.adminNom} adminPrenoms={impersonation.adminPrenoms} targetNom={impersonation.targetNom} targetPrenoms={impersonation.targetPrenoms} targetRole={impersonation.targetRole} />}
-      <div className="page-container" style={{ display: 'grid', gap: 28 }}>
-      <DemandesClient
-        role={role}
-        userId={user.id}
-        userEmail={profile?.email ?? ''}
-        userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
-      />
+      <div className="page-container">
+        <div className="section-with-sidenav">
+          <MonEspaceNav typeEmploi={profile?.type_emploi} />
+          <div className="section-content" style={{ display: 'grid', gap: 28 }}>
+            <DemandesClient
+              role={role}
+              userId={user.id}
+              userEmail={profile?.email ?? ''}
+              userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
+            />
+          </div>
+        </div>
       </div>
     </>
   )

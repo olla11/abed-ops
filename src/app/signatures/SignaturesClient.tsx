@@ -2,6 +2,7 @@
 import { useState, useRef } from 'react'
 import type { DemandeRow, ProfileOption, SignataireRow } from './page'
 import Pagination, { paginate, PAGE_SIZE } from '@/components/Pagination'
+import MonEspaceNav from '@/components/MonEspaceNav'
 
 const inputStyle: React.CSSProperties = {
   width: '100%', padding: '8px 12px', borderRadius: 8, fontSize: 14,
@@ -251,9 +252,10 @@ type Props = {
   mesCreations: DemandeRow[]
   toutesSignees: DemandeRow[]
   profiles: ProfileOption[]
+  typeEmploi?: string | null
 }
 
-export default function SignaturesClient({ userId, mesDemandesASign: initialASign, mesCreations: initialCreations, toutesSignees, profiles }: Props) {
+export default function SignaturesClient({ userId, mesDemandesASign: initialASign, mesCreations: initialCreations, toutesSignees, profiles, typeEmploi }: Props) {
   const [activeTab, setActiveTab] = useState<'asigner' | 'mesdemandes'>('asigner')
   const [demandesASign, setDemandesASign] = useState(initialASign)
   const [mesCreations, setMesCreations] = useState(initialCreations)
@@ -279,6 +281,9 @@ export default function SignaturesClient({ userId, mesDemandesASign: initialASig
 
   return (
     <div className="page-container">
+    <div className="section-with-sidenav">
+      <MonEspaceNav typeEmploi={typeEmploi} />
+      <div className="section-content">
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <h2 style={{ color: 'var(--abed-green)', fontSize: 22, margin: 0 }}>Signatures électroniques</h2>
@@ -339,6 +344,8 @@ export default function SignaturesClient({ userId, mesDemandesASign: initialASig
           )}
         </div>
       )}
+      </div>
+    </div>
     </div>
   )
 }

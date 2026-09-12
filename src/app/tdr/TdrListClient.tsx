@@ -2,9 +2,10 @@
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { FileText, Plus, Search, CheckCircle2, BarChart3 } from 'lucide-react'
+import { FileText, Plus, Search, CheckCircle2, BarChart3, PenTool, Layers, Archive } from 'lucide-react'
 import { TDR_STATUT_LABELS, STATUT_TOUR, type TdrStatut } from '@/lib/tdr'
 import Pagination, { paginate } from '@/components/Pagination'
+import SectionSideNav from '@/components/SectionSideNav'
 import type { TdrLite } from './page'
 
 const PAGE_SIZE = 10
@@ -63,10 +64,10 @@ export default function TdrListClient({ tdrs, myId, myRole }: { tdrs: TdrLite[];
   const safePage = Math.min(page, totalPages)
 
   const TABS = [
-    { key: 'mes' as const, label: 'Mes TdR', count: mesTdrs.length },
-    { key: 'signer' as const, label: 'À signer', count: aSignerTdrs.length },
-    { key: 'actifs' as const, label: 'Tous les TdR actifs', count: actifsTdrs.length },
-    { key: 'archives' as const, label: 'Archives', count: archivesTdrs.length },
+    { key: 'mes' as const, label: 'Mes TdR', count: mesTdrs.length, Icon: FileText },
+    { key: 'signer' as const, label: 'À signer', count: aSignerTdrs.length, Icon: PenTool },
+    { key: 'actifs' as const, label: 'Tous les TdR actifs', count: actifsTdrs.length, Icon: Layers },
+    { key: 'archives' as const, label: 'Archives', count: archivesTdrs.length, Icon: Archive },
   ]
 
   return (
@@ -98,76 +99,67 @@ export default function TdrListClient({ tdrs, myId, myRole }: { tdrs: TdrLite[];
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 4, margin: '20px 0', background: '#f9fafb', borderRadius: 10, padding: 4, width: 'fit-content', flexWrap: 'wrap' }}>
-        {TABS.map(t => (
-          <button key={t.key} onClick={() => changeTab(t.key)}
-            style={{
-              padding: '9px 20px', fontSize: 14, fontWeight: tab === t.key ? 700 : 500,
-              cursor: 'pointer', border: 'none', borderRadius: 8,
-              background: tab === t.key ? 'var(--abed-green)' : 'transparent',
-              color: tab === t.key ? 'white' : '#374151',
-              display: 'flex', alignItems: 'center', gap: 6,
-            }}>
-            <FileText size={16} /> {t.label}
-            {t.count > 0 && (
-              <span style={{
-                fontSize: 11, fontWeight: 800, padding: '1px 7px', borderRadius: 20,
-                background: tab === t.key ? 'rgba(255,255,255,.25)' : '#e5e7eb',
-                color: tab === t.key ? 'white' : '#6b7280',
-              }}>
-                {t.count}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
-
-      <div style={{ position: 'relative', maxWidth: 340, marginBottom: 18 }}>
-        <Search size={15} color="#9ca3af" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
-        <input
-          value={search}
-          onChange={e => changeSearch(e.target.value)}
-          placeholder="Rechercher un TdR (titre, numéro)..."
-          style={{ width: '100%', padding: '9px 12px 9px 34px', borderRadius: 8, fontSize: 14, border: '1px solid var(--abed-border)', outline: 'none', boxSizing: 'border-box' }}
+      <div className="section-with-sidenav" style={{ marginTop: 20 }}>
+        <SectionSideNav
+          items={TABS.map(t => ({
+            kind: 'button' as const,
+            key: t.key,
+            label: t.label,
+            Icon: t.Icon,
+            active: tab === t.key,
+            onClick: () => changeTab(t.key),
+            badge: t.count > 0 ? t.count : undefined,
+          }))}
         />
-      </div>
-
-      {items.length === 0 ? (
-        <div style={{ background: 'white', border: '1px solid var(--abed-border)', borderRadius: 10, padding: '48px 24px', textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>
-          <CheckCircle2 size={32} style={{ marginBottom: 10 }} />
-          <div>{search.trim() ? 'Aucun TdR ne correspond à cette recherche.' : 'Aucun TdR ici pour le moment.'}</div>
-        </div>
-      ) : (
-        <>
-          <div className="table-wrap">
-            <table style={{ minWidth: 700 }}>
-              <thead>
-                <tr>
-                  <th>N°</th>
-                  <th>Activité</th>
-                  <th>Projet</th>
-                  <th>Responsable</th>
-                  <th>Statut</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginate(items, safePage, PAGE_SIZE).map(t => (
-                  <tr key={t.id} style={{ cursor: 'pointer', opacity: t.importe_historique ? 0.55 : 1 }}
-                    title={t.importe_historique ? 'TdR importé du suivi Excel historique (non créé dans le système)' : undefined}
-                    onClick={() => router.push(`/tdr/${t.id}`)}>
-                    <td style={{ fontSize: 12, color: 'var(--abed-muted)' }}>{t.numero ?? '—'}</td>
-                    <td style={{ fontWeight: 600, whiteSpace: 'normal', overflow: 'visible', textOverflow: 'clip', minWidth: 220 }}>{t.titre_activite}</td>
-                    <td style={{ fontSize: 13 }}>{t.projet ?? '—'}</td>
-                    <td style={{ fontSize: 13 }}>{t.initiateur ? `${t.initiateur.prenoms} ${t.initiateur.nom}` : '—'}</td>
-                    <td><StatutBadge statut={t.statut} /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <div className="section-content">
+          <div style={{ position: 'relative', maxWidth: 340, marginBottom: 18 }}>
+            <Search size={15} color="#9ca3af" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
+            <input
+              value={search}
+              onChange={e => changeSearch(e.target.value)}
+              placeholder="Rechercher un TdR (titre, numéro)..."
+              style={{ width: '100%', padding: '9px 12px 9px 34px', borderRadius: 8, fontSize: 14, border: '1px solid var(--abed-border)', outline: 'none', boxSizing: 'border-box' }}
+            />
           </div>
-          <Pagination page={safePage} total={items.length} pageSize={PAGE_SIZE} onChange={setPage} />
-        </>
-      )}
+
+          {items.length === 0 ? (
+            <div style={{ background: 'white', border: '1px solid var(--abed-border)', borderRadius: 10, padding: '48px 24px', textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>
+              <CheckCircle2 size={32} style={{ marginBottom: 10 }} />
+              <div>{search.trim() ? 'Aucun TdR ne correspond à cette recherche.' : 'Aucun TdR ici pour le moment.'}</div>
+            </div>
+          ) : (
+            <>
+              <div className="table-wrap">
+                <table style={{ minWidth: 700 }}>
+                  <thead>
+                    <tr>
+                      <th>N°</th>
+                      <th>Activité</th>
+                      <th>Projet</th>
+                      <th>Responsable</th>
+                      <th>Statut</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginate(items, safePage, PAGE_SIZE).map(t => (
+                      <tr key={t.id} style={{ cursor: 'pointer', opacity: t.importe_historique ? 0.55 : 1 }}
+                        title={t.importe_historique ? 'TdR importé du suivi Excel historique (non créé dans le système)' : undefined}
+                        onClick={() => router.push(`/tdr/${t.id}`)}>
+                        <td style={{ fontSize: 12, color: 'var(--abed-muted)' }}>{t.numero ?? '—'}</td>
+                        <td style={{ fontWeight: 600, whiteSpace: 'normal', overflow: 'visible', textOverflow: 'clip', minWidth: 220 }}>{t.titre_activite}</td>
+                        <td style={{ fontSize: 13 }}>{t.projet ?? '—'}</td>
+                        <td style={{ fontSize: 13 }}>{t.initiateur ? `${t.initiateur.prenoms} ${t.initiateur.nom}` : '—'}</td>
+                        <td><StatutBadge statut={t.statut} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <Pagination page={safePage} total={items.length} pageSize={PAGE_SIZE} onChange={setPage} />
+            </>
+          )}
+        </div>
+      </div>
     </div>
   )
 }

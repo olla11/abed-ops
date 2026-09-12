@@ -42,7 +42,7 @@ export default async function DocumentsPage() {
       />
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}
       {impersonation && <ImpersonationBanner adminNom={impersonation.adminNom} adminPrenoms={impersonation.adminPrenoms} targetNom={impersonation.targetNom} targetPrenoms={impersonation.targetPrenoms} targetRole={impersonation.targetRole} />}
-      <DocumentsListClient documents={(documents ?? []) as any} myId={user.id} />
+      <DocumentsListClient documents={(documents ?? []) as any} myId={user.id} typeEmploi={profile?.type_emploi} />
     </>
   )
 }

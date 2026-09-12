@@ -1,9 +1,9 @@
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
-import Link from 'next/link'
 import AppHeader from '@/components/AppHeader'
 import EvaluationsListClient from './EvaluationsListClient'
+import MonEspaceNav from '@/components/MonEspaceNav'
 import { estRH, estAAF } from '@/lib/roles'
 
 export const dynamic = 'force-dynamic'
@@ -72,11 +72,12 @@ export default async function MesEvaluationsPage() {
         avatarUrl={profile?.avatar_url}
       />
       <div className="page-container">
-        <div style={{ marginBottom: 4 }}>
-          <Link href="/dashboard" style={{ fontSize: 13, color: 'var(--abed-muted)', textDecoration: 'none' }}>← Retour</Link>
+        <div className="section-with-sidenav">
+          <MonEspaceNav typeEmploi={(profile as any)?.type_emploi} />
+          <div className="section-content">
+            <EvaluationsListClient evaluations={(evaluations ?? []) as any} myId={user.id} myRole={role} />
+          </div>
         </div>
-
-        <EvaluationsListClient evaluations={(evaluations ?? []) as any} myId={user.id} myRole={role} />
       </div>
     </>
   )

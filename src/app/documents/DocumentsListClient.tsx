@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { FileText, Plus, Trash2 } from 'lucide-react'
+import MonEspaceNav from '@/components/MonEspaceNav'
 
 type Document = {
   id: string; titre: string; description: string | null; statut: string; created_at: string
@@ -24,7 +25,7 @@ const STATUT_COLORS: Record<string, { bg: string; color: string }> = {
   refusee: { bg: '#fef2f2', color: '#dc2626' },
 }
 
-export default function DocumentsListClient({ documents, myId }: { documents: Document[]; myId: string }) {
+export default function DocumentsListClient({ documents, myId, typeEmploi }: { documents: Document[]; myId: string; typeEmploi?: string | null }) {
   const router = useRouter()
   const [supprimantId, setSupprimantId] = useState<string | null>(null)
 
@@ -47,6 +48,9 @@ export default function DocumentsListClient({ documents, myId }: { documents: Do
 
   return (
     <div className="page-container">
+    <div className="section-with-sidenav">
+      <MonEspaceNav typeEmploi={typeEmploi} />
+      <div className="section-content">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
         <div>
           <h2 style={{ color: 'var(--abed-green)', fontSize: 22, margin: 0 }}>Documents</h2>
@@ -120,6 +124,8 @@ export default function DocumentsListClient({ documents, myId }: { documents: Do
           </table>
         </div>
       )}
+      </div>
+    </div>
     </div>
   )
 }

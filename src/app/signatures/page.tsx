@@ -146,6 +146,7 @@ export default async function SignaturesPage() {
           mesCreations={mesCreations}
           toutesSignees={toutesSignees}
           profiles={(profiles ?? []) as ProfileOption[]}
+          typeEmploi={profile?.type_emploi}
         />
     </>
   )

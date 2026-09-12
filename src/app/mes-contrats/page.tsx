@@ -55,7 +55,7 @@ export default async function MesContratsPage() {
         showAAF={estAAF(profile?.role ?? '')}
         avatarUrl={profile?.avatar_url ?? null}
       />
-      <MesContratsClient contrats={contratsAvecDemande} contratsASigner={contratsASigner} canSign={canSign} />
+      <MesContratsClient contrats={contratsAvecDemande} contratsASigner={contratsASigner} canSign={canSign} typeEmploi={profile?.type_emploi} />
     </>
   )
 }

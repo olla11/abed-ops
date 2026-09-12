@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import dynamic from 'next/dynamic'
 import { FileText, FileBarChart2, CreditCard, ClipboardList, BarChart3, CheckCircle2, ShieldCheck, Wallet, type LucideIcon } from 'lucide-react'
+import MonEspaceNav from '@/components/MonEspaceNav'
 
 const SoumissionForm = dynamic(() => import('@/components/SoumissionForm'), { ssr: false })
 const ValidationManager = dynamic(() => import('@/components/ValidationManager'), { ssr: false })
@@ -152,6 +153,9 @@ export default function TimesheetsClient({
 
   return (
     <div className="page-container">
+    <div className="section-with-sidenav">
+      <MonEspaceNav typeEmploi={typeEmploi} />
+      <div className="section-content">
       {/* En-tête */}
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 22, fontWeight: 900, color: '#111827', margin: '0 0 4px' }}>
@@ -241,6 +245,8 @@ export default function TimesheetsClient({
           {activeTab === 'validation_tech' && <ValidationManager />}
         </div>
       </div>
+      </div>
+    </div>
     </div>
   )
 }

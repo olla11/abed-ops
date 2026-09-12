@@ -55,6 +55,7 @@ export default async function MesCongesPage() {
           typesConge={typesConge}
           soldes={soldes}
           hasManager={!!profile?.manager_id}
+          typeEmploi={profile?.type_emploi}
         />
     </>
   )

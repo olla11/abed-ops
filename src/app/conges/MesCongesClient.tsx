@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import Pagination, { paginate } from '@/components/Pagination'
+import MonEspaceNav from '@/components/MonEspaceNav'
 
 type Conge = { id: string; statut: string; date_debut: string; date_fin: string; nb_jours: number | null; motif: string | null; created_at: string; type_conge: { nom: string } | null }
 type TypeConge = { id: string; nom: string; jours_annuels: number }
@@ -18,7 +19,7 @@ const inputStyle: React.CSSProperties = {
   border: '1px solid var(--abed-border)', outline: 'none', boxSizing: 'border-box',
 }
 
-export default function MesCongesClient({ conges: initial, typesConge, soldes, hasManager }: { conges: Conge[]; typesConge: TypeConge[]; soldes: Solde[]; hasManager: boolean }) {
+export default function MesCongesClient({ conges: initial, typesConge, soldes, hasManager, typeEmploi }: { conges: Conge[]; typesConge: TypeConge[]; soldes: Solde[]; hasManager: boolean; typeEmploi?: string | null }) {
   const [conges, setConges] = useState(initial)
   const [page, setPage] = useState(1)
   const [showForm, setShowForm] = useState(false)
@@ -45,6 +46,9 @@ export default function MesCongesClient({ conges: initial, typesConge, soldes, h
 
   return (
     <div className="page-container">
+    <div className="section-with-sidenav">
+      <MonEspaceNav typeEmploi={typeEmploi} />
+      <div className="section-content">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <h2 style={{ color: 'var(--abed-green)', fontSize: 22, margin: 0 }}>Mes congés</h2>
         <button onClick={() => { setShowForm(true); setErr(null) }} style={{ padding: '8px 18px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: 'var(--abed-green)', color: 'white', border: 'none' }}>
@@ -100,6 +104,8 @@ export default function MesCongesClient({ conges: initial, typesConge, soldes, h
         </table>
         <Pagination page={page} total={conges.length} onChange={setPage} />
       </div>
+      </div>
+    </div>
 
       {/* Formulaire */}
       {showForm && (

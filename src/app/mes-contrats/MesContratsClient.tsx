@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { FileEdit, Send, PenLine, Clock, CheckCircle2, PartyPopper, Undo2, FileText, FileQuestion } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import MonEspaceNav from '@/components/MonEspaceNav'
 
 type Contrat = {
   id: string
@@ -68,7 +69,7 @@ function fmtDate(d: string | null) {
   return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-export default function MesContratsClient({ contrats, contratsASigner, canSign }: { contrats: Contrat[]; contratsASigner: ContratASigner[]; canSign: boolean }) {
+export default function MesContratsClient({ contrats, contratsASigner, canSign, typeEmploi }: { contrats: Contrat[]; contratsASigner: ContratASigner[]; canSign: boolean; typeEmploi?: string | null }) {
   const [tab, setTab] = useState<'mine' | 'asigner'>('mine')
 
   // --- Onglet "Mes contrats" (en tant qu'employé) ---
@@ -158,6 +159,9 @@ export default function MesContratsClient({ contrats, contratsASigner, canSign }
 
   return (
     <div className="page-container">
+    <div className="section-with-sidenav">
+      <MonEspaceNav typeEmploi={typeEmploi} />
+      <div className="section-content">
       <div style={{ marginBottom: 24 }}>
         <Link href="/accueil" style={{ fontSize: 13, color: 'var(--abed-muted)' }}>← Accueil</Link>
         <h2 style={{ color: 'var(--abed-green)', margin: '6px 0 0' }}>Mes contrats</h2>
@@ -648,6 +652,8 @@ export default function MesContratsClient({ contrats, contratsASigner, canSign }
           </div>
         </div>
       )}
+      </div>
+    </div>
     </div>
   )
 }
