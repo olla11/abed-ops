@@ -173,7 +173,10 @@ const STYLE = `
   .page2 { page-break-before: always; }
 
   .header { display: flex; align-items: center; gap: 14px; background: linear-gradient(135deg, #4d8019, #63a521); border-radius: 12px; padding: 12px 18px; color: #fff; margin-bottom: 16px; }
-  .header img { height: 40px; width: auto; flex-shrink: 0; }
+  /* Logo forcé en blanc uni (silhouette) pour rester visible sur le fond vert
+     du bandeau — le PNG source est en couleur (vert/orange/noir), illisible
+     tel quel sur ce fond. */
+  .header img { height: 40px; width: auto; flex-shrink: 0; filter: brightness(0) invert(1); }
   .header-org { font-size: 8pt; letter-spacing: .6px; text-transform: uppercase; opacity: .92; font-weight: 700; }
   .header-title { font-size: 14pt; font-weight: 800; letter-spacing: .2px; }
   .header-meta { margin-left: auto; text-align: right; font-size: 7.5pt; opacity: .92; line-height: 1.5; }
