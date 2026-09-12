@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
+import { getImpersonationInfo } from '@/lib/impersonation'
 
 // Complète le formulaire d'inscription (ajouté après coup) : les comptes déjà
 // actifs avant cette évolution n'ont jamais renseigné ces champs. On les
@@ -35,5 +36,9 @@ export async function GET() {
   }
 
   const needsCompletion = Object.values(missing).some(Boolean)
-  return NextResponse.json({ needsCompletion, missing })
+  // Un superadmin qui teste un compte via l'usurpation doit pouvoir décliner
+  // ce popup au lieu d'être bloqué en train de remplir le dossier de
+  // quelqu'un d'autre — voir le bouton correspondant dans ProfileCompletionGate.
+  const impersonating = !!(await getImpersonationInfo())
+  return NextResponse.json({ needsCompletion, missing, impersonating })
 }

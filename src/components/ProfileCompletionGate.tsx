@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 
@@ -30,6 +30,8 @@ export default function ProfileCompletionGate() {
 
   const [checked, setChecked] = useState(false)
   const [missing, setMissing] = useState<Missing | null>(null)
+  const [impersonating, setImpersonating] = useState(false)
+  const [dismissed, setDismissed] = useState(false)
   const [dateEmbauche, setDateEmbauche] = useState('')
   const [biographie, setBiographie] = useState('')
   const [consentement, setConsentement] = useState('')
@@ -37,6 +39,7 @@ export default function ProfileCompletionGate() {
   const [pieceIdentite, setPieceIdentite] = useState<File | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [err, setErr] = useState('')
+  const etaitEnUsurpation = useRef(false)
 
   async function verifierStatut() {
     try {
@@ -49,6 +52,14 @@ export default function ProfileCompletionGate() {
       const res = await fetch('/api/profile/completion-statut')
       const d = await res.json()
       setMissing(d.needsCompletion ? d.missing : null)
+      const enUsurpation = !!d.impersonating
+      // Un "décliner" ne doit valoir que pour LA session d'usurpation en
+      // cours — repéré via une ref (pas du state, pour éviter la
+      // dépendance de closure) plutôt qu'au pathname, qui change à chaque
+      // navigation sans que l'usurpation change.
+      if (enUsurpation && !etaitEnUsurpation.current) setDismissed(false)
+      etaitEnUsurpation.current = enUsurpation
+      setImpersonating(enUsurpation)
     } catch {
       // Erreur réseau ponctuelle : pas de blocage, re-vérifié à la prochaine navigation.
     } finally {
@@ -80,7 +91,7 @@ export default function ProfileCompletionGate() {
     window.location.href = '/login'
   }
 
-  if (exclu || !checked || !missing) return null
+  if (exclu || !checked || !missing || dismissed) return null
 
   const pret =
     (!missing.dateEmbauche || !!dateEmbauche) &&
@@ -180,6 +191,11 @@ export default function ProfileCompletionGate() {
             <button onClick={seDeconnecter} style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: 12.5, cursor: 'pointer', textDecoration: 'underline' }}>
               Se déconnecter
             </button>
+            {impersonating && (
+              <button onClick={() => setDismissed(true)} style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: 12.5, cursor: 'pointer', textDecoration: 'underline' }}>
+                Ignorer (test admin)
+              </button>
+            )}
             <button
               onClick={soumettre}
               disabled={!pret || submitting}
