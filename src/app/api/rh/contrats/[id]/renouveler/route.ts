@@ -46,8 +46,8 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
     // prime — sinon un stagiaire promu CDI restait coincé en "Offre de
     // stage" côté document malgré le nouveau type sélectionné.
     categorie_document: categorie_document || ancien.categorie_document || 'Contrat',
-    // Renseigné par le client uniquement en mode "Avenant" (Contrat/Convention) —
-    // rattache le nouveau document au contrat qu'il modifie. Pas de contrôle
+    // Renseigné par le client en mode "Avenant" (universel : Offre, Contrat,
+    // Convention) — rattache le nouveau document au contrat qu'il modifie. Pas de contrôle
     // "parent actif" ici comme pour la création classique d'un avenant : le
     // but même de ce renouvellement est de couvrir un contrat déjà expiré ou
     // sur le point de l'être.

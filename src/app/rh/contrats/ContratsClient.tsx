@@ -87,16 +87,19 @@ function typesPourCategorie(cat: string): string[] {
 const CATEGORIES = ['Offre', 'Contrat', 'Convention']
 const SOURCES_FINANCEMENT = ['Expertise France (CLEE-2i)', 'Prometiers', 'ABED Directe', 'Réserve', 'Autre']
 
-// L'avenant modifie un Contrat ou une Convention existants — il n'a pas de
-// sens pour une Offre (qui n'est pas encore un engagement en cours).
+// Renouveler une Offre, un Contrat ou une Convention propose toujours un
+// Avenant en premier choix (le document créé est rattaché à l'original via
+// contrat_parent_id) — universel, quelle que soit la catégorie d'origine.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function avenantApplicable(categorieDocument: string | null | undefined): boolean {
-  return categorieDocument === 'Convention' || categorieDocument === 'Contrat'
+  return true
 }
 
 // Renouvelable : déjà expiré/résilié, OU encore actif mais dont la fin
 // approche (≤30 jours) — pas la peine d'attendre l'expiration effective pour
 // s'en occuper, sinon le bouton "Renouveler" ne sert à rien tant qu'on n'a
-// pas laissé le contrat lapser.
+// pas laissé le contrat lapser. Une Offre reste renouvelable comme les
+// autres (le renouvellement propose alors un Avenant, voir plus bas).
 function estRenouvelable(c: { statut: string; date_fin: string | null }): boolean {
   if (c.statut !== 'actif') return true
   if (!c.date_fin) return false
@@ -247,7 +250,7 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
     const idARenouveler = searchParams.get('renouveler')
     if (!idARenouveler) return
     const c = contrats.find(x => x.id === idARenouveler)
-    if (c) openRenew(c)
+    if (c && estRenouvelable(c)) openRenew(c)
     router.replace('/rh/contrats')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams])
@@ -583,7 +586,10 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
         <div style={{ marginBottom: 12 }}>
           <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Catégorie *</label>
           <div style={{ display: 'flex', gap: 8 }}>
-            {CATEGORIES.map(cat => (
+            {/* En "Renouvellement & Promotion" (allowCategoryChange sans isNew), Offre
+                n'est jamais proposée : une promotion part toujours vers un Contrat ou
+                une Convention, quelle que soit la catégorie d'origine. */}
+            {(isNew ? CATEGORIES : CATEGORIES.filter(cat => cat !== 'Offre')).map(cat => (
               <button key={cat} type="button"
                 onClick={() => setForm((f: any) => {
                   const allowedTypes = typesPourCategorie(cat)
@@ -1044,7 +1050,7 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
             <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Type de renouvellement</label>
             <div style={{ display: 'flex', gap: 8 }}>
               {([
-                { key: 'simple' as const, label: avenantApplicable(renewTarget.categorie_document) ? 'Avenant' : 'Renouvellement simple' },
+                { key: 'simple' as const, label: 'Avenant' },
                 { key: 'promotion' as const, label: 'Renouvellement & Promotion' },
               ]).map(m => (
                 <button key={m.key} type="button" onClick={() => setModeRenouvellement(m.key)}
@@ -1055,10 +1061,8 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
             </div>
             <p style={{ fontSize: 11, color: 'var(--abed-muted)', margin: '6px 0 0' }}>
               {renewMode === 'promotion'
-                ? 'Le type de contrat, le poste et le salaire ont été réinitialisés. Choisissez la catégorie voulue ci-dessous (Offre, Contrat, Convention...) : les types disponibles s’adaptent à ce choix.'
-                : avenantApplicable(renewTarget.categorie_document)
-                  ? 'Le type, le poste et le salaire de l’ancien contrat sont repris tels quels — modifiables si besoin. Le document créé sera un Avenant, rattaché à ce Contrat/Convention.'
-                  : 'Le type, le poste et le salaire de l’ancien contrat sont repris tels quels — modifiables si besoin.'}
+                ? 'Le type de contrat, le poste et le salaire ont été réinitialisés. Choisissez la catégorie voulue ci-dessous (Contrat ou Convention) : les types disponibles s’adaptent à ce choix.'
+                : 'Le type, le poste et le salaire de l’ancien contrat sont repris tels quels — modifiables si besoin. Le document créé sera un Avenant, rattaché à ce Contrat/Convention/Offre.'}
             </p>
           </div>
           {formFields(false, renewMode === 'promotion')}
