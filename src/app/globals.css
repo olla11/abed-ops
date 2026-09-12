@@ -48,6 +48,23 @@ a { color: var(--abed-blue); text-decoration: none; }
   .page-container { padding: 20px 16px; }
 }
 
+/* Section avec sous-menu latéral (Admin, RH, DE, CAF, BD, AAF) — le menu
+   (SectionSideNav) et le contenu de la page se partagent la largeur ; sous
+   700px ils s'empilent (le sous-menu repasse lui-même en rangée horizontale
+   à cette largeur, voir SectionSideNav.tsx). */
+.section-with-sidenav {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+}
+.section-with-sidenav > .section-content {
+  flex: 1;
+  min-width: 0;
+}
+@media (max-width: 700px) {
+  .section-with-sidenav { flex-direction: column; }
+}
+
 .btn {
   display: inline-flex; align-items: center; gap: 8px;
   background: var(--abed-green); color: #fff; border: none;

@@ -40,8 +40,10 @@ export default async function CAFLayout({ children }: { children: React.ReactNod
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}
       {impersonation && <ImpersonationBanner adminNom={impersonation.adminNom} adminPrenoms={impersonation.adminPrenoms} targetNom={impersonation.targetNom} targetPrenoms={impersonation.targetPrenoms} targetRole={impersonation.targetRole} />}
       <div className="page-container">
-        <CAFNav />
-        {children}
+        <div className="section-with-sidenav">
+          <CAFNav />
+          <div className="section-content">{children}</div>
+        </div>
       </div>
     </>
   )

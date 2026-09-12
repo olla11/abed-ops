@@ -39,8 +39,10 @@ export default async function RHLayout({ children }: { children: React.ReactNode
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}
       {impersonation && <ImpersonationBanner adminNom={impersonation.adminNom} adminPrenoms={impersonation.adminPrenoms} targetNom={impersonation.targetNom} targetPrenoms={impersonation.targetPrenoms} targetRole={impersonation.targetRole} />}
       <div className="page-container">
-        <RHNav role={role} />
-        {children}
+        <div className="section-with-sidenav">
+          <RHNav role={role} />
+          <div className="section-content">{children}</div>
+        </div>
       </div>
     </>
   )

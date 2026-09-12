@@ -58,8 +58,10 @@ export default async function BDLayout({ children }: { children: React.ReactNode
             </div>
           </>
         )}
-        <BDNav estEquipeBD={estEquipeBD} />
-        {children}
+        <div className="section-with-sidenav">
+          <BDNav estEquipeBD={estEquipeBD} />
+          <div className="section-content">{children}</div>
+        </div>
       </div>
     </>
   )

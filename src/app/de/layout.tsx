@@ -39,8 +39,10 @@ export default async function DELayout({ children }: { children: React.ReactNode
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}
       {impersonation && <ImpersonationBanner adminNom={impersonation.adminNom} adminPrenoms={impersonation.adminPrenoms} targetNom={impersonation.targetNom} targetPrenoms={impersonation.targetPrenoms} targetRole={impersonation.targetRole} />}
       <div className="page-container">
-        <DENav />
-        {children}
+        <div className="section-with-sidenav">
+          <DENav />
+          <div className="section-content">{children}</div>
+        </div>
       </div>
     </>
   )

@@ -38,8 +38,10 @@ export default async function AAFLayout({ children }: { children: React.ReactNod
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}
       {impersonation && <ImpersonationBanner adminNom={impersonation.adminNom} adminPrenoms={impersonation.adminPrenoms} targetNom={impersonation.targetNom} targetPrenoms={impersonation.targetPrenoms} targetRole={impersonation.targetRole} />}
       <div className="page-container">
-        <AAFNav role={role} />
-        {children}
+        <div className="section-with-sidenav">
+          <AAFNav role={role} />
+          <div className="section-content">{children}</div>
+        </div>
       </div>
     </>
   )

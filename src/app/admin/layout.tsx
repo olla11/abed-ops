@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import AppHeader from '@/components/AppHeader'
 import AdminNav from './AdminNav'
+import AdminTitleHeader from './AdminTitleHeader'
 import RolePreviewBanner from '@/components/RolePreviewBanner'
 import ImpersonationBanner from '@/components/ImpersonationBanner'
 import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
@@ -46,8 +47,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}
       {impersonation && <ImpersonationBanner adminNom={impersonation.adminNom} adminPrenoms={impersonation.adminPrenoms} targetNom={impersonation.targetNom} targetPrenoms={impersonation.targetPrenoms} targetRole={impersonation.targetRole} />}
       <div className="page-container">
-        <AdminNav role={role} pendingCount={pendingCount ?? 0} />
-        {children}
+        <AdminTitleHeader />
+        <div className="section-with-sidenav">
+          <AdminNav role={role} pendingCount={pendingCount ?? 0} />
+          <div className="section-content">{children}</div>
+        </div>
       </div>
     </>
   )
