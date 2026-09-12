@@ -5,6 +5,7 @@ import { calculerFichePaie, type TrancheITS } from '@/lib/paie'
 
 type Contrat = {
   id: string; type_contrat: string; poste: string | null; salaire_brut: number | null
+  heures_max_mois: number | null
   source_financement: string | null
   profile: { nom: string; prenoms: string } | null
 }
@@ -16,10 +17,28 @@ const card: React.CSSProperties = {
 
 const fmtFCFA = (n: number) => n.toLocaleString('fr-FR') + ' FCFA'
 
+// Pour un prestataire (direct/à crédit), salaire_brut est un taux horaire —
+// le coût mensuel réel est ce taux multiplié par le plafond d'heures/mois
+// déclaré sur le contrat (0 si non renseigné), pas le taux tel quel.
+function coutMensuel(c: Contrat): number {
+  if (c.type_contrat?.toLowerCase().includes('prestataire')) {
+    return (c.salaire_brut ?? 0) * (c.heures_max_mois ?? 0)
+  }
+  return c.salaire_brut ?? 0
+}
+
+// La CNSS (cotisation salariale) ne s'applique qu'aux contrats CDD/CDI —
+// pas aux stages, bénévolats, offres, avenants ou prestataires (indépendants
+// payés sur facture, pas de cotisation salariale employeur).
+function tauxCnssApplicable(c: Contrat, tauxCnss: number): number {
+  return (c.type_contrat === 'CDD' || c.type_contrat === 'CDI') ? tauxCnss : 0
+}
+
 export default function PaieClient({ contrats, tauxCnss, bareme }: { contrats: Contrat[]; tauxCnss: number; bareme: TrancheITS[] }) {
   const lignes = useMemo(() => contrats
-    .filter(c => (c.salaire_brut ?? 0) > 0)
-    .map(c => ({ contrat: c, fiche: calculerFichePaie(c.salaire_brut ?? 0, tauxCnss, bareme) }))
+    .map(c => ({ contrat: c, brut: coutMensuel(c) }))
+    .filter(({ brut }) => brut > 0)
+    .map(({ contrat: c, brut }) => ({ contrat: c, fiche: calculerFichePaie(brut, tauxCnssApplicable(c, tauxCnss), bareme) }))
     .sort((a, b) => (b.contrat.profile?.nom ?? '').localeCompare(a.contrat.profile?.nom ?? '')),
   [contrats, tauxCnss, bareme])
 
