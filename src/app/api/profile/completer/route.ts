@@ -55,12 +55,18 @@ export async function POST(req: NextRequest) {
       const avatarPath = `${user.id}/avatar.${ext}`
       const { error: avatarErr } = await admin.storage.from('avatars')
         .upload(avatarPath, Buffer.from(await photo.arrayBuffer()), { contentType: photo.type, upsert: true })
-      if (!avatarErr) {
-        const { data: { publicUrl } } = admin.storage.from('avatars').getPublicUrl(avatarPath)
-        await admin.from('profiles').update({ avatar_url: publicUrl }).eq('id', user.id)
-        await admin.from('personnel_documents').insert({
-          profile_id: user.id, categorie: 'photo', nom_fichier: photo.name, storage_path: avatarPath, uploaded_by: user.id,
-        })
+      if (avatarErr) {
+        console.error('[profile/completer] échec upload photo:', avatarErr)
+        return NextResponse.json({ error: "Erreur lors du dépôt de la photo." }, { status: 500 })
+      }
+      const { data: { publicUrl } } = admin.storage.from('avatars').getPublicUrl(avatarPath)
+      await admin.from('profiles').update({ avatar_url: publicUrl }).eq('id', user.id)
+      const { error: docErr } = await admin.from('personnel_documents').insert({
+        profile_id: user.id, categorie: 'photo', nom_fichier: photo.name, storage_path: avatarPath, uploaded_by: user.id,
+      })
+      if (docErr) {
+        console.error('[profile/completer] échec enregistrement photo:', docErr)
+        return NextResponse.json({ error: "Erreur lors de l'enregistrement de la photo." }, { status: 500 })
       }
     }
 
@@ -70,10 +76,16 @@ export async function POST(req: NextRequest) {
       const idPath = `${user.id}/${Date.now()}_${safeName}`
       const { error: idErr } = await admin.storage.from('dossiers-personnel')
         .upload(idPath, Buffer.from(await pieceIdentite.arrayBuffer()), { contentType: pieceIdentite.type, upsert: false })
-      if (!idErr) {
-        await admin.from('personnel_documents').insert({
-          profile_id: user.id, categorie: 'piece_identite', nom_fichier: pieceIdentite.name, storage_path: idPath, uploaded_by: user.id,
-        })
+      if (idErr) {
+        console.error('[profile/completer] échec upload pièce d\'identité:', idErr)
+        return NextResponse.json({ error: "Erreur lors du dépôt de la pièce d'identité." }, { status: 500 })
+      }
+      const { error: docErr } = await admin.from('personnel_documents').insert({
+        profile_id: user.id, categorie: 'piece_identite', nom_fichier: pieceIdentite.name, storage_path: idPath, uploaded_by: user.id,
+      })
+      if (docErr) {
+        console.error('[profile/completer] échec enregistrement pièce d\'identité:', docErr)
+        return NextResponse.json({ error: "Erreur lors de l'enregistrement de la pièce d'identité." }, { status: 500 })
       }
     }
   } catch (e) {
