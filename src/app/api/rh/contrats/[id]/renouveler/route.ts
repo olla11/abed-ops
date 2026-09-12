@@ -16,7 +16,7 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
   if (!(estRH(me?.role) || me?.role === 'admin')) return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
 
   const body = await req.json()
-  const { type_contrat, date_debut, poste, direction, date_fin, salaire_brut, objet, articles, commentaires_rh, source_financement, categorie_document, contrat_parent_id } = body
+  const { type_contrat, date_debut, poste, direction, date_fin, salaire_brut, heures_max_mois, objet, articles, commentaires_rh, source_financement, categorie_document, contrat_parent_id } = body
   if (!type_contrat || !date_debut) {
     return NextResponse.json({ error: 'Type et date de début sont obligatoires.' }, { status: 400 })
   }
@@ -41,6 +41,7 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
     direction: direction ?? ancien.direction,
     date_fin: date_fin || null,
     salaire_brut: salaire_brut ?? ancien.salaire_brut,
+    heures_max_mois: heures_max_mois ?? ancien.heures_max_mois,
     observations: null,
     // La catégorie choisie côté formulaire (mode "Renouvellement & Promotion")
     // prime — sinon un stagiaire promu CDI restait coincé en "Offre de

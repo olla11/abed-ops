@@ -4,7 +4,18 @@ import { Users, FileText, Palmtree, ClipboardEdit, BarChart3, Wallet, Scale, Ref
 import { useTranslations } from 'next-intl'
 
 type Personnel = { id: string; nom: string; prenoms: string; role: string; type_emploi: string | null; direction: string | null; fonction: string | null; genre: string | null }
-type Contrat = { id: string; type_contrat: string; statut: string; date_fin: string | null; date_debut: string; direction: string | null; poste: string | null; profile_id: string; salaire_brut: number | null; source_financement: string | null; categorie_document: string | null; contrat_parent_id: string | null; profile: { nom: string; prenoms: string } | null }
+type Contrat = { id: string; type_contrat: string; statut: string; date_fin: string | null; date_debut: string; direction: string | null; poste: string | null; profile_id: string; salaire_brut: number | null; heures_max_mois: number | null; source_financement: string | null; categorie_document: string | null; contrat_parent_id: string | null; profile: { nom: string; prenoms: string } | null }
+
+// Pour un prestataire (direct/à crédit), salaire_brut est un taux horaire, pas
+// un montant mensuel — le coût mensuel réaliste pour la masse salariale est ce
+// taux multiplié par le plafond d'heures/mois déclaré sur le contrat (0 si non
+// renseigné, pour ne pas surestimer silencieusement).
+function coutMensuel(c: Contrat): number {
+  if (c.type_contrat?.toLowerCase().includes('prestataire')) {
+    return (c.salaire_brut ?? 0) * (c.heures_max_mois ?? 0)
+  }
+  return c.salaire_brut ?? 0
+}
 type Conge = { id: string; statut: string; date_debut: string; date_fin: string; nb_jours: number | null; created_at: string; profile: { nom: string; prenoms: string; direction: string | null } | null; type_conge: { nom: string } | null }
 type Evaluation = { id: string; statut: string; score_moyen: number | null; declenchee_le: string | null; profile: { nom: string; prenoms: string } | null }
 
@@ -86,10 +97,10 @@ export default function RHDashboardClient({ personnel, contrats, contratsExpiran
   const actifs = contrats.filter(c => c.statut === 'actif')
   const idsReferencesCommeParent = new Set(actifs.map(c => c.contrat_parent_id).filter(Boolean))
   const contratsActifsList = actifs.filter(c => !idsReferencesCommeParent.has(c.id))
-  const masseSalariale = contratsActifsList.reduce((sum, c) => sum + (c.salaire_brut ?? 0), 0)
+  const masseSalariale = contratsActifsList.reduce((sum, c) => sum + coutMensuel(c), 0)
 
-  const salairesF = contratsActifsList.filter(c => genreById[c.profile_id] === 'F' && c.salaire_brut).map(c => c.salaire_brut as number)
-  const salairesM = contratsActifsList.filter(c => genreById[c.profile_id] === 'M' && c.salaire_brut).map(c => c.salaire_brut as number)
+  const salairesF = contratsActifsList.filter(c => genreById[c.profile_id] === 'F' && c.salaire_brut).map(c => coutMensuel(c))
+  const salairesM = contratsActifsList.filter(c => genreById[c.profile_id] === 'M' && c.salaire_brut).map(c => coutMensuel(c))
   const moyenne = (arr: number[]) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0
   const ratioSalarial = salairesM.length > 0 && salairesF.length > 0 ? moyenne(salairesF) / moyenne(salairesM) : null
 
@@ -108,7 +119,7 @@ export default function RHDashboardClient({ personnel, contrats, contratsExpiran
     const t = c.type_contrat || 'Non précisé'
     if (!parTypeContrat[t]) parTypeContrat[t] = { count: 0, total: 0 }
     parTypeContrat[t].count++
-    parTypeContrat[t].total += c.salaire_brut ?? 0
+    parTypeContrat[t].total += coutMensuel(c)
   })
   const typesContratSorted = Object.entries(parTypeContrat).sort((a, b) => b[1].total - a[1].total)
 
@@ -116,7 +127,7 @@ export default function RHDashboardClient({ personnel, contrats, contratsExpiran
   const parBailleur: Record<string, number> = {}
   contratsActifsList.forEach(c => {
     const b = c.source_financement || 'Non précisé'
-    parBailleur[b] = (parBailleur[b] ?? 0) + (c.salaire_brut ?? 0)
+    parBailleur[b] = (parBailleur[b] ?? 0) + coutMensuel(c)
   })
   const bailleursSorted = Object.entries(parBailleur).sort((a, b) => b[1] - a[1])
 

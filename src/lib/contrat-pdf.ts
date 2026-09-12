@@ -46,6 +46,9 @@ export interface ContratPdfData {
   articles: ContratPdfArticle[]
   observations: string | null
   salaireBrut: number | null
+  // Plafond mensuel d'heures pour un prestataire payé à l'heure — purement
+  // informatif/contractuel, distinct du taux (salaireBrut) affiché au-dessus.
+  heuresMaxMois: number | null
   representantEmployeur: string
   representantCivilite: string | null
   sigLeft: string
@@ -343,6 +346,7 @@ export function construireContratHtml(d: ContratPdfData): string {
     <div class="row"><span class="label">Date de prise d'effet :</span><span class="value">${d.dateDebut}</span></div>
     <div class="row"><span class="label">Date d'échéance :</span><span class="value">${d.dateFin}</span></div>
     ${d.salaireBrut ? `<div class="row"><span class="label">${isPrestataireType(d.typeContrat) ? 'Taux horaire (CAF)' : 'Rémunération brute'} :</span><span class="value">${Number(d.salaireBrut).toLocaleString('fr-FR')} FCFA${isPrestataireType(d.typeContrat) ? ' / heure' : ' / mois'}</span></div>` : ''}
+    ${isPrestataireType(d.typeContrat) && d.heuresMaxMois ? `<div class="row"><span class="label">Volume horaire maximum :</span><span class="value">${Number(d.heuresMaxMois).toLocaleString('fr-FR')} heures / mois</span></div>` : ''}
     ${d.observations ? `<div class="row"><span class="label">Observations :</span><span class="value">${d.observations}</span></div>` : ''}
   </div>
 

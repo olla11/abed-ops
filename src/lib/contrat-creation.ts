@@ -18,6 +18,11 @@ export type NouveauContratParams = {
   direction: string | null
   date_fin: string | null
   salaire_brut: number | null
+  // Prestataire (direct/à crédit) uniquement : plafond mensuel d'heures,
+  // utilisé avec salaire_brut (le taux horaire) pour estimer un coût
+  // mensuel réaliste dans la masse salariale — salaire_brut lui-même reste
+  // le taux horaire affiché tel quel sur le contrat/PDF.
+  heures_max_mois: number | null
   observations: string | null
   categorie_document: string
   contrat_parent_id: string | null
@@ -48,6 +53,7 @@ export async function creerContratEtDemarrerCircuit(service: any, actorUserId: s
     direction: p.direction || null,
     date_fin: p.date_fin || null,
     salaire_brut: p.salaire_brut || null,
+    heures_max_mois: p.heures_max_mois || null,
     observations: p.observations || null,
     source_financement: p.source_financement || null,
     categorie_document: categorie,

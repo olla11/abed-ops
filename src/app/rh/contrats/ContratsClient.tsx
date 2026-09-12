@@ -11,7 +11,7 @@ type Article = { titre: string; contenu: string }
 type Contrat = {
   id: string; profile_id: string | null; type_contrat: string; poste: string | null
   direction: string | null; date_debut: string; date_fin: string | null
-  statut: string; salaire_brut: number | null; observations: string | null
+  statut: string; salaire_brut: number | null; heures_max_mois: number | null; observations: string | null
   numero: string | null; categorie_document: string | null
   contrat_parent_id: string | null; renouvele_depuis: string | null; objet: string | null
   articles: Article[] | null
@@ -318,7 +318,7 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
     const draft = loadDraft(draftKeyEdit(c.id))
     if (draft) { setForm(draft.form); setArticles(draft.articles); setDraftRestoredAt(draft.savedAt) }
     else {
-      setForm({ categorie_document: c.categorie_document ?? 'Contrat', type_contrat: c.type_contrat, poste: c.poste ?? '', direction: c.direction ?? '', date_debut: c.date_debut, date_fin: c.date_fin ?? '', salaire_brut: c.salaire_brut ?? '', observations: c.observations ?? '', objet: c.objet ?? '', commentaires_rh: c.commentaires_rh ?? '', source_financement: (c as any).source_financement ?? '' })
+      setForm({ categorie_document: c.categorie_document ?? 'Contrat', type_contrat: c.type_contrat, poste: c.poste ?? '', direction: c.direction ?? '', date_debut: c.date_debut, date_fin: c.date_fin ?? '', salaire_brut: c.salaire_brut ?? '', heures_max_mois: c.heures_max_mois ?? '', observations: c.observations ?? '', objet: c.objet ?? '', commentaires_rh: c.commentaires_rh ?? '', source_financement: (c as any).source_financement ?? '' })
       setArticles(Array.isArray(c.articles) ? c.articles : [])
       setDraftRestoredAt(null)
     }
@@ -346,7 +346,7 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
     setForm({
       categorie_document: enAvenant ? 'Avenant' : (c.categorie_document ?? 'Contrat'), type_contrat: c.type_contrat,
       poste: c.poste ?? '', direction: c.direction ?? '', date_debut: nouveauDebut, date_fin: '',
-      salaire_brut: c.salaire_brut ?? '', objet: c.objet ?? '', commentaires_rh: '',
+      salaire_brut: c.salaire_brut ?? '', heures_max_mois: c.heures_max_mois ?? '', objet: c.objet ?? '', commentaires_rh: '',
       source_financement: (c as any).source_financement ?? '',
       contrat_parent_id: enAvenant ? c.id : '',
     })
@@ -373,7 +373,7 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
       setForm((f: any) => ({
         ...f,
         categorie_document: categorieParDefaut,
-        type_contrat: '', poste: '', salaire_brut: '', contrat_parent_id: '',
+        type_contrat: '', poste: '', salaire_brut: '', heures_max_mois: '', contrat_parent_id: '',
         commentaires_rh: f.commentaires_rh || 'Renouvellement avec promotion',
       }))
     } else {
@@ -381,7 +381,7 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
       setForm((f: any) => ({
         ...f, categorie_document: enAvenant ? 'Avenant' : (renewTarget.categorie_document ?? 'Contrat'),
         type_contrat: renewTarget.type_contrat, poste: renewTarget.poste ?? '',
-        salaire_brut: renewTarget.salaire_brut ?? '',
+        salaire_brut: renewTarget.salaire_brut ?? '', heures_max_mois: renewTarget.heures_max_mois ?? '',
         contrat_parent_id: enAvenant ? renewTarget.id : '',
         commentaires_rh: f.commentaires_rh === 'Renouvellement avec promotion' ? '' : f.commentaires_rh,
       }))
@@ -395,7 +395,7 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
     } else if (editTarget) {
       const c = editTarget
       clearDraft(draftKeyEdit(c.id))
-      setForm({ categorie_document: c.categorie_document ?? 'Contrat', type_contrat: c.type_contrat, poste: c.poste ?? '', direction: c.direction ?? '', date_debut: c.date_debut, date_fin: c.date_fin ?? '', salaire_brut: c.salaire_brut ?? '', observations: c.observations ?? '', objet: c.objet ?? '', commentaires_rh: c.commentaires_rh ?? '', source_financement: (c as any).source_financement ?? '' })
+      setForm({ categorie_document: c.categorie_document ?? 'Contrat', type_contrat: c.type_contrat, poste: c.poste ?? '', direction: c.direction ?? '', date_debut: c.date_debut, date_fin: c.date_fin ?? '', salaire_brut: c.salaire_brut ?? '', heures_max_mois: c.heures_max_mois ?? '', observations: c.observations ?? '', objet: c.objet ?? '', commentaires_rh: c.commentaires_rh ?? '', source_financement: (c as any).source_financement ?? '' })
       setArticles(Array.isArray(c.articles) ? c.articles : [])
     }
     setDraftRestoredAt(null)
@@ -729,6 +729,15 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
           </div>
           <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>
             Ce prestataire est payé à l'heure sur la base des feuilles de temps soumises, au taux en vigueur (réglable dans RH → Configuration financière), et non sur un salaire fixe.
+          </p>
+          <label style={{ fontSize: 12, fontWeight: 600, display: 'block', margin: '10px 0 4px' }}>Nombre d&apos;heures max / mois</label>
+          <input type="number" min={0} value={form.heures_max_mois ?? ''}
+            onChange={e => setForm((f: any) => ({ ...f, heures_max_mois: e.target.value }))}
+            placeholder="Ex. 80" style={inputStyle} />
+          <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>
+            Plafond mensuel d&apos;heures prévu pour ce prestataire — sert uniquement à estimer un coût mensuel réaliste dans la masse salariale
+            {form.salaire_brut && form.heures_max_mois ? ` (≈ ${(Number(form.salaire_brut) * Number(form.heures_max_mois)).toLocaleString('fr-FR')} FCFA / mois au maximum)` : ''}.
+            Le paiement réel reste basé sur les heures effectivement validées.
           </p>
         </div>
       ) : (

@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
   const body = await req.json()
   const {
     profile_id, type_contrat, date_debut, poste, direction, date_fin,
-    salaire_brut, observations, categorie_document, contrat_parent_id,
+    salaire_brut, heures_max_mois, observations, categorie_document, contrat_parent_id,
     objet, articles, commentaires_rh, source_financement, template_id,
     destinataire_email,
   } = body
@@ -95,6 +95,7 @@ export async function POST(req: NextRequest) {
     direction: direction || null,
     date_fin: date_fin || null,
     salaire_brut: salaire_brut || null,
+    heures_max_mois: heures_max_mois || null,
     observations: observations || null,
     categorie_document: categorie,
     contrat_parent_id: parentId,

@@ -212,6 +212,7 @@ export async function GET(
     articles,
     observations: contrat.observations,
     salaireBrut: contrat.salaire_brut,
+    heuresMaxMois: contrat.heures_max_mois,
     representantEmployeur,
     representantCivilite: repProfile?.civilite ?? null,
     sigLeft,
