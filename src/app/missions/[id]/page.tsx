@@ -11,6 +11,10 @@ import ReconciliationValidationAAF from '@/components/ReconciliationValidationAA
 import ReconciliationValidationDE from '@/components/ReconciliationValidationDE'
 import RetryPaymentButton from './RetryPaymentButton'
 import PiecesJointesList from '@/components/PiecesJointesList'
+import RolePreviewBanner from '@/components/RolePreviewBanner'
+import ImpersonationBanner from '@/components/ImpersonationBanner'
+import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
+import { getImpersonationInfo } from '@/lib/impersonation'
 import { estAAF } from '@/lib/roles'
 
 export default async function MissionDetail({ params }: { params: Promise<{ id: string }> }) {
@@ -36,7 +40,10 @@ export default async function MissionDetail({ params }: { params: Promise<{ id: 
   const { data: profile } = await supabase
     .from('profiles').select('role, nom, prenoms, titre').eq('id', user.id).single()
 
-  const role = profile?.role ?? 'missionnaire'
+  const realRole = profile?.role ?? 'missionnaire'
+  const role = await getEffectiveRole(realRole)
+  const previewRole = await getRolePreview()
+  const impersonation = await getImpersonationInfo()
   const isLocked = mission.status === 'cloture'
   // Missionnaire hors système (OM demandé pour un tiers, sans compte My
   // ABED) : son identité vient des colonnes missionnaire_externe_* plutôt
@@ -96,9 +103,11 @@ export default async function MissionDetail({ params }: { params: Promise<{ id: 
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
         userRole={role}
         userTitre={profile?.titre}
-        showAdmin={['admin', 'superadmin'].includes(role)}
+        showAdmin={['admin', 'superadmin'].includes(realRole) && !previewRole}
         showAAF={estAAF(role)}
       />
+      {previewRole && <RolePreviewBanner previewRole={previewRole} />}
+      {impersonation && <ImpersonationBanner adminNom={impersonation.adminNom} adminPrenoms={impersonation.adminPrenoms} targetNom={impersonation.targetNom} targetPrenoms={impersonation.targetPrenoms} targetRole={impersonation.targetRole} />}
     <div className="page-container">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div>

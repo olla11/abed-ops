@@ -71,6 +71,10 @@ export default function SectionSideNav({ items, title }: { items: SideNavItem[];
         .sidenav-collapsed .sidenav-label, .sidenav-collapsed .sidenav-title, .sidenav-collapsed .sidenav-heading { display: none; }
         .sidenav-badge { font-size: 10.5px; font-weight: 800; padding: 1px 6px; border-radius: 20px; background: #ef4444; color: white; flex-shrink: 0; }
         .sidenav-item.active .sidenav-badge { background: rgba(255,255,255,.3); }
+        /* Bannières admin (aperçu de rôle / usurpation de compte) : la barre
+           laisse la place plutôt que de passer dessous ou dessus. */
+        html.has-impersonation-banner .sidenav { top: 104px; }
+        html.has-role-preview-banner .sidenav { bottom: 54px; }
         @media (max-width: 700px) {
           .sidenav, .sidenav-collapsed { position: static; width: 100%; height: auto; flex-direction: row; flex-wrap: wrap; border-right: none; }
           .sidenav-toggle, .sidenav-title, .sidenav-heading { display: none; }

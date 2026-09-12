@@ -2,6 +2,10 @@ import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import AppHeader from '@/components/AppHeader'
+import RolePreviewBanner from '@/components/RolePreviewBanner'
+import ImpersonationBanner from '@/components/ImpersonationBanner'
+import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
+import { getImpersonationInfo } from '@/lib/impersonation'
 import EvaluationsListClient from './EvaluationsListClient'
 import MonEspaceNav from '@/components/MonEspaceNav'
 import { estRH, estAAF } from '@/lib/roles'
@@ -32,13 +36,17 @@ export default async function MesEvaluationsPage() {
     .eq('id', user.id)
     .single()
 
+  const realRole = profile?.role ?? ''
+  const role = await getEffectiveRole(realRole)
+  const previewRole = await getRolePreview()
+  const impersonation = await getImpersonationInfo()
+
   // Évaluations où l'utilisateur est l'évalué, l'évaluateur, ou le
   // responsable de département assigné (Section VIII) — et, pour CAF/DE/DP
   // qui rendent une décision en Section X, tous les dossiers arrivés à ce
   // stade (responsable_complete/cloture) même sans lien personnel avec le
   // dossier, sinon ils n'ont aucun moyen de les retrouver dans le système.
-  const role = profile?.role ?? ''
-  const isDecideur = ['caf', 'de', 'dp'].includes(role)
+  const isDecideur = ['caf', 'de', 'dp'].includes(realRole)
   const orFilter = isDecideur
     ? `profile_id.eq.${user.id},evaluateur_id.eq.${user.id},responsable_id.eq.${user.id},statut.eq.responsable_complete,statut.eq.cloture`
     : `profile_id.eq.${user.id},evaluateur_id.eq.${user.id},responsable_id.eq.${user.id}`
@@ -54,16 +62,16 @@ export default async function MesEvaluationsPage() {
     .or(orFilter)
     .order('declenchee_le', { ascending: false })
 
-  const showRH = estRH(profile?.role)
-  const showAAF = estAAF(profile?.role)
-  const showAdmin = ['admin', 'superadmin'].includes(profile?.role ?? '')
+  const showRH = estRH(role)
+  const showAAF = estAAF(role)
+  const showAdmin = ['admin', 'superadmin'].includes(realRole) && !previewRole
   const showOverview = ['aaf', 'caf', 'de', 'dp', 'admin', 'administrateur'].includes(profile?.role ?? '')
 
   return (
     <>
       <AppHeader
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
-        userRole={profile?.role}
+        userRole={role}
         userTitre={profile?.titre}
         typeEmploi={(profile as any)?.type_emploi}
         showRH={showRH}
@@ -71,6 +79,8 @@ export default async function MesEvaluationsPage() {
         showAdmin={showAdmin}
         avatarUrl={profile?.avatar_url}
       />
+      {previewRole && <RolePreviewBanner previewRole={previewRole} />}
+      {impersonation && <ImpersonationBanner adminNom={impersonation.adminNom} adminPrenoms={impersonation.adminPrenoms} targetNom={impersonation.targetNom} targetPrenoms={impersonation.targetPrenoms} targetRole={impersonation.targetRole} />}
       <div className="page-container">
         <div className="section-with-sidenav">
           <MonEspaceNav typeEmploi={(profile as any)?.type_emploi} />

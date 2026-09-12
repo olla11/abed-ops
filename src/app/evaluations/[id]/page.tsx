@@ -2,6 +2,10 @@ import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import AppHeader from '@/components/AppHeader'
+import RolePreviewBanner from '@/components/RolePreviewBanner'
+import ImpersonationBanner from '@/components/ImpersonationBanner'
+import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
+import { getImpersonationInfo } from '@/lib/impersonation'
 import EvaluationForm from './EvaluationForm'
 import { estRH, estAAF } from '@/lib/roles'
 import { getTitulaireOfficiel } from '@/lib/titre-principal'
@@ -57,14 +61,21 @@ export default async function EvaluationPage({ params, searchParams }: { params:
     civiliteDeDecideur = profilDE?.civilite ?? null
   }
 
-  const role = profile?.role ?? ''
+  // Contrôle d'accès basé sur le vrai rôle — l'aperçu de rôle ne doit pas
+  // pouvoir exiler un admin en train de tester un rôle plus restreint hors
+  // d'une page qu'il consultait légitimement via un lien direct.
+  const realRole = profile?.role ?? ''
   const canAccess =
     ev.profile_id === user.id ||
     ev.evaluateur_id === user.id ||
     ev.responsable_id === user.id ||
-    estRH(role) || ['admin', 'superadmin', 'de', 'dp'].includes(role)
+    estRH(realRole) || ['admin', 'superadmin', 'de', 'dp'].includes(realRole)
 
   if (!canAccess) redirect('/evaluations')
+
+  const role = await getEffectiveRole(realRole)
+  const previewRole = await getRolePreview()
+  const impersonation = await getImpersonationInfo()
 
   return (
     <>
@@ -75,7 +86,7 @@ export default async function EvaluationPage({ params, searchParams }: { params:
         typeEmploi={profile?.type_emploi}
         showRH={estRH(role)}
         showAAF={estAAF(role)}
-        showAdmin={['admin', 'superadmin'].includes(role)}
+        showAdmin={['admin', 'superadmin'].includes(realRole) && !previewRole}
         // Cette page sert à la fois "voir mon propre dossier" (Mon espace,
         // juste) et "la CAF/RH vient rendre une décision sur le dossier d'un
         // tiers depuis /rh/évaluations" (lien "Voir" avec ?depuis=rh) — dans
@@ -83,6 +94,8 @@ export default async function EvaluationPage({ params, searchParams }: { params:
         forceRHActive={depuis === 'rh' && estRH(role)}
         avatarUrl={profile?.avatar_url}
       />
+      {previewRole && <RolePreviewBanner previewRole={previewRole} />}
+      {impersonation && <ImpersonationBanner adminNom={impersonation.adminNom} adminPrenoms={impersonation.adminPrenoms} targetNom={impersonation.targetNom} targetPrenoms={impersonation.targetPrenoms} targetRole={impersonation.targetRole} />}
       <div className="page-container">
         <EvaluationForm
           evaluation={ev as any}

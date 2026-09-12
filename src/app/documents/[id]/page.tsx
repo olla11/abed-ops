@@ -2,7 +2,10 @@ export const dynamic = 'force-dynamic'
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import AppHeader from '@/components/AppHeader'
-import { getEffectiveRole } from '@/lib/role-preview'
+import RolePreviewBanner from '@/components/RolePreviewBanner'
+import ImpersonationBanner from '@/components/ImpersonationBanner'
+import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
+import { getImpersonationInfo } from '@/lib/impersonation'
 import { estRH, estAAF } from '@/lib/roles'
 import DocumentDetailClient from './DocumentDetailClient'
 
@@ -14,7 +17,10 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
 
   const { data: profile } = await supabase
     .from('profiles').select('role, titre, nom, prenoms, avatar_url, type_emploi, signature_sauvegardee_b64').eq('id', user.id).single()
-  const role = await getEffectiveRole(profile?.role ?? 'missionnaire')
+  const realRole = profile?.role ?? 'missionnaire'
+  const role = await getEffectiveRole(realRole)
+  const previewRole = await getRolePreview()
+  const impersonation = await getImpersonationInfo()
 
   const { data: document } = await supabase
     .from('demandes_signature')
@@ -46,8 +52,11 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
         typeEmploi={profile?.type_emploi}
         showRH={estRH(role)}
         showAAF={estAAF(role)}
+        showAdmin={['admin', 'superadmin'].includes(realRole) && !previewRole}
         avatarUrl={profile?.avatar_url ?? null}
       />
+      {previewRole && <RolePreviewBanner previewRole={previewRole} />}
+      {impersonation && <ImpersonationBanner adminNom={impersonation.adminNom} adminPrenoms={impersonation.adminPrenoms} targetNom={impersonation.targetNom} targetPrenoms={impersonation.targetPrenoms} targetRole={impersonation.targetRole} />}
       <DocumentDetailClient
         document={document as any}
         myId={user.id}

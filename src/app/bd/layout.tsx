@@ -2,7 +2,6 @@ import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import AppHeader from '@/components/AppHeader'
 import BDNav from './BDNav'
-import OverviewSubNav from '@/components/OverviewSubNav'
 import RolePreviewBanner from '@/components/RolePreviewBanner'
 import ImpersonationBanner from '@/components/ImpersonationBanner'
 import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
@@ -13,8 +12,8 @@ export const dynamic = 'force-dynamic'
 
 // Superviseurs en lecture seule : les mêmes rôles qui voient l'onglet
 // principal "Vue d'ensemble" (voir OVERVIEW_ROLES dans AppHeader) — BD n'a
-// plus son propre menu pour eux, ils y accèdent désormais comme sous-onglet
-// de Vue d'ensemble (voir OverviewSubNav).
+// plus son propre menu pour eux, ils y accèdent désormais via l'item "Vue
+// d'ensemble des opérations" ajouté en tête de BDNav.
 const SUPERVISEUR_ROLES = ['de', 'dp', 'caf', 'admin', 'administrateur', 'superadmin']
 
 export default async function BDLayout({ children }: { children: React.ReactNode }) {
@@ -48,19 +47,16 @@ export default async function BDLayout({ children }: { children: React.ReactNode
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}
       {impersonation && <ImpersonationBanner adminNom={impersonation.adminNom} adminPrenoms={impersonation.adminPrenoms} targetNom={impersonation.targetNom} targetPrenoms={impersonation.targetPrenoms} targetRole={impersonation.targetRole} />}
       <div className="page-container">
-        {!estEquipeBD && (
-          <>
-            <div style={{ marginBottom: 20 }}>
-              <OverviewSubNav />
-            </div>
-            <div className="card" style={{ borderLeft: '4px solid #1e40af', marginBottom: 20, fontSize: 13, color: '#374151' }}>
-              🔒 Vue en lecture seule — la gestion des opportunités est réservée à l&apos;équipe Business Developer.
-            </div>
-          </>
-        )}
         <div className="section-with-sidenav">
           <BDNav estEquipeBD={estEquipeBD} />
-          <div className="section-content">{children}</div>
+          <div className="section-content">
+            {!estEquipeBD && (
+              <div className="card" style={{ borderLeft: '4px solid #1e40af', marginBottom: 20, fontSize: 13, color: '#374151' }}>
+                🔒 Vue en lecture seule — la gestion des opportunités est réservée à l&apos;équipe Business Developer.
+              </div>
+            )}
+            {children}
+          </div>
         </div>
       </div>
     </>

@@ -1,6 +1,6 @@
 'use client'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 const ROLE_LABELS: Record<string, string> = {
   rh: 'RH', caf: 'CAF', de: 'Directeur Exécutif', aaf: 'AAF',
@@ -11,6 +11,14 @@ const ROLE_LABELS: Record<string, string> = {
 export default function RolePreviewBanner({ previewRole }: { previewRole: string }) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
+
+  // Cette bannière est collée en bas de l'écran — SectionSideNav (barre
+  // latérale fixe pleine hauteur) s'en sert pour remonter son propre bord
+  // bas et ne pas se faire recouvrir par elle.
+  useEffect(() => {
+    document.documentElement.classList.add('has-role-preview-banner')
+    return () => { document.documentElement.classList.remove('has-role-preview-banner') }
+  }, [])
 
   async function quit() {
     setLoading(true)

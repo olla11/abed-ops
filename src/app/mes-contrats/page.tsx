@@ -2,6 +2,10 @@ export const dynamic = 'force-dynamic'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import AppHeader from '@/components/AppHeader'
+import RolePreviewBanner from '@/components/RolePreviewBanner'
+import ImpersonationBanner from '@/components/ImpersonationBanner'
+import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
+import { getImpersonationInfo } from '@/lib/impersonation'
 import MesContratsClient from './MesContratsClient'
 import { estAAF } from '@/lib/roles'
 
@@ -12,6 +16,11 @@ export default async function MesContratsPage() {
 
   const { data: profile } = await supabase
     .from('profiles').select('role, titre, nom, prenoms, type_emploi, avatar_url').eq('id', user.id).single()
+
+  const realRole = profile?.role ?? 'missionnaire'
+  const role = await getEffectiveRole(realRole)
+  const previewRole = await getRolePreview()
+  const impersonation = await getImpersonationInfo()
 
   const canSign = ['de', 'dp', 'administrateur'].includes(profile?.role ?? '')
 
@@ -49,12 +58,15 @@ export default async function MesContratsPage() {
     <>
       <AppHeader
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
-        userRole={profile?.role ?? 'missionnaire'}
+        userRole={role}
         userTitre={profile?.titre}
         typeEmploi={profile?.type_emploi}
-        showAAF={estAAF(profile?.role ?? '')}
+        showAAF={estAAF(role)}
+        showAdmin={['admin', 'superadmin'].includes(realRole) && !previewRole}
         avatarUrl={profile?.avatar_url ?? null}
       />
+      {previewRole && <RolePreviewBanner previewRole={previewRole} />}
+      {impersonation && <ImpersonationBanner adminNom={impersonation.adminNom} adminPrenoms={impersonation.adminPrenoms} targetNom={impersonation.targetNom} targetPrenoms={impersonation.targetPrenoms} targetRole={impersonation.targetRole} />}
       <MesContratsClient contrats={contratsAvecDemande} contratsASigner={contratsASigner} canSign={canSign} typeEmploi={profile?.type_emploi} />
     </>
   )

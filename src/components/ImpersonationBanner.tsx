@@ -26,11 +26,15 @@ export default function ImpersonationBanner({
 
   // La bannière se place sous le header fixe (60px) plutôt que par-dessus,
   // sinon elle masque le menu de navigation — on pousse le contenu de la
-  // page d'autant pendant que la bannière est affichée.
+  // page d'autant pendant que la bannière est affichée. La classe posée sur
+  // <html> sert à SectionSideNav (barre latérale fixe pleine hauteur) pour
+  // descendre son propre point de départ et ne pas se faire recouvrir.
   useEffect(() => {
     document.body.style.paddingTop = `${HEADER_HEIGHT + BANNER_HEIGHT}px`
+    document.documentElement.classList.add('has-impersonation-banner')
     return () => {
       document.body.style.paddingTop = `${HEADER_HEIGHT}px`
+      document.documentElement.classList.remove('has-impersonation-banner')
     }
   }, [])
 

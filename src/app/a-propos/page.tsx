@@ -2,9 +2,13 @@ export const dynamic = 'force-dynamic'
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import AppHeader from '@/components/AppHeader'
+import RolePreviewBanner from '@/components/RolePreviewBanner'
+import ImpersonationBanner from '@/components/ImpersonationBanner'
+import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
+import { getImpersonationInfo } from '@/lib/impersonation'
 import { Info, Sprout, ShieldCheck, Mail } from 'lucide-react'
 import pkg from '../../../package.json'
-import { estAAF } from '@/lib/roles'
+import { estRH, estAAF } from '@/lib/roles'
 
 const FONCTIONNALITES = [
   'Ordres de mission & réconciliation',
@@ -23,18 +27,27 @@ export default async function AProposPage() {
   const { data: profile } = await supabase
     .from('profiles').select('role, titre, nom, prenoms, avatar_url, type_emploi').eq('id', user.id).single()
 
+  const realRole = profile?.role ?? ''
+  const role = await getEffectiveRole(realRole)
+  const previewRole = await getRolePreview()
+  const impersonation = await getImpersonationInfo()
+
   const annee = new Date().getFullYear()
 
   return (
     <>
       <AppHeader
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
-        userRole={profile?.role ?? ''}
+        userRole={role}
         userTitre={profile?.titre}
         typeEmploi={profile?.type_emploi}
-        showAAF={estAAF(profile?.role ?? '')}
+        showRH={estRH(role)}
+        showAAF={estAAF(role)}
+        showAdmin={['admin', 'superadmin'].includes(realRole) && !previewRole}
         avatarUrl={profile?.avatar_url ?? null}
       />
+      {previewRole && <RolePreviewBanner previewRole={previewRole} />}
+      {impersonation && <ImpersonationBanner adminNom={impersonation.adminNom} adminPrenoms={impersonation.adminPrenoms} targetNom={impersonation.targetNom} targetPrenoms={impersonation.targetPrenoms} targetRole={impersonation.targetRole} />}
       <div className="page-container" style={{ maxWidth: 720 }}>
         <h2 style={{ color: 'var(--abed-green)', margin: '0 0 24px', display: 'flex', alignItems: 'center', gap: 8 }}>
           <Info size={22} /> À propos

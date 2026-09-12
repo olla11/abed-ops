@@ -8,16 +8,10 @@ import ImpersonationBanner from '@/components/ImpersonationBanner'
 import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
 import { getImpersonationInfo } from '@/lib/impersonation'
 import OverviewOperations from '@/components/OverviewOperations'
-import OverviewSubNav from '@/components/OverviewSubNav'
+import SectionSideNav from '@/components/SectionSideNav'
+import { OVERVIEW_NAV_ITEMS } from '@/components/overviewNavItems'
 import AAFNav from '@/app/aaf/AAFNav'
 import { estRH, estAAF } from '@/lib/roles'
-
-// Rôles qui voient "Vue d'ensemble" comme onglet principal (voir
-// OVERVIEW_ROLES dans AppHeader) — ce sont eux qui obtiennent le sous-onglet
-// BD, le registre en lecture seule ayant quitté son propre menu pour
-// rejoindre Vue d'ensemble. L'AAF y accède différemment (sous-menu AAF), pas
-// concerné ici.
-const SHOW_BD_SUBTAB_ROLES = ['de', 'dp', 'caf', 'admin', 'administrateur', 'superadmin']
 
 export default async function OverviewPage() {
   const supabase = await createClient()
@@ -54,21 +48,23 @@ export default async function OverviewPage() {
       />
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}
       {impersonation && <ImpersonationBanner adminNom={impersonation.adminNom} adminPrenoms={impersonation.adminPrenoms} targetNom={impersonation.targetNom} targetPrenoms={impersonation.targetPrenoms} targetRole={impersonation.targetRole} />}
-      <div className="page-container" style={{ display: 'grid', gap: 28 }}>
+      <div className="page-container">
+      <div className="section-with-sidenav">
+        {showAAFNav ? <AAFNav role={role} /> : <SectionSideNav items={OVERVIEW_NAV_ITEMS} />}
+        <div className="section-content" style={{ display: 'grid', gap: 28 }}>
 
-      {SHOW_BD_SUBTAB_ROLES.includes(role) && <OverviewSubNav />}
-      {showAAFNav && <AAFNav role={role} />}
+        <div>
+          <h1 style={{ color: 'var(--abed-green)', marginBottom: 4 }}>Vue d'ensemble des opérations</h1>
+          <p style={{ fontSize: 13, color: 'var(--abed-muted)' }}>
+            Tous les dossiers en cours et clôturés — timesheets, rapports mensuels, ordres de mission, demandes de paiement.
+          </p>
+        </div>
 
-      <div>
-        <h1 style={{ color: 'var(--abed-green)', marginBottom: 4 }}>Vue d'ensemble des opérations</h1>
-        <p style={{ fontSize: 13, color: 'var(--abed-muted)' }}>
-          Tous les dossiers en cours et clôturés — timesheets, rapports mensuels, ordres de mission, demandes de paiement.
-        </p>
+        <Suspense fallback={<p style={{ fontSize: 13, color: 'var(--abed-muted)' }}>Chargement…</p>}>
+          <OverviewOperations role={role} />
+        </Suspense>
+        </div>
       </div>
-
-      <Suspense fallback={<p style={{ fontSize: 13, color: 'var(--abed-muted)' }}>Chargement…</p>}>
-        <OverviewOperations role={role} />
-      </Suspense>
       </div>
     </>
   )

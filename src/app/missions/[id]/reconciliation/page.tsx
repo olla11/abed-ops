@@ -3,6 +3,10 @@ import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import ReconciliationForm from '@/components/ReconciliationForm'
 import AppHeader from '@/components/AppHeader'
+import RolePreviewBanner from '@/components/RolePreviewBanner'
+import ImpersonationBanner from '@/components/ImpersonationBanner'
+import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
+import { getImpersonationInfo } from '@/lib/impersonation'
 import Link from 'next/link'
 import { estAAF } from '@/lib/roles'
 
@@ -29,15 +33,22 @@ export default async function ReconciliationPage({ params }: { params: Promise<{
   const { data: profile } = await supabase
     .from('profiles').select('role, titre, nom, prenoms').eq('id', user.id).single()
 
+  const realRole = profile?.role ?? ''
+  const role = await getEffectiveRole(realRole)
+  const previewRole = await getRolePreview()
+  const impersonation = await getImpersonationInfo()
+
   return (
     <>
       <AppHeader
         userName={`${profile?.prenoms ?? ''} ${profile?.nom ?? ''}`}
-        userRole={profile?.role}
+        userRole={role}
         userTitre={profile?.titre}
-        showAdmin={['admin', 'superadmin'].includes(profile?.role ?? '')}
-        showAAF={estAAF(profile?.role ?? '')}
+        showAdmin={['admin', 'superadmin'].includes(realRole) && !previewRole}
+        showAAF={estAAF(role)}
       />
+      {previewRole && <RolePreviewBanner previewRole={previewRole} />}
+      {impersonation && <ImpersonationBanner adminNom={impersonation.adminNom} adminPrenoms={impersonation.adminPrenoms} targetNom={impersonation.targetNom} targetPrenoms={impersonation.targetPrenoms} targetRole={impersonation.targetRole} />}
     <div className="page-container">
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
         <Link href={`/missions/${id}`} style={{ fontSize: 13, color: 'var(--abed-muted)' }}>← Retour</Link>
