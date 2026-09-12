@@ -20,26 +20,37 @@ export type SideNavItem =
 // BD, AAF, Mon espace, TdR...) — l'utilisateur qui replie le menu une fois
 // s'attend à le retrouver replié partout, pas seulement là où il l'a fait.
 const STORAGE_KEY = 'abed-sidenav-collapsed'
+// Posée sur <html> pour que .section-content (rendu ailleurs dans l'arbre,
+// plus atteignable en CSS pur une fois la barre passée en position fixe)
+// puisse ajuster sa marge gauche en fonction de l'état replié/déplié.
+const HTML_CLASS = 'sidenav-collapsed-html'
 
 // Barre de navigation verticale repliable pour les sous-menus d'une section
-// (remplace l'ancienne rangée horizontale de pastilles). Repliée, seules les
-// icônes restent visibles (avec le libellé en info-bulle) ; sous 700px, elle
-// repasse en rangée horizontale qui s'enroule, pour rester utilisable sur
-// petit écran sans réintroduire un défilement horizontal caché.
+// (remplace l'ancienne rangée horizontale de pastilles). Fixe et collée au
+// bord gauche de l'écran sur toute la hauteur disponible sous l'en-tête —
+// elle ne défile plus avec le contenu. Repliée, seules les icônes restent
+// visibles (avec le libellé en info-bulle) ; sous 700px, elle repasse en
+// rangée horizontale non fixe qui s'enroule, pour rester utilisable sur
+// petit écran.
 export default function SectionSideNav({ items, title }: { items: SideNavItem[]; title?: string }) {
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
-    try { setCollapsed(localStorage.getItem(STORAGE_KEY) === '1') } catch { /* localStorage indisponible */ }
+    let initial = false
+    try { initial = localStorage.getItem(STORAGE_KEY) === '1' } catch { /* localStorage indisponible */ }
+    setCollapsed(initial)
+    document.documentElement.classList.toggle(HTML_CLASS, initial)
     setReady(true)
+    return () => { document.documentElement.classList.remove(HTML_CLASS) }
   }, [])
 
   function toggle() {
     setCollapsed(c => {
       const next = !c
       try { localStorage.setItem(STORAGE_KEY, next ? '1' : '0') } catch { /* localStorage indisponible */ }
+      document.documentElement.classList.toggle(HTML_CLASS, next)
       return next
     })
   }
@@ -47,7 +58,7 @@ export default function SectionSideNav({ items, title }: { items: SideNavItem[];
   return (
     <nav className={`sidenav${collapsed ? ' sidenav-collapsed' : ''}`} style={{ visibility: ready ? 'visible' : 'hidden' }}>
       <style>{`
-        .sidenav { width: 216px; flex-shrink: 0; background: #f9fafb; border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 2px; transition: width .15s ease; align-self: flex-start; }
+        .sidenav { position: fixed; top: 60px; left: 0; bottom: 0; width: 216px; background: #f9fafb; border-right: 1px solid var(--abed-border); padding: 10px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; transition: width .15s ease; z-index: 150; }
         .sidenav-collapsed { width: 54px; }
         .sidenav-toggle { display: flex; align-items: center; justify-content: center; width: 100%; padding: 8px 0; border: none; background: none; cursor: pointer; color: #9ca3af; border-radius: 8px; margin-bottom: 6px; }
         .sidenav-toggle:hover { background: #eef1ea; color: #374151; }
@@ -61,7 +72,7 @@ export default function SectionSideNav({ items, title }: { items: SideNavItem[];
         .sidenav-badge { font-size: 10.5px; font-weight: 800; padding: 1px 6px; border-radius: 20px; background: #ef4444; color: white; flex-shrink: 0; }
         .sidenav-item.active .sidenav-badge { background: rgba(255,255,255,.3); }
         @media (max-width: 700px) {
-          .sidenav, .sidenav-collapsed { width: 100%; flex-direction: row; flex-wrap: wrap; }
+          .sidenav, .sidenav-collapsed { position: static; width: 100%; height: auto; flex-direction: row; flex-wrap: wrap; border-right: none; }
           .sidenav-toggle, .sidenav-title, .sidenav-heading { display: none; }
           .sidenav-collapsed .sidenav-label { display: inline; }
           .sidenav-item { flex: 0 0 auto; width: auto; }

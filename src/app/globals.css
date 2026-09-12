@@ -48,21 +48,40 @@ a { color: var(--abed-blue); text-decoration: none; }
   .page-container { padding: 20px 16px; }
 }
 
-/* Section avec sous-menu latéral (Admin, RH, DE, CAF, BD, AAF) — le menu
-   (SectionSideNav) et le contenu de la page se partagent la largeur ; sous
-   700px ils s'empilent (le sous-menu repasse lui-même en rangée horizontale
-   à cette largeur, voir SectionSideNav.tsx). */
-.section-with-sidenav {
-  display: flex;
-  align-items: flex-start;
-  gap: 20px;
+/* Section avec sous-menu latéral (Admin, RH, DE, CAF, BD, AAF, TdR, Mon
+   espace) — SectionSideNav est en position fixe (collée au bord gauche de
+   l'écran, pleine hauteur, ne défile plus avec le contenu), donc hors du
+   flux normal : .section-content lui réserve la place par une marge
+   gauche, ajustée automatiquement quand le menu est replié (classe posée
+   sur <html> par SectionSideNav.tsx). .page-container perd son centrage
+   habituel ici, sinon le contenu resterait centré sur la page entière au
+   lieu de démarrer juste après la barre, avec un grand vide entre les
+   deux sur les écrans larges. Sous 700px, le sous-menu repasse lui-même en
+   rangée horizontale non fixe (voir SectionSideNav.tsx) : plus besoin de
+   lui réserver de marge. */
+.page-container:has(> .section-with-sidenav) {
+  max-width: none;
+  margin: 0;
+  padding: 0;
 }
-.section-with-sidenav > .section-content {
-  flex: 1;
-  min-width: 0;
+.section-content {
+  margin-left: 216px;
+  padding: 36px 32px;
+  min-height: calc(100vh - 60px);
+  box-sizing: border-box;
+  transition: margin-left .15s ease;
+}
+html.sidenav-collapsed-html .section-content {
+  margin-left: 54px;
+}
+@media (max-width: 1100px) {
+  .section-content { padding: 28px 24px; }
+}
+@media (max-width: 768px) {
+  .section-content { padding: 20px 16px; }
 }
 @media (max-width: 700px) {
-  .section-with-sidenav { flex-direction: column; }
+  .section-content { margin-left: 0; }
 }
 
 .btn {
