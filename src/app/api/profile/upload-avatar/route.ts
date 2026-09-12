@@ -37,5 +37,14 @@ export async function POST(req: NextRequest) {
 
   await admin.from('profiles').update({ avatar_url: publicUrl }).eq('id', user.id)
 
+  // Trace ce changement dans "Mon dossier" (voir PersonnelDossierClient) —
+  // même logique que l'upload photo à l'inscription/complétion de profil.
+  // Un changement ultérieur de photo remplace l'entrée précédente plutôt
+  // que d'empiler plusieurs "Photo" pour la même personne.
+  await admin.from('personnel_documents').delete().eq('profile_id', user.id).eq('categorie', 'photo')
+  await admin.from('personnel_documents').insert({
+    profile_id: user.id, categorie: 'photo', nom_fichier: file.name, storage_path: path, uploaded_by: user.id,
+  })
+
   return NextResponse.json({ ok: true, url: publicUrl })
 }

@@ -19,8 +19,13 @@ const CATEGORIES: { key: Doc['categorie']; label: string; icon: React.ElementTyp
   { key: 'autre', label: 'Autre', icon: Paperclip },
 ]
 
-async function openFile(path: string) {
-  const res = await fetch(`/api/storage/signed-url?bucket=dossiers-personnel&path=${encodeURIComponent(path)}`)
+async function openFile(path: string, categorie: Doc['categorie']) {
+  // La photo de profil est déposée dans le bucket "avatars" (via
+  // register/completer/upload-avatar), tous les autres documents dans
+  // "dossiers-personnel" — sans ça, ouvrir une "Photo" du dossier cherchait
+  // le fichier dans le mauvais bucket et échouait systématiquement.
+  const bucket = categorie === 'photo' ? 'avatars' : 'dossiers-personnel'
+  const res = await fetch(`/api/storage/signed-url?bucket=${bucket}&path=${encodeURIComponent(path)}`)
   const json = await res.json()
   if (json.url) window.open(json.url, '_blank')
   else alert("Impossible d'ouvrir : " + (json.error ?? 'erreur'))
@@ -100,7 +105,7 @@ export default function PersonnelDossierClient({ profileId, canDelete }: { profi
                   <ul style={{ display: 'grid', gap: 6, listStyle: 'none', padding: 0, marginLeft: 24 }}>
                     {items.map(d => (
                       <li key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <button className="btn secondary" style={{ fontSize: 12 }} onClick={() => openFile(d.storage_path)}>
+                        <button className="btn secondary" style={{ fontSize: 12 }} onClick={() => openFile(d.storage_path, d.categorie)}>
                           {d.nom_fichier}
                         </button>
                         <span style={{ fontSize: 11, color: 'var(--abed-muted)' }}>
