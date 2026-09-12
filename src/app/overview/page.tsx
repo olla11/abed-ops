@@ -8,8 +8,7 @@ import ImpersonationBanner from '@/components/ImpersonationBanner'
 import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
 import { getImpersonationInfo } from '@/lib/impersonation'
 import OverviewOperations from '@/components/OverviewOperations'
-import SectionSideNav from '@/components/SectionSideNav'
-import { OVERVIEW_NAV_ITEMS } from '@/components/overviewNavItems'
+import OverviewSideNav from '@/components/OverviewSideNav'
 import AAFNav from '@/app/aaf/AAFNav'
 import { estRH, estAAF } from '@/lib/roles'
 
@@ -50,7 +49,7 @@ export default async function OverviewPage() {
       {impersonation && <ImpersonationBanner adminNom={impersonation.adminNom} adminPrenoms={impersonation.adminPrenoms} targetNom={impersonation.targetNom} targetPrenoms={impersonation.targetPrenoms} targetRole={impersonation.targetRole} />}
       <div className="page-container">
       <div className="section-with-sidenav">
-        {showAAFNav ? <AAFNav role={role} /> : <SectionSideNav items={OVERVIEW_NAV_ITEMS} />}
+        {showAAFNav ? <AAFNav role={role} /> : <OverviewSideNav />}
         <div className="section-content" style={{ display: 'grid', gap: 28 }}>
 
         <div>
