@@ -31,7 +31,7 @@ export async function POST(
 
   // Offre (de stage ou non) : le DE a déjà signé en premier, la signature
   // du/de la bénéficiaire finalise directement le document.
-  const deSigneAvant = contrat.categorie_document === 'Offre de stage' || contrat.categorie_document === 'Offre'
+  const deSigneAvant = contrat.categorie_document === 'Offre'
   const now = new Date().toISOString()
   await admin.from('contrats').update({
     signe_employe_le: now,

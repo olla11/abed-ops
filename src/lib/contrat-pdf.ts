@@ -104,7 +104,6 @@ const PARENT_CATEGORIE_LABELS: Record<string, string> = {
   Convention: 'la Convention',
   Contrat: 'le Contrat',
   Avenant: "l'Avenant",
-  'Offre de stage': "l'Offre de stage",
 }
 function parentCategorieLabel(categorie: string | null | undefined): string {
   return PARENT_CATEGORIE_LABELS[categorie ?? ''] ?? `le document`
@@ -234,7 +233,7 @@ export function construireContratHtml(d: ContratPdfData): string {
   // Une offre (de stage, de bénévolat, de prestation...) précède toujours la
   // signature d'un contrat/convention — c'est une lettre, pas un document
   // "entre les soussignés" avec des articles numérotés.
-  const isOffre = categorie === 'Offre de stage' || categorie === 'Offre'
+  const isOffre = categorie === 'Offre'
   // Les contrats de prestation ("Il a été préalablement exposé...") suivent
   // le même ordre que les conventions/avenants dans les modèles réels :
   // "Entre les soussignés" d'abord, puis le préambule qui nomme les parties.

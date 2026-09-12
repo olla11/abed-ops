@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Ce document ne peut pas être signé à cette étape.' }, { status: 400 })
   }
 
-  const deSigneAvant = contrat.categorie_document === 'Offre de stage' || contrat.categorie_document === 'Offre'
+  const deSigneAvant = contrat.categorie_document === 'Offre'
   const now = new Date().toISOString()
   const { error: updErr } = await admin.from('contrats').update({
     signe_employe_le: now,

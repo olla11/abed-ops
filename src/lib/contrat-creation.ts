@@ -35,10 +35,10 @@ export type NouveauContratParams = {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function creerContratEtDemarrerCircuit(service: any, actorUserId: string, p: NouveauContratParams) {
   const categorie = p.categorie_document || 'Contrat'
-  // Une offre — de stage ou non — passe toujours par le DE en premier,
-  // avant d'aller chez le/la bénéficiaire (contrairement à un Contrat/
-  // Convention classique, où l'employé signe en premier).
-  const deSigneAvant = categorie === 'Offre de stage' || categorie === 'Offre'
+  // Une offre (stagiaire ou non) passe toujours par le DE en premier, avant
+  // d'aller chez le/la bénéficiaire (contrairement à un Contrat/Convention
+  // classique, où l'employé signe en premier).
+  const deSigneAvant = categorie === 'Offre'
 
   const { data: contrat, error: insertError } = await service.from('contrats').insert({
     profile_id: p.profile_id || null,

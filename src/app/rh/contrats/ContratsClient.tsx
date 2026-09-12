@@ -28,8 +28,8 @@ type Contrat = {
 // renseignant qu'un email — utile quand la personne n'a pas encore intégré
 // ABED et donc pas encore de compte My ABED (voir /contrats/externe).
 function categorieAutoriseDestinataireExterne(categorie: string, typeContrat: string): boolean {
-  if (categorie === 'Offre' || categorie === 'Offre de stage') return true
-  if (categorie === 'Convention' && ['Bourse de formation', 'Consultant'].includes(typeContrat)) return true
+  if (categorie === 'Offre') return true
+  if (categorie === 'Convention' && typeContrat === 'Bourse de formation') return true
   return false
 }
 
@@ -69,8 +69,19 @@ function clearDraft(key: string) {
 }
 
 const TYPES = ['CDD', 'CDI', 'Stage N1', 'Stage N2', 'Bénévolat', 'Prestataire direct', 'Prestataire à crédit', 'Consultant', 'Bourse de formation']
-const TYPES_STAGE = ['Stage N1', 'Stage N2']
-const CATEGORIES = ['Offre', 'Contrat', 'Convention', 'Avenant', 'Offre de stage']
+// Convention et Contrat sont restreints à un sous-ensemble de types cohérent
+// avec leur nature juridique ; Offre reste ouverte à tous les types
+// puisqu'elle s'adresse à tout le monde, stagiaires compris (l'ancienne
+// catégorie "Offre de stage" a été supprimée et fusionnée dans "Offre").
+// Avenant, sans restriction propre, garde la liste complète par défaut.
+const TYPES_CONVENTION = ['Stage N1', 'Stage N2', 'Bourse de formation', 'Bénévolat']
+const TYPES_CONTRAT = ['Prestataire direct', 'Prestataire à crédit', 'CDD', 'CDI', 'Consultant']
+function typesPourCategorie(cat: string): string[] {
+  if (cat === 'Convention') return TYPES_CONVENTION
+  if (cat === 'Contrat') return TYPES_CONTRAT
+  return TYPES
+}
+const CATEGORIES = ['Offre', 'Contrat', 'Convention', 'Avenant']
 const SOURCES_FINANCEMENT = ['Expertise France (CLEE-2i)', 'Prometiers', 'ABED Directe', 'Réserve', 'Autre']
 
 // Renouvelable : déjà expiré/résilié, OU encore actif mais dont la fin
@@ -559,7 +570,7 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
             {CATEGORIES.map(cat => (
               <button key={cat} type="button"
                 onClick={() => setForm((f: any) => {
-                  const allowedTypes = cat === 'Offre de stage' ? TYPES_STAGE : TYPES
+                  const allowedTypes = typesPourCategorie(cat)
                   const typeStillValid = allowedTypes.includes(f.type_contrat)
                   return { ...f, categorie_document: cat, contrat_parent_id: '', type_contrat: typeStillValid ? f.type_contrat : '' }
                 })}
@@ -597,7 +608,7 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
           setForm((f: any) => ({ ...f, type_contrat: val, salaire_brut: taux != null ? taux : f.salaire_brut }))
         }} style={inputStyle}>
           <option value="">— Choisir —</option>
-          {(categorie === 'Offre de stage' ? TYPES_STAGE : TYPES).map(o => <option key={o} value={o}>{o}</option>)}
+          {typesPourCategorie(categorie).map(o => <option key={o} value={o}>{o}</option>)}
         </select>
       </div>
 
@@ -635,10 +646,10 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
 
       <div style={{ marginBottom: 12 }}>
         <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>
-          {categorie === 'Offre de stage' || categorie === 'Offre' ? 'Corps de la lettre (modalités, supervision, horaires...)' : 'Objet du document'}
+          {categorie === 'Offre' ? 'Corps de la lettre (modalités, supervision, horaires...)' : 'Objet du document'}
         </label>
         <textarea value={form.objet ?? ''} onChange={e => setForm((f: any) => ({ ...f, objet: e.target.value }))} rows={2}
-          placeholder={categorie === 'Offre de stage' || categorie === 'Offre' ? 'Ce texte apparaît tel quel dans le corps de la lettre envoyée au bénéficiaire...' : "Décrivez l'objet de ce document..."}
+          placeholder={categorie === 'Offre' ? 'Ce texte apparaît tel quel dans le corps de la lettre envoyée au bénéficiaire...' : "Décrivez l'objet de ce document..."}
           style={{ ...inputStyle, resize: 'vertical' }} />
       </div>
       <div style={{ marginBottom: 12 }}>
@@ -684,7 +695,7 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
         </div>
       ) : (
         <div style={{ marginBottom: 12 }}>
-          {categorie !== 'Offre de stage' && categorie !== 'Offre' && grilles.length > 0 && (
+          {categorie !== 'Offre' && grilles.length > 0 && (
             <div className="grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 8 }}>
               <div>
                 <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Grade (grille salariale)</label>
@@ -712,7 +723,7 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
             </div>
           )}
           <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>
-            {categorie === 'Offre de stage' || categorie === 'Offre' ? 'Allocation mensuelle (FCFA)' : 'Salaire brut (FCFA)'}
+            {categorie === 'Offre' ? 'Allocation mensuelle (FCFA)' : 'Salaire brut (FCFA)'}
           </label>
           <input type="number" value={form.salaire_brut ?? ''} onChange={e => setForm((f: any) => ({ ...f, salaire_brut: e.target.value }))} style={inputStyle} />
         </div>

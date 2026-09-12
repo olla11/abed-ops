@@ -8,8 +8,8 @@ import { creerContratEtDemarrerCircuit } from '@/lib/contrat-creation'
 // compte My ABED (l'offre/la convention précède souvent son intégration) —
 // un CDD/CDI ou un Avenant suppose au contraire une personne déjà en place.
 function categorieAutoriseDestinataireExterne(categorie: string, typeContrat: string): boolean {
-  if (categorie === 'Offre' || categorie === 'Offre de stage') return true
-  if (categorie === 'Convention' && ['Bourse de formation', 'Consultant'].includes(typeContrat)) return true
+  if (categorie === 'Offre') return true
+  if (categorie === 'Convention' && typeContrat === 'Bourse de formation') return true
   return false
 }
 

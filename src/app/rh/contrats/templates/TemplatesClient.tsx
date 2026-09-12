@@ -11,7 +11,7 @@ type Template = {
 }
 
 const TYPES = ['CDD', 'CDI', 'Stage N1', 'Stage N2', 'Bénévolat', 'Prestataire direct', 'Prestataire à crédit', 'Consultant']
-const CATEGORIES = ['Contrat', 'Convention', 'Avenant', 'Offre de stage']
+const CATEGORIES = ['Offre', 'Contrat', 'Convention', 'Avenant']
 const TYPES_CHAMP: Champ['type'][] = ['text', 'textarea', 'date', 'number']
 
 const inputStyle: React.CSSProperties = {
