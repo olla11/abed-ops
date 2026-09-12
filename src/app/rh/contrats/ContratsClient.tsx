@@ -250,7 +250,7 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
     const idARenouveler = searchParams.get('renouveler')
     if (!idARenouveler) return
     const c = contrats.find(x => x.id === idARenouveler)
-    if (c && estRenouvelable(c)) openRenew(c)
+    if (c && estRenouvelable(c) && !dejaRenouvele(c)) openRenew(c)
     router.replace('/rh/contrats')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams])
@@ -296,8 +296,41 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
       (!filterCat || (c.categorie_document ?? 'Contrat') === filterCat)
   })
 
+  // Regroupe les documents d'une même personne pour qu'ils se suivent dans la
+  // liste au lieu d'être mêlés à ceux des autres employés (l'ordre relatif
+  // au sein d'un groupe, hérité du tri par date de fin, est conservé). Les
+  // groupes de plus d'un document reçoivent une teinte de fond (alternée
+  // d'un groupe à l'autre) pour les distinguer visuellement ; une personne
+  // avec un seul document garde une ligne blanche.
+  const groupeParPersonne = new Map<string, Contrat[]>()
+  filtered.forEach(c => {
+    const cle = c.profile_id ?? `ext:${c.destinataire_email ?? c.numero ?? c.id}`
+    if (!groupeParPersonne.has(cle)) groupeParPersonne.set(cle, [])
+    groupeParPersonne.get(cle)!.push(c)
+  })
+  const COULEURS_GROUPE = ['#eff6ff', '#fdf4ff']
+  const filteredGroupe: Contrat[] = []
+  const fondLigneParId = new Map<string, string>()
+  let idxGroupeMulti = 0
+  groupeParPersonne.forEach(liste => {
+    filteredGroupe.push(...liste)
+    if (liste.length > 1) {
+      const fond = COULEURS_GROUPE[idxGroupeMulti % COULEURS_GROUPE.length]
+      liste.forEach(c => fondLigneParId.set(c.id, fond))
+      idxGroupeMulti++
+    }
+  })
+
   function activeContractsFor(profileId: string) {
     return contrats.filter(c => c.profile_id === profileId && c.statut === 'actif' && (c.categorie_document ?? 'Contrat') !== 'Avenant')
+  }
+
+  // Un contrat déjà utilisé pour un renouvellement (Avenant ou Renouvellement
+  // & Promotion — les deux renseignent l'un ou l'autre de ces liens sur le
+  // document qu'ils créent) ne peut pas servir de base à un second
+  // renouvellement : le bouton "Renouveler" disparaît pour lui.
+  function dejaRenouvele(c: Contrat) {
+    return contrats.some(other => other.renouvele_depuis === c.id || other.contrat_parent_id === c.id)
   }
 
   function handleEmployeChange(profileId: string) {
@@ -822,12 +855,12 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
               </tr>
             </thead>
             <tbody>
-              {paginate(filtered, page, PAGE_SIZE).map((c, i) => {
+              {paginate(filteredGroupe, page, PAGE_SIZE).map((c) => {
                 const badge = statutBadge(c.statut, c.date_fin)
                 const cat = c.categorie_document ?? 'Contrat'
                 const catStyle = categorieBadge(cat)
                 return (
-                  <tr key={c.id} style={{ background: i % 2 === 0 ? 'white' : '#fafafa' }}>
+                  <tr key={c.id} style={{ background: fondLigneParId.get(c.id) ?? 'white' }}>
                     <td style={{ padding: '10px 12px', fontSize: 11, color: '#6b7280', whiteSpace: 'nowrap' }}>
                       {c.numero ?? '—'}
                       {c.contrat_parent_id && (() => {
@@ -942,7 +975,7 @@ export default function ContratsClient({ contrats: initial, personnel }: { contr
                                 </button>
                               </>
                             )}
-                            {estRenouvelable(c) && (
+                            {estRenouvelable(c) && !dejaRenouvele(c) && (
                               <button onClick={() => { openRenew(c); setMenuOpenId(null) }}
                                 style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 14px', fontSize: 12.5, cursor: 'pointer', background: 'white', border: 'none', borderBottom: '1px solid #f3f4f6', color: '#374151', textAlign: 'left' }}>
                                 <RefreshCw size={14} /> Renouveler

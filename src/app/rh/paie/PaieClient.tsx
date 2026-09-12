@@ -27,18 +27,21 @@ function coutMensuel(c: Contrat): number {
   return c.salaire_brut ?? 0
 }
 
-// La CNSS (cotisation salariale) ne s'applique qu'aux contrats CDD/CDI —
-// pas aux stages, bénévolats, offres, avenants ou prestataires (indépendants
-// payés sur facture, pas de cotisation salariale employeur).
-function tauxCnssApplicable(c: Contrat, tauxCnss: number): number {
-  return (c.type_contrat === 'CDD' || c.type_contrat === 'CDI') ? tauxCnss : 0
+// CNSS et ITS ne s'appliquent qu'aux contrats CDD/CDI — pas aux stages,
+// bénévolats, offres, avenants ou prestataires (indépendants payés sur
+// facture, sans cotisation ni retenue salariale classique).
+function estSoumisCnssIts(c: Contrat): boolean {
+  return c.type_contrat === 'CDD' || c.type_contrat === 'CDI'
 }
 
 export default function PaieClient({ contrats, tauxCnss, bareme }: { contrats: Contrat[]; tauxCnss: number; bareme: TrancheITS[] }) {
   const lignes = useMemo(() => contrats
     .map(c => ({ contrat: c, brut: coutMensuel(c) }))
     .filter(({ brut }) => brut > 0)
-    .map(({ contrat: c, brut }) => ({ contrat: c, fiche: calculerFichePaie(brut, tauxCnssApplicable(c, tauxCnss), bareme) }))
+    .map(({ contrat: c, brut }) => {
+      const soumis = estSoumisCnssIts(c)
+      return { contrat: c, fiche: calculerFichePaie(brut, soumis ? tauxCnss : 0, soumis ? bareme : []) }
+    })
     .sort((a, b) => (b.contrat.profile?.nom ?? '').localeCompare(a.contrat.profile?.nom ?? '')),
   [contrats, tauxCnss, bareme])
 
