@@ -23,12 +23,28 @@ export default async function PersonnelDossierPage({ params }: { params: Promise
   return (
     <div className="page-container">
       <Link href="/rh/personnel" style={{ fontSize: 13, color: 'var(--abed-muted)' }}>← Retour</Link>
-      <h2 style={{ color: 'var(--abed-green)', margin: '8px 0 4px' }}>
-        Dossier — {profile.prenoms} {profile.nom}
-      </h2>
-      <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: 24 }}>
-        {profile.fonction ?? '—'}
-      </p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+        <div>
+          <h2 style={{ color: 'var(--abed-green)', margin: '8px 0 4px' }}>
+            Dossier — {profile.prenoms} {profile.nom}
+          </h2>
+          <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: 24 }}>
+            {profile.fonction ?? '—'}
+          </p>
+        </div>
+        <a
+          href={`/api/fiche-personnel-pdf/${id}`}
+          target="_blank"
+          rel="noreferrer"
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 8,
+            padding: '9px 16px', borderRadius: 8, fontSize: 13, fontWeight: 700,
+            background: 'var(--abed-green)', color: 'white', textDecoration: 'none',
+          }}
+        >
+          Télécharger la fiche PDF
+        </a>
+      </div>
       <div className="card">
         <PersonnelDossierClient profileId={id} canDelete={true} />
       </div>
