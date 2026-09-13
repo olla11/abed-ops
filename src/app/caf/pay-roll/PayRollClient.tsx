@@ -57,6 +57,9 @@ export default function PayRollClient() {
   const [commentaireCaf, setCommentaireCaf] = useState('')
   const [generating, setGenerating] = useState(false)
   const [genMsg, setGenMsg] = useState('')
+  const [brouillon, setBrouillon] = useState<{ id: string; numero: string; url: string | null } | null>(null)
+  const [envoi, setEnvoi] = useState(false)
+  const [annulation, setAnnulation] = useState(false)
 
   function load() {
     setLoading(true)
@@ -103,8 +106,36 @@ export default function PayRollClient() {
     const j = await res.json()
     setGenerating(false)
     if (!res.ok) { setGenMsg(j.error ?? 'Erreur'); return }
-    setShowGenerer(false); setSelection(new Set()); setCommentaireCaf(''); setGenMsg('')
+    const docRes = await fetch(`/api/pay-roll/appels-de-fonds/${j.appelDeFondsId}/document`)
+    const docJ = await docRes.json()
+    setBrouillon({ id: j.appelDeFondsId, numero: j.numero, url: docJ.url ?? null })
     load()
+  }
+
+  async function envoyerDansLeCircuit() {
+    if (!brouillon) return
+    setEnvoi(true); setGenMsg('')
+    const res = await fetch(`/api/pay-roll/appels-de-fonds/${brouillon.id}/envoyer`, { method: 'POST' })
+    const j = await res.json()
+    setEnvoi(false)
+    if (!res.ok) { setGenMsg(j.error ?? 'Erreur'); return }
+    fermerModalGenerer()
+    load()
+  }
+
+  async function annulerBrouillon() {
+    if (!brouillon) return
+    setAnnulation(true); setGenMsg('')
+    const res = await fetch(`/api/pay-roll/appels-de-fonds/${brouillon.id}`, { method: 'DELETE' })
+    const j = await res.json()
+    setAnnulation(false)
+    if (!res.ok) { setGenMsg(j.error ?? 'Erreur'); return }
+    setBrouillon(null)
+    load()
+  }
+
+  function fermerModalGenerer() {
+    setShowGenerer(false); setSelection(new Set()); setCommentaireCaf(''); setGenMsg(''); setBrouillon(null)
   }
 
   return (
@@ -255,25 +286,48 @@ export default function PayRollClient() {
           position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(17,24,39,.6)',
           display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
         }}>
-          <div style={{ background: 'white', borderRadius: 14, width: '100%', maxWidth: 480, padding: '24px 28px', boxShadow: '0 24px 64px rgba(0,0,0,.35)' }}>
-            <h3 style={{ margin: '0 0 6px', color: 'var(--abed-green)' }}>Générer l&apos;appel de fonds</h3>
-            <p style={{ fontSize: 13, color: 'var(--abed-muted)', margin: '0 0 16px' }}>
-              {selection.size} paiement{selection.size > 1 ? 's' : ''} — {montantSelection.toLocaleString('fr-FR')} FCFA.
-              Le document sera généré et envoyé dans le circuit de signature (DE → TG CA → PCA).
-            </p>
-            <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Commentaire (optionnel)</label>
-            <textarea
-              value={commentaireCaf} onChange={e => setCommentaireCaf(e.target.value)} rows={3}
-              style={{ ...inputStyle, width: '100%', resize: 'vertical', marginBottom: 16 }}
-            />
-            {genMsg && <p style={{ color: '#dc2626', fontSize: 13, marginBottom: 12 }}>{genMsg}</p>}
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button className="btn secondary" onClick={() => setShowGenerer(false)} disabled={generating}>Annuler</button>
-              <button className="btn" onClick={genererAppelDeFonds} disabled={generating}>
-                {generating ? 'Génération…' : 'Générer et envoyer'}
-              </button>
+          {!brouillon ? (
+            <div style={{ background: 'white', borderRadius: 14, width: '100%', maxWidth: 480, padding: '24px 28px', boxShadow: '0 24px 64px rgba(0,0,0,.35)' }}>
+              <h3 style={{ margin: '0 0 6px', color: 'var(--abed-green)' }}>Générer l&apos;appel de fonds</h3>
+              <p style={{ fontSize: 13, color: 'var(--abed-muted)', margin: '0 0 16px' }}>
+                {selection.size} paiement{selection.size > 1 ? 's' : ''} — {montantSelection.toLocaleString('fr-FR')} FCFA.
+                Le PDF sera généré pour vérification avant d&apos;être envoyé dans le circuit de signature (DE → TG CA → PCA).
+              </p>
+              <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Commentaire (optionnel)</label>
+              <textarea
+                value={commentaireCaf} onChange={e => setCommentaireCaf(e.target.value)} rows={3}
+                style={{ ...inputStyle, width: '100%', resize: 'vertical', marginBottom: 16 }}
+              />
+              {genMsg && <p style={{ color: '#dc2626', fontSize: 13, marginBottom: 12 }}>{genMsg}</p>}
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                <button className="btn secondary" onClick={fermerModalGenerer} disabled={generating}>Annuler</button>
+                <button className="btn" onClick={genererAppelDeFonds} disabled={generating}>
+                  {generating ? 'Génération…' : 'Générer le PDF'}
+                </button>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div style={{ background: 'white', borderRadius: 14, width: '100%', maxWidth: 760, padding: '24px 28px', boxShadow: '0 24px 64px rgba(0,0,0,.35)', display: 'flex', flexDirection: 'column', maxHeight: '90vh' }}>
+              <h3 style={{ margin: '0 0 6px', color: 'var(--abed-green)' }}>Appel de fonds N° {brouillon.numero} — brouillon</h3>
+              <p style={{ fontSize: 13, color: 'var(--abed-muted)', margin: '0 0 14px' }}>
+                Vérifiez le document avant de l&apos;envoyer dans le circuit de signature (DE → TG CA → PCA). Vous pouvez encore l&apos;annuler.
+              </p>
+              {brouillon.url ? (
+                <iframe src={brouillon.url} style={{ flex: 1, width: '100%', minHeight: 420, border: '1px solid var(--abed-border)', borderRadius: 8, marginBottom: 16 }} />
+              ) : (
+                <p style={{ fontSize: 13, color: '#dc2626', marginBottom: 16 }}>PDF indisponible pour l&apos;aperçu.</p>
+              )}
+              {genMsg && <p style={{ color: '#dc2626', fontSize: 13, marginBottom: 12 }}>{genMsg}</p>}
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                <button className="btn secondary" onClick={annulerBrouillon} disabled={envoi || annulation}>
+                  {annulation ? 'Annulation…' : 'Annuler ce brouillon'}
+                </button>
+                <button className="btn" onClick={envoyerDansLeCircuit} disabled={envoi || annulation}>
+                  {envoi ? 'Envoi…' : 'Envoyer dans le circuit de signature'}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

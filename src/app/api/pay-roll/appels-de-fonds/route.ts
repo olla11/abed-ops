@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
-import { creerAppelDeFonds } from '@/lib/appel-de-fonds'
+import { genererAppelDeFondsBrouillon } from '@/lib/appel-de-fonds'
 
 // POST { payRollIds: string[], commentaireCaf?: string } — CAF/admin
-// uniquement. Regroupe les paiements sélectionnés par code budgétaire,
-// génère le PDF et lance le circuit de signature DE → TG CA → PCA.
+// uniquement. Regroupe les paiements sélectionnés par code budgétaire et
+// génère le PDF à l'état 'brouillon' — la CAF le prévisualise avant de
+// l'envoyer dans le circuit de signature (voir [id]/envoyer) ou de
+// l'annuler (DELETE [id]).
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -21,7 +23,7 @@ export async function POST(req: NextRequest) {
   }
 
   const admin = createAdminClient()
-  const result = await creerAppelDeFonds(admin, {
+  const result = await genererAppelDeFondsBrouillon(admin, {
     payRollIds, commentaireCaf: commentaireCaf?.trim() || null, createurId: user.id,
   })
 

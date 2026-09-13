@@ -8,12 +8,11 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_URL ?? 'https
 
 type Resultat = { ok: true; appelDeFondsId: string; numero: string } | { ok: false; error: string }
 
-// Regroupe les paiements Pay Roll sélectionnés par code budgétaire, génère le
-// PDF de l'appel de fonds, et lance le circuit de signature DE → TG CA → PCA
-// via le système générique de signature (demandes_signature/signataires),
-// avec l'AAF ajouté en observateur pour recevoir automatiquement le PDF
-// signé une fois le circuit bouclé (voir finalizeAfterSignature).
-export async function creerAppelDeFonds(admin: AdminClient, opts: {
+// Regroupe les paiements Pay Roll sélectionnés par code budgétaire et génère
+// le PDF de l'appel de fonds à l'état 'brouillon' — la CAF peut le
+// prévisualiser avant de décider de l'envoyer dans le circuit de signature
+// (voir envoyerAppelDeFondsCircuit) ou de l'annuler (annulerAppelDeFondsBrouillon).
+export async function genererAppelDeFondsBrouillon(admin: AdminClient, opts: {
   payRollIds: string[]
   commentaireCaf: string | null
   createurId: string
@@ -26,22 +25,6 @@ export async function creerAppelDeFonds(admin: AdminClient, opts: {
   if (items.some(i => i.statut !== 'a_payer')) return { ok: false, error: 'Tous les paiements sélectionnés doivent être au statut « À payer ».' }
   if (items.some(i => i.appel_de_fonds_id)) return { ok: false, error: "Un des paiements sélectionnés fait déjà partie d'un appel de fonds." }
   if (items.some(i => !i.code_budgetaire)) return { ok: false, error: 'Chaque paiement doit avoir un code budgétaire renseigné.' }
-
-  // Le circuit a besoin d'un titulaire actif pour chacun des 3 rôles — on
-  // vérifie tout avant de créer quoi que ce soit, pour ne jamais laisser un
-  // appel de fonds à moitié créé si l'un des trois manque.
-  const [{ data: deRows }, { data: tgcaRows }, { data: pcaRows }, { data: aafRows }] = await Promise.all([
-    admin.from('profiles').select('id, nom, prenoms, email').eq('role', 'de').eq('archived', false),
-    admin.from('profiles').select('id, nom, prenoms, email').eq('titre', 'tresorier_ca').eq('archived', false),
-    admin.from('profiles').select('id, nom, prenoms, email').eq('titre', 'president_ca').eq('archived', false),
-    admin.from('profiles').select('id').eq('role', 'aaf').eq('archived', false),
-  ])
-  const de = (deRows ?? [])[0]
-  const tgca = (tgcaRows ?? [])[0]
-  const pca = (pcaRows ?? [])[0]
-  if (!de) return { ok: false, error: 'Aucun Directeur Exécutif actif — impossible de lancer le circuit de signature.' }
-  if (!tgca) return { ok: false, error: 'Aucun·e Trésorier·ère Général·e du CA actif·ve — impossible de lancer le circuit de signature.' }
-  if (!pca) return { ok: false, error: 'Aucun·e Président·e du CA actif·ve — impossible de lancer le circuit de signature.' }
 
   const annee = new Date().getFullYear()
 
@@ -102,8 +85,8 @@ export async function creerAppelDeFonds(admin: AdminClient, opts: {
   if (uploadErr) return { ok: false, error: `Erreur lors du dépôt du PDF : ${uploadErr.message}` }
 
   const { data: appel, error: appelErr } = await admin.from('appels_de_fonds').insert({
-    numero, date_demande: new Date().toISOString().slice(0, 10), statut: 'circuit_signature',
-    commentaire_caf: opts.commentaireCaf, montant_total: montantTotal, created_by: opts.createurId,
+    numero, date_demande: new Date().toISOString().slice(0, 10), statut: 'brouillon',
+    fichier_url: path, commentaire_caf: opts.commentaireCaf, montant_total: montantTotal, created_by: opts.createurId,
   }).select('id').single()
   if (appelErr || !appel) return { ok: false, error: appelErr?.message ?? 'Erreur lors de la création de l\'appel de fonds.' }
 
@@ -119,15 +102,62 @@ export async function creerAppelDeFonds(admin: AdminClient, opts: {
 
   await admin.from('pay_roll').update({ appel_de_fonds_id: appel.id }).in('id', opts.payRollIds)
 
+  return { ok: true, appelDeFondsId: appel.id, numero }
+}
+
+// Annule un appel de fonds encore à l'état 'brouillon' — jamais envoyé dans
+// le circuit de signature — pour laisser la CAF corriger sa sélection après
+// prévisualisation. Libère les paiements Pay Roll concernés et supprime le
+// PDF déposé.
+export async function annulerAppelDeFondsBrouillon(admin: AdminClient, appelDeFondsId: string): Promise<Resultat> {
+  const { data: appel } = await admin.from('appels_de_fonds').select('id, statut, fichier_url').eq('id', appelDeFondsId).single()
+  if (!appel) return { ok: false, error: 'Appel de fonds introuvable.' }
+  if (appel.statut !== 'brouillon') return { ok: false, error: 'Cet appel de fonds a déjà été envoyé dans le circuit de signature.' }
+
+  await admin.from('pay_roll').update({ appel_de_fonds_id: null }).eq('appel_de_fonds_id', appelDeFondsId)
+  if (appel.fichier_url) await admin.storage.from('documents').remove([appel.fichier_url]).catch(() => {})
+  await admin.from('appel_de_fonds_lignes').delete().eq('appel_de_fonds_id', appelDeFondsId)
+  await admin.from('appels_de_fonds').delete().eq('id', appelDeFondsId)
+
+  return { ok: true, appelDeFondsId, numero: '' }
+}
+
+// Une fois le brouillon validé par la CAF, lance le circuit de signature
+// DE → TG CA → PCA via le système générique de signature
+// (demandes_signature/signataires), avec l'AAF ajouté en observateur pour
+// recevoir automatiquement le PDF signé une fois le circuit bouclé (voir
+// finalizeAfterSignature).
+export async function envoyerAppelDeFondsCircuit(admin: AdminClient, opts: {
+  appelDeFondsId: string
+  createurId: string
+}): Promise<Resultat> {
+  const { data: appel } = await admin.from('appels_de_fonds')
+    .select('id, numero, statut, fichier_url, commentaire_caf, montant_total')
+    .eq('id', opts.appelDeFondsId).single()
+  if (!appel) return { ok: false, error: 'Appel de fonds introuvable.' }
+  if (appel.statut !== 'brouillon') return { ok: false, error: 'Cet appel de fonds a déjà été envoyé dans le circuit de signature.' }
+  if (!appel.fichier_url) return { ok: false, error: 'PDF manquant pour cet appel de fonds.' }
+
+  const [{ data: deRows }, { data: tgcaRows }, { data: pcaRows }, { data: aafRows }] = await Promise.all([
+    admin.from('profiles').select('id, nom, prenoms, email').eq('role', 'de').eq('archived', false),
+    admin.from('profiles').select('id, nom, prenoms, email').eq('titre', 'tresorier_ca').eq('archived', false),
+    admin.from('profiles').select('id, nom, prenoms, email').eq('titre', 'president_ca').eq('archived', false),
+    admin.from('profiles').select('id').eq('role', 'aaf').eq('archived', false),
+  ])
+  const de = (deRows ?? [])[0]
+  const tgca = (tgcaRows ?? [])[0]
+  const pca = (pcaRows ?? [])[0]
+  if (!de) return { ok: false, error: 'Aucun Directeur Exécutif actif — impossible de lancer le circuit de signature.' }
+  if (!tgca) return { ok: false, error: 'Aucun·e Trésorier·ère Général·e du CA actif·ve — impossible de lancer le circuit de signature.' }
+  if (!pca) return { ok: false, error: 'Aucun·e Président·e du CA actif·ve — impossible de lancer le circuit de signature.' }
+
   const { data: demande, error: demandeErr } = await admin.from('demandes_signature').insert({
-    titre: `Appel de fonds N° ${numero}`,
-    description: opts.commentaireCaf,
-    fichier_url: path,
+    titre: `Appel de fonds N° ${appel.numero}`,
+    description: appel.commentaire_caf,
+    fichier_url: appel.fichier_url,
     createur_id: opts.createurId,
   }).select('id').single()
   if (demandeErr || !demande) return { ok: false, error: demandeErr?.message ?? 'Erreur lors de la création du circuit de signature.' }
-
-  await admin.from('appels_de_fonds').update({ demande_signature_id: demande.id }).eq('id', appel.id)
 
   const sigRows = [
     { demande_id: demande.id, profile_id: de.id, ordre: 0, est_observateur: false },
@@ -141,27 +171,29 @@ export async function creerAppelDeFonds(admin: AdminClient, opts: {
     return { ok: false, error: sigErr.message }
   }
 
+  await admin.from('appels_de_fonds').update({ demande_signature_id: demande.id, statut: 'circuit_signature' }).eq('id', appel.id)
+
   // Seul le premier palier (la DE, ordre 0) est notifié à la création —
   // même logique que /api/signatures/create.
   await admin.from('signataires').update({ notifie: true }).eq('demande_id', demande.id).eq('profile_id', de.id)
   await admin.from('notifications').insert({
     user_id: de.id,
     titre: 'Appel de fonds à signer',
-    message: `Appel de fonds N° ${numero} — ${montantTotal.toLocaleString('fr-FR')} FCFA.`,
+    message: `Appel de fonds N° ${appel.numero} — ${Number(appel.montant_total).toLocaleString('fr-FR')} FCFA.`,
     lien: `/signatures/${demande.id}/signer`,
   })
   if (de.email) {
     await sendEmail({
       to: de.email,
-      subject: `My ABED — Appel de fonds à signer : N° ${numero}`,
+      subject: `My ABED — Appel de fonds à signer : N° ${appel.numero}`,
       html: `
         <div style="font-family:sans-serif;max-width:560px;margin:0 auto;">
           <h2 style="color:#16a34a;">My ABED — Signature requise</h2>
           <p>Bonjour <strong>${de.prenoms} ${de.nom}</strong>,</p>
           <p>Un appel de fonds attend votre signature :</p>
           <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin:16px 0;">
-            <p style="margin:0;font-size:16px;font-weight:700;">Appel de fonds N° ${numero}</p>
-            <p style="margin:8px 0 0;color:#6b7280;">${montantTotal.toLocaleString('fr-FR')} FCFA</p>
+            <p style="margin:0;font-size:16px;font-weight:700;">Appel de fonds N° ${appel.numero}</p>
+            <p style="margin:8px 0 0;color:#6b7280;">${Number(appel.montant_total).toLocaleString('fr-FR')} FCFA</p>
           </div>
           <a href="${APP_URL}/signatures" style="display:inline-block;padding:10px 22px;background:#16a34a;color:white;border-radius:8px;text-decoration:none;font-weight:700;">
             Voir le document
@@ -171,5 +203,5 @@ export async function creerAppelDeFonds(admin: AdminClient, opts: {
     }).catch(e => console.error('[appel-de-fonds] email DE:', e))
   }
 
-  return { ok: true, appelDeFondsId: appel.id, numero }
+  return { ok: true, appelDeFondsId: appel.id, numero: appel.numero }
 }
