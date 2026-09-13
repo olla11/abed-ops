@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
   const budgetsParCode = Object.fromEntries((budgets ?? []).map(b => [b.code_budgetaire, b]))
 
   const rows = [
-    ['Code', 'Libellé (ne pas modifier)', `Budget annuel ${annee} (FCFA)`, 'Budget T1 (FCFA)', 'Budget T2 (FCFA)', 'Budget T3 (FCFA)', 'Budget T4 (FCFA)'],
+    ['Code', 'Libellé', `Budget annuel ${annee} (FCFA)`, 'Budget T1 (FCFA)', 'Budget T2 (FCFA)', 'Budget T3 (FCFA)', 'Budget T4 (FCFA)'],
     ...(codes ?? []).map(c => {
       const b = budgetsParCode[c.code]
       return [c.code, c.libelle, Number(b?.montant_annuel ?? 0), b?.t1_montant ?? '', b?.t2_montant ?? '', b?.t3_montant ?? '', b?.t4_montant ?? '']

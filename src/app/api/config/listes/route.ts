@@ -29,6 +29,22 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await supabase.from(table).select('*').order('ordre')
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+
+  // Les formulaires (demande de paiement, Pay Roll) ne doivent proposer que
+  // les codes budgétaires effectivement inscrits au budget adopté de
+  // l'année en cours — pas tout l'historique jamais créé dans Paramètres.
+  // Tant qu'aucun budget n'a encore été chargé pour la nouvelle année (début
+  // d'année, avant l'upload de la CAF), on retombe sur la liste complète
+  // plutôt que de laisser un formulaire sans aucun code proposé.
+  if (type === 'codes_budgetaires' && req.nextUrl.searchParams.get('actifs') === '1') {
+    const annee = new Date().getFullYear()
+    const { data: budgets } = await supabase.from('budget_adopte').select('code_budgetaire').eq('annee', annee)
+    const codesActifs = new Set((budgets ?? []).map(b => b.code_budgetaire))
+    if (codesActifs.size > 0) {
+      return NextResponse.json({ data: (data ?? []).filter((c: { code: string }) => codesActifs.has(c.code)) })
+    }
+  }
+
   return NextResponse.json({ data })
 }
 

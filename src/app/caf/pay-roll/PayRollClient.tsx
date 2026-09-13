@@ -69,7 +69,7 @@ export default function PayRollClient() {
   useEffect(() => {
     load()
     fetch('/api/config/listes?type=comptes_bancaires').then(r => r.json()).then(j => setComptes(j.data ?? []))
-    fetch('/api/config/listes?type=codes_budgetaires').then(r => r.json()).then(j => setCodes(j.data ?? []))
+    fetch('/api/config/listes?type=codes_budgetaires&actifs=1').then(r => r.json()).then(j => setCodes(j.data ?? []))
   }, [])
 
   async function patch(id: string, body: Record<string, unknown>) {

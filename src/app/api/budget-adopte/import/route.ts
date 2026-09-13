@@ -32,11 +32,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Fichier illisible — utilisez le modèle Excel fourni.' }, { status: 400 })
   }
 
-  const { data: codesExistants } = await supabase.from('codes_budgetaires').select('code')
+  const { data: codesExistants } = await supabase.from('codes_budgetaires').select('code, ordre')
   const codesValides = new Set((codesExistants ?? []).map(c => c.code))
+  let prochainOrdre = Math.max(0, ...(codesExistants ?? []).map(c => c.ordre ?? 0)) + 1
 
   type Ligne = { code_budgetaire: string; annee: number; montant_annuel: number; t1_montant: number | null; t2_montant: number | null; t3_montant: number | null; t4_montant: number | null }
   const aImporter: Ligne[] = []
+  const aCreer: { code: string; libelle: string; ordre: number }[] = []
   const ignores: string[] = []
 
   // Colonnes T1-T4 optionnelles : une cellule vide laisse le trimestre non
@@ -48,12 +50,21 @@ export async function POST(req: NextRequest) {
     return Number.isFinite(n) ? n : null
   }
 
+  // Un code présent dans le fichier mais absent de codes_budgetaires n'est
+  // plus rejeté — il est créé à la volée (avec son libellé de la colonne B) :
+  // le budget adopté devient la source qui alimente les codes utilisés dans
+  // tout le système, plutôt que l'inverse.
   for (const row of rows.slice(1)) {
     const code = String(row[0] ?? '').trim()
     if (!code) continue
+    const libelle = String(row[1] ?? '').trim()
     const montant = Number(row[2])
-    if (!codesValides.has(code)) { ignores.push(`${code} (code inconnu)`); continue }
     if (!Number.isFinite(montant) || montant < 0) { ignores.push(`${code} (montant invalide)`); continue }
+    if (!codesValides.has(code)) {
+      if (!libelle) { ignores.push(`${code} (nouveau code sans libellé)`); continue }
+      aCreer.push({ code, libelle, ordre: prochainOrdre++ })
+      codesValides.add(code)
+    }
     aImporter.push({
       code_budgetaire: code, annee, montant_annuel: montant,
       t1_montant: parseTrimestre(row[3]), t2_montant: parseTrimestre(row[4]),
@@ -65,9 +76,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Aucune ligne valide à importer.', ignores }, { status: 400 })
   }
 
+  if (aCreer.length > 0) {
+    const { error: creerErr } = await supabase.from('codes_budgetaires').insert(aCreer)
+    if (creerErr) return NextResponse.json({ error: `Erreur lors de la création des nouveaux codes : ${creerErr.message}` }, { status: 400 })
+  }
+
   const { error } = await supabase.from('budget_adopte')
     .upsert(aImporter.map(r => ({ ...r, updated_at: new Date().toISOString() })), { onConflict: 'code_budgetaire,annee' })
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
-  return NextResponse.json({ ok: true, importes: aImporter.length, ignores })
+  return NextResponse.json({ ok: true, importes: aImporter.length, codesCrees: aCreer.map(c => c.code), ignores })
 }

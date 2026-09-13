@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
-import { Upload } from 'lucide-react'
+import { Upload, FileBarChart } from 'lucide-react'
 
 type Ligne = {
   code: string
@@ -49,9 +49,68 @@ function TrimestreCell({ budget, depense }: { budget: number; depense: number })
   )
 }
 
+const TRIMESTRES = [1, 2, 3, 4]
+
+function CommentairesSection({ annee }: { annee: number }) {
+  const [commentaires, setCommentaires] = useState<Record<number, string>>({})
+  const [saving, setSaving] = useState<number | null>(null)
+  const [msg, setMsg] = useState('')
+
+  function load() {
+    fetch(`/api/execution-financiere/commentaires?annee=${annee}`).then(r => r.json()).then(j => {
+      const map: Record<number, string> = {}
+      for (const c of j.data ?? []) map[c.trimestre] = c.commentaire
+      setCommentaires(map)
+    })
+  }
+  useEffect(() => { load() }, [annee])
+
+  async function save(trimestre: number) {
+    setSaving(trimestre); setMsg('')
+    const res = await fetch('/api/execution-financiere/commentaires', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ annee, trimestre, commentaire: commentaires[trimestre] ?? '' }),
+    })
+    setSaving(null)
+    if (!res.ok) { const j = await res.json(); setMsg('Erreur : ' + j.error) }
+  }
+
+  return (
+    <div className="card" style={{ padding: '16px 20px', marginBottom: 20 }}>
+      <h3 style={{ fontSize: 14, margin: '0 0 12px' }}>Commentaires de la CAF — repris dans le rapport PDF</h3>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginBottom: 12 }}>
+        {TRIMESTRES.map(t => (
+          <div key={t}>
+            <label style={{ fontSize: 11.5, fontWeight: 600, display: 'block', marginBottom: 4 }}>Trimestre {t}</label>
+            <textarea
+              rows={3} style={{ ...inputStyle, width: '100%', resize: 'vertical' }}
+              value={commentaires[t] ?? ''}
+              onChange={e => setCommentaires(c => ({ ...c, [t]: e.target.value }))}
+              onBlur={() => save(t)}
+              placeholder="Commentaire du trimestre…"
+            />
+            {saving === t && <span style={{ fontSize: 11, color: 'var(--abed-muted)' }}>Enregistrement…</span>}
+          </div>
+        ))}
+      </div>
+      <label style={{ fontSize: 11.5, fontWeight: 600, display: 'block', marginBottom: 4 }}>Commentaire annuel</label>
+      <textarea
+        rows={3} style={{ ...inputStyle, width: '100%', resize: 'vertical' }}
+        value={commentaires[0] ?? ''}
+        onChange={e => setCommentaires(c => ({ ...c, [0]: e.target.value }))}
+        onBlur={() => save(0)}
+        placeholder="Bilan de l'année…"
+      />
+      {saving === 0 && <span style={{ fontSize: 11, color: 'var(--abed-muted)' }}>Enregistrement…</span>}
+      {msg && <p style={{ fontSize: 12, color: '#dc2626', marginTop: 8 }}>{msg}</p>}
+    </div>
+  )
+}
+
 export default function ExecutionFinanciereClient() {
   const anneeCourante = new Date().getFullYear()
   const [annee, setAnnee] = useState(anneeCourante)
+  const [anneesDisponibles, setAnneesDisponibles] = useState([anneeCourante, anneeCourante + 1])
   const [lignes, setLignes] = useState<Ligne[]>([])
   const [totaux, setTotaux] = useState({ budgetAnnuel: 0, totalDepense: 0, disponible: 0 })
   const [loading, setLoading] = useState(true)
@@ -64,6 +123,7 @@ export default function ExecutionFinanciereClient() {
     fetch(`/api/execution-financiere?annee=${annee}`).then(r => r.json()).then(j => {
       setLignes(j.lignes ?? [])
       setTotaux(j.totaux ?? { budgetAnnuel: 0, totalDepense: 0, disponible: 0 })
+      if (j.anneesDisponibles?.length) setAnneesDisponibles(j.anneesDisponibles)
     }).finally(() => setLoading(false))
   }
   useEffect(() => { load() }, [annee])
@@ -78,7 +138,11 @@ export default function ExecutionFinanciereClient() {
     setImporting(false)
     if (fileRef.current) fileRef.current.value = ''
     if (!res.ok) { setImportMsg('Erreur : ' + j.error); return }
-    setImportMsg(`${j.importes} ligne(s) importée(s)${j.ignores?.length ? ` — ignoré(es) : ${j.ignores.join(', ')}` : ''}.`)
+    setImportMsg(
+      `${j.importes} ligne(s) importée(s)` +
+      (j.codesCrees?.length ? ` — nouveau(x) code(s) créé(s) : ${j.codesCrees.join(', ')}` : '') +
+      (j.ignores?.length ? ` — ignoré(es) : ${j.ignores.join(', ')}` : '') + '.'
+    )
     load()
   }
 
@@ -89,7 +153,7 @@ export default function ExecutionFinanciereClient() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18, flexWrap: 'wrap' }}>
         <label style={{ fontSize: 12.5, fontWeight: 600 }}>Année</label>
         <select value={annee} onChange={e => setAnnee(Number(e.target.value))} style={{ ...inputStyle, width: 100 }}>
-          {[anneeCourante - 1, anneeCourante, anneeCourante + 1, anneeCourante + 2].map(a => <option key={a} value={a}>{a}</option>)}
+          {anneesDisponibles.map(a => <option key={a} value={a}>{a}</option>)}
         </select>
         <span style={{ width: 1, height: 20, background: 'var(--abed-border)' }} />
         <span style={{ fontSize: 12, color: 'var(--abed-muted)' }}>Budget adopté {annee} :</span>
@@ -101,6 +165,11 @@ export default function ExecutionFinanciereClient() {
         <button className="btn" style={{ fontSize: 12.5, display: 'inline-flex', alignItems: 'center', gap: 6 }} onClick={() => fileRef.current?.click()} disabled={importing}>
           <Upload size={14} /> {importing ? 'Import…' : 'Importer le fichier complété'}
         </button>
+        <span style={{ width: 1, height: 20, background: 'var(--abed-border)' }} />
+        <a href={`/api/execution-financiere/rapport-pdf?annee=${annee}`} target="_blank" rel="noopener noreferrer"
+          className="btn" style={{ fontSize: 12.5, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <FileBarChart size={14} /> Générer le rapport détaillé (PDF)
+        </a>
       </div>
       {importMsg && <p style={{ fontSize: 12, color: importMsg.startsWith('Erreur') ? '#dc2626' : '#166534', marginBottom: 12 }}>{importMsg}</p>}
       <p style={{ fontSize: 11.5, color: 'var(--abed-muted)', marginBottom: 10 }}>
@@ -125,6 +194,8 @@ export default function ExecutionFinanciereClient() {
           <div style={{ fontSize: 20, fontWeight: 800, color: barColor(pctGlobal) }}>{pctGlobal.toFixed(1)}%</div>
         </div>
       </div>
+
+      <CommentairesSection annee={annee} />
 
       {loading ? (
         <p style={{ fontSize: 13, color: 'var(--abed-muted)' }}>Chargement…</p>

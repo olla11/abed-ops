@@ -36,7 +36,7 @@ export default function DemandePaiementForm({ onClose, prefill, soumissionId }: 
     Promise.all([
       fetch('/api/config/form-config').then(r => r.json()),
       fetch('/api/config/listes?type=departements').then(r => r.json()),
-      fetch('/api/config/listes?type=codes_budgetaires').then(r => r.json()),
+      fetch('/api/config/listes?type=codes_budgetaires&actifs=1').then(r => r.json()),
       fetch('/api/config/listes?type=projets').then(r => r.json()),
       fetch('/api/config/listes?type=natures').then(r => r.json()),
     ]).then(([cfg, d, c, p, n]) => {
