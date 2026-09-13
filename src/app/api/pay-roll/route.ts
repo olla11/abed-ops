@@ -14,5 +14,17 @@ export async function GET() {
     .order('created_at', { ascending: false })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
-  return NextResponse.json({ data })
+
+  // Les paiements non satisfaits (non payé / à payer) doivent rester visibles
+  // en haut de la file — les payés sont de l'historique, pas des actions à
+  // faire — puis, dans chaque groupe, les plus anciens d'abord (ordre
+  // d'arrivée : premier autorisé par le DE, premier traité).
+  const tri = [...(data ?? [])].sort((a, b) => {
+    const aPaye = a.statut === 'paye' ? 1 : 0
+    const bPaye = b.statut === 'paye' ? 1 : 0
+    if (aPaye !== bPaye) return aPaye - bPaye
+    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+  })
+
+  return NextResponse.json({ data: tri })
 }
