@@ -244,6 +244,12 @@ export async function finalizeAfterSignature(
     }
   }
 
+  // Si lié à un appel de fonds (Pay Roll), le marquer signé — l'AAF (ajouté
+  // en observateur à la création, voir src/lib/appel-de-fonds.ts) reçoit
+  // déjà automatiquement le PDF signé via le bloc "observateurs" ci-dessous,
+  // sans traitement particulier à ajouter ici.
+  await admin.from('appels_de_fonds').update({ statut: 'signe', updated_at: new Date().toISOString() }).eq('demande_signature_id', demandeId)
+
   const { data: createur } = await admin.from('profiles').select('nom, prenoms, email').eq('id', demande.createur_id).single()
   if (createur?.email) {
     await sendEmail({

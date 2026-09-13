@@ -14,6 +14,7 @@ type PayRollItem = {
   statut: 'non_paye' | 'a_payer' | 'paye'
   compte_bancaire_id: string | null
   compte_bancaire: CompteBancaire | null
+  appel_de_fonds_id: string | null
   created_at: string
 }
 
@@ -51,6 +52,11 @@ export default function PayRollClient() {
   const [filtre, setFiltre] = useState<'tous' | 'non_paye' | 'a_payer' | 'paye'>('non_paye')
   const [savingId, setSavingId] = useState<string | null>(null)
   const [err, setErr] = useState('')
+  const [selection, setSelection] = useState<Set<string>>(new Set())
+  const [showGenerer, setShowGenerer] = useState(false)
+  const [commentaireCaf, setCommentaireCaf] = useState('')
+  const [generating, setGenerating] = useState(false)
+  const [genMsg, setGenMsg] = useState('')
 
   function load() {
     setLoading(true)
@@ -76,6 +82,31 @@ export default function PayRollClient() {
 
   const visibles = filtre === 'tous' ? items : items.filter(i => i.statut === filtre)
 
+  function toggleSelection(id: string) {
+    setSelection(s => {
+      const next = new Set(s)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+
+  const selectionnables = visibles.filter(i => i.statut === 'a_payer' && !i.appel_de_fonds_id)
+  const itemsSelectionnes = items.filter(i => selection.has(i.id))
+  const montantSelection = itemsSelectionnes.reduce((s, i) => s + Number(i.montant), 0)
+
+  async function genererAppelDeFonds() {
+    setGenerating(true); setGenMsg('')
+    const res = await fetch('/api/pay-roll/appels-de-fonds', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ payRollIds: [...selection], commentaireCaf }),
+    })
+    const j = await res.json()
+    setGenerating(false)
+    if (!res.ok) { setGenMsg(j.error ?? 'Erreur'); return }
+    setShowGenerer(false); setSelection(new Set()); setCommentaireCaf(''); setGenMsg('')
+    load()
+  }
+
   return (
     <div>
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
@@ -93,6 +124,23 @@ export default function PayRollClient() {
 
       {err && <p style={{ color: '#dc2626', fontSize: 13, marginBottom: 12 }}>{err}</p>}
 
+      {selection.size > 0 && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, padding: '10px 16px',
+          background: '#f0fdf4', border: '1.5px solid var(--abed-green)', borderRadius: 10,
+        }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: '#166534' }}>
+            {selection.size} paiement{selection.size > 1 ? 's' : ''} sélectionné{selection.size > 1 ? 's' : ''} — {montantSelection.toLocaleString('fr-FR')} FCFA
+          </span>
+          <button className="btn" style={{ fontSize: 13, marginLeft: 'auto' }} onClick={() => setShowGenerer(true)}>
+            Générer un appel de fonds
+          </button>
+          <button className="btn secondary" style={{ fontSize: 13 }} onClick={() => setSelection(new Set())}>
+            Annuler
+          </button>
+        </div>
+      )}
+
       {loading ? (
         <p style={{ fontSize: 13, color: 'var(--abed-muted)' }}>Chargement…</p>
       ) : visibles.length === 0 ? (
@@ -104,6 +152,7 @@ export default function PayRollClient() {
           <table style={{ minWidth: 1000 }}>
             <thead>
               <tr>
+                <th></th>
                 <th>Référence</th>
                 <th>Source</th>
                 <th>Bénéficiaire</th>
@@ -117,8 +166,17 @@ export default function PayRollClient() {
             <tbody>
               {visibles.map(item => {
                 const dejaPaye = item.statut === 'paye'
+                const selectionnable = item.statut === 'a_payer' && !item.appel_de_fonds_id
                 return (
                   <tr key={item.id} style={{ opacity: savingId === item.id ? 0.6 : 1 }}>
+                    <td>
+                      {selectionnable && (
+                        <input type="checkbox" checked={selection.has(item.id)} onChange={() => toggleSelection(item.id)} />
+                      )}
+                      {item.appel_de_fonds_id && (
+                        <span title="Déjà inclus dans un appel de fonds" style={{ fontSize: 11, color: 'var(--abed-muted)' }}>📎</span>
+                      )}
+                    </td>
                     <td style={{ fontSize: 12, color: 'var(--abed-muted)' }}>{item.reference ?? '—'}</td>
                     <td style={{ fontSize: 12 }}>{SOURCE_LABELS[item.source_type] ?? item.source_type}</td>
                     <td style={{ fontWeight: 600 }}>{item.beneficiaire_nom}</td>
@@ -167,6 +225,33 @@ export default function PayRollClient() {
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {showGenerer && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(17,24,39,.6)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+        }}>
+          <div style={{ background: 'white', borderRadius: 14, width: '100%', maxWidth: 480, padding: '24px 28px', boxShadow: '0 24px 64px rgba(0,0,0,.35)' }}>
+            <h3 style={{ margin: '0 0 6px', color: 'var(--abed-green)' }}>Générer l&apos;appel de fonds</h3>
+            <p style={{ fontSize: 13, color: 'var(--abed-muted)', margin: '0 0 16px' }}>
+              {selection.size} paiement{selection.size > 1 ? 's' : ''} — {montantSelection.toLocaleString('fr-FR')} FCFA.
+              Le document sera généré et envoyé dans le circuit de signature (DE → TG CA → PCA).
+            </p>
+            <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Commentaire (optionnel)</label>
+            <textarea
+              value={commentaireCaf} onChange={e => setCommentaireCaf(e.target.value)} rows={3}
+              style={{ ...inputStyle, width: '100%', resize: 'vertical', marginBottom: 16 }}
+            />
+            {genMsg && <p style={{ color: '#dc2626', fontSize: 13, marginBottom: 12 }}>{genMsg}</p>}
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button className="btn secondary" onClick={() => setShowGenerer(false)} disabled={generating}>Annuler</button>
+              <button className="btn" onClick={genererAppelDeFonds} disabled={generating}>
+                {generating ? 'Génération…' : 'Générer et envoyer'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
