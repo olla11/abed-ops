@@ -10,7 +10,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from('pay_roll')
-    .select('*, compte_bancaire:comptes_bancaires(id, nom)')
+    .select('*, compte_bancaire:comptes_bancaires(id, nom), appel_de_fonds:appels_de_fonds(id, numero, statut)')
     .order('created_at', { ascending: false })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
