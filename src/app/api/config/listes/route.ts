@@ -8,6 +8,7 @@ const TABLES: Record<string, string> = {
   projets: 'projets_programmes',
   natures: 'natures_depense',
   directions: 'directions',
+  comptes_bancaires: 'comptes_bancaires',
 }
 
 // La liste "directions" (organigramme RH) est gérée par RH ; les autres

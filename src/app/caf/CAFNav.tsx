@@ -1,5 +1,5 @@
 'use client'
-import { LayoutDashboard, Wallet, ClipboardList, Scale, Clock } from 'lucide-react'
+import { LayoutDashboard, Wallet, ClipboardList, Scale, Clock, Banknote } from 'lucide-react'
 import SectionSideNav from '@/components/SectionSideNav'
 
 const TABS = [
@@ -8,6 +8,7 @@ const TABS = [
   { href: '/caf/rapports-allocations', label: "Rapports d'allocation", Icon: ClipboardList },
   { href: '/caf/reconciliations', label: 'Réconciliations OM', Icon: Scale },
   { href: '/caf/timesheets', label: 'Timesheets & paiements', Icon: Clock },
+  { href: '/caf/pay-roll', label: 'Pay Roll', Icon: Banknote },
 ]
 
 export default function CAFNav() {

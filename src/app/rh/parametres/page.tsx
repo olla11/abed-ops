@@ -16,5 +16,5 @@ export default async function RHParametresPage() {
   const { data: me } = await supabase.from('profiles').select('role').eq('id', user.id).single()
   if (!(estRH(me?.role) || ['admin', 'superadmin'].includes(me?.role ?? ''))) redirect('/rh/conges')
 
-  return <RHParametresClient />
+  return <RHParametresClient role={me?.role ?? ''} />
 }
