@@ -72,34 +72,7 @@ export default function TdrListClient({ tdrs, myId, myRole }: { tdrs: TdrLite[];
 
   return (
     <div className="page-container">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-        <div>
-          <h2 style={{ color: 'var(--abed-green)', fontSize: 22, margin: 0 }}>Termes de référence (TdR)</h2>
-          <p style={{ fontSize: 13, color: 'var(--abed-muted)', margin: '4px 0 0' }}>
-            Rédaction, collaboration et signature des TdR de l&apos;organisation.
-          </p>
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {accesSuiviFinancier && (
-            <Link href="/tdr/tableau-de-bord" style={{
-              padding: '9px 18px', borderRadius: 8, fontSize: 13, fontWeight: 600,
-              background: 'white', color: '#374151', border: '1px solid var(--abed-border)', textDecoration: 'none',
-              display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
-            }}>
-              <BarChart3 size={15} /> Tableau de bord
-            </Link>
-          )}
-          <Link href="/tdr/nouveau" style={{
-            padding: '9px 20px', borderRadius: 8, fontSize: 13, fontWeight: 700,
-            background: 'var(--abed-green)', color: 'white', border: 'none', textDecoration: 'none',
-            display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
-          }}>
-            <Plus size={15} /> Nouveau TdR
-          </Link>
-        </div>
-      </div>
-
-      <div className="section-with-sidenav" style={{ marginTop: 20 }}>
+      <div className="section-with-sidenav">
         <SectionSideNav
           items={TABS.map(t => ({
             kind: 'button' as const,
@@ -112,7 +85,34 @@ export default function TdrListClient({ tdrs, myId, myRole }: { tdrs: TdrLite[];
           }))}
         />
         <div className="section-content">
-          <div style={{ position: 'relative', maxWidth: 340, marginBottom: 18 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <div>
+              <h2 style={{ color: 'var(--abed-green)', fontSize: 22, margin: 0 }}>Termes de référence (TdR)</h2>
+              <p style={{ fontSize: 13, color: 'var(--abed-muted)', margin: '4px 0 0' }}>
+                Rédaction, collaboration et signature des TdR de l&apos;organisation.
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {accesSuiviFinancier && (
+                <Link href="/tdr/tableau-de-bord" style={{
+                  padding: '9px 18px', borderRadius: 8, fontSize: 13, fontWeight: 600,
+                  background: 'white', color: '#374151', border: '1px solid var(--abed-border)', textDecoration: 'none',
+                  display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
+                }}>
+                  <BarChart3 size={15} /> Tableau de bord
+                </Link>
+              )}
+              <Link href="/tdr/nouveau" style={{
+                padding: '9px 20px', borderRadius: 8, fontSize: 13, fontWeight: 700,
+                background: 'var(--abed-green)', color: 'white', border: 'none', textDecoration: 'none',
+                display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
+              }}>
+                <Plus size={15} /> Nouveau TdR
+              </Link>
+            </div>
+          </div>
+
+          <div style={{ position: 'relative', maxWidth: 340, marginBottom: 18, marginTop: 20 }}>
             <Search size={15} color="#9ca3af" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
             <input
               value={search}
