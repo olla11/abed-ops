@@ -21,10 +21,13 @@ export async function GET(req: NextRequest) {
 
   const budgetParCode = Object.fromEntries((budgets ?? []).map(b => [b.code_budgetaire, Number(b.montant_annuel)]))
 
+  // Une dépense exécutée sans code budgétaire (import historique, ou
+  // paiement pas encore classé par la CAF) ne doit pas disparaître
+  // silencieusement de la vue — elle apparaît à part, sous "Non classé".
+  const NON_CLASSE = '__non_classe__'
   const depenseParCode: Record<string, { total: number; parTrimestre: [number, number, number, number] }> = {}
   for (const d of depenses ?? []) {
-    const code = d.code_budgetaire
-    if (!code) continue
+    const code = d.code_budgetaire ?? NON_CLASSE
     if (!depenseParCode[code]) depenseParCode[code] = { total: 0, parTrimestre: [0, 0, 0, 0] }
     const trimestre = Math.floor((new Date(d.date_paiement).getMonth()) / 3)
     depenseParCode[code].total += Number(d.montant)
@@ -37,6 +40,7 @@ export async function GET(req: NextRequest) {
     return {
       code: c.code,
       libelle: c.libelle,
+      estRubrique: c.code.endsWith('00'),
       budgetAnnuel: budget,
       depenseT1: dep.parTrimestre[0],
       depenseT2: dep.parTrimestre[1],
@@ -48,10 +52,26 @@ export async function GET(req: NextRequest) {
     }
   })
 
+  if (depenseParCode[NON_CLASSE]) {
+    const dep = depenseParCode[NON_CLASSE]
+    lignes.push({
+      code: '—', libelle: 'Non classé (à affecter à un code dans Pay Roll)', estRubrique: false,
+      budgetAnnuel: 0, depenseT1: dep.parTrimestre[0], depenseT2: dep.parTrimestre[1],
+      depenseT3: dep.parTrimestre[2], depenseT4: dep.parTrimestre[3],
+      totalDepense: dep.total, disponible: -dep.total, pctExecution: 0,
+    })
+  }
+
+  // Les rubriques (codes en "00") portent déjà leur propre budget adopté et
+  // leurs propres dépenses classées directement dessus (rare) — les totaux
+  // globaux ne doivent compter chaque montant qu'une fois, donc seulement
+  // les lignes de détail (hors rubriques) pour éviter de doubler les sommes
+  // qu'elles chapeautent.
+  const lignesDetail = lignes.filter(l => !l.estRubrique)
   const totaux = {
-    budgetAnnuel: lignes.reduce((s, l) => s + l.budgetAnnuel, 0),
-    totalDepense: lignes.reduce((s, l) => s + l.totalDepense, 0),
-    disponible: lignes.reduce((s, l) => s + l.disponible, 0),
+    budgetAnnuel: lignesDetail.reduce((s, l) => s + l.budgetAnnuel, 0),
+    totalDepense: lignesDetail.reduce((s, l) => s + l.totalDepense, 0),
+    disponible: lignesDetail.reduce((s, l) => s + l.disponible, 0),
   }
 
   return NextResponse.json({ annee, lignes, totaux })

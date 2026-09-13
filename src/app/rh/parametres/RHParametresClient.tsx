@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Settings, Building2, Wallet, Plus, Trash2, Banknote, PiggyBank } from 'lucide-react'
 
 type Direction = { id: string; nom: string; ordre?: number }
@@ -144,6 +144,9 @@ function BudgetAdopteSection() {
   const [lignes, setLignes] = useState<LigneBudget[]>([])
   const [loading, setLoading] = useState(true)
   const [savingCode, setSavingCode] = useState<string | null>(null)
+  const [importing, setImporting] = useState(false)
+  const [importMsg, setImportMsg] = useState('')
+  const fileRef = useRef<HTMLInputElement>(null)
 
   function load(a: number) {
     setLoading(true)
@@ -165,6 +168,20 @@ function BudgetAdopteSection() {
     setSavingCode(null)
   }
 
+  async function importerFichier(file: File) {
+    setImporting(true); setImportMsg('')
+    const form = new FormData()
+    form.append('file', file)
+    form.append('annee', String(annee))
+    const res = await fetch('/api/budget-adopte/import', { method: 'POST', body: form })
+    const j = await res.json()
+    setImporting(false)
+    if (fileRef.current) fileRef.current.value = ''
+    if (!res.ok) { setImportMsg('Erreur : ' + j.error); return }
+    setImportMsg(`${j.importes} ligne(s) importée(s)${j.ignores?.length ? ` — ignoré(es) : ${j.ignores.join(', ')}` : ''}.`)
+    load(annee)
+  }
+
   return (
     <div className="card" style={{ marginBottom: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
@@ -172,30 +189,50 @@ function BudgetAdopteSection() {
           <PiggyBank size={16} color="var(--abed-green)" /> Budget adopté par ligne budgétaire
         </h3>
         <select value={annee} onChange={e => setAnnee(Number(e.target.value))} style={{ ...inputStyle, width: 100 }}>
-          {[anneeCourante - 1, anneeCourante, anneeCourante + 1].map(a => <option key={a} value={a}>{a}</option>)}
+          {[anneeCourante - 1, anneeCourante, anneeCourante + 1, anneeCourante + 2].map(a => <option key={a} value={a}>{a}</option>)}
         </select>
       </div>
       <p style={{ fontSize: 12, color: 'var(--abed-muted)', margin: '0 0 14px' }}>
         Montant annuel adopté par le CA pour chaque code budgétaire — sert à calculer la réalisation
-        cumulée et la disponibilité sur les appels de fonds.
+        cumulée et la disponibilité sur les appels de fonds et l&apos;exécution financière.
       </p>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, padding: '10px 12px', background: '#f9fafb', borderRadius: 8 }}>
+        <a href={`/api/budget-adopte/template?annee=${annee}`} className="btn secondary" style={{ fontSize: 12.5, textDecoration: 'none' }}>
+          Télécharger le modèle {annee}
+        </a>
+        <span style={{ fontSize: 12, color: 'var(--abed-muted)' }}>puis</span>
+        <input ref={fileRef} type="file" accept=".xlsx" style={{ display: 'none' }}
+          onChange={e => { const f = e.target.files?.[0]; if (f) importerFichier(f) }} />
+        <button className="btn" style={{ fontSize: 12.5 }} onClick={() => fileRef.current?.click()} disabled={importing}>
+          {importing ? 'Import…' : 'Importer le fichier complété'}
+        </button>
+      </div>
+      {importMsg && <p style={{ fontSize: 12, color: importMsg.startsWith('Erreur') ? '#dc2626' : '#166534', marginBottom: 12 }}>{importMsg}</p>}
+
       {loading ? (
         <p style={{ fontSize: 13, color: 'var(--abed-muted)' }}>Chargement…</p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {lignes.map(l => (
-            <div key={l.code} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 12px', background: '#f9fafb', borderRadius: 8 }}>
-              <span style={{ fontSize: 11, color: 'var(--abed-muted)', width: 56 }}>{l.code}</span>
-              <span style={{ flex: 1, fontSize: 13 }}>{l.libelle}</span>
-              <input
-                type="number" style={{ ...inputStyle, width: 140, textAlign: 'right' }}
-                value={l.montant_annuel} onChange={e => updateMontant(l.code, e.target.value)}
-                onBlur={e => save(l.code, Number(e.target.value) || 0)}
-                disabled={savingCode === l.code}
-              />
-              <span style={{ fontSize: 11, color: 'var(--abed-muted)' }}>FCFA</span>
-            </div>
-          ))}
+          {lignes.map(l => {
+            const estRubrique = l.code.endsWith('00')
+            return (
+              <div key={l.code} style={{
+                display: 'flex', alignItems: 'center', gap: 10, padding: '6px 12px', borderRadius: 8,
+                background: estRubrique ? '#f0fdf4' : '#f9fafb',
+              }}>
+                <span style={{ fontSize: 11, color: 'var(--abed-muted)', width: 56, fontWeight: estRubrique ? 800 : 400 }}>{l.code}</span>
+                <span style={{ flex: 1, fontSize: 13, fontWeight: estRubrique ? 800 : 400, color: estRubrique ? 'var(--abed-green)' : '#111827', textTransform: estRubrique ? 'uppercase' : 'none' }}>{l.libelle}</span>
+                <input
+                  type="number" style={{ ...inputStyle, width: 140, textAlign: 'right' }}
+                  value={l.montant_annuel} onChange={e => updateMontant(l.code, e.target.value)}
+                  onBlur={e => save(l.code, Number(e.target.value) || 0)}
+                  disabled={savingCode === l.code}
+                />
+                <span style={{ fontSize: 11, color: 'var(--abed-muted)' }}>FCFA</span>
+              </div>
+            )
+          })}
           {lignes.length === 0 && <p style={{ fontSize: 12, color: 'var(--abed-muted)' }}>Aucun code budgétaire.</p>}
         </div>
       )}

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 type Ligne = {
   code: string
   libelle: string
+  estRubrique: boolean
   budgetAnnuel: number
   depenseT1: number
   depenseT2: number
@@ -95,25 +96,32 @@ export default function ExecutionFinanciereClient() {
             </thead>
             <tbody>
               {lignes.map(l => (
-                <tr key={l.code}>
-                  <td style={{ fontSize: 11, color: 'var(--abed-muted)' }}>{l.code}</td>
-                  <td style={{ fontSize: 13 }}>{l.libelle}</td>
-                  <td style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{fmt(l.budgetAnnuel)}</td>
+                <tr key={l.code} style={l.estRubrique ? { background: '#f0fdf4' } : undefined}>
+                  <td style={{ fontSize: 11, color: 'var(--abed-muted)', fontWeight: l.estRubrique ? 800 : 400 }}>{l.code}</td>
+                  <td style={{
+                    fontSize: l.estRubrique ? 13.5 : 13, fontWeight: l.estRubrique ? 800 : 400,
+                    color: l.estRubrique ? 'var(--abed-green)' : '#111827',
+                    textTransform: l.estRubrique ? 'uppercase' : 'none',
+                    whiteSpace: 'normal', overflow: 'visible', textOverflow: 'clip', minWidth: 240,
+                  }}>{l.libelle}</td>
+                  <td style={{ fontWeight: l.estRubrique ? 800 : 600, whiteSpace: 'nowrap' }}>{l.budgetAnnuel ? fmt(l.budgetAnnuel) : '—'}</td>
                   <td style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{l.depenseT1 ? fmt(l.depenseT1) : '—'}</td>
                   <td style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{l.depenseT2 ? fmt(l.depenseT2) : '—'}</td>
                   <td style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{l.depenseT3 ? fmt(l.depenseT3) : '—'}</td>
                   <td style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{l.depenseT4 ? fmt(l.depenseT4) : '—'}</td>
                   <td style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{fmt(l.totalDepense)}</td>
-                  <td style={{ whiteSpace: 'nowrap', color: l.disponible < 0 ? '#dc2626' : '#111827' }}>{fmt(l.disponible)}</td>
+                  <td style={{ whiteSpace: 'nowrap', color: l.disponible < 0 ? '#dc2626' : '#111827' }}>{l.budgetAnnuel || l.disponible ? fmt(l.disponible) : '—'}</td>
                   <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div style={{ flex: 1, height: 8, borderRadius: 4, background: '#f3f4f6', overflow: 'hidden' }}>
-                        <div style={{ width: `${Math.min(100, l.pctExecution)}%`, height: '100%', background: barColor(l.pctExecution) }} />
+                    {l.budgetAnnuel > 0 ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ flex: 1, height: 8, borderRadius: 4, background: '#f3f4f6', overflow: 'hidden' }}>
+                          <div style={{ width: `${Math.min(100, l.pctExecution)}%`, height: '100%', background: barColor(l.pctExecution) }} />
+                        </div>
+                        <span style={{ fontSize: 11.5, fontWeight: 700, color: barColor(l.pctExecution), minWidth: 40, textAlign: 'right' }}>
+                          {l.pctExecution.toFixed(1)}%
+                        </span>
                       </div>
-                      <span style={{ fontSize: 11.5, fontWeight: 700, color: barColor(l.pctExecution), minWidth: 40, textAlign: 'right' }}>
-                        {l.pctExecution.toFixed(1)}%
-                      </span>
-                    </div>
+                    ) : '—'}
                   </td>
                 </tr>
               ))}
