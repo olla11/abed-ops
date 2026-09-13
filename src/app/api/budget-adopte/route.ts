@@ -13,15 +13,22 @@ export async function GET(req: NextRequest) {
 
   const [{ data: codes }, { data: budgets }] = await Promise.all([
     supabase.from('codes_budgetaires').select('code, libelle, ordre').order('ordre'),
-    supabase.from('budget_adopte').select('code_budgetaire, montant_annuel').eq('annee', annee),
+    supabase.from('budget_adopte').select('code_budgetaire, montant_annuel, t1_montant, t2_montant, t3_montant, t4_montant').eq('annee', annee),
   ])
 
-  const montants = Object.fromEntries((budgets ?? []).map(b => [b.code_budgetaire, Number(b.montant_annuel)]))
-  const data = (codes ?? []).map(c => ({
-    code: c.code,
-    libelle: c.libelle,
-    montant_annuel: montants[c.code] ?? 0,
-  }))
+  const budgetsParCode = Object.fromEntries((budgets ?? []).map(b => [b.code_budgetaire, b]))
+  const data = (codes ?? []).map(c => {
+    const b = budgetsParCode[c.code]
+    return {
+      code: c.code,
+      libelle: c.libelle,
+      montant_annuel: Number(b?.montant_annuel ?? 0),
+      t1_montant: b?.t1_montant !== null && b?.t1_montant !== undefined ? Number(b.t1_montant) : null,
+      t2_montant: b?.t2_montant !== null && b?.t2_montant !== undefined ? Number(b.t2_montant) : null,
+      t3_montant: b?.t3_montant !== null && b?.t3_montant !== undefined ? Number(b.t3_montant) : null,
+      t4_montant: b?.t4_montant !== null && b?.t4_montant !== undefined ? Number(b.t4_montant) : null,
+    }
+  })
 
   return NextResponse.json({ annee, data })
 }

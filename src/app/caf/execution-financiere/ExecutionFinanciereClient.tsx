@@ -7,6 +7,10 @@ type Ligne = {
   libelle: string
   estRubrique: boolean
   budgetAnnuel: number
+  budgetT1: number
+  budgetT2: number
+  budgetT3: number
+  budgetT4: number
   depenseT1: number
   depenseT2: number
   depenseT3: number
@@ -29,6 +33,20 @@ function barColor(pct: number) {
   if (pct >= 100) return '#dc2626'
   if (pct >= 80) return '#e08e00'
   return 'var(--abed-green)'
+}
+
+// Budgété (petit, gris, au-dessus) / Dépensé (gras, en-dessous) — le dépensé
+// est coloré dès qu'il dépasse le budgété de ce trimestre précis, pas
+// seulement le budget annuel global.
+function TrimestreCell({ budget, depense }: { budget: number; depense: number }) {
+  if (!budget && !depense) return <td style={{ fontSize: 12, color: 'var(--abed-muted)' }}>—</td>
+  const depasse = budget > 0 && depense > budget
+  return (
+    <td style={{ fontSize: 12, lineHeight: 1.5, whiteSpace: 'nowrap' }}>
+      <div style={{ color: 'var(--abed-muted)', fontSize: 10.5 }}>{budget ? fmt(budget) : '—'}</div>
+      <div style={{ fontWeight: 700, color: depasse ? '#dc2626' : '#111827' }}>{depense ? fmt(depense) : '—'}</div>
+    </td>
+  )
 }
 
 export default function ExecutionFinanciereClient() {
@@ -85,6 +103,9 @@ export default function ExecutionFinanciereClient() {
         </button>
       </div>
       {importMsg && <p style={{ fontSize: 12, color: importMsg.startsWith('Erreur') ? '#dc2626' : '#166534', marginBottom: 12 }}>{importMsg}</p>}
+      <p style={{ fontSize: 11.5, color: 'var(--abed-muted)', marginBottom: 10 }}>
+        Dans chaque colonne T1 à T4 : montant <strong>budgété</strong> pour ce trimestre en haut, <strong>dépensé</strong> en dessous (en rouge s&apos;il dépasse le budgété du trimestre).
+      </p>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 20 }}>
         <div className="card" style={{ padding: '16px 20px' }}>
@@ -109,15 +130,15 @@ export default function ExecutionFinanciereClient() {
         <p style={{ fontSize: 13, color: 'var(--abed-muted)' }}>Chargement…</p>
       ) : (
         <div className="table-wrap">
-          <table style={{ minWidth: 1240, tableLayout: 'fixed' }}>
+          <table style={{ minWidth: 1400, tableLayout: 'fixed' }}>
             <colgroup>
               <col style={{ width: 64 }} />
-              <col style={{ width: 300 }} />
+              <col style={{ width: 280 }} />
               <col style={{ width: 110 }} />
-              <col style={{ width: 80 }} />
-              <col style={{ width: 80 }} />
-              <col style={{ width: 80 }} />
-              <col style={{ width: 80 }} />
+              <col style={{ width: 100 }} />
+              <col style={{ width: 100 }} />
+              <col style={{ width: 100 }} />
+              <col style={{ width: 100 }} />
               <col style={{ width: 110 }} />
               <col style={{ width: 110 }} />
               <col style={{ width: 160 }} />
@@ -127,10 +148,10 @@ export default function ExecutionFinanciereClient() {
                 <th>Code</th>
                 <th>Ligne budgétaire</th>
                 <th>Budget adopté</th>
-                <th>T1</th>
-                <th>T2</th>
-                <th>T3</th>
-                <th>T4</th>
+                <th title="Budgété / Dépensé">T1</th>
+                <th title="Budgété / Dépensé">T2</th>
+                <th title="Budgété / Dépensé">T3</th>
+                <th title="Budgété / Dépensé">T4</th>
                 <th>Total dépensé</th>
                 <th>Disponible</th>
                 <th>% Exécution</th>
@@ -146,10 +167,10 @@ export default function ExecutionFinanciereClient() {
                     whiteSpace: 'normal', overflow: 'visible', textOverflow: 'clip', lineHeight: 1.35,
                   }}>{l.libelle}</td>
                   <td style={{ fontWeight: l.estRubrique ? 800 : 600, whiteSpace: 'nowrap' }}>{l.budgetAnnuel ? fmt(l.budgetAnnuel) : '—'}</td>
-                  <td style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{l.depenseT1 ? fmt(l.depenseT1) : '—'}</td>
-                  <td style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{l.depenseT2 ? fmt(l.depenseT2) : '—'}</td>
-                  <td style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{l.depenseT3 ? fmt(l.depenseT3) : '—'}</td>
-                  <td style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{l.depenseT4 ? fmt(l.depenseT4) : '—'}</td>
+                  <TrimestreCell budget={l.budgetT1} depense={l.depenseT1} />
+                  <TrimestreCell budget={l.budgetT2} depense={l.depenseT2} />
+                  <TrimestreCell budget={l.budgetT3} depense={l.depenseT3} />
+                  <TrimestreCell budget={l.budgetT4} depense={l.depenseT4} />
                   <td style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{fmt(l.totalDepense)}</td>
                   <td style={{ whiteSpace: 'nowrap', color: l.disponible < 0 ? '#dc2626' : '#111827' }}>{l.budgetAnnuel || l.disponible ? fmt(l.disponible) : '—'}</td>
                   <td>

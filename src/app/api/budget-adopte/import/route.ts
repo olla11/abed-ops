@@ -35,8 +35,18 @@ export async function POST(req: NextRequest) {
   const { data: codesExistants } = await supabase.from('codes_budgetaires').select('code')
   const codesValides = new Set((codesExistants ?? []).map(c => c.code))
 
-  const aImporter: { code_budgetaire: string; annee: number; montant_annuel: number }[] = []
+  type Ligne = { code_budgetaire: string; annee: number; montant_annuel: number; t1_montant: number | null; t2_montant: number | null; t3_montant: number | null; t4_montant: number | null }
+  const aImporter: Ligne[] = []
   const ignores: string[] = []
+
+  // Colonnes T1-T4 optionnelles : une cellule vide laisse le trimestre non
+  // renseigné (l'exécution financière retombe alors sur un quart du budget
+  // annuel) plutôt que d'écraser une répartition déjà saisie par un zéro.
+  function parseTrimestre(cell: unknown): number | null {
+    if (cell === undefined || cell === null || cell === '') return null
+    const n = Number(cell)
+    return Number.isFinite(n) ? n : null
+  }
 
   for (const row of rows.slice(1)) {
     const code = String(row[0] ?? '').trim()
@@ -44,7 +54,11 @@ export async function POST(req: NextRequest) {
     const montant = Number(row[2])
     if (!codesValides.has(code)) { ignores.push(`${code} (code inconnu)`); continue }
     if (!Number.isFinite(montant) || montant < 0) { ignores.push(`${code} (montant invalide)`); continue }
-    aImporter.push({ code_budgetaire: code, annee, montant_annuel: montant })
+    aImporter.push({
+      code_budgetaire: code, annee, montant_annuel: montant,
+      t1_montant: parseTrimestre(row[3]), t2_montant: parseTrimestre(row[4]),
+      t3_montant: parseTrimestre(row[5]), t4_montant: parseTrimestre(row[6]),
+    })
   }
 
   if (aImporter.length === 0) {
