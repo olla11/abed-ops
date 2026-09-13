@@ -4,6 +4,7 @@ import { sendEmail } from '@/lib/resend'
 import { accordGenre } from '@/lib/genre'
 import { estAAF } from '@/lib/roles'
 import { autoSkipRapportAllocation } from '@/lib/circuit-vacancy'
+import { ajouterAuPayRoll } from '@/lib/pay-roll'
 
 export async function POST(
   req: NextRequest,
@@ -123,6 +124,19 @@ export async function POST(
   const estSalarie = ['cdd', 'cdi'].includes(prest.type_emploi ?? '')
   const mois = new Date(rapport.periode_annee, rapport.periode_mois - 1)
     .toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+
+  if (update.status === 'autorise') {
+    // Pas de code budgétaire natif sur ce type de dossier — la CAF le
+    // complètera elle-même dans Pay Roll avant de générer un appel de fonds.
+    await ajouterAuPayRoll(admin, {
+      sourceType: 'rapport_allocation',
+      sourceId: id,
+      beneficiaireId: rapport.prestataire_id,
+      beneficiaireNom: `${prest.prenoms} ${prest.nom}`,
+      objet: `${estSalarie ? 'Salaire' : 'Allocation'} — ${mois}`,
+      montant: rapport.montant_allocation,
+    })
+  }
 
   // Notifications + emails — après la réponse, en parallèle plutôt qu'à la suite
   after(async () => {

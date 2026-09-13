@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase-server'
 import { createAdminClient } from '@/lib/supabase-server'
 import { sendEmail } from '@/lib/resend'
 import { notifyMissionUser } from '@/lib/mission-notify'
+import { ajouterAuPayRoll } from '@/lib/pay-roll'
 
 // POST /api/missions/[id]/valider-reconciliation-de
 // body: { action: 'valider' | 'rejeter', commentaire?: string }
@@ -69,6 +70,23 @@ export async function POST(
   }).eq('id', id)
 
   const missionnaire = mission.missionnaire as any
+
+  // Seul un solde positif signifie qu'ABED doit encore verser quelque chose
+  // au missionnaire — une réconciliation qui ne laisse rien à payer (ou où
+  // c'est le missionnaire qui doit reverser un reliquat) ne doit pas
+  // apparaître dans Pay Roll. Pas de code budgétaire natif sur les missions
+  // — la CAF le complètera elle-même avant de générer un appel de fonds.
+  if ((mission.solde_missionnaire ?? 0) > 0) {
+    await ajouterAuPayRoll(admin, {
+      sourceType: 'reconciliation_mission',
+      sourceId: id,
+      reference: mission.reference,
+      beneficiaireId: mission.missionnaire_id,
+      beneficiaireNom: missionnaire ? `${missionnaire.prenoms} ${missionnaire.nom}` : mission.objet,
+      objet: `Réconciliation mission — ${mission.objet}`,
+      montant: mission.solde_missionnaire,
+    })
+  }
   const rapport = mission.rapport as any ?? {}
   const pf = (mission.point_financier as any[]) ?? []
   const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString('fr-FR') : '—'

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase-server'
+import { createClient, createAdminClient } from '@/lib/supabase-server'
+import { ajouterAuPayRoll } from '@/lib/pay-roll'
 
 // Autorisation finale DE des timesheets prestataires — symétrique à
 // l'étape valide_caf -> autorise déjà en place pour les rapports mensuels
@@ -25,9 +26,11 @@ export async function POST(
   const body = await req.json()
   const { action, commentaire_de } = body
 
+  const admin = createAdminClient()
+
   const { data: soum } = await supabase
     .from('soumissions')
-    .select('id, prestataire_id, titre, status, montant_caf, periode_mois, periode_annee')
+    .select('id, prestataire_id, titre, status, montant_caf, periode_mois, periode_annee, prestataire:profiles!soumissions_prestataire_id_fkey(nom, prenoms)')
     .eq('id', id).single()
 
   if (!soum) return NextResponse.json({ error: 'introuvable' }, { status: 404 })
@@ -71,6 +74,18 @@ export async function POST(
         lien: '/timesheets',
       })
     ))
+
+    // Pas de code budgétaire natif sur les timesheets — la CAF le complètera
+    // elle-même dans Pay Roll avant de générer un appel de fonds.
+    const prest = soum.prestataire as any
+    await ajouterAuPayRoll(admin, {
+      sourceType: 'timesheet',
+      sourceId: id,
+      beneficiaireId: soum.prestataire_id,
+      beneficiaireNom: prest ? `${prest.prenoms} ${prest.nom}` : soum.titre,
+      objet: `${soum.titre} — ${mois}`,
+      montant: soum.montant_caf ?? 0,
+    })
   } else {
     if (!commentaire_de?.trim()) {
       return NextResponse.json({ error: 'Un commentaire est obligatoire.' }, { status: 400 })

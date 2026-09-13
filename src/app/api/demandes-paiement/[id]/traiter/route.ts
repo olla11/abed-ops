@@ -4,6 +4,7 @@ import { sendEmail } from '@/lib/resend'
 import { accordGenre } from '@/lib/genre'
 import { estAAF } from '@/lib/roles'
 import { autoSkipDemandePaiement } from '@/lib/circuit-vacancy'
+import { ajouterAuPayRoll } from '@/lib/pay-roll'
 
 // action: valider | rejeter | refuser
 // etape déduite du rôle: aaf → valide_aaf, caf → valide_caf, de → autorise
@@ -85,6 +86,19 @@ export async function POST(
   // Si le nouveau statut attend un rôle qui n'a plus personne d'actif, fait
   // sauter automatiquement l'étape suivante plutôt que de bloquer la demande.
   await autoSkipDemandePaiement(admin, id).catch(e => console.error('[autoSkipDemandePaiement]:', e))
+
+  if (update.status === 'autorise') {
+    await ajouterAuPayRoll(admin, {
+      sourceType: 'demande_paiement',
+      sourceId: id,
+      reference: demande.numero,
+      beneficiaireId: demande.demandeur_id,
+      beneficiaireNom: demande.nom_complet,
+      objet: demande.objet,
+      codeBudgetaire: demande.code_budgetaire,
+      montant: demande.montant,
+    })
+  }
 
   const demandeur = demande.demandeur as any
 
