@@ -19,9 +19,9 @@ type PayRollItem = {
 }
 
 const SOURCE_LABELS: Record<string, string> = {
-  demande_paiement: 'Demande de paiement',
+  demande_paiement: 'Demande',
   rapport_allocation: 'Allocation',
-  reconciliation_mission: 'Réconciliation mission',
+  reconciliation_mission: 'Réconciliation',
   timesheet: 'Timesheet',
 }
 
@@ -149,7 +149,18 @@ export default function PayRollClient() {
         </div>
       ) : (
         <div className="table-wrap">
-          <table style={{ minWidth: 1000 }}>
+          <table style={{ minWidth: 1300, tableLayout: 'fixed' }}>
+            <colgroup>
+              <col style={{ width: 40 }} />
+              <col style={{ width: 90 }} />
+              <col style={{ width: 90 }} />
+              <col style={{ width: 160 }} />
+              <col style={{ width: 260 }} />
+              <col style={{ width: 190 }} />
+              <col style={{ width: 130 }} />
+              <col style={{ width: 120 }} />
+              <col style={{ width: 170 }} />
+            </colgroup>
             <thead>
               <tr>
                 <th></th>
@@ -167,6 +178,7 @@ export default function PayRollClient() {
               {visibles.map(item => {
                 const dejaPaye = item.statut === 'paye'
                 const selectionnable = item.statut === 'a_payer' && !item.appel_de_fonds_id
+                const codeChoisi = codes.find(c => c.code === item.code_budgetaire)
                 return (
                   <tr key={item.id} style={{ opacity: savingId === item.id ? 0.6 : 1 }}>
                     <td>
@@ -177,26 +189,32 @@ export default function PayRollClient() {
                         <span title="Déjà inclus dans un appel de fonds" style={{ fontSize: 11, color: 'var(--abed-muted)' }}>📎</span>
                       )}
                     </td>
-                    <td style={{ fontSize: 12, color: 'var(--abed-muted)' }}>{item.reference ?? '—'}</td>
-                    <td style={{ fontSize: 12 }}>{SOURCE_LABELS[item.source_type] ?? item.source_type}</td>
-                    <td style={{ fontWeight: 600 }}>{item.beneficiaire_nom}</td>
-                    <td style={{ fontSize: 13, maxWidth: 260 }}>{item.objet}</td>
-                    <td>
-                      <select
-                        style={{ ...inputStyle, minWidth: 160 }}
-                        value={item.code_budgetaire ?? ''}
-                        disabled={dejaPaye || savingId === item.id}
-                        onChange={e => patch(item.id, { code_budgetaire: e.target.value })}
-                      >
-                        <option value="">— Choisir —</option>
-                        {codes.map(c => <option key={c.code} value={c.code}>{c.code} — {c.libelle}</option>)}
-                      </select>
+                    <td style={{ fontSize: 12, color: 'var(--abed-muted)', whiteSpace: 'normal', overflow: 'visible', textOverflow: 'clip', wordBreak: 'break-word' }}>{item.reference ?? '—'}</td>
+                    <td style={{ fontSize: 11.5, color: 'var(--abed-muted)' }}>{SOURCE_LABELS[item.source_type] ?? item.source_type}</td>
+                    <td style={{ fontWeight: 600, whiteSpace: 'normal', overflow: 'visible', textOverflow: 'clip', lineHeight: 1.3 }}>{item.beneficiaire_nom}</td>
+                    <td style={{ fontSize: 13, whiteSpace: 'normal', overflow: 'visible', textOverflow: 'clip', lineHeight: 1.35 }}>{item.objet}</td>
+                    <td style={{ whiteSpace: 'normal', overflow: 'visible', textOverflow: 'clip' }}>
+                      {dejaPaye ? (
+                        <span style={{ fontSize: 12.5, lineHeight: 1.3 }}>
+                          {item.code_budgetaire ? <><strong>{item.code_budgetaire}</strong>{codeChoisi ? ` — ${codeChoisi.libelle}` : ''}</> : '—'}
+                        </span>
+                      ) : (
+                        <select
+                          style={{ ...inputStyle, width: '100%' }}
+                          value={item.code_budgetaire ?? ''}
+                          disabled={savingId === item.id}
+                          onChange={e => patch(item.id, { code_budgetaire: e.target.value })}
+                        >
+                          <option value="">— Choisir —</option>
+                          {codes.map(c => <option key={c.code} value={c.code}>{c.code} — {c.libelle}</option>)}
+                        </select>
+                      )}
                     </td>
                     <td style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{Number(item.montant).toLocaleString('fr-FR')} FCFA</td>
                     <td>
                       <select
                         style={{
-                          ...inputStyle, fontWeight: 700, minWidth: 110,
+                          ...inputStyle, fontWeight: 700, width: '100%',
                           background: STATUT_COLORS[item.statut]?.bg, color: STATUT_COLORS[item.statut]?.color,
                           border: 'none',
                         }}
@@ -209,16 +227,20 @@ export default function PayRollClient() {
                         {dejaPaye && <option value="paye">{STATUT_LABELS.paye}</option>}
                       </select>
                     </td>
-                    <td>
-                      <select
-                        style={{ ...inputStyle, minWidth: 140 }}
-                        value={item.compte_bancaire_id ?? ''}
-                        disabled={dejaPaye || savingId === item.id}
-                        onChange={e => patch(item.id, { compte_bancaire_id: e.target.value })}
-                      >
-                        <option value="">— Choisir —</option>
-                        {comptes.map(c => <option key={c.id} value={c.id}>{c.nom}</option>)}
-                      </select>
+                    <td style={{ whiteSpace: 'normal', overflow: 'visible', textOverflow: 'clip' }}>
+                      {dejaPaye ? (
+                        <span style={{ fontSize: 12.5 }}>{item.compte_bancaire?.nom ?? '—'}</span>
+                      ) : (
+                        <select
+                          style={{ ...inputStyle, width: '100%' }}
+                          value={item.compte_bancaire_id ?? ''}
+                          disabled={savingId === item.id}
+                          onChange={e => patch(item.id, { compte_bancaire_id: e.target.value })}
+                        >
+                          <option value="">— Choisir —</option>
+                          {comptes.map(c => <option key={c.id} value={c.id}>{c.nom}</option>)}
+                        </select>
+                      )}
                     </td>
                   </tr>
                 )
