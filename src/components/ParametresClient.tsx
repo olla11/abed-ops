@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import FormulaireEditor from '@/components/FormulaireEditor'
 import { HonorairesSection, PaliersSection, SalairesSection, AllocationsSection } from '@/components/BaremesSections'
+import ComptesBancairesSection from '@/components/ComptesBancairesSection'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -227,6 +228,7 @@ export default function ParametresClient() {
               <p style={{ fontSize: 13, color: '#374151', marginBottom: 20, lineHeight: 1.6 }}>
                 Ces listes alimentent les menus déroulants du formulaire de demande de paiement. Vous pouvez ajouter, modifier et supprimer chaque entrée.
               </p>
+              <ComptesBancairesSection />
               {LISTES.map(l => (
                 <ListeSection key={l.key} listKey={l.key} label={l.label} icon={l.icon} fields={l.fields} />
               ))}
