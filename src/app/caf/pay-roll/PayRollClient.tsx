@@ -49,7 +49,7 @@ export default function PayRollClient() {
   const [comptes, setComptes] = useState<CompteBancaire[]>([])
   const [codes, setCodes] = useState<CodeBudgetaire[]>([])
   const [loading, setLoading] = useState(true)
-  const [filtre, setFiltre] = useState<'tous' | 'non_paye' | 'a_payer' | 'paye'>('non_paye')
+  const [filtre, setFiltre] = useState<'tous' | 'non_paye' | 'a_payer' | 'paye'>('tous')
   const [savingId, setSavingId] = useState<string | null>(null)
   const [err, setErr] = useState('')
   const [selection, setSelection] = useState<Set<string>>(new Set())
