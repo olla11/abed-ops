@@ -49,60 +49,71 @@ function TrimestreCell({ budget, depense }: { budget: number; depense: number })
   )
 }
 
-const TRIMESTRES = [1, 2, 3, 4]
+const PORTEES_RAPPORT: { value: number; label: string }[] = [
+  { value: 0, label: 'Année entière' },
+  { value: 1, label: 'Trimestre 1' },
+  { value: 2, label: 'Trimestre 2' },
+  { value: 3, label: 'Trimestre 3' },
+  { value: 4, label: 'Trimestre 4' },
+]
 
-function CommentairesSection({ annee }: { annee: number }) {
+function GenererRapportModal({ annee, onClose }: { annee: number; onClose: () => void }) {
+  const [portee, setPortee] = useState(0)
   const [commentaires, setCommentaires] = useState<Record<number, string>>({})
-  const [saving, setSaving] = useState<number | null>(null)
+  const [loaded, setLoaded] = useState(false)
+  const [generating, setGenerating] = useState(false)
   const [msg, setMsg] = useState('')
 
-  function load() {
+  useEffect(() => {
     fetch(`/api/execution-financiere/commentaires?annee=${annee}`).then(r => r.json()).then(j => {
       const map: Record<number, string> = {}
       for (const c of j.data ?? []) map[c.trimestre] = c.commentaire
       setCommentaires(map)
+      setLoaded(true)
     })
-  }
-  useEffect(() => { load() }, [annee])
+  }, [annee])
 
-  async function save(trimestre: number) {
-    setSaving(trimestre); setMsg('')
+  async function genererRapport() {
+    setGenerating(true); setMsg('')
     const res = await fetch('/api/execution-financiere/commentaires', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ annee, trimestre, commentaire: commentaires[trimestre] ?? '' }),
+      body: JSON.stringify({ annee, trimestre: portee, commentaire: commentaires[portee] ?? '' }),
     })
-    setSaving(null)
-    if (!res.ok) { const j = await res.json(); setMsg('Erreur : ' + j.error) }
+    if (!res.ok) { const j = await res.json(); setGenerating(false); setMsg('Erreur : ' + j.error); return }
+    window.open(`/api/execution-financiere/rapport-pdf?annee=${annee}`, '_blank')
+    setGenerating(false)
+    onClose()
   }
 
   return (
-    <div className="card" style={{ padding: '16px 20px', marginBottom: 20 }}>
-      <h3 style={{ fontSize: 14, margin: '0 0 12px' }}>Commentaires de la CAF — repris dans le rapport PDF</h3>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginBottom: 12 }}>
-        {TRIMESTRES.map(t => (
-          <div key={t}>
-            <label style={{ fontSize: 11.5, fontWeight: 600, display: 'block', marginBottom: 4 }}>Trimestre {t}</label>
-            <textarea
-              rows={3} style={{ ...inputStyle, width: '100%', resize: 'vertical' }}
-              value={commentaires[t] ?? ''}
-              onChange={e => setCommentaires(c => ({ ...c, [t]: e.target.value }))}
-              onBlur={() => save(t)}
-              placeholder="Commentaire du trimestre…"
-            />
-            {saving === t && <span style={{ fontSize: 11, color: 'var(--abed-muted)' }}>Enregistrement…</span>}
-          </div>
-        ))}
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(17,24,39,.6)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+    }}>
+      <div style={{ background: 'white', borderRadius: 14, width: '100%', maxWidth: 520, padding: '24px 28px', boxShadow: '0 24px 64px rgba(0,0,0,.35)' }}>
+        <h3 style={{ margin: '0 0 6px', color: 'var(--abed-green)' }}>Générer le rapport détaillé — {annee}</h3>
+        <p style={{ fontSize: 13, color: 'var(--abed-muted)', margin: '0 0 16px' }}>
+          Le rapport reprend toutes les lignes budgétaires et tous les commentaires déjà saisis. Choisissez la portée du commentaire à ajouter ou corriger avant de générer.
+        </p>
+        <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Portée du commentaire</label>
+        <select value={portee} onChange={e => setPortee(Number(e.target.value))} style={{ ...inputStyle, width: '100%', marginBottom: 12 }}>
+          {PORTEES_RAPPORT.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+        </select>
+        <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Commentaire</label>
+        <textarea
+          rows={4} style={{ ...inputStyle, width: '100%', resize: 'vertical', marginBottom: 16 }}
+          value={loaded ? (commentaires[portee] ?? '') : ''}
+          onChange={e => setCommentaires(c => ({ ...c, [portee]: e.target.value }))}
+          placeholder={portee === 0 ? "Bilan de l'année…" : 'Commentaire du trimestre…'}
+        />
+        {msg && <p style={{ color: '#dc2626', fontSize: 13, marginBottom: 12 }}>{msg}</p>}
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button className="btn secondary" onClick={onClose} disabled={generating}>Annuler</button>
+          <button className="btn" onClick={genererRapport} disabled={generating || !loaded}>
+            {generating ? 'Génération…' : 'Générer le PDF'}
+          </button>
+        </div>
       </div>
-      <label style={{ fontSize: 11.5, fontWeight: 600, display: 'block', marginBottom: 4 }}>Commentaire annuel</label>
-      <textarea
-        rows={3} style={{ ...inputStyle, width: '100%', resize: 'vertical' }}
-        value={commentaires[0] ?? ''}
-        onChange={e => setCommentaires(c => ({ ...c, [0]: e.target.value }))}
-        onBlur={() => save(0)}
-        placeholder="Bilan de l'année…"
-      />
-      {saving === 0 && <span style={{ fontSize: 11, color: 'var(--abed-muted)' }}>Enregistrement…</span>}
-      {msg && <p style={{ fontSize: 12, color: '#dc2626', marginTop: 8 }}>{msg}</p>}
     </div>
   )
 }
@@ -116,6 +127,7 @@ export default function ExecutionFinanciereClient() {
   const [loading, setLoading] = useState(true)
   const [importing, setImporting] = useState(false)
   const [importMsg, setImportMsg] = useState('')
+  const [showRapport, setShowRapport] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   function load() {
@@ -166,10 +178,9 @@ export default function ExecutionFinanciereClient() {
           <Upload size={14} /> {importing ? 'Import…' : 'Importer le fichier complété'}
         </button>
         <span style={{ width: 1, height: 20, background: 'var(--abed-border)' }} />
-        <a href={`/api/execution-financiere/rapport-pdf?annee=${annee}`} target="_blank" rel="noopener noreferrer"
-          className="btn" style={{ fontSize: 12.5, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+        <button className="btn" style={{ fontSize: 12.5, display: 'inline-flex', alignItems: 'center', gap: 6 }} onClick={() => setShowRapport(true)}>
           <FileBarChart size={14} /> Générer le rapport détaillé (PDF)
-        </a>
+        </button>
       </div>
       {importMsg && <p style={{ fontSize: 12, color: importMsg.startsWith('Erreur') ? '#dc2626' : '#166534', marginBottom: 12 }}>{importMsg}</p>}
       <p style={{ fontSize: 11.5, color: 'var(--abed-muted)', marginBottom: 10 }}>
@@ -195,7 +206,7 @@ export default function ExecutionFinanciereClient() {
         </div>
       </div>
 
-      <CommentairesSection annee={annee} />
+      {showRapport && <GenererRapportModal annee={annee} onClose={() => setShowRapport(false)} />}
 
       {loading ? (
         <p style={{ fontSize: 13, color: 'var(--abed-muted)' }}>Chargement…</p>
