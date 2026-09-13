@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase-server'
 import { sendEmail } from '@/lib/resend'
 import { notifyMissionUser } from '@/lib/mission-notify'
 import { ajouterAuPayRoll } from '@/lib/pay-roll'
+import { accordGenre } from '@/lib/genre'
 
 // POST /api/missions/[id]/valider-reconciliation-de
 // body: { action: 'valider' | 'rejeter', commentaire?: string }
@@ -16,10 +17,15 @@ export async function POST(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
 
+  const admin = createAdminClient()
+  const { data: deProfile } = await admin.from('profiles').select('civilite').eq('role', 'de').eq('archived', false).maybeSingle()
+  const auDirecteur = accordGenre(deProfile?.civilite, 'au Directeur Exécutif', 'à la Directrice Exécutive')
+  const parLeDirecteur = accordGenre(deProfile?.civilite, 'par le Directeur Exécutif', 'par la Directrice Exécutive')
+
   const { data: profile } = await supabase
     .from('profiles').select('role, nom, prenoms').eq('id', user.id).single()
   if (!profile || !['de', 'admin'].includes(profile.role)) {
-    return NextResponse.json({ error: 'Accès réservé au Directeur Exécutif' }, { status: 403 })
+    return NextResponse.json({ error: `Accès réservé ${auDirecteur}` }, { status: 403 })
   }
 
   const { action, commentaire } = await req.json()
@@ -29,8 +35,6 @@ export async function POST(
   if (action === 'rejeter' && !commentaire?.trim()) {
     return NextResponse.json({ error: 'Un commentaire est requis pour le rejet' }, { status: 400 })
   }
-
-  const admin = createAdminClient()
 
   const { data: mission } = await admin
     .from('missions')
@@ -56,7 +60,7 @@ export async function POST(
       userId: mission.missionnaire_id,
       missionId: id,
       titre: 'Réconciliation rejetée — à corriger',
-      message: `Votre réconciliation pour la mission ${mission.reference ?? ''} a été rejetée par le Directeur Exécutif. Commentaire : ${commentaire}`,
+      message: `Votre réconciliation pour la mission ${mission.reference ?? ''} a été rejetée ${parLeDirecteur}. Commentaire : ${commentaire}`,
       lien: `/missions/${id}/reconciliation`,
     })
 
@@ -135,7 +139,7 @@ export async function POST(
         </table>
 
         <p style="margin-top:24px; font-size:12px; color:#6b7280;">
-          Ce rapport a été autorisé le ${new Date().toLocaleDateString('fr-FR')} par le Directeur Exécutif (après validation AAF et CAF).
+          Ce rapport a été autorisé le ${new Date().toLocaleDateString('fr-FR')} ${parLeDirecteur} (après validation AAF et CAF).
         </p>
       </div>
     </div>
@@ -146,7 +150,7 @@ export async function POST(
     userId: mission.missionnaire_id,
     missionId: id,
     titre: 'Réconciliation autorisée — mission clôturée',
-    message: `Votre réconciliation pour la mission ${mission.reference ?? ''} a été autorisée par le Directeur Exécutif. La mission est définitivement clôturée.`,
+    message: `Votre réconciliation pour la mission ${mission.reference ?? ''} a été autorisée ${parLeDirecteur}. La mission est définitivement clôturée.`,
   })
 
   // Envoyer email au DE/DP/CAF/AAF pour archivage
@@ -172,7 +176,7 @@ export async function POST(
       await admin.from('notifications').insert({
         user_id: g.id,
         titre: `Réconciliation clôturée — Mission ${mission.reference ?? id}`,
-        message: `La réconciliation de la mission ${mission.objet} (${mission.reference ?? ''}) a été autorisée par le Directeur Exécutif. Rapport archivé par email.`,
+        message: `La réconciliation de la mission ${mission.objet} (${mission.reference ?? ''}) a été autorisée ${parLeDirecteur}. Rapport archivé par email.`,
         lien: `/missions/${id}`,
       })
     }
