@@ -34,7 +34,7 @@ const inputStyle: React.CSSProperties = {
 
 function ligneVide(): LigneForm { return { jour: '', designation: '', quantite: '', prixUnitaire: '' } }
 
-export default function BonsDeCommandeClient() {
+export default function BonsDeCommandeClient({ deTitre, pcaTitre }: { deTitre: string; pcaTitre: string }) {
   const [items, setItems] = useState<BonDeCommande[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -60,7 +60,7 @@ export default function BonsDeCommandeClient() {
   useEffect(() => { load() }, [])
 
   const montantTotal = lignes.reduce((s, l) => s + (Number(l.quantite) || 0) * (Number(l.prixUnitaire) || 0), 0)
-  const signatairePrevu = montantTotal < SEUIL_PCA ? 'Directeur Exécutif' : 'Président du CA'
+  const signatairePrevu = montantTotal < SEUIL_PCA ? deTitre : pcaTitre
 
   function majLigne(i: number, patch: Partial<LigneForm>) {
     setLignes(ls => ls.map((l, idx) => idx === i ? { ...l, ...patch } : l))
@@ -156,7 +156,7 @@ export default function BonsDeCommandeClient() {
                   <td style={{ fontWeight: 600, whiteSpace: 'normal' }}>{bc.fournisseur_nom}</td>
                   <td style={{ fontSize: 13, whiteSpace: 'normal', lineHeight: 1.35 }}>{bc.objet}</td>
                   <td style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{Number(bc.montant_total).toLocaleString('fr-FR')} FCFA</td>
-                  <td style={{ fontSize: 12.5 }}>{bc.signataire_role === 'de' ? 'Directeur Exécutif' : 'Président du CA'}</td>
+                  <td style={{ fontSize: 12.5 }}>{bc.signataire_role === 'de' ? deTitre : pcaTitre}</td>
                   <td>
                     <span style={{
                       display: 'inline-block', padding: '3px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700,

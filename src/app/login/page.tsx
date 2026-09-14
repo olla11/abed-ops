@@ -40,7 +40,7 @@ export default function LoginPage() {
       setErr('Votre compte est en attente d\'activation par l\'administrateur système. Vous serez notifié(e) par email dès que votre accès sera configuré.')
       return
     }
-    try { sessionStorage.setItem('abed_auth_toast', 'Connexion réussie !') } catch { /* ignore */ }
+    try { sessionStorage.setItem('abed_auth_toast', JSON.stringify({ message: 'Connexion réussie !', variant: 'success' })) } catch { /* ignore */ }
     if (profile?.must_change_password) {
       router.push('/auth/changer-mot-de-passe')
     } else {

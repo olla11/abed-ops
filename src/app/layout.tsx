@@ -4,6 +4,7 @@ import { NextIntlClientProvider } from 'next-intl'
 import { getLocale, getMessages } from 'next-intl/server'
 import LegalConsentGate from '@/components/LegalConsentGate'
 import ProfileCompletionGate from '@/components/ProfileCompletionGate'
+import InactivityLogout from '@/components/InactivityLogout'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -32,6 +33,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           {children}
           <LegalConsentGate />
           <ProfileCompletionGate />
+          <InactivityLogout />
         </NextIntlClientProvider>
       </body>
     </html>
