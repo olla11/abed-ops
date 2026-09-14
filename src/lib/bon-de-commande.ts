@@ -14,6 +14,7 @@ export const SEUIL_SIGNATURE_PCA = 3_000_000
 type Resultat = { ok: true; bonDeCommandeId: string; numero: string } | { ok: false; error: string }
 
 export type LigneBonDeCommandeInput = { jour: string; designation: string; quantite: number; prixUnitaire: number }
+export type ReferenceBonDeCommandeInput = { id: string; label: string }
 
 // Génère le PDF du bon de commande à l'état 'brouillon' — l'AAF le
 // prévisualise avant de décider de l'envoyer en signature (DE ou PCA selon
@@ -25,6 +26,9 @@ export async function genererBonDeCommandeBrouillon(admin: AdminClient, opts: {
   fournisseurTelephone: string | null
   objet: string
   dateLivraisonSouhaitee: string | null
+  codeBudgetaire: string | null
+  referenceType: 'tdr' | 'contrat' | 'expression_besoin' | null
+  references: ReferenceBonDeCommandeInput[]
   lignes: LigneBonDeCommandeInput[]
   createurId: string
 }): Promise<Resultat> {
@@ -49,13 +53,18 @@ export async function genererBonDeCommandeBrouillon(admin: AdminClient, opts: {
   const numero = `BC${String((count ?? 0) + 1).padStart(3, '0')}-${String(annee).slice(-2)}/ABED/DE/CAF/AAF`
   const dateStr = new Date().toLocaleDateString('fr-FR')
 
-  const [{ data: deRows }, { data: pcaRows }] = await Promise.all([
+  const [{ data: deRows }, { data: pcaRows }, { data: codeInfo }] = await Promise.all([
     admin.from('profiles').select('civilite').eq('role', 'de').eq('archived', false).limit(1),
     admin.from('profiles').select('civilite').eq('titre', 'president_ca').eq('archived', false).limit(1),
+    opts.codeBudgetaire ? admin.from('codes_budgetaires').select('code, libelle').eq('code', opts.codeBudgetaire).maybeSingle() : Promise.resolve({ data: null }),
   ])
   const signataireTitre = signataireRole === 'de'
     ? accordGenre((deRows ?? [])[0]?.civilite, 'Le Directeur Exécutif', 'La Directrice Exécutive')
     : accordGenre((pcaRows ?? [])[0]?.civilite, 'Le Président du Conseil d\'Administration', 'La Présidente du Conseil d\'Administration')
+
+  const REFERENCE_TYPE_LABELS: Record<string, string> = {
+    tdr: 'TDR', contrat: 'Contrat', expression_besoin: 'Expression de besoin',
+  }
 
   const pdfBuffer = await genererBonDeCommandePdf({
     numero, date: dateStr,
@@ -63,6 +72,10 @@ export async function genererBonDeCommandeBrouillon(admin: AdminClient, opts: {
     fournisseurIfu: opts.fournisseurIfu, fournisseurTelephone: opts.fournisseurTelephone,
     objet: opts.objet, lignes: lignesPdf, montantTotal,
     dateLivraisonSouhaitee: opts.dateLivraisonSouhaitee, signataireTitre,
+    codeBudgetaire: codeInfo ? `${codeInfo.code} — ${codeInfo.libelle}` : null,
+    referenceLabel: opts.referenceType && opts.references.length > 0
+      ? `${REFERENCE_TYPE_LABELS[opts.referenceType]} : ${opts.references.map(r => r.label).join(' ; ')}`
+      : null,
   })
 
   await admin.storage.createBucket('documents', { public: false }).catch(() => {})
@@ -76,6 +89,7 @@ export async function genererBonDeCommandeBrouillon(admin: AdminClient, opts: {
     fournisseur_nom: opts.fournisseurNom, fournisseur_rccm: opts.fournisseurRccm,
     fournisseur_ifu: opts.fournisseurIfu, fournisseur_telephone: opts.fournisseurTelephone,
     objet: opts.objet, date_livraison_souhaitee: opts.dateLivraisonSouhaitee,
+    code_budgetaire: opts.codeBudgetaire, reference_type: opts.referenceType,
     montant_total: montantTotal, signataire_role: signataireRole, created_by: opts.createurId,
   }).select('id').single()
   if (bcErr || !bc) return { ok: false, error: bcErr?.message ?? 'Erreur lors de la création du bon de commande.' }
@@ -89,6 +103,16 @@ export async function genererBonDeCommandeBrouillon(admin: AdminClient, opts: {
   if (lignesErr) {
     await admin.from('bons_de_commande').delete().eq('id', bc.id)
     return { ok: false, error: lignesErr.message }
+  }
+
+  if (opts.references.length > 0) {
+    const { error: refErr } = await admin.from('bon_de_commande_references').insert(
+      opts.references.map(r => ({ bon_de_commande_id: bc.id, reference_id: r.id, reference_label: r.label }))
+    )
+    if (refErr) {
+      await admin.from('bons_de_commande').delete().eq('id', bc.id)
+      return { ok: false, error: refErr.message }
+    }
   }
 
   return { ok: true, bonDeCommandeId: bc.id, numero }

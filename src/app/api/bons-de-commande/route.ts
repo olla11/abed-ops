@@ -15,10 +15,11 @@ export async function GET() {
 }
 
 // POST { fournisseurNom, fournisseurRccm?, fournisseurIfu?,
-// fournisseurTelephone?, objet, dateLivraisonSouhaitee?, lignes: [{jour,
-// designation, quantite, prixUnitaire}] } — AAF/admin uniquement. Génère le
-// PDF à l'état 'brouillon', prévisualisable avant envoi en signature (voir
-// [id]/envoyer) ou annulation (DELETE [id]).
+// fournisseurTelephone?, objet, dateLivraisonSouhaitee?, codeBudgetaire?,
+// referenceType?: 'tdr'|'contrat'|'expression_besoin', references?:
+// [{id, label}], lignes: [{jour, designation, quantite, prixUnitaire}] } —
+// AAF/admin uniquement. Génère le PDF à l'état 'brouillon', prévisualisable
+// avant envoi en signature (voir [id]/envoyer) ou annulation (DELETE [id]).
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -38,6 +39,11 @@ export async function POST(req: NextRequest) {
     fournisseurTelephone: body.fournisseurTelephone?.trim() || null,
     objet: String(body.objet ?? ''),
     dateLivraisonSouhaitee: body.dateLivraisonSouhaitee?.trim() || null,
+    codeBudgetaire: body.codeBudgetaire?.trim() || null,
+    referenceType: ['tdr', 'contrat', 'expression_besoin'].includes(body.referenceType) ? body.referenceType : null,
+    references: Array.isArray(body.references) ? body.references.map((r: { id?: string; label?: string }) => ({
+      id: String(r.id ?? ''), label: String(r.label ?? ''),
+    })).filter((r: { id: string }) => r.id) : [],
     lignes: Array.isArray(body.lignes) ? body.lignes.map((l: { jour?: string; designation?: string; quantite?: number; prixUnitaire?: number }) => ({
       jour: String(l.jour ?? ''), designation: String(l.designation ?? ''),
       quantite: Number(l.quantite), prixUnitaire: Number(l.prixUnitaire),

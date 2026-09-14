@@ -28,6 +28,8 @@ export interface BonDeCommandePdfData {
   montantTotal: number
   dateLivraisonSouhaitee: string | null
   signataireTitre: string
+  codeBudgetaire: string | null
+  referenceLabel: string | null
 }
 
 const BC_STYLE = `
@@ -86,6 +88,8 @@ export function construireBonDeCommandeHtml(d: BonDeCommandePdfData): string {
     </div>
 
     <div class="bc-objet"><u>OBJET</u> : ${d.objet}</div>
+    ${d.codeBudgetaire ? `<div class="bc-objet"><u>CODE BUDGÉTAIRE</u> : ${d.codeBudgetaire}</div>` : ''}
+    ${d.referenceLabel ? `<div class="bc-objet"><u>RÉFÉRENCE</u> : ${d.referenceLabel}</div>` : ''}
 
     <table class="bc-table">
       <thead>

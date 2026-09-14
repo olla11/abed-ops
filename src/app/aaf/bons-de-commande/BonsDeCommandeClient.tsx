@@ -12,10 +12,18 @@ type BonDeCommande = {
   montant_total: number
   statut: 'brouillon' | 'circuit_signature' | 'signe' | 'rejete'
   signataire_role: 'de' | 'pca'
+  code_budgetaire: string | null
   created_at: string
 }
 
 type LigneForm = { jour: string; designation: string; quantite: string; prixUnitaire: string }
+type CodeBudgetaire = { code: string; libelle: string }
+type ReferenceItem = { id: string; label: string }
+type ReferenceType = 'tdr' | 'contrat' | 'expression_besoin'
+
+const REFERENCE_TYPE_LABELS: Record<ReferenceType, string> = {
+  tdr: 'TDR', contrat: 'Contrat', expression_besoin: 'Expression de besoin',
+}
 
 const STATUT_LABELS: Record<string, string> = {
   brouillon: 'Brouillon', circuit_signature: 'En signature', signe: 'Signé', rejete: 'Rejeté',
@@ -49,6 +57,13 @@ export default function BonsDeCommandeClient({ deTitre, pcaTitre }: { deTitre: s
   const [generating, setGenerating] = useState(false)
   const [genMsg, setGenMsg] = useState('')
 
+  const [codes, setCodes] = useState<CodeBudgetaire[]>([])
+  const [codeBudgetaire, setCodeBudgetaire] = useState('')
+  const [referenceType, setReferenceType] = useState<ReferenceType | ''>('')
+  const [referencesDisponibles, setReferencesDisponibles] = useState<ReferenceItem[]>([])
+  const [referencesLoading, setReferencesLoading] = useState(false)
+  const [referencesChoisies, setReferencesChoisies] = useState<Set<string>>(new Set())
+
   const [brouillon, setBrouillon] = useState<{ id: string; numero: string; url: string | null } | null>(null)
   const [envoi, setEnvoi] = useState(false)
   const [annulation, setAnnulation] = useState(false)
@@ -57,7 +72,26 @@ export default function BonsDeCommandeClient({ deTitre, pcaTitre }: { deTitre: s
     setLoading(true)
     fetch('/api/bons-de-commande').then(r => r.json()).then(j => setItems(j.data ?? [])).finally(() => setLoading(false))
   }
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load()
+    fetch('/api/config/listes?type=codes_budgetaires&actifs=1').then(r => r.json()).then(j => setCodes(j.data ?? []))
+  }, [])
+
+  useEffect(() => {
+    if (!referenceType) { setReferencesDisponibles([]); setReferencesChoisies(new Set()); return }
+    setReferencesLoading(true); setReferencesChoisies(new Set())
+    fetch(`/api/bons-de-commande/references?type=${referenceType}`).then(r => r.json())
+      .then(j => setReferencesDisponibles(j.data ?? []))
+      .finally(() => setReferencesLoading(false))
+  }, [referenceType])
+
+  function toggleReference(id: string) {
+    setReferencesChoisies(s => {
+      const next = new Set(s)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
 
   const montantTotal = lignes.reduce((s, l) => s + (Number(l.quantite) || 0) * (Number(l.prixUnitaire) || 0), 0)
   const signatairePrevu = montantTotal < SEUIL_PCA ? deTitre : pcaTitre
@@ -71,16 +105,21 @@ export default function BonsDeCommandeClient({ deTitre, pcaTitre }: { deTitre: s
   function fermerForm() {
     setShowForm(false); setFournisseurNom(''); setFournisseurRccm(''); setFournisseurIfu('')
     setFournisseurTelephone(''); setObjet(''); setDateLivraison(''); setLignes([ligneVide()])
+    setCodeBudgetaire(''); setReferenceType(''); setReferencesChoisies(new Set())
     setGenMsg(''); setBrouillon(null)
   }
 
   async function genererBrouillon() {
     setGenerating(true); setGenMsg('')
+    const references = referencesDisponibles.filter(r => referencesChoisies.has(r.id))
     const res = await fetch('/api/bons-de-commande', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         fournisseurNom, fournisseurRccm, fournisseurIfu, fournisseurTelephone, objet,
         dateLivraisonSouhaitee: dateLivraison,
+        codeBudgetaire: codeBudgetaire || null,
+        referenceType: referenceType || null,
+        references,
         lignes: lignes.map(l => ({ jour: l.jour, designation: l.designation, quantite: Number(l.quantite), prixUnitaire: Number(l.prixUnitaire) })),
       }),
     })
@@ -128,14 +167,15 @@ export default function BonsDeCommandeClient({ deTitre, pcaTitre }: { deTitre: s
         </div>
       ) : (
         <div className="table-wrap">
-          <table style={{ minWidth: 900, tableLayout: 'fixed' }}>
+          <table style={{ minWidth: 1090, tableLayout: 'fixed' }}>
             <colgroup>
-              <col style={{ width: 190 }} />
-              <col style={{ width: 180 }} />
-              <col style={{ width: 230 }} />
+              <col style={{ width: 170 }} />
+              <col style={{ width: 160 }} />
+              <col style={{ width: 200 }} />
               <col style={{ width: 130 }} />
-              <col style={{ width: 120 }} />
+              <col style={{ width: 130 }} />
               <col style={{ width: 110 }} />
+              <col style={{ width: 100 }} />
               <col style={{ width: 90 }} />
             </colgroup>
             <thead>
@@ -143,6 +183,7 @@ export default function BonsDeCommandeClient({ deTitre, pcaTitre }: { deTitre: s
                 <th>N°</th>
                 <th>Fournisseur</th>
                 <th>Objet</th>
+                <th>Code budgétaire</th>
                 <th>Montant</th>
                 <th>Signataire</th>
                 <th>Statut</th>
@@ -155,6 +196,7 @@ export default function BonsDeCommandeClient({ deTitre, pcaTitre }: { deTitre: s
                   <td style={{ fontSize: 12, color: 'var(--abed-muted)', whiteSpace: 'normal', wordBreak: 'break-word' }}>{bc.numero}</td>
                   <td style={{ fontWeight: 600, whiteSpace: 'normal' }}>{bc.fournisseur_nom}</td>
                   <td style={{ fontSize: 13, whiteSpace: 'normal', lineHeight: 1.35 }}>{bc.objet}</td>
+                  <td style={{ fontSize: 12.5, whiteSpace: 'normal' }}>{bc.code_budgetaire ?? '—'}</td>
                   <td style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{Number(bc.montant_total).toLocaleString('fr-FR')} FCFA</td>
                   <td style={{ fontSize: 12.5 }}>{bc.signataire_role === 'de' ? deTitre : pcaTitre}</td>
                   <td>
@@ -213,6 +255,45 @@ export default function BonsDeCommandeClient({ deTitre, pcaTitre }: { deTitre: s
                 <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Date de livraison souhaitée</label>
                 <input style={{ ...inputStyle, width: '100%' }} value={dateLivraison} onChange={e => setDateLivraison(e.target.value)} placeholder="ex : Vendredi 27 et Samedi 28 Février 2026" />
               </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Code budgétaire</label>
+                  <select style={{ ...inputStyle, width: '100%' }} value={codeBudgetaire} onChange={e => setCodeBudgetaire(e.target.value)}>
+                    <option value="">— Choisir —</option>
+                    {codes.map(c => <option key={c.code} value={c.code}>{c.code} — {c.libelle}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Type de référence</label>
+                  <select style={{ ...inputStyle, width: '100%' }} value={referenceType} onChange={e => setReferenceType(e.target.value as ReferenceType | '')}>
+                    <option value="">— Aucune —</option>
+                    {(Object.keys(REFERENCE_TYPE_LABELS) as ReferenceType[]).map(t => <option key={t} value={t}>{REFERENCE_TYPE_LABELS[t]}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              {referenceType && (
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 6 }}>
+                    Référence(s) {REFERENCE_TYPE_LABELS[referenceType]} — plusieurs choix possibles
+                  </label>
+                  <div style={{ border: '1px solid var(--abed-border)', borderRadius: 8, maxHeight: 160, overflowY: 'auto', padding: '8px 10px' }}>
+                    {referencesLoading ? (
+                      <p style={{ fontSize: 12.5, color: 'var(--abed-muted)', margin: 0 }}>Chargement…</p>
+                    ) : referencesDisponibles.length === 0 ? (
+                      <p style={{ fontSize: 12.5, color: 'var(--abed-muted)', margin: 0 }}>
+                        {referenceType === 'expression_besoin' ? "Pas encore disponible — à venir." : `Aucun ${REFERENCE_TYPE_LABELS[referenceType].toLowerCase()} actif trouvé.`}
+                      </p>
+                    ) : referencesDisponibles.map(r => (
+                      <label key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', fontSize: 13, cursor: 'pointer' }}>
+                        <input type="checkbox" checked={referencesChoisies.has(r.id)} onChange={() => toggleReference(r.id)} />
+                        {r.label}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 6 }}>Lignes *</label>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
