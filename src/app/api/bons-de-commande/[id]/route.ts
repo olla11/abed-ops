@@ -14,7 +14,7 @@ export async function DELETE(
   if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
 
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  if (!['aaf', 'admin', 'superadmin'].includes(profile?.role ?? '')) {
+  if (!['aaf', 'caf', 'admin', 'superadmin'].includes(profile?.role ?? '')) {
     return NextResponse.json({ error: 'accès refusé' }, { status: 403 })
   }
 

@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2, Download } from 'lucide-react'
 
 const SEUIL_PCA = 3_000_000
 
@@ -130,12 +130,13 @@ export default function BonsDeCommandeClient() {
         <div className="table-wrap">
           <table style={{ minWidth: 900, tableLayout: 'fixed' }}>
             <colgroup>
-              <col style={{ width: 200 }} />
-              <col style={{ width: 200 }} />
-              <col style={{ width: 260 }} />
-              <col style={{ width: 140 }} />
+              <col style={{ width: 190 }} />
+              <col style={{ width: 180 }} />
+              <col style={{ width: 230 }} />
               <col style={{ width: 130 }} />
-              <col style={{ width: 130 }} />
+              <col style={{ width: 120 }} />
+              <col style={{ width: 110 }} />
+              <col style={{ width: 90 }} />
             </colgroup>
             <thead>
               <tr>
@@ -145,6 +146,7 @@ export default function BonsDeCommandeClient() {
                 <th>Montant</th>
                 <th>Signataire</th>
                 <th>Statut</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -160,6 +162,12 @@ export default function BonsDeCommandeClient() {
                       display: 'inline-block', padding: '3px 10px', borderRadius: 999, fontSize: 12, fontWeight: 700,
                       background: STATUT_COLORS[bc.statut]?.bg, color: STATUT_COLORS[bc.statut]?.color,
                     }}>{STATUT_LABELS[bc.statut]}</span>
+                  </td>
+                  <td>
+                    <a href={`/api/bons-de-commande/${bc.id}/document?download=1`}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--abed-green)', textDecoration: 'none', fontWeight: 600 }}>
+                      <Download size={13} /> PDF
+                    </a>
                   </td>
                 </tr>
               ))}
