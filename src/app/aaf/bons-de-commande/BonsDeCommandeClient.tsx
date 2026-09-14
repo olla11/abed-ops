@@ -210,7 +210,7 @@ export default function BonsDeCommandeClient() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
                 {lignes.map((l, i) => (
                   <div key={i} style={{ display: 'grid', gridTemplateColumns: '70px 2fr 90px 130px 130px 32px', gap: 8, alignItems: 'center' }}>
-                    <input style={inputStyle} value={l.jour} onChange={e => majLigne(i, { jour: e.target.value })} placeholder="Jour" />
+                    <input style={inputStyle} value={l.jour} onChange={e => majLigne(i, { jour: e.target.value })} placeholder="N°" />
                     <input style={inputStyle} value={l.designation} onChange={e => majLigne(i, { designation: e.target.value })} placeholder="Désignation" />
                     <input style={inputStyle} type="number" value={l.quantite} onChange={e => majLigne(i, { quantite: e.target.value })} placeholder="Qté" />
                     <input style={inputStyle} type="number" value={l.prixUnitaire} onChange={e => majLigne(i, { prixUnitaire: e.target.value })} placeholder="P.U. FCFA" />

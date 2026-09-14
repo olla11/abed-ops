@@ -90,7 +90,7 @@ export function construireBonDeCommandeHtml(d: BonDeCommandePdfData): string {
     <table class="bc-table">
       <thead>
         <tr>
-          <th style="width:60px;">Jour</th>
+          <th style="width:60px;">N°</th>
           <th>Désignation</th>
           <th style="width:80px;">Quantité</th>
           <th style="width:120px;">Prix unitaire<br/>(FCFA)</th>
