@@ -60,9 +60,10 @@ export default function BonsDeCommandeClient({ deTitre, pcaTitre }: { deTitre: s
   const [codes, setCodes] = useState<CodeBudgetaire[]>([])
   const [codeBudgetaire, setCodeBudgetaire] = useState('')
   const [referenceType, setReferenceType] = useState<ReferenceType | ''>('')
-  const [referencesDisponibles, setReferencesDisponibles] = useState<ReferenceItem[]>([])
-  const [referencesLoading, setReferencesLoading] = useState(false)
+  const [referencesParType, setReferencesParType] = useState<Record<ReferenceType, ReferenceItem[]>>({ tdr: [], contrat: [], expression_besoin: [] })
+  const [referencesLoading, setReferencesLoading] = useState(true)
   const [referencesChoisies, setReferencesChoisies] = useState<Set<string>>(new Set())
+  const referencesDisponibles = referenceType ? referencesParType[referenceType] : []
 
   const [brouillon, setBrouillon] = useState<{ id: string; numero: string; url: string | null } | null>(null)
   const [envoi, setEnvoi] = useState(false)
@@ -75,15 +76,23 @@ export default function BonsDeCommandeClient({ deTitre, pcaTitre }: { deTitre: s
   useEffect(() => {
     load()
     fetch('/api/config/listes?type=codes_budgetaires&actifs=1').then(r => r.json()).then(j => setCodes(j.data ?? []))
+    // Les 3 listes de références sont chargées une seule fois, en parallèle,
+    // dès l'arrivée sur la page — plutôt qu'à chaque changement de "Type de
+    // référence" dans le formulaire, ce qui affichait un "Chargement…" à
+    // chaque bascule TDR/Contrat au lieu d'un choix instantané.
+    Promise.all([
+      fetch('/api/bons-de-commande/references?type=tdr').then(r => r.json()),
+      fetch('/api/bons-de-commande/references?type=contrat').then(r => r.json()),
+      fetch('/api/bons-de-commande/references?type=expression_besoin').then(r => r.json()),
+    ]).then(([tdr, contrat, expressionBesoin]) => {
+      setReferencesParType({ tdr: tdr.data ?? [], contrat: contrat.data ?? [], expression_besoin: expressionBesoin.data ?? [] })
+    }).finally(() => setReferencesLoading(false))
   }, [])
 
-  useEffect(() => {
-    if (!referenceType) { setReferencesDisponibles([]); setReferencesChoisies(new Set()); return }
-    setReferencesLoading(true); setReferencesChoisies(new Set())
-    fetch(`/api/bons-de-commande/references?type=${referenceType}`).then(r => r.json())
-      .then(j => setReferencesDisponibles(j.data ?? []))
-      .finally(() => setReferencesLoading(false))
-  }, [referenceType])
+  function changerReferenceType(t: ReferenceType | '') {
+    setReferenceType(t)
+    setReferencesChoisies(new Set())
+  }
 
   function toggleReference(id: string) {
     setReferencesChoisies(s => {
@@ -266,7 +275,7 @@ export default function BonsDeCommandeClient({ deTitre, pcaTitre }: { deTitre: s
                 </div>
                 <div>
                   <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Type de référence</label>
-                  <select style={{ ...inputStyle, width: '100%' }} value={referenceType} onChange={e => setReferenceType(e.target.value as ReferenceType | '')}>
+                  <select style={{ ...inputStyle, width: '100%' }} value={referenceType} onChange={e => changerReferenceType(e.target.value as ReferenceType | '')}>
                     <option value="">— Aucune —</option>
                     {(Object.keys(REFERENCE_TYPE_LABELS) as ReferenceType[]).map(t => <option key={t} value={t}>{REFERENCE_TYPE_LABELS[t]}</option>)}
                   </select>

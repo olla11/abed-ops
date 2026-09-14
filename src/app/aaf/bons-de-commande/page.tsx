@@ -1,14 +1,18 @@
-import { createClient } from '@/lib/supabase-server'
+import { createAdminClient } from '@/lib/supabase-server'
 import { accordGenre } from '@/lib/genre'
 import BonsDeCommandeClient from './BonsDeCommandeClient'
 
 export const dynamic = 'force-dynamic'
 
 export default async function BonsDeCommandePage() {
-  const supabase = await createClient()
+  // Client admin requis : la policy RLS de lecture des profils
+  // ("lire son profil ou tout si caf/de/admin") ne couvre pas le rôle aaf —
+  // avec le client normal, un AAF ne pouvait jamais lire la civilité du DE
+  // et retombait toujours sur l'accord masculin par défaut.
+  const admin = createAdminClient()
   const [{ data: de }, { data: pca }] = await Promise.all([
-    supabase.from('profiles').select('civilite').eq('role', 'de').eq('archived', false).maybeSingle(),
-    supabase.from('profiles').select('civilite').eq('titre', 'president_ca').eq('archived', false).maybeSingle(),
+    admin.from('profiles').select('civilite').eq('role', 'de').eq('archived', false).maybeSingle(),
+    admin.from('profiles').select('civilite').eq('titre', 'president_ca').eq('archived', false).maybeSingle(),
   ])
   const deTitre = accordGenre(de?.civilite, 'Directeur Exécutif', 'Directrice Exécutive')
   const pcaTitre = accordGenre(pca?.civilite, 'Président du Conseil d\'Administration', 'Présidente du Conseil d\'Administration')
