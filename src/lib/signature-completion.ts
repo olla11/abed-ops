@@ -250,6 +250,10 @@ export async function finalizeAfterSignature(
   // sans traitement particulier à ajouter ici.
   await admin.from('appels_de_fonds').update({ statut: 'signe', updated_at: new Date().toISOString() }).eq('demande_signature_id', demandeId)
 
+  // Si lié à un bon de commande, le marquer signé — le créateur (AAF) est
+  // déjà notifié plus haut (bloc "createur"), pas de traitement séparé.
+  await admin.from('bons_de_commande').update({ statut: 'signe', updated_at: new Date().toISOString() }).eq('demande_signature_id', demandeId)
+
   const { data: createur } = await admin.from('profiles').select('nom, prenoms, email').eq('id', demande.createur_id).single()
   if (createur?.email) {
     await sendEmail({
