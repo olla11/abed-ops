@@ -1,20 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase-server'
+import { createClient, createAdminClient } from '@/lib/supabase-server'
 
 // GET ?type=tdr|contrat|expression_besoin — éléments sélectionnables comme
 // référence justificative d'un bon de commande, chacun avec un libellé
-// affichable directement dans le menu déroulant.
+// affichable directement dans le menu déroulant. Client admin (bypass RLS) :
+// la policy "contrats_rh" ne couvre pas le rôle aaf (seulement
+// rh/admin/de/dp/caf + son propre contrat) — avec le client normal, l'AAF ne
+// verrait que son propre contrat au lieu de tous les contrats actifs.
 export async function GET(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
 
+  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+  if (!['aaf', 'caf', 'admin', 'superadmin'].includes(profile?.role ?? '')) {
+    return NextResponse.json({ error: 'accès refusé' }, { status: 403 })
+  }
+
+  const admin = createAdminClient()
   const type = req.nextUrl.searchParams.get('type')
 
   if (type === 'tdr') {
-    // RLS (tdrs_select) filtre déjà aux TDR visibles pour ce compte — les
-    // actifs (statut 'actif') sont visibles de tous, comme dans TdrListClient.
-    const { data, error } = await supabase
+    const { data, error } = await admin
       .from('tdrs').select('id, numero, titre_activite').eq('statut', 'actif').order('created_at', { ascending: false })
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
     return NextResponse.json({
@@ -23,13 +30,15 @@ export async function GET(req: NextRequest) {
   }
 
   if (type === 'contrat') {
-    // "Actif" = circuit de signature entièrement bouclé (workflow_statut
-    // 'finalise') — un contrat encore en cours de signature n'est pas
-    // encore un engagement opposable à référencer sur un bon de commande.
-    const { data, error } = await supabase
+    // "Actif" = le statut opérationnel du contrat (colonne `statut`, comme
+    // dans ContratsClient/statutBadge), pas l'avancement de son circuit de
+    // signature électronique (`workflow_statut`, souvent absent sur les
+    // anciens contrats) — et pas expiré par sa date de fin le cas échéant.
+    const today = new Date().toISOString().slice(0, 10)
+    const { data, error } = await admin
       .from('contrats')
       .select('id, numero, type_contrat, categorie_document, profile:profiles!profile_id(nom, prenoms), destinataire_email')
-      .eq('workflow_statut', 'finalise').order('created_at', { ascending: false })
+      .eq('statut', 'actif').or(`date_fin.is.null,date_fin.gte.${today}`).order('created_at', { ascending: false })
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
     return NextResponse.json({
       data: (data ?? []).map(c => {
