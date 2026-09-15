@@ -26,7 +26,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const body = await req.json().catch(() => null)
   if (!body?.profile_id) return NextResponse.json({ error: 'profile_id requis' }, { status: 400 })
 
-  // RLS (espace_membres_insert) restreint l'invitation au créateur de l'espace.
+  // RLS (espace_membres_insert) restreint l'invitation aux membres de l'espace.
   const { data, error } = await supabase.from('espace_membres').insert({
     espace_id: id,
     profile_id: body.profile_id,

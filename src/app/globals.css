@@ -13,6 +13,11 @@
   --shadow: 0 2px 8px rgba(40,60,20,.06), 0 8px 24px rgba(40,60,20,.05);
 }
 
+/* Hub (Espaces/Projets) : le crayon de renommage d'un projet ne s'affiche
+   qu'au survol de sa ligne, pour ne pas surcharger l'arborescence. */
+.hub-row .rename-btn { opacity: 0; pointer-events: none; transition: opacity .1s; }
+.hub-row:hover .rename-btn { opacity: 1; pointer-events: auto; }
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 html {

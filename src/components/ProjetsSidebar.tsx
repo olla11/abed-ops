@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
-import { ChevronDown, Lock, Zap, Users, Folder, X, Pencil, Trash2, Rocket, Lightbulb, Target, Leaf, FlaskConical, BarChart2, Palette, Trophy, BookOpen, Globe, Star, Briefcase, type LucideIcon } from 'lucide-react'
+import { ChevronDown, Lock, Zap, Users, Folder, X, Pencil, Trash2, Rocket, Lightbulb, Target, Leaf, FlaskConical, BarChart2, Palette, Trophy, BookOpen, Globe, Star, Briefcase, Plus, LayoutGrid, type LucideIcon } from 'lucide-react'
 
 const ICON_MAP: Record<string, LucideIcon> = {
   folder: Folder, rocket: Rocket, lightbulb: Lightbulb, target: Target,
@@ -11,9 +11,28 @@ const ICON_MAP: Record<string, LucideIcon> = {
 }
 const ICON_OPTIONS = Object.keys(ICON_MAP)
 
-function EspaceIcon({ icon, size = 15, color = '#6b7280' }: { icon: string; size?: number; color?: string }) {
+function hexToRgba(hex: string, alpha: number): string {
+  const m = hex.replace('#', '')
+  const r = parseInt(m.substring(0, 2), 16)
+  const g = parseInt(m.substring(2, 4), 16)
+  const b = parseInt(m.substring(4, 6), 16)
+  if ([r, g, b].some(Number.isNaN)) return `rgba(107,114,128,${alpha})`
+  return `rgba(${r},${g},${b},${alpha})`
+}
+
+// Badge circulaire teinté de la couleur de l'espace — identifie chaque
+// espace au premier coup d'œil dans l'arborescence, comme un avatar
+// d'espace de travail (Linear/Notion), au lieu d'une simple icône plate.
+function EspaceIcon({ icon, size = 13, color = '#6b7280' }: { icon: string; size?: number; color?: string }) {
   const Icon = ICON_MAP[icon] ?? Folder
-  return <Icon size={size} color={color} strokeWidth={1.5} />
+  return (
+    <span style={{
+      width: size + 12, height: size + 12, borderRadius: 7, flexShrink: 0,
+      background: hexToRgba(color, .14), display: 'flex', alignItems: 'center', justifyContent: 'center',
+    }}>
+      <Icon size={size} color={color} strokeWidth={2} />
+    </span>
+  )
 }
 
 type Espace = { id: string; nom: string; couleur: string; icon: string; created_by?: string }
@@ -247,18 +266,24 @@ export default function ProjetsSidebar() {
     const done = topLevel.filter(a => a.statut === 'termine').length
     const total = topLevel.length
     const isRenaming = renamingProjet === p.id
+    const pct = total > 0 ? Math.round((done / total) * 100) : 0
     return (
-      <div key={p.id}
+      <div key={p.id} className="hub-row"
         style={{
-          display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px 6px 24px',
-          borderRadius: 6, cursor: 'pointer', margin: '1px 4px',
-          background: isActive ? 'rgba(22,163,74,0.12)' : 'transparent',
-          color: isActive ? '#16a34a' : '#374151',
+          position: 'relative', display: 'flex', alignItems: 'center', gap: 7, padding: '6px 10px 6px 34px',
+          borderRadius: 7, cursor: 'pointer', margin: '1px 6px 1px 2px',
+          background: isActive ? 'rgba(22,163,74,0.10)' : 'transparent',
+          color: isActive ? '#15803d' : '#374151',
         }}
         onClick={() => { if (!isRenaming) router.push(`/projets/${p.id}`) }}
-        onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = '#f3f4f6' }}
-        onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = isActive ? 'rgba(22,163,74,0.12)' : 'transparent' }}>
-        {p.is_public ? <Zap size={11} color="#d97706" strokeWidth={1.5} /> : <Lock size={11} color="#9ca3af" strokeWidth={1.5} />}
+        onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = '#f0f1f3' }}
+        onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = isActive ? 'rgba(22,163,74,0.10)' : 'transparent' }}>
+        {/* Trait de liaison vertical — chaque ligne dessine son propre segment,
+            l'ensemble forme un guide continu qui matérialise l'arborescence */}
+        <span style={{ position: 'absolute', left: 22, top: 0, bottom: 0, width: 1, background: '#e5e7eb' }} />
+        {p.is_public
+          ? <Zap size={12} color="#d97706" strokeWidth={2} style={{ flexShrink: 0 }} />
+          : <Lock size={11} color="#9ca3af" strokeWidth={2} style={{ flexShrink: 0 }} />}
         {isRenaming ? (
           <input
             ref={renameRef}
@@ -276,14 +301,21 @@ export default function ProjetsSidebar() {
             title="Double-clic pour renommer"
           >{p.nom}</span>
         )}
-        {!isRenaming && total > 0 && <span style={{ fontSize: 10, color: '#9ca3af', flexShrink: 0 }}>{done}/{total}</span>}
+        {!isRenaming && total > 0 && (
+          <span title={`${done}/${total} tâches terminées`} style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+            <span style={{ width: 20, height: 20, borderRadius: '50%', flexShrink: 0, position: 'relative', background: `conic-gradient(${isActive ? '#16a34a' : '#9ca3af'} ${pct * 3.6}deg, #e5e7eb 0deg)` }}>
+              <span style={{ position: 'absolute', inset: 3, borderRadius: '50%', background: isActive ? '#f0fdf4' : '#fafafa' }} />
+            </span>
+            <span style={{ fontSize: 10.5, color: '#9ca3af', fontWeight: 600 }}>{done}/{total}</span>
+          </span>
+        )}
         {!isRenaming && (
           <button
             onClick={e => { e.stopPropagation(); startRenameProjet(p) }}
             title="Renommer"
-            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex', alignItems: 'center', opacity: 0, pointerEvents: 'none' }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex', alignItems: 'center', flexShrink: 0 }}
             className="rename-btn"
-          ><Pencil size={10} color="#9ca3af" strokeWidth={1.5} /></button>
+          ><Pencil size={11} color="#9ca3af" strokeWidth={2} /></button>
         )}
       </div>
     )
@@ -292,7 +324,7 @@ export default function ProjetsSidebar() {
   function renderAddProjet(key: string, espaceId: string | null) {
     if (showNewProjet === key) {
       return (
-        <div style={{ padding: '4px 8px 4px 24px', margin: '2px 4px' }}>
+        <div style={{ padding: '4px 8px 6px 34px', margin: '2px 6px 2px 2px' }}>
           <input autoFocus placeholder="Nom du projet…" value={newProjetNom}
             onChange={e => { setNewProjetNom(e.target.value); setProjetErr('') }}
             onKeyDown={e => { if (e.key === 'Enter') createProjet(espaceId); if (e.key === 'Escape') { setShowNewProjet(null); setNewProjetNom(''); setProjetErr('') } }}
@@ -303,10 +335,10 @@ export default function ProjetsSidebar() {
     }
     return (
       <div onClick={() => { setShowNewProjet(key); setNewProjetNom('') }}
-        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px 5px 24px', margin: '1px 4px', borderRadius: 6, cursor: 'pointer', color: '#9ca3af', fontSize: 12 }}
-        onMouseEnter={e => { e.currentTarget.style.color = '#16a34a'; e.currentTarget.style.background = '#f3f4f6' }}
+        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px 5px 34px', margin: '1px 6px 1px 2px', borderRadius: 7, cursor: 'pointer', color: '#9ca3af', fontSize: 12, fontWeight: 500 }}
+        onMouseEnter={e => { e.currentTarget.style.color = '#16a34a'; e.currentTarget.style.background = '#f0fdf4' }}
         onMouseLeave={e => { e.currentTarget.style.color = '#9ca3af'; e.currentTarget.style.background = 'transparent' }}>
-        + Ajouter un projet
+        <Plus size={12} strokeWidth={2} color="currentColor" /> Ajouter un projet
       </div>
     )
   }
@@ -323,7 +355,7 @@ export default function ProjetsSidebar() {
     )
 
     return (
-      <div style={{ margin: '0 8px 8px', background: 'white', border: '1px solid #e5e7eb', borderRadius: 10, overflow: 'hidden' }}>
+      <div style={{ margin: '2px 6px 8px', background: 'white', border: '1px solid #e5e7eb', borderRadius: 10, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,.04)' }}>
         <div style={{ padding: '10px 12px', borderBottom: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{ fontSize: 12, fontWeight: 700, color: '#374151' }}>Membres de l&apos;espace</span>
           <button onClick={() => setMembresPanel(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 2, display: 'flex', alignItems: 'center' }}><X size={12} color="currentColor" strokeWidth={1.5} /></button>
@@ -382,47 +414,59 @@ export default function ProjetsSidebar() {
   }
 
   return (
-    <div style={{ width: 260, flexShrink: 0, borderRight: '1px solid #e5e7eb', background: '#fafafa', height: 'calc(100vh - 60px)', position: 'fixed', top: 60, left: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', zIndex: 150 }}>
+    <div style={{ width: 260, flexShrink: 0, borderRight: '1px solid #e5e7eb', background: '#fafbfc', height: 'calc(100vh - 60px)', position: 'fixed', top: 60, left: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', zIndex: 150 }}>
       {/* Header */}
-      <div style={{ padding: '14px 12px 10px', borderBottom: '1px solid #e5e7eb' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-          <span style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '.06em' }}>Espaces</span>
+      <div style={{ padding: '16px 12px 10px', borderBottom: '1px solid #e5e7eb' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11.5, fontWeight: 800, color: '#4b5563', textTransform: 'uppercase', letterSpacing: '.06em' }}>
+            <LayoutGrid size={13} color="#9ca3af" strokeWidth={2} /> Espaces
+          </span>
           <button onClick={() => setShowNewEspace(v => !v)}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: '#9ca3af', padding: 0, lineHeight: 1 }}
-            title="Nouvel espace">+</button>
+            title="Nouvel espace"
+            style={{
+              width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: showNewEspace ? '#f0fdf4' : 'none', border: 'none', borderRadius: 6, cursor: 'pointer',
+              color: showNewEspace ? '#16a34a' : '#9ca3af',
+            }}
+            onMouseEnter={e => { if (!showNewEspace) { e.currentTarget.style.background = '#eef0f2'; e.currentTarget.style.color = '#374151' } }}
+            onMouseLeave={e => { if (!showNewEspace) { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#9ca3af' } }}>
+            <Plus size={15} strokeWidth={2.2} color="currentColor" />
+          </button>
         </div>
         {showNewEspace && (
-          <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: 10, padding: 12 }}>
-            <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
+          <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: 10, padding: 12, boxShadow: '0 2px 8px rgba(0,0,0,.04)' }}>
+            <div style={{ fontSize: 10.5, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 5 }}>Icône</div>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
               {ICON_OPTIONS.map(ic => {
                 const Ic = ICON_MAP[ic]
                 const active = newEspaceIcon === ic
                 return (
                   <button key={ic} onClick={() => setNewEspaceIcon(ic)}
-                    style={{ background: active ? '#f0fdf4' : 'none', border: `1px solid ${active ? '#16a34a' : 'transparent'}`, borderRadius: 6, cursor: 'pointer', padding: '5px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Ic size={15} color={active ? '#16a34a' : '#6b7280'} strokeWidth={1.5} />
+                    style={{ background: active ? hexToRgba(newEspaceCouleur, .14) : '#f9fafb', border: `1.5px solid ${active ? newEspaceCouleur : 'transparent'}`, borderRadius: 7, cursor: 'pointer', padding: '5px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Ic size={14} color={active ? newEspaceCouleur : '#6b7280'} strokeWidth={2} />
                   </button>
                 )
               })}
             </div>
-            <div style={{ display: 'flex', gap: 4, marginBottom: 8, flexWrap: 'wrap' }}>
+            <div style={{ fontSize: 10.5, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 5 }}>Couleur</div>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
               {COLOR_OPTIONS.map(c => (
                 <button key={c} onClick={() => setNewEspaceCouleur(c)}
-                  style={{ width: 18, height: 18, borderRadius: '50%', background: c, border: `2px solid ${newEspaceCouleur === c ? '#111827' : 'transparent'}`, cursor: 'pointer', padding: 0 }} />
+                  style={{ width: 19, height: 19, borderRadius: '50%', background: c, border: `2px solid ${newEspaceCouleur === c ? '#111827' : 'white'}`, boxShadow: newEspaceCouleur === c ? 'none' : '0 0 0 1px #e5e7eb', cursor: 'pointer', padding: 0 }} />
               ))}
             </div>
             <input autoFocus placeholder="Nom de l'espace…" value={newEspaceNom}
               onChange={e => setNewEspaceNom(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') createEspace(); if (e.key === 'Escape') setShowNewEspace(false) }}
-              style={{ width: '100%', padding: '6px 8px', fontSize: 12, border: '1px solid #e5e7eb', borderRadius: 6, outline: 'none', boxSizing: 'border-box', marginBottom: 6 }} />
-            {espaceErr && <p style={{ fontSize: 11, color: '#dc2626', margin: '0 0 6px' }}>{espaceErr}</p>}
+              style={{ width: '100%', padding: '7px 9px', fontSize: 12.5, border: '1px solid #e5e7eb', borderRadius: 7, outline: 'none', boxSizing: 'border-box', marginBottom: 8 }} />
+            {espaceErr && <p style={{ fontSize: 11, color: '#dc2626', margin: '0 0 8px' }}>{espaceErr}</p>}
             <div style={{ display: 'flex', gap: 6 }}>
               <button onClick={createEspace} disabled={saving || !newEspaceNom.trim()}
-                style={{ flex: 1, padding: '5px 0', background: saving ? '#9ca3af' : '#16a34a', color: 'white', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer' }}>
+                style={{ flex: 1, padding: '6px 0', background: saving ? '#9ca3af' : '#16a34a', color: 'white', border: 'none', borderRadius: 7, fontSize: 12.5, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}>
                 {saving ? 'Création…' : 'Créer'}
               </button>
               <button onClick={() => { setShowNewEspace(false); setEspaceErr('') }}
-                style={{ padding: '5px 8px', background: 'white', border: '1px solid #e5e7eb', borderRadius: 6, cursor: 'pointer', display: 'flex', alignItems: 'center' }}><X size={12} color="#6b7280" strokeWidth={1.5} /></button>
+                style={{ padding: '6px 9px', background: 'white', border: '1px solid #e5e7eb', borderRadius: 7, cursor: 'pointer', display: 'flex', alignItems: 'center' }}><X size={12} color="#6b7280" strokeWidth={2} /></button>
             </div>
           </div>
         )}
@@ -437,11 +481,14 @@ export default function ProjetsSidebar() {
           const membresCount = espMembres?.length ?? null
 
           return (
-            <div key={esp.id}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 10px', cursor: 'pointer', margin: '1px 4px', borderRadius: 6 }}
-                onMouseEnter={e => (e.currentTarget.style.background = '#f3f4f6')}
+            <div key={esp.id} style={{ marginBottom: 2 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 8px', cursor: 'pointer', margin: '1px 6px', borderRadius: 7 }}
+                onMouseEnter={e => (e.currentTarget.style.background = '#f0f1f3')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                <span onClick={() => setCollapsed(c => ({ ...c, [esp.id]: !c[esp.id] }))}><ChevronDown size={9} color="#9ca3af" strokeWidth={1.4} style={{ transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)', transition: 'transform 0.15s', flexShrink: 0 }} /></span>
+                <span onClick={() => setCollapsed(c => ({ ...c, [esp.id]: !c[esp.id] }))}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 14, flexShrink: 0 }}>
+                  <ChevronDown size={11} color="#9ca3af" strokeWidth={2} style={{ transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)', transition: 'transform 0.15s' }} />
+                </span>
                 <span onClick={() => setCollapsed(c => ({ ...c, [esp.id]: !c[esp.id] }))}><EspaceIcon icon={esp.icon} color={esp.couleur} /></span>
                 {renamingEspace === esp.id ? (
                   <input
@@ -451,13 +498,13 @@ export default function ProjetsSidebar() {
                     onKeyDown={e => { if (e.key === 'Enter') commitRenameEspace(esp.id); if (e.key === 'Escape') setRenamingEspace(null) }}
                     onBlur={() => commitRenameEspace(esp.id)}
                     onClick={e => e.stopPropagation()}
-                    style={{ flex: 1, fontSize: 13, fontWeight: 600, border: '1px solid #16a34a', borderRadius: 4, padding: '1px 5px', outline: 'none', minWidth: 0 }}
+                    style={{ flex: 1, fontSize: 13, fontWeight: 700, border: '1px solid #16a34a', borderRadius: 4, padding: '1px 5px', outline: 'none', minWidth: 0 }}
                   />
                 ) : (
                   <span
                     onClick={() => setCollapsed(c => ({ ...c, [esp.id]: !c[esp.id] }))}
                     onDoubleClick={e => { e.stopPropagation(); startRenameEspace(esp) }}
-                    style={{ flex: 1, fontSize: 13, fontWeight: 600, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                    style={{ flex: 1, fontSize: 13, fontWeight: 700, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', letterSpacing: '-.01em' }}
                     title="Double-clic pour renommer"
                   >{esp.nom}</span>
                 )}
@@ -466,18 +513,18 @@ export default function ProjetsSidebar() {
                   <>
                     <button onClick={e => { e.stopPropagation(); startRenameEspace(esp) }}
                       title="Renommer l'espace"
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex', alignItems: 'center', color: '#9ca3af', flexShrink: 0 }}
-                      onMouseEnter={e => (e.currentTarget.style.color = '#374151')}
-                      onMouseLeave={e => (e.currentTarget.style.color = '#9ca3af')}>
-                      <Pencil size={11} strokeWidth={1.5} color="currentColor" />
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 3, borderRadius: 5, display: 'flex', alignItems: 'center', color: '#9ca3af', flexShrink: 0 }}
+                      onMouseEnter={e => { e.currentTarget.style.color = '#374151'; e.currentTarget.style.background = '#e5e7eb' }}
+                      onMouseLeave={e => { e.currentTarget.style.color = '#9ca3af'; e.currentTarget.style.background = 'none' }}>
+                      <Pencil size={11} strokeWidth={2} color="currentColor" />
                     </button>
                     {esp.created_by === currentUserId && (
                       <button onClick={e => { e.stopPropagation(); setDeleteEspaceId(esp.id) }}
                         title="Supprimer l'espace"
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex', alignItems: 'center', color: '#9ca3af', flexShrink: 0 }}
-                        onMouseEnter={e => (e.currentTarget.style.color = '#dc2626')}
-                        onMouseLeave={e => (e.currentTarget.style.color = '#9ca3af')}>
-                        <Trash2 size={11} strokeWidth={1.5} color="currentColor" />
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 3, borderRadius: 5, display: 'flex', alignItems: 'center', color: '#9ca3af', flexShrink: 0 }}
+                        onMouseEnter={e => { e.currentTarget.style.color = '#dc2626'; e.currentTarget.style.background = '#fef2f2' }}
+                        onMouseLeave={e => { e.currentTarget.style.color = '#9ca3af'; e.currentTarget.style.background = 'none' }}>
+                        <Trash2 size={11} strokeWidth={2} color="currentColor" />
                       </button>
                     )}
                   </>
@@ -487,16 +534,16 @@ export default function ProjetsSidebar() {
                   title="Gérer les membres"
                   style={{
                     background: membresPanel === esp.id ? '#f0fdf4' : 'none',
-                    border: 'none', cursor: 'pointer', fontSize: 11,
+                    border: 'none', cursor: 'pointer', fontSize: 10.5, fontWeight: 700,
                     color: membresPanel === esp.id ? '#16a34a' : '#9ca3af',
-                    padding: '1px 4px', borderRadius: 4, display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0,
+                    padding: '3px 5px', borderRadius: 5, display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0,
                   }}
-                  onMouseEnter={e => { if (membresPanel !== esp.id) e.currentTarget.style.color = '#374151' }}
-                  onMouseLeave={e => { if (membresPanel !== esp.id) e.currentTarget.style.color = '#9ca3af' }}>
-                  <Users size={13} color={membresPanel === esp.id ? '#16a34a' : '#9ca3af'} strokeWidth={1.5} />{membresCount !== null ? ` ${membresCount}` : ''}
+                  onMouseEnter={e => { if (membresPanel !== esp.id) { e.currentTarget.style.color = '#374151'; e.currentTarget.style.background = '#e5e7eb' } }}
+                  onMouseLeave={e => { if (membresPanel !== esp.id) { e.currentTarget.style.color = '#9ca3af'; e.currentTarget.style.background = 'none' } }}>
+                  <Users size={12} color={membresPanel === esp.id ? '#16a34a' : 'currentColor'} strokeWidth={2} />{membresCount !== null ? membresCount : ''}
                 </button>}
                 {renamingEspace !== esp.id && <span onClick={() => setCollapsed(c => ({ ...c, [esp.id]: !c[esp.id] }))}
-                  style={{ fontSize: 11, color: '#9ca3af', background: '#e5e7eb', borderRadius: 999, padding: '1px 6px', flexShrink: 0 }}>{espProjets.length}</span>}
+                  style={{ fontSize: 10.5, fontWeight: 700, color: '#9ca3af', background: '#eef0f2', borderRadius: 999, padding: '2px 7px', flexShrink: 0 }}>{espProjets.length}</span>}
               </div>
 
               {/* Members panel */}
@@ -519,15 +566,20 @@ export default function ProjetsSidebar() {
           const key = 'none'
           const isCollapsed = collapsed[key] ?? false
           return (
-            <div>
+            <div style={{ marginTop: espaces.length > 0 ? 6 : 0 }}>
+              {espaces.length > 0 && <div style={{ height: 1, background: '#eef0f2', margin: '6px 14px 8px' }} />}
               <div onClick={() => setCollapsed(c => ({ ...c, [key]: !c[key] }))}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 10px', cursor: 'pointer', margin: '1px 4px', borderRadius: 6 }}
-                onMouseEnter={e => (e.currentTarget.style.background = '#f3f4f6')}
+                style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 8px', cursor: 'pointer', margin: '1px 6px', borderRadius: 7 }}
+                onMouseEnter={e => (e.currentTarget.style.background = '#f0f1f3')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                <ChevronDown size={9} color="#9ca3af" strokeWidth={1.4} style={{ transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)', transition: 'transform 0.15s', flexShrink: 0 }} />
-                <Folder size={14} color="#6b7280" strokeWidth={1.5} />
-                <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: '#111827' }}>Projets</span>
-                <span style={{ fontSize: 11, color: '#9ca3af', background: '#e5e7eb', borderRadius: 999, padding: '1px 6px' }}>{noProjets.length}</span>
+                <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 14, flexShrink: 0 }}>
+                  <ChevronDown size={11} color="#9ca3af" strokeWidth={2} style={{ transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)', transition: 'transform 0.15s' }} />
+                </span>
+                <span style={{ width: 25, height: 25, borderRadius: 7, background: '#eef0f2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Folder size={13} color="#6b7280" strokeWidth={2} />
+                </span>
+                <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: '#111827', letterSpacing: '-.01em' }}>Autres projets</span>
+                <span style={{ fontSize: 10.5, fontWeight: 700, color: '#9ca3af', background: '#eef0f2', borderRadius: 999, padding: '2px 7px', flexShrink: 0 }}>{noProjets.length}</span>
               </div>
               {!isCollapsed && (
                 <>
