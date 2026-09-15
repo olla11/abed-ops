@@ -142,6 +142,47 @@ export async function ouvrirSuiviFinancierTdr(tdrId: string) {
       }).catch(console.error)
     }
   }
+
+  // Le TDR actif a aussi son propre chapitre "Stratégie de communication"
+  // (voir CHAPITRES_DEFAUT) — le/la responsable communication doit être
+  // averti·e séparément, avec un message propre au démarrage de la com
+  // (pas le message "exécution financière" destiné à l'AAF/CAF), pas
+  // exclu·e même s'il/elle est aussi initiateur/collaborateur du TDR.
+  const { data: responsablesCom } = await admin
+    .from('profiles').select('id, nom, prenoms, email').eq('titre', 'responsable_communication').eq('archived', false)
+
+  if (responsablesCom && responsablesCom.length > 0) {
+    const titreCom = `TdR N° ${tdr.numero} autorisé — communication à démarrer`
+    const messageCom = `Le TdR « ${tdr.titre_activite} » (${tdr.numero}) est autorisé — vous pouvez démarrer les actions de communication prévues dans le chapitre "Stratégie de communication" du document.`
+
+    for (const p of responsablesCom) {
+      if (destinataires.has(p.id)) continue
+      await admin.from('notifications').insert({
+        user_id: p.id, titre: titreCom, message: messageCom, lien: `/tdr/${tdrId}`,
+      })
+      if (p.email) {
+        await sendEmail({
+          to: p.email,
+          subject: `[My ABED] ${titreCom}`,
+          html: `
+            <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;">
+              <div style="background:#16a34a;color:white;padding:20px 28px;border-radius:8px 8px 0 0;">
+                <h1 style="margin:0;font-size:18px;">${titreCom}</h1>
+              </div>
+              <div style="padding:24px 28px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
+                <p style="margin:0 0 12px;">Bonjour <strong>${p.prenoms}</strong>,</p>
+                <p style="margin:0 0 20px;color:#374151;">${messageCom}</p>
+                <a href="${APP_URL}/tdr/${tdrId}" style="display:inline-block;background:#16a34a;color:white;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:700;font-size:14px;">
+                  Voir le TdR →
+                </a>
+              </div>
+            </div>
+          `,
+          attachments: pdfBase64 ? [{ filename: nomFichier, content: pdfBase64 }] : undefined,
+        }).catch(console.error)
+      }
+    }
+  }
 }
 
 /**
