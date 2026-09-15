@@ -314,43 +314,54 @@ export default function ProjetsSidebar() {
     }
   }
 
+  // Déplace un projet vers le groupe (espace, ou "aucun") du point de dépôt,
+  // à la position voulue (avant beforeId, ou en dernier si null) — que ce
+  // dépôt se fasse sur une autre ligne de projet (même groupe ou un groupe
+  // différent : les deux à la fois réordonnent ET changent d'espace le cas
+  // échéant) ou directement sur l'en-tête d'un espace.
+  function moveProjetTo(projetId: string, targetEspaceId: string | null, beforeId: string | null) {
+    setProjets(prev => {
+      const moved = prev.find(p => p.id === projetId)
+      if (!moved) return prev
+      const movedUpdated = { ...moved, espace_id: targetEspaceId }
+      const autresGroupes = prev.filter(p => p.id !== projetId && p.espace_id !== targetEspaceId)
+      const memeGroupe = prev.filter(p => p.id !== projetId && p.espace_id === targetEspaceId)
+        .sort((a, b) => (a.ordre ?? 1e9) - (b.ordre ?? 1e9))
+      const idx = beforeId ? memeGroupe.findIndex(p => p.id === beforeId) : -1
+      const nouveauGroupe = idx === -1
+        ? [...memeGroupe, movedUpdated]
+        : [...memeGroupe.slice(0, idx), movedUpdated, ...memeGroupe.slice(idx)]
+      const avecOrdre = nouveauGroupe.map((p, i) => ({ ...p, ordre: i }))
+      const merged = [...autresGroupes, ...avecOrdre]
+      try { sessionStorage.setItem('sidebar_projets', JSON.stringify(merged)) } catch {}
+
+      const espaceChange = moved.espace_id !== targetEspaceId
+      fetch(`/api/projets/${projetId}`, {
+        method: 'PATCH', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ ordre: avecOrdre.find(p => p.id === projetId)?.ordre, ...(espaceChange ? { espace_id: targetEspaceId } : {}) }),
+      }).catch(() => {})
+      for (const p of avecOrdre) {
+        if (p.id === projetId) continue
+        fetch(`/api/projets/${p.id}`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ordre: p.ordre }) }).catch(() => {})
+      }
+      return merged
+    })
+  }
+
   function dropProjet(groupKey: string, targetId: string) {
     const dragged = dragProjet
     setDragProjet(null); setDragOverProjetId(null)
-    if (!dragged || dragged.groupKey !== groupKey || dragged.id === targetId) return
-    const groupe = projetsByEspace(groupKey === 'none' ? null : groupKey)
-    const reordered = reorderList(groupe, dragged.id, targetId).map((p, i) => ({ ...p, ordre: i }))
-    setProjets(prev => {
-      const merged = prev.map(p => reordered.find(r => r.id === p.id) ?? p)
-      try { sessionStorage.setItem('sidebar_projets', JSON.stringify(merged)) } catch {}
-      return merged
-    })
-    for (const p of reordered) {
-      fetch(`/api/projets/${p.id}`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ordre: p.ordre }) }).catch(() => {})
-    }
+    if (!dragged || dragged.id === targetId) return
+    moveProjetTo(dragged.id, groupKey === 'none' ? null : groupKey, targetId)
   }
 
   // Déposer un projet directement sur l'en-tête d'un espace (pas sur une
-  // autre ligne de projet) le déplace dans cet espace, en dernière position
-  // — contrairement à dropProjet qui ne fait que réordonner au sein du même
-  // groupe.
+  // autre ligne de projet) le déplace en dernière position de ce groupe.
   function dropProjetOnEspaceHeader(targetEspaceId: string | null) {
     const dragged = dragProjet
     setDragProjet(null); setDragOverProjetId(null)
     if (!dragged) return
-    const targetKey = targetEspaceId ?? 'none'
-    if (dragged.groupKey === targetKey) return
-    const groupe = projetsByEspace(targetEspaceId)
-    const nextOrdre = groupe.length
-    setProjets(prev => {
-      const merged = prev.map(p => p.id === dragged.id ? { ...p, espace_id: targetEspaceId, ordre: nextOrdre } : p)
-      try { sessionStorage.setItem('sidebar_projets', JSON.stringify(merged)) } catch {}
-      return merged
-    })
-    fetch(`/api/projets/${dragged.id}`, {
-      method: 'PATCH', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ espace_id: targetEspaceId, ordre: nextOrdre }),
-    }).catch(() => {})
+    moveProjetTo(dragged.id, targetEspaceId, null)
   }
 
   function renderProjet(p: ProjetLite, groupKey: string) {
@@ -360,12 +371,12 @@ export default function ProjetsSidebar() {
     const total = topLevel.length
     const isRenaming = renamingProjet === p.id
     const pct = total > 0 ? Math.round((done / total) * 100) : 0
-    const isDragOver = dragOverProjetId === p.id && dragProjet?.groupKey === groupKey && dragProjet.id !== p.id
+    const isDragOver = dragOverProjetId === p.id && !!dragProjet && dragProjet.id !== p.id
     return (
       <div key={p.id} className="hub-row"
         draggable={!isRenaming}
         onDragStart={e => { e.stopPropagation(); setDragProjet({ id: p.id, groupKey }) }}
-        onDragOver={e => { if (dragProjet?.groupKey === groupKey) { e.preventDefault(); e.stopPropagation(); setDragOverProjetId(p.id) } }}
+        onDragOver={e => { if (dragProjet) { e.preventDefault(); e.stopPropagation(); setDragOverProjetId(p.id) } }}
         onDragLeave={() => { if (dragOverProjetId === p.id) setDragOverProjetId(null) }}
         onDrop={e => { e.preventDefault(); e.stopPropagation(); dropProjet(groupKey, p.id) }}
         onDragEnd={() => { setDragProjet(null); setDragOverProjetId(null) }}
