@@ -530,9 +530,9 @@ export default function ProjetsSidebar() {
   }
 
   return (
-    <div style={{ width: 260, flexShrink: 0, borderRight: '1px solid #e5e7eb', background: '#fafbfc', height: 'calc(100vh - 60px)', position: 'fixed', top: 60, left: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', zIndex: 150 }}>
-      {/* Header */}
-      <div style={{ padding: '16px 12px 10px', borderBottom: '1px solid #e5e7eb' }}>
+    <div style={{ width: 260, flexShrink: 0, borderRight: '1px solid #e5e7eb', background: '#fafbfc', height: 'calc(100vh - 60px)', position: 'fixed', top: 60, left: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', zIndex: 150 }}>
+      {/* Header — reste fixe pendant que la liste ci-dessous défile */}
+      <div style={{ padding: '16px 12px 10px', borderBottom: '1px solid #e5e7eb', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11.5, fontWeight: 800, color: '#4b5563', textTransform: 'uppercase', letterSpacing: '.06em' }}>
             <LayoutGrid size={13} color="#9ca3af" strokeWidth={2} /> Espaces
@@ -588,8 +588,8 @@ export default function ProjetsSidebar() {
         )}
       </div>
 
-      {/* Espaces list */}
-      <div style={{ flex: 1, padding: '8px 0' }}>
+      {/* Espaces list — seule cette zone défile, l'en-tête reste visible */}
+      <div style={{ flex: 1, padding: '8px 0', overflowY: 'auto' }}>
         {espacesTries.map(esp => {
           const isCollapsed = collapsed[esp.id] ?? false
           const espProjets = projetsByEspace(esp.id)
