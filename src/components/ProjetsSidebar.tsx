@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
-import { ChevronDown, Lock, Zap, Users, Folder, X, Pencil, Trash2, Rocket, Lightbulb, Target, Leaf, FlaskConical, BarChart2, Palette, Trophy, BookOpen, Globe, Star, Briefcase, Plus, LayoutGrid, MoreVertical, GripVertical, type LucideIcon } from 'lucide-react'
+import { ChevronDown, ListChecks, Zap, Users, Folder, X, Pencil, Trash2, Rocket, Lightbulb, Target, Leaf, FlaskConical, BarChart2, Palette, Trophy, BookOpen, Globe, Star, Briefcase, Plus, LayoutGrid, MoreVertical, GripVertical, type LucideIcon } from 'lucide-react'
 
 const ICON_MAP: Record<string, LucideIcon> = {
   folder: Folder, rocket: Rocket, lightbulb: Lightbulb, target: Target,
@@ -397,9 +397,11 @@ export default function ProjetsSidebar() {
         <span className="rename-btn" style={{ display: 'flex', alignItems: 'center', cursor: 'grab', flexShrink: 0, marginRight: -2 }} title="Glisser pour réordonner">
           <GripVertical size={11} color="#c3c8cf" strokeWidth={2} />
         </span>
-        {p.is_public
-          ? <Zap size={12} color="#d97706" strokeWidth={2} style={{ flexShrink: 0 }} />
-          : <Lock size={11} color="#9ca3af" strokeWidth={2} style={{ flexShrink: 0 }} />}
+        {/* Icône de projet façon liste à cocher (référence ClickUp) — la
+            couleur porte l'information public/privé, plus la forme. */}
+        <span title={p.is_public ? 'Projet public' : 'Projet privé'} style={{ display: 'flex', flexShrink: 0 }}>
+          <ListChecks size={13} color={p.is_public ? '#d97706' : '#9ca3af'} strokeWidth={2} />
+        </span>
         {isRenaming ? (
           <input
             ref={renameRef}
@@ -700,6 +702,11 @@ export default function ProjetsSidebar() {
 
               {!isCollapsed && (
                 <>
+                  {espProjets.length === 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 10px 3px 34px', fontSize: 11.5, color: '#c3c8cf' }}>
+                      <ListChecks size={12} strokeWidth={2} /> Aucun projet
+                    </div>
+                  )}
                   {espProjets.map(p => renderProjet(p, esp.id))}
                   {renderAddProjet(esp.id, esp.id)}
                 </>
