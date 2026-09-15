@@ -8,6 +8,7 @@ import RolePreviewBanner from '@/components/RolePreviewBanner'
 import ImpersonationBanner from '@/components/ImpersonationBanner'
 import ProjetsSidebar from '@/components/ProjetsSidebar'
 import { estRH, estAAF } from '@/lib/roles'
+import { ListChecks } from 'lucide-react'
 
 export default async function ProjetsPage() {
   const supabase = await createClient()
@@ -39,7 +40,7 @@ export default async function ProjetsPage() {
       <div style={{ display: 'flex' }}>
         <div className="projets-sidebar"><ProjetsSidebar /></div>
         <div className="projets-main" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 60px)', color: '#9ca3af', flexDirection: 'column', gap: 12 }}>
-          <div style={{ fontSize: 48 }}>📋</div>
+          <ListChecks size={40} color="#d1d5db" strokeWidth={1.5} />
           <p style={{ fontSize: 16, fontWeight: 600, color: '#374151', margin: 0 }}>Sélectionnez un projet</p>
           <p style={{ fontSize: 13, margin: 0 }}>Choisissez un projet dans la barre latérale ou créez-en un nouveau.</p>
         </div>
