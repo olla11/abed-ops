@@ -69,6 +69,8 @@ export default function BonsDeCommandeClient({ deTitre, pcaTitre }: { deTitre: s
   const [envoi, setEnvoi] = useState(false)
   const [annulation, setAnnulation] = useState(false)
   const [retraitId, setRetraitId] = useState<string | null>(null)
+  const [confirmRetrait, setConfirmRetrait] = useState<BonDeCommande | null>(null)
+  const [retraitMsg, setRetraitMsg] = useState('')
 
   function load() {
     setLoading(true)
@@ -161,13 +163,15 @@ export default function BonsDeCommandeClient({ deTitre, pcaTitre }: { deTitre: s
     setBrouillon(null)
   }
 
-  async function retirerBonDeCommande(bc: BonDeCommande) {
-    if (!confirm(`Retirer le bon de commande N° ${bc.numero} ? Il sera totalement supprimé du système et ${bc.signataire_role === 'de' ? deTitre : pcaTitre} n'aura plus rien à signer.`)) return
-    setRetraitId(bc.id)
+  async function confirmerRetrait() {
+    if (!confirmRetrait) return
+    const bc = confirmRetrait
+    setRetraitId(bc.id); setRetraitMsg('')
     const res = await fetch(`/api/bons-de-commande/${bc.id}`, { method: 'DELETE' })
     const j = await res.json()
     setRetraitId(null)
-    if (!res.ok) { alert(j.error ?? 'Erreur lors du retrait.'); return }
+    if (!res.ok) { setRetraitMsg(j.error ?? 'Erreur lors du retrait.'); return }
+    setConfirmRetrait(null)
     load()
   }
 
@@ -232,7 +236,7 @@ export default function BonsDeCommandeClient({ deTitre, pcaTitre }: { deTitre: s
                         <Download size={13} /> PDF
                       </a>
                       {bc.statut === 'circuit_signature' && (
-                        <button onClick={() => retirerBonDeCommande(bc)} disabled={retraitId === bc.id}
+                        <button onClick={() => { setConfirmRetrait(bc); setRetraitMsg('') }} disabled={retraitId === bc.id}
                           style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#dc2626', background: 'none', border: 'none', cursor: retraitId === bc.id ? 'default' : 'pointer', fontWeight: 600, padding: 0 }}>
                           <X size={13} /> {retraitId === bc.id ? '…' : 'Retrait'}
                         </button>
@@ -381,6 +385,39 @@ export default function BonsDeCommandeClient({ deTitre, pcaTitre }: { deTitre: s
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {confirmRetrait && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 500, background: 'rgba(17,24,39,.6)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+        }}>
+          <div style={{ background: 'white', borderRadius: 14, width: '100%', maxWidth: 440, padding: '24px 28px', boxShadow: '0 24px 64px rgba(0,0,0,.35)' }}>
+            <h3 style={{ margin: '0 0 10px', color: '#dc2626' }}>Retirer ce bon de commande ?</h3>
+            <p style={{ fontSize: 13.5, color: '#374151', lineHeight: 1.6, margin: '0 0 20px' }}>
+              Le bon de commande N° <strong>{confirmRetrait.numero}</strong> sera totalement supprimé du système
+              et {confirmRetrait.signataire_role === 'de' ? deTitre : pcaTitre} n&apos;aura plus rien à signer.
+              Cette action est irréversible.
+            </p>
+            {retraitMsg && <p style={{ color: '#dc2626', fontSize: 13, marginBottom: 12 }}>{retraitMsg}</p>}
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button className="btn secondary" onClick={() => setConfirmRetrait(null)} disabled={retraitId === confirmRetrait.id}>
+                Annuler
+              </button>
+              <button
+                onClick={confirmerRetrait}
+                disabled={retraitId === confirmRetrait.id}
+                style={{
+                  background: '#dc2626', color: 'white', border: 'none', borderRadius: 8, padding: '9px 20px',
+                  fontSize: 13.5, fontWeight: 700, cursor: retraitId === confirmRetrait.id ? 'default' : 'pointer',
+                  opacity: retraitId === confirmRetrait.id ? .7 : 1,
+                }}
+              >
+                {retraitId === confirmRetrait.id ? 'Retrait…' : 'Retirer définitivement'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
