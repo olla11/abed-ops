@@ -12,6 +12,7 @@ const ActiviteSchema = z.object({
   statut:       z.string().max(20).optional(),
   priorite:     z.string().max(20).optional(),
   assignee_id:  z.string().uuid('assignee_id invalide').nullable().optional(),
+  date_debut:   s.date,
   date_echeance:s.date,
   parent_id:    z.string().uuid('parent_id invalide').nullable().optional(),
 })
@@ -54,6 +55,7 @@ export async function POST(req: NextRequest) {
     statut: v.data.statut ?? 'a_faire',
     priorite: v.data.priorite ?? 'normale',
     assignee_id: v.data.assignee_id || null,
+    date_debut: v.data.date_debut || null,
     date_echeance: v.data.date_echeance || null,
     created_by: user.id,
     parent_id: v.data.parent_id || null,

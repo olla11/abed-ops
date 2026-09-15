@@ -8,7 +8,7 @@ type Profile = { id: string; nom: string; prenoms: string }
 type Commentaire = { id: string; contenu: string; created_at: string; auteur: { nom: string; prenoms: string } | null }
 type Activite = {
   id: string; nom: string; description: string | null; statut: string; priorite: string
-  assignee_id: string | null; date_echeance: string | null; created_by: string | null
+  assignee_id: string | null; date_debut: string | null; date_echeance: string | null; created_by: string | null
   created_at: string; parent_id: string | null
   assignee: Profile | null
   created_by_profile: Profile | null
@@ -96,11 +96,19 @@ function Initials({ profile }: { profile: Profile | null }) {
   )
 }
 
-function CalendrierPicker({ value, onChange, onClose, triggerRect }: { value: string | null; onChange: (v: string | null) => void; onClose: () => void; triggerRect: DOMRect }) {
+function formatEcheance(debut: string | null, fin: string | null): string | null {
+  if (!debut && !fin) return null
+  const f = (d: string) => new Date(d + 'T12:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
+  if (debut && fin && debut !== fin) return `${f(debut)} → ${f(fin)}`
+  return f((fin ?? debut) as string)
+}
+
+function CalendrierPicker({ debut, fin, onChange, onClose, triggerRect }: { debut: string | null; fin: string | null; onChange: (debut: string | null, fin: string | null) => void; onClose: () => void; triggerRect: DOMRect }) {
   const today = new Date()
-  const initDate = value ? new Date(value + 'T12:00:00') : today
+  const initDate = fin ? new Date(fin + 'T12:00:00') : debut ? new Date(debut + 'T12:00:00') : today
   const [year, setYear] = useState(initDate.getFullYear())
   const [month, setMonth] = useState(initDate.getMonth())
+  const [champActif, setChampActif] = useState<'debut' | 'fin'>(debut && !fin ? 'fin' : 'debut')
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -119,6 +127,18 @@ function CalendrierPicker({ value, onChange, onClose, triggerRect }: { value: st
   function prevMonth() { if (month === 0) { setMonth(11); setYear(y => y - 1) } else setMonth(m => m - 1) }
   function nextMonth() { if (month === 11) { setMonth(0); setYear(y => y + 1) } else setMonth(m => m + 1) }
 
+  function pick(dateStr: string) {
+    if (champActif === 'debut') {
+      const nouvelleFin = fin && dateStr > fin ? null : fin
+      onChange(dateStr, nouvelleFin)
+      setChampActif('fin')
+    } else {
+      if (debut && dateStr < debut) onChange(dateStr, debut)
+      else onChange(debut, dateStr)
+      onClose()
+    }
+  }
+
   const cells: (number | null)[] = [...Array(startOffset).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)]
   while (cells.length % 7 !== 0) cells.push(null)
 
@@ -126,9 +146,26 @@ function CalendrierPicker({ value, onChange, onClose, triggerRect }: { value: st
   const left = Math.min(triggerRect.left, window.innerWidth - W - 8)
   const top = triggerRect.bottom + 6
 
+  const fmt = (d: string) => new Date(d + 'T12:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
+
   return createPortal(
     <div ref={ref} style={{ position: 'fixed', zIndex: 9999, background: 'white', border: '1px solid #e5e7eb', borderRadius: 12, boxShadow: '0 8px 24px rgba(0,0,0,.14)', padding: 14, width: W, top, left }}
       onClick={e => e.stopPropagation()}>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+        {(['debut', 'fin'] as const).map(champ => (
+          <button key={champ} onClick={e => { e.stopPropagation(); setChampActif(champ) }}
+            style={{
+              flex: 1, textAlign: 'left', padding: '5px 8px', borderRadius: 8, cursor: 'pointer',
+              border: champActif === champ ? '1.5px solid var(--abed-green)' : '1px solid #e5e7eb',
+              background: champActif === champ ? '#f0fdf4' : 'white',
+            }}>
+            <span style={{ display: 'block', fontSize: 9, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '.03em' }}>{champ === 'debut' ? 'Début' : 'Fin'}</span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: (champ === 'debut' ? debut : fin) ? '#111827' : '#9ca3af' }}>
+              {(champ === 'debut' ? debut : fin) ? fmt((champ === 'debut' ? debut : fin) as string) : 'Choisir'}
+            </span>
+          </button>
+        ))}
+      </div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
         <button onClick={e => { e.stopPropagation(); prevMonth() }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: '#374151', lineHeight: 1, padding: '2px 8px', borderRadius: 6 }}>‹</button>
         <span style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>{MOIS_FR[month]} {year}</span>
@@ -143,25 +180,28 @@ function CalendrierPicker({ value, onChange, onClose, triggerRect }: { value: st
         {cells.map((day, i) => {
           if (!day) return <div key={i} />
           const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-          const isSelected = dateStr === value
+          const isDebut = dateStr === debut
+          const isFin = dateStr === fin
+          const isBorne = isDebut || isFin
+          const isDansPlage = !!debut && !!fin && dateStr > debut && dateStr < fin
           const isToday = dateStr === todayStr
           return (
-            <button key={i} onClick={e => { e.stopPropagation(); onChange(dateStr); onClose() }}
+            <button key={i} onClick={e => { e.stopPropagation(); pick(dateStr) }}
               style={{
-                background: isSelected ? 'var(--abed-green)' : isToday ? '#f0fdf4' : 'none',
-                color: isSelected ? 'white' : isToday ? 'var(--abed-green)' : '#374151',
-                border: isToday && !isSelected ? '1px solid var(--abed-green)' : '1px solid transparent',
-                borderRadius: 6, fontSize: 12, padding: '5px 0', cursor: 'pointer', fontWeight: isSelected || isToday ? 700 : 400,
+                background: isBorne ? 'var(--abed-green)' : isDansPlage ? '#dcfce7' : isToday ? '#f0fdf4' : 'none',
+                color: isBorne ? 'white' : isToday ? 'var(--abed-green)' : '#374151',
+                border: isToday && !isBorne ? '1px solid var(--abed-green)' : '1px solid transparent',
+                borderRadius: 6, fontSize: 12, padding: '5px 0', cursor: 'pointer', fontWeight: isBorne || isToday ? 700 : 400,
               }}>
               {day}
             </button>
           )
         })}
       </div>
-      {value && (
-        <button onClick={e => { e.stopPropagation(); onChange(null); onClose() }}
+      {(debut || fin) && (
+        <button onClick={e => { e.stopPropagation(); onChange(null, null); onClose() }}
           style={{ marginTop: 10, width: '100%', background: '#fef2f2', border: 'none', borderRadius: 6, padding: '6px 0', fontSize: 12, color: '#dc2626', cursor: 'pointer' }}>
-          Effacer la date
+          Effacer les dates
         </button>
       )}
     </div>,
@@ -180,7 +220,7 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
   const [sendingComment, setSendingComment] = useState(false)
   const [showAddRow, setShowAddRow] = useState(false)
   const [showNewTaskForm, setShowNewTaskForm] = useState<string | null>(null)
-  const [taskForm, setTaskForm] = useState({ nom: '', priorite: 'normale', assignee_id: '', date_echeance: '', statut: 'a_faire' })
+  const [taskForm, setTaskForm] = useState({ nom: '', priorite: 'normale', assignee_id: '', date_debut: '', date_echeance: '', statut: 'a_faire' })
   const [savingTask, setSavingTask] = useState(false)
   const [editingStatut, setEditingStatut] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -304,7 +344,7 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
     const j = await r.json()
     if (r.ok) {
       setProjet(p => ({ ...p, activites: [...p.activites, j.data] }))
-      setTaskForm({ nom: '', priorite: 'normale', assignee_id: '', date_echeance: '', statut: 'a_faire' })
+      setTaskForm({ nom: '', priorite: 'normale', assignee_id: '', date_debut: '', date_echeance: '', statut: 'a_faire' })
       setShowNewTaskForm(null)
       setShowAddRow(false)
       setTableurAddRow(null)
@@ -610,14 +650,13 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
                   <div style={{ padding: '11px 10px', display: 'flex', alignItems: 'center', borderRight: '1px solid #f3f4f6' }}>
                     <span onClick={e => { const r = (e.currentTarget as HTMLElement).getBoundingClientRect(); setCalendarFor(calendarFor?.id === act.id ? null : { id: act.id, rect: r }) }}
                       style={{ fontSize: 12, color: isOverdue ? '#dc2626' : (act.date_echeance ? '#374151' : '#9ca3af'), cursor: 'pointer', fontWeight: isOverdue ? 700 : 400, whiteSpace: 'nowrap' }}>
-                      {act.date_echeance
-                        ? new Date(act.date_echeance + 'T12:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
-                        : '+ date'}
+                      {formatEcheance(act.date_debut, act.date_echeance) ?? '+ date'}
                     </span>
                     {calendarFor?.id === act.id && (
                       <CalendrierPicker
-                        value={act.date_echeance}
-                        onChange={v => patchActivite(act.id, { date_echeance: v })}
+                        debut={act.date_debut}
+                        fin={act.date_echeance}
+                        onChange={(debut, fin) => patchActivite(act.id, { date_debut: debut, date_echeance: fin })}
                         onClose={() => setCalendarFor(null)}
                         triggerRect={calendarFor.rect}
                       />
@@ -660,7 +699,7 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
                       </div>
                       <div style={{ padding: '8px 10px', display: 'flex', alignItems: 'center', borderRight: '1px solid #f3f4f6' }}>
                         <span style={{ fontSize: 11, color: subOverdue ? '#dc2626' : (sub.date_echeance ? '#374151' : '#9ca3af') }}>
-                          {sub.date_echeance ? new Date(sub.date_echeance + 'T12:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }) : '—'}
+                          {formatEcheance(sub.date_debut, sub.date_echeance) ?? '—'}
                         </span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -728,14 +767,13 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
               <div style={{ padding: '8px 10px', borderRight: '1px solid #f3f4f6' }}>
                 <span onClick={e => { const r = (e.currentTarget as HTMLElement).getBoundingClientRect(); setAddRowCalendar(v => v ? null : r) }}
                   style={{ fontSize: 12, color: taskForm.date_echeance ? '#374151' : '#9ca3af', cursor: 'pointer' }}>
-                  {taskForm.date_echeance
-                    ? new Date(taskForm.date_echeance + 'T12:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
-                    : '+ date'}
+                  {formatEcheance(taskForm.date_debut || null, taskForm.date_echeance || null) ?? '+ date'}
                 </span>
                 {addRowCalendar && (
                   <CalendrierPicker
-                    value={taskForm.date_echeance || null}
-                    onChange={v => { setTaskForm(f => ({ ...f, date_echeance: v ?? '' })); setAddRowCalendar(null) }}
+                    debut={taskForm.date_debut || null}
+                    fin={taskForm.date_echeance || null}
+                    onChange={(debut, fin) => { setTaskForm(f => ({ ...f, date_debut: debut ?? '', date_echeance: fin ?? '' })); setAddRowCalendar(null) }}
                     onClose={() => setAddRowCalendar(null)}
                     triggerRect={addRowCalendar}
                   />
@@ -810,7 +848,7 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
                           {act.assignee ? <span style={{ fontSize: 11, color: '#6b7280' }}>{act.assignee.prenoms}</span> : <span style={{ fontSize: 11, color: '#9ca3af' }}>Non assigné</span>}
                         </div>
                         <div style={{ display: 'flex', gap: 8, fontSize: 11, color: '#9ca3af', alignItems: 'center' }}>
-                          {act.date_echeance && <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><CalendarDays size={11} color="#9ca3af" strokeWidth={1.5} />{new Date(act.date_echeance + 'T12:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}</span>}
+                          {act.date_echeance && <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><CalendarDays size={11} color="#9ca3af" strokeWidth={1.5} />{formatEcheance(act.date_debut, act.date_echeance)}</span>}
                           {(act.commentaires_activites?.length ?? 0) > 0 && <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><MessageSquare size={11} color="#9ca3af" strokeWidth={1.5} />{act.commentaires_activites.length}</span>}
                         </div>
                       </div>
@@ -842,7 +880,12 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
               {cells.map((cell, i) => {
                 const isToday = cell.date === todayStr
-                const dayTasks = projet.activites.filter(a => a.date_echeance === cell.date && !a.parent_id)
+                const dayTasks = projet.activites.filter(a => {
+                  if (a.parent_id) return false
+                  const debut = a.date_debut ?? a.date_echeance
+                  const fin = a.date_echeance ?? a.date_debut
+                  return !!debut && !!fin && cell.date >= debut && cell.date <= fin
+                })
                 const shown = dayTasks.slice(0, 3)
                 const extra = dayTasks.length - shown.length
                 return (
@@ -866,7 +909,7 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
                       {cell.isCurrentMonth && (
                         <button
                           onClick={() => {
-                            setTaskForm(f => ({ ...f, date_echeance: cell.date, statut: 'a_faire', nom: '', assignee_id: '', priorite: 'normale' }))
+                            setTaskForm(f => ({ ...f, date_debut: '', date_echeance: cell.date, statut: 'a_faire', nom: '', assignee_id: '', priorite: 'normale' }))
                             setShowAddRow(true)
                             setView('table')
                           }}
@@ -968,7 +1011,8 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
                   {/* Task rows */}
                   {projet.activites.filter(a => !a.parent_id).map(act => {
                     const actSc = ACT_STATUT_COLORS[act.statut] ?? ACT_STATUT_COLORS.a_faire
-                    const rawStart = new Date(act.created_at); rawStart.setHours(0,0,0,0)
+                    const rawStart = act.date_debut ? new Date(act.date_debut + 'T00:00:00') : new Date(act.created_at)
+                    rawStart.setHours(0,0,0,0)
                     const taskStart = rawStart < ganttStart ? ganttStart : rawStart
                     const startOff = Math.max(0, ganttDayOffset(taskStart))
 
@@ -1144,14 +1188,13 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
                           <div style={{ padding: '11px 10px', display: 'flex', alignItems: 'center', borderRight: '1px solid #f3f4f6' }}>
                             <span onClick={e => { const r = (e.currentTarget as HTMLElement).getBoundingClientRect(); setCalendarFor(calendarFor?.id === act.id ? null : { id: act.id, rect: r }) }}
                               style={{ fontSize: 12, color: isOverdue ? '#dc2626' : (act.date_echeance ? '#374151' : '#9ca3af'), cursor: 'pointer', fontWeight: isOverdue ? 700 : 400, whiteSpace: 'nowrap' }}>
-                              {act.date_echeance
-                                ? new Date(act.date_echeance + 'T12:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
-                                : '+ date'}
+                              {formatEcheance(act.date_debut, act.date_echeance) ?? '+ date'}
                             </span>
                             {calendarFor?.id === act.id && (
                               <CalendrierPicker
-                                value={act.date_echeance}
-                                onChange={v => patchActivite(act.id, { date_echeance: v })}
+                                debut={act.date_debut}
+                                fin={act.date_echeance}
+                                onChange={(debut, fin) => patchActivite(act.id, { date_debut: debut, date_echeance: fin })}
                                 onClose={() => setCalendarFor(null)}
                                 triggerRect={calendarFor.rect}
                               />
@@ -1194,14 +1237,13 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
                         <div style={{ padding: '8px 10px', borderRight: '1px solid #f3f4f6' }}>
                           <span onClick={e => { const r = (e.currentTarget as HTMLElement).getBoundingClientRect(); setTableurAddCalendar(v => v ? null : r) }}
                             style={{ fontSize: 12, color: taskForm.date_echeance ? '#374151' : '#9ca3af', cursor: 'pointer' }}>
-                            {taskForm.date_echeance
-                              ? new Date(taskForm.date_echeance + 'T12:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
-                              : '+ date'}
+                            {formatEcheance(taskForm.date_debut || null, taskForm.date_echeance || null) ?? '+ date'}
                           </span>
                           {tableurAddCalendar && (
                             <CalendrierPicker
-                              value={taskForm.date_echeance || null}
-                              onChange={v => { setTaskForm(f => ({ ...f, date_echeance: v ?? '' })); setTableurAddCalendar(null) }}
+                              debut={taskForm.date_debut || null}
+                              fin={taskForm.date_echeance || null}
+                              onChange={(debut, fin) => { setTaskForm(f => ({ ...f, date_debut: debut ?? '', date_echeance: fin ?? '' })); setTableurAddCalendar(null) }}
                               onClose={() => setTableurAddCalendar(null)}
                               triggerRect={tableurAddCalendar}
                             />
@@ -1213,7 +1255,7 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
                       </div>
                     ) : (
                       <div
-                        onClick={() => { setTableurAddRow(col); setTaskForm(f => ({ ...f, nom: '', statut: col, date_echeance: '', assignee_id: '', priorite: 'normale' })) }}
+                        onClick={() => { setTableurAddRow(col); setTaskForm(f => ({ ...f, nom: '', statut: col, date_debut: '', date_echeance: '', assignee_id: '', priorite: 'normale' })) }}
                         style={{ padding: '8px 14px 8px 46px', fontSize: 12, color: '#9ca3af', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, borderBottom: '1px solid #f3f4f6' }}
                         onMouseEnter={e => { e.currentTarget.style.color = COL_COLORS[col]; e.currentTarget.style.background = '#f9fafb' }}
                         onMouseLeave={e => { e.currentTarget.style.color = '#9ca3af'; e.currentTarget.style.background = 'white' }}>
@@ -1268,10 +1310,14 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
                   <span style={{ color: '#374151', fontWeight: 600 }}>{selectedActivite.assignee ? `${selectedActivite.assignee.prenoms} ${selectedActivite.assignee.nom}` : 'Non assigné'}</span>
                 </div>
               </div>
-              {selectedActivite.date_echeance && (
+              {(selectedActivite.date_debut || selectedActivite.date_echeance) && (
                 <div>
                   <span style={{ color: '#9ca3af', display: 'block', fontSize: 11, marginBottom: 4 }}>Échéance</span>
-                  <span style={{ color: '#374151', fontWeight: 600 }}>{new Date(selectedActivite.date_echeance + 'T12:00:00').toLocaleDateString('fr-FR')}</span>
+                  <span style={{ color: '#374151', fontWeight: 600 }}>
+                    {selectedActivite.date_debut && selectedActivite.date_echeance && selectedActivite.date_debut !== selectedActivite.date_echeance
+                      ? `${new Date(selectedActivite.date_debut + 'T12:00:00').toLocaleDateString('fr-FR')} → ${new Date(selectedActivite.date_echeance + 'T12:00:00').toLocaleDateString('fr-FR')}`
+                      : new Date((selectedActivite.date_echeance ?? selectedActivite.date_debut) as string + 'T12:00:00').toLocaleDateString('fr-FR')}
+                  </span>
                 </div>
               )}
             </div>

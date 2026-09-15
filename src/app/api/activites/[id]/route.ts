@@ -19,6 +19,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (body.statut !== undefined) update.statut = body.statut
   if (body.priorite !== undefined) update.priorite = body.priorite
   if (body.assignee_id !== undefined) update.assignee_id = body.assignee_id
+  if (body.date_debut !== undefined) update.date_debut = body.date_debut
   if (body.date_echeance !== undefined) update.date_echeance = body.date_echeance
 
   const { data, error } = await supabase
