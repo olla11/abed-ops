@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, Download } from 'lucide-react'
+import { Plus, Trash2, Download, X } from 'lucide-react'
 
 const SEUIL_PCA = 3_000_000
 
@@ -68,6 +68,7 @@ export default function BonsDeCommandeClient({ deTitre, pcaTitre }: { deTitre: s
   const [brouillon, setBrouillon] = useState<{ id: string; numero: string; url: string | null } | null>(null)
   const [envoi, setEnvoi] = useState(false)
   const [annulation, setAnnulation] = useState(false)
+  const [retraitId, setRetraitId] = useState<string | null>(null)
 
   function load() {
     setLoading(true)
@@ -160,6 +161,16 @@ export default function BonsDeCommandeClient({ deTitre, pcaTitre }: { deTitre: s
     setBrouillon(null)
   }
 
+  async function retirerBonDeCommande(bc: BonDeCommande) {
+    if (!confirm(`Retirer le bon de commande N° ${bc.numero} ? Il sera totalement supprimé du système et ${bc.signataire_role === 'de' ? deTitre : pcaTitre} n'aura plus rien à signer.`)) return
+    setRetraitId(bc.id)
+    const res = await fetch(`/api/bons-de-commande/${bc.id}`, { method: 'DELETE' })
+    const j = await res.json()
+    setRetraitId(null)
+    if (!res.ok) { alert(j.error ?? 'Erreur lors du retrait.'); return }
+    load()
+  }
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
@@ -176,7 +187,7 @@ export default function BonsDeCommandeClient({ deTitre, pcaTitre }: { deTitre: s
         </div>
       ) : (
         <div className="table-wrap">
-          <table style={{ minWidth: 1090, tableLayout: 'fixed' }}>
+          <table style={{ minWidth: 1170, tableLayout: 'fixed' }}>
             <colgroup>
               <col style={{ width: 170 }} />
               <col style={{ width: 160 }} />
@@ -185,7 +196,7 @@ export default function BonsDeCommandeClient({ deTitre, pcaTitre }: { deTitre: s
               <col style={{ width: 130 }} />
               <col style={{ width: 110 }} />
               <col style={{ width: 100 }} />
-              <col style={{ width: 90 }} />
+              <col style={{ width: 170 }} />
             </colgroup>
             <thead>
               <tr>
@@ -215,10 +226,18 @@ export default function BonsDeCommandeClient({ deTitre, pcaTitre }: { deTitre: s
                     }}>{STATUT_LABELS[bc.statut]}</span>
                   </td>
                   <td>
-                    <a href={`/api/bons-de-commande/${bc.id}/document?download=1`}
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--abed-green)', textDecoration: 'none', fontWeight: 600 }}>
-                      <Download size={13} /> PDF
-                    </a>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <a href={`/api/bons-de-commande/${bc.id}/document?download=1`}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--abed-green)', textDecoration: 'none', fontWeight: 600 }}>
+                        <Download size={13} /> PDF
+                      </a>
+                      {bc.statut === 'circuit_signature' && (
+                        <button onClick={() => retirerBonDeCommande(bc)} disabled={retraitId === bc.id}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#dc2626', background: 'none', border: 'none', cursor: retraitId === bc.id ? 'default' : 'pointer', fontWeight: 600, padding: 0 }}>
+                          <X size={13} /> {retraitId === bc.id ? '…' : 'Retrait'}
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

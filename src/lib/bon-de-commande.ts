@@ -132,6 +132,57 @@ export async function annulerBonDeCommandeBrouillon(admin: AdminClient, bonDeCom
   return { ok: true, bonDeCommandeId, numero: '' }
 }
 
+// Retire un bon de commande déjà envoyé en signature (statut
+// 'circuit_signature') mais pas encore signé par le DE/PCA — le supprime
+// totalement du système (document, lignes, références, circuit de
+// signature) plutôt que de le laisser traîner rejeté. Une fois signé, le
+// statut passe à 'signe' (voir finalizeAfterSignature) et ce retrait n'est
+// plus proposé : l'engagement est déjà pris.
+export async function retirerBonDeCommandeEnCircuit(admin: AdminClient, bonDeCommandeId: string): Promise<Resultat> {
+  const { data: bc } = await admin.from('bons_de_commande')
+    .select('id, numero, statut, fichier_url, demande_signature_id').eq('id', bonDeCommandeId).single()
+  if (!bc) return { ok: false, error: 'Bon de commande introuvable.' }
+  if (bc.statut === 'brouillon') return { ok: false, error: "Ce bon de commande n'a pas encore été envoyé en signature — utilisez l'annulation du brouillon." }
+  if (bc.statut !== 'circuit_signature') return { ok: false, error: 'Ce bon de commande est déjà signé — impossible de le retirer.' }
+
+  // Notifie le signataire désigné (DE ou PCA) avant suppression, pour qu'il
+  // ne se retrouve pas face à un lien mort dans ses signatures en attente.
+  if (bc.demande_signature_id) {
+    const { data: signataire } = await admin
+      .from('signataires').select('profile_id, profile:profiles!profile_id(email, nom, prenoms)')
+      .eq('demande_id', bc.demande_signature_id).eq('signe', false).maybeSingle()
+    const p = signataire?.profile as unknown as { email: string | null; nom: string; prenoms: string } | { email: string | null; nom: string; prenoms: string }[] | null
+    const profil = Array.isArray(p) ? p[0] : p
+    if (signataire?.profile_id) {
+      await admin.from('notifications').insert({
+        user_id: signataire.profile_id,
+        titre: 'Bon de commande retiré',
+        message: `Le bon de commande N° ${bc.numero} a été retiré par l'AAF — plus besoin de le signer.`,
+      })
+    }
+    if (profil?.email) {
+      await sendEmail({
+        to: profil.email,
+        subject: `My ABED — Bon de commande retiré : N° ${bc.numero}`,
+        html: `<div style="font-family:sans-serif;max-width:560px;margin:0 auto;">
+          <h2 style="color:#991b1b;">My ABED — Document retiré</h2>
+          <p>Bonjour <strong>${profil.prenoms} ${profil.nom}</strong>,</p>
+          <p>Le bon de commande N° ${bc.numero} a été retiré par l'AAF avant votre signature — vous n'avez plus rien à faire.</p>
+          <p style="margin-top:24px;color:#9ca3af;font-size:12px;">My ABED · ABED ONG</p>
+        </div>`,
+      }).catch(e => console.error('[bon-de-commande] email retrait signataire:', e))
+    }
+  }
+
+  if (bc.fichier_url) await admin.storage.from('documents').remove([bc.fichier_url]).catch(() => {})
+  await admin.from('bon_de_commande_lignes').delete().eq('bon_de_commande_id', bonDeCommandeId)
+  await admin.from('bon_de_commande_references').delete().eq('bon_de_commande_id', bonDeCommandeId)
+  await admin.from('bons_de_commande').delete().eq('id', bonDeCommandeId)
+  if (bc.demande_signature_id) await admin.from('demandes_signature').delete().eq('id', bc.demande_signature_id)
+
+  return { ok: true, bonDeCommandeId, numero: bc.numero }
+}
+
 // Une fois le brouillon validé par l'AAF, envoie le document en signature au
 // DE ou au PCA (déterminé à la génération, selon le montant) via le système
 // générique de signature — un seul signataire, pas de circuit à étapes.

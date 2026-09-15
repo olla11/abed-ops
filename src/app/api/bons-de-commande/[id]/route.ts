@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
-import { annulerBonDeCommandeBrouillon } from '@/lib/bon-de-commande'
+import { annulerBonDeCommandeBrouillon, retirerBonDeCommandeEnCircuit } from '@/lib/bon-de-commande'
 
-// DELETE — annule un bon de commande encore à l'état 'brouillon' (jamais
-// envoyé en signature). AAF/admin uniquement.
+// DELETE — supprime totalement un bon de commande pas encore signé :
+// annule un brouillon, ou retire un bon déjà envoyé en signature tant que
+// le DE/PCA n'a pas encore signé. AAF/admin uniquement.
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -19,7 +20,12 @@ export async function DELETE(
   }
 
   const admin = createAdminClient()
-  const result = await annulerBonDeCommandeBrouillon(admin, id)
+  const { data: bc } = await admin.from('bons_de_commande').select('statut').eq('id', id).single()
+  if (!bc) return NextResponse.json({ error: 'Bon de commande introuvable.' }, { status: 404 })
+
+  const result = bc.statut === 'brouillon'
+    ? await annulerBonDeCommandeBrouillon(admin, id)
+    : await retirerBonDeCommandeEnCircuit(admin, id)
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 })
   return NextResponse.json({ ok: true })
 }
