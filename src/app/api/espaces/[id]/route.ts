@@ -9,7 +9,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const body = await req.json().catch(() => null)
   const { data, error } = await supabase.from('espaces')
-    .update({ ...(body.nom && { nom: body.nom }), ...(body.couleur && { couleur: body.couleur }), ...(body.icon && { icon: body.icon }) })
+    .update({
+      ...(body.nom && { nom: body.nom }), ...(body.couleur && { couleur: body.couleur }), ...(body.icon && { icon: body.icon }),
+      ...(body.ordre !== undefined && { ordre: body.ordre }),
+    })
     .eq('id', id).select().single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

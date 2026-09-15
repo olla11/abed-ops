@@ -43,7 +43,16 @@ export async function POST(req: NextRequest) {
   const v = validate(ProjetSchema, body)
   if ('error' in v) return v.error
 
-  const { data, error } = await supabase.from('projets_internes').insert({
+  // UUID généré côté serveur (pas de .select() après l'insert) : même bug
+  // que pour les TDR (voir src/app/api/tdrs/route.ts) — PostgREST évalue la
+  // policy SELECT sur la ligne RETURNING dans la même transaction que
+  // l'INSERT, et can_access_projet() (SECURITY DEFINER) qui se re-interroge
+  // sur "projets_internes" ne voit pas encore la ligne toute juste insérée
+  // à ce moment-là (visibilité de snapshot) — ça faisait échouer l'insert
+  // avec une fausse violation de RLS dès qu'un espace_id était renseigné.
+  const id = crypto.randomUUID()
+  const nouveauProjet = {
+    id,
     nom: v.data.nom.trim(),
     description: v.data.description?.trim() || null,
     statut: v.data.statut ?? 'en_cours',
@@ -52,8 +61,9 @@ export async function POST(req: NextRequest) {
     is_public: v.data.is_public !== false,
     espace_id: v.data.espace_id || null,
     created_by: user.id,
-  }).select().single()
+  }
+  const { error } = await supabase.from('projets_internes').insert(nouveauProjet)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ data })
+  return NextResponse.json({ data: nouveauProjet })
 }

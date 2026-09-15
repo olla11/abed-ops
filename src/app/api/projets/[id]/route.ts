@@ -41,6 +41,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       ...(body.statut && { statut: body.statut }),
       ...(body.date_debut !== undefined && { date_debut: body.date_debut }),
       ...(body.date_fin !== undefined && { date_fin: body.date_fin }),
+      ...(body.ordre !== undefined && { ordre: body.ordre }),
+      ...(body.espace_id !== undefined && { espace_id: body.espace_id }),
     })
     .eq('id', id)
     .select().single()

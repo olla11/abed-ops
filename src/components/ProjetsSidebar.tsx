@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
-import { ChevronDown, Lock, Zap, Users, Folder, X, Pencil, Trash2, Rocket, Lightbulb, Target, Leaf, FlaskConical, BarChart2, Palette, Trophy, BookOpen, Globe, Star, Briefcase, Plus, LayoutGrid, type LucideIcon } from 'lucide-react'
+import { ChevronDown, Lock, Zap, Users, Folder, X, Pencil, Trash2, Rocket, Lightbulb, Target, Leaf, FlaskConical, BarChart2, Palette, Trophy, BookOpen, Globe, Star, Briefcase, Plus, LayoutGrid, MoreVertical, GripVertical, type LucideIcon } from 'lucide-react'
 
 const ICON_MAP: Record<string, LucideIcon> = {
   folder: Folder, rocket: Rocket, lightbulb: Lightbulb, target: Target,
@@ -35,12 +35,18 @@ function EspaceIcon({ icon, size = 13, color = '#6b7280' }: { icon: string; size
   )
 }
 
-type Espace = { id: string; nom: string; couleur: string; icon: string; created_by?: string }
-type ProjetLite = { id: string; nom: string; is_public: boolean; espace_id: string | null; activites: { id: string; statut: string; parent_id?: string | null }[] }
+type Espace = { id: string; nom: string; couleur: string; icon: string; created_by?: string; ordre?: number | null }
+type ProjetLite = { id: string; nom: string; is_public: boolean; espace_id: string | null; ordre?: number | null; activites: { id: string; statut: string; parent_id?: string | null }[] }
 type Profile = { id: string; nom: string; prenoms: string }
 type Membre = { id: string; profile_id: string; profile: Profile | null }
 
 const COLOR_OPTIONS = ['#16a34a','#2563eb','#7c3aed','#dc2626','#d97706','#0891b2','#be185d','#374151']
+
+const menuItemStyle: React.CSSProperties = {
+  width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px',
+  background: 'none', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12.5,
+  fontWeight: 600, color: '#374151', textAlign: 'left',
+}
 
 function InitialsAvatar({ profile }: { profile: Profile | null }) {
   if (!profile) return null
@@ -80,6 +86,15 @@ export default function ProjetsSidebar() {
   const renameRef = useRef<HTMLInputElement>(null)
   const [deleteEspaceId, setDeleteEspaceId] = useState<string | null>(null)
   const [deletingEspace, setDeletingEspace] = useState(false)
+  // Menu d'actions (⋮) par espace
+  const [openMenuEspace, setOpenMenuEspace] = useState<string | null>(null)
+  // Glisser-déposer : réordonne les espaces entre eux, et les projets au
+  // sein de leur propre groupe (un espace donné, ou "Autres projets") — pas
+  // de déplacement entre groupes, un espace garde toujours ses projets.
+  const [dragEspaceId, setDragEspaceId] = useState<string | null>(null)
+  const [dragOverEspaceId, setDragOverEspaceId] = useState<string | null>(null)
+  const [dragProjet, setDragProjet] = useState<{ id: string; groupKey: string } | null>(null)
+  const [dragOverProjetId, setDragOverProjetId] = useState<string | null>(null)
 
   const load = useCallback(async (background = false) => {
     // On first load, restore from cache immediately to avoid flash
@@ -116,6 +131,14 @@ export default function ProjetsSidebar() {
   useEffect(() => {
     fetch('/api/me').then(r => r.json()).then(j => { if (j.id) setCurrentUserId(j.id) }).catch(() => {})
   }, [])
+
+  // Ferme le menu d'actions (⋮) d'un espace au clic ailleurs
+  useEffect(() => {
+    if (!openMenuEspace) return
+    function onClick() { setOpenMenuEspace(null) }
+    document.addEventListener('click', onClick)
+    return () => document.removeEventListener('click', onClick)
+  }, [openMenuEspace])
 
   async function loadMembres(espaceId: string) {
     const r = await fetch(`/api/espaces/${espaceId}/membres`)
@@ -257,23 +280,102 @@ export default function ProjetsSidebar() {
   }
 
   function projetsByEspace(eid: string | null) {
-    return projets.filter(p => p.espace_id === eid)
+    // Tri stable : les projets déjà réordonnés (ordre non nul) d'abord dans
+    // cet ordre, puis le reste dans son ordre d'arrivée (created_at, déjà
+    // trié ainsi par l'API).
+    return projets.filter(p => p.espace_id === eid).sort((a, b) => (a.ordre ?? 1e9) - (b.ordre ?? 1e9))
   }
 
-  function renderProjet(p: ProjetLite) {
+  const espacesTries = [...espaces].sort((a, b) => (a.ordre ?? 1e9) - (b.ordre ?? 1e9))
+
+  function reorderList<T extends { id: string }>(list: T[], draggedId: string, targetId: string): T[] {
+    if (draggedId === targetId) return list
+    const arr = [...list]
+    const from = arr.findIndex(x => x.id === draggedId)
+    const to = arr.findIndex(x => x.id === targetId)
+    if (from === -1 || to === -1) return list
+    const [moved] = arr.splice(from, 1)
+    arr.splice(to, 0, moved)
+    return arr
+  }
+
+  function dropEspace(targetId: string) {
+    const draggedId = dragEspaceId
+    setDragEspaceId(null); setDragOverEspaceId(null)
+    if (!draggedId || draggedId === targetId) return
+    const reordered = reorderList(espacesTries, draggedId, targetId).map((e, i) => ({ ...e, ordre: i }))
+    setEspaces(prev => {
+      const merged = prev.map(e => reordered.find(r => r.id === e.id) ?? e)
+      try { sessionStorage.setItem('sidebar_espaces', JSON.stringify(merged)) } catch {}
+      return merged
+    })
+    for (const e of reordered) {
+      fetch(`/api/espaces/${e.id}`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ordre: e.ordre }) }).catch(() => {})
+    }
+  }
+
+  function dropProjet(groupKey: string, targetId: string) {
+    const dragged = dragProjet
+    setDragProjet(null); setDragOverProjetId(null)
+    if (!dragged || dragged.groupKey !== groupKey || dragged.id === targetId) return
+    const groupe = projetsByEspace(groupKey === 'none' ? null : groupKey)
+    const reordered = reorderList(groupe, dragged.id, targetId).map((p, i) => ({ ...p, ordre: i }))
+    setProjets(prev => {
+      const merged = prev.map(p => reordered.find(r => r.id === p.id) ?? p)
+      try { sessionStorage.setItem('sidebar_projets', JSON.stringify(merged)) } catch {}
+      return merged
+    })
+    for (const p of reordered) {
+      fetch(`/api/projets/${p.id}`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ordre: p.ordre }) }).catch(() => {})
+    }
+  }
+
+  // Déposer un projet directement sur l'en-tête d'un espace (pas sur une
+  // autre ligne de projet) le déplace dans cet espace, en dernière position
+  // — contrairement à dropProjet qui ne fait que réordonner au sein du même
+  // groupe.
+  function dropProjetOnEspaceHeader(targetEspaceId: string | null) {
+    const dragged = dragProjet
+    setDragProjet(null); setDragOverProjetId(null)
+    if (!dragged) return
+    const targetKey = targetEspaceId ?? 'none'
+    if (dragged.groupKey === targetKey) return
+    const groupe = projetsByEspace(targetEspaceId)
+    const nextOrdre = groupe.length
+    setProjets(prev => {
+      const merged = prev.map(p => p.id === dragged.id ? { ...p, espace_id: targetEspaceId, ordre: nextOrdre } : p)
+      try { sessionStorage.setItem('sidebar_projets', JSON.stringify(merged)) } catch {}
+      return merged
+    })
+    fetch(`/api/projets/${dragged.id}`, {
+      method: 'PATCH', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ espace_id: targetEspaceId, ordre: nextOrdre }),
+    }).catch(() => {})
+  }
+
+  function renderProjet(p: ProjetLite, groupKey: string) {
     const isActive = p.id === activeId
     const topLevel = p.activites.filter(a => !a.parent_id)
     const done = topLevel.filter(a => a.statut === 'termine').length
     const total = topLevel.length
     const isRenaming = renamingProjet === p.id
     const pct = total > 0 ? Math.round((done / total) * 100) : 0
+    const isDragOver = dragOverProjetId === p.id && dragProjet?.groupKey === groupKey && dragProjet.id !== p.id
     return (
       <div key={p.id} className="hub-row"
+        draggable={!isRenaming}
+        onDragStart={e => { e.stopPropagation(); setDragProjet({ id: p.id, groupKey }) }}
+        onDragOver={e => { if (dragProjet?.groupKey === groupKey) { e.preventDefault(); e.stopPropagation(); setDragOverProjetId(p.id) } }}
+        onDragLeave={() => { if (dragOverProjetId === p.id) setDragOverProjetId(null) }}
+        onDrop={e => { e.preventDefault(); e.stopPropagation(); dropProjet(groupKey, p.id) }}
+        onDragEnd={() => { setDragProjet(null); setDragOverProjetId(null) }}
         style={{
-          position: 'relative', display: 'flex', alignItems: 'center', gap: 7, padding: '6px 10px 6px 34px',
+          position: 'relative', display: 'flex', alignItems: 'center', gap: 5, padding: '6px 10px 6px 34px',
           borderRadius: 7, cursor: 'pointer', margin: '1px 6px 1px 2px',
           background: isActive ? 'rgba(22,163,74,0.10)' : 'transparent',
           color: isActive ? '#15803d' : '#374151',
+          boxShadow: isDragOver ? 'inset 0 2px 0 #16a34a' : 'none',
+          opacity: dragProjet?.id === p.id ? .4 : 1,
         }}
         onClick={() => { if (!isRenaming) router.push(`/projets/${p.id}`) }}
         onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = '#f0f1f3' }}
@@ -281,6 +383,9 @@ export default function ProjetsSidebar() {
         {/* Trait de liaison vertical — chaque ligne dessine son propre segment,
             l'ensemble forme un guide continu qui matérialise l'arborescence */}
         <span style={{ position: 'absolute', left: 22, top: 0, bottom: 0, width: 1, background: '#e5e7eb' }} />
+        <span className="rename-btn" style={{ display: 'flex', alignItems: 'center', cursor: 'grab', flexShrink: 0, marginRight: -2 }} title="Glisser pour réordonner">
+          <GripVertical size={11} color="#c3c8cf" strokeWidth={2} />
+        </span>
         {p.is_public
           ? <Zap size={12} color="#d97706" strokeWidth={2} style={{ flexShrink: 0 }} />
           : <Lock size={11} color="#9ca3af" strokeWidth={2} style={{ flexShrink: 0 }} />}
@@ -474,17 +579,38 @@ export default function ProjetsSidebar() {
 
       {/* Espaces list */}
       <div style={{ flex: 1, padding: '8px 0' }}>
-        {espaces.map(esp => {
+        {espacesTries.map(esp => {
           const isCollapsed = collapsed[esp.id] ?? false
           const espProjets = projetsByEspace(esp.id)
           const espMembres = membres[esp.id]
           const membresCount = espMembres?.length ?? null
 
+          const isDragOverEspace = dragOverEspaceId === esp.id && dragEspaceId !== esp.id
+          const menuOpen = openMenuEspace === esp.id
+          const isOwner = esp.created_by === currentUserId
+
           return (
             <div key={esp.id} style={{ marginBottom: 2 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 8px', cursor: 'pointer', margin: '1px 6px', borderRadius: 7 }}
+              <div
+                draggable={renamingEspace !== esp.id}
+                onDragStart={e => { e.stopPropagation(); setDragEspaceId(esp.id) }}
+                onDragOver={e => { if (dragEspaceId) { e.preventDefault(); setDragOverEspaceId(esp.id) } else if (dragProjet) { e.preventDefault() } }}
+                onDragLeave={() => { if (dragOverEspaceId === esp.id) setDragOverEspaceId(null) }}
+                onDrop={e => {
+                  e.preventDefault()
+                  if (dragEspaceId) dropEspace(esp.id)
+                  else if (dragProjet) dropProjetOnEspaceHeader(esp.id)
+                }}
+                onDragEnd={() => { setDragEspaceId(null); setDragOverEspaceId(null) }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 7, padding: '6px 8px', cursor: 'pointer', margin: '1px 6px', borderRadius: 7,
+                  boxShadow: isDragOverEspace ? 'inset 0 2px 0 #16a34a' : 'none', opacity: dragEspaceId === esp.id ? .4 : 1,
+                }}
                 onMouseEnter={e => (e.currentTarget.style.background = '#f0f1f3')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                <span style={{ display: 'flex', alignItems: 'center', cursor: 'grab', flexShrink: 0 }} title="Glisser pour réordonner">
+                  <GripVertical size={11} color="#c3c8cf" strokeWidth={2} />
+                </span>
                 <span onClick={() => setCollapsed(c => ({ ...c, [esp.id]: !c[esp.id] }))}
                   style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 14, flexShrink: 0 }}>
                   <ChevronDown size={11} color="#9ca3af" strokeWidth={2} style={{ transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)', transition: 'transform 0.15s' }} />
@@ -501,49 +627,61 @@ export default function ProjetsSidebar() {
                     style={{ flex: 1, fontSize: 13, fontWeight: 700, border: '1px solid #16a34a', borderRadius: 4, padding: '1px 5px', outline: 'none', minWidth: 0 }}
                   />
                 ) : (
+                  // Nom complet, sans troncature — quitte à passer à la ligne
+                  // pour un nom long, plutôt que de couper l'information.
                   <span
                     onClick={() => setCollapsed(c => ({ ...c, [esp.id]: !c[esp.id] }))}
                     onDoubleClick={e => { e.stopPropagation(); startRenameEspace(esp) }}
-                    style={{ flex: 1, fontSize: 13, fontWeight: 700, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', letterSpacing: '-.01em' }}
+                    style={{ flex: 1, fontSize: 13, fontWeight: 700, color: '#111827', whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: 1.3, letterSpacing: '-.01em' }}
                     title="Double-clic pour renommer"
                   >{esp.nom}</span>
                 )}
-                {/* Rename + Delete buttons for espace creator */}
                 {renamingEspace !== esp.id && (
-                  <>
-                    <button onClick={e => { e.stopPropagation(); startRenameEspace(esp) }}
-                      title="Renommer l'espace"
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 3, borderRadius: 5, display: 'flex', alignItems: 'center', color: '#9ca3af', flexShrink: 0 }}
-                      onMouseEnter={e => { e.currentTarget.style.color = '#374151'; e.currentTarget.style.background = '#e5e7eb' }}
-                      onMouseLeave={e => { e.currentTarget.style.color = '#9ca3af'; e.currentTarget.style.background = 'none' }}>
-                      <Pencil size={11} strokeWidth={2} color="currentColor" />
-                    </button>
-                    {esp.created_by === currentUserId && (
-                      <button onClick={e => { e.stopPropagation(); setDeleteEspaceId(esp.id) }}
-                        title="Supprimer l'espace"
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 3, borderRadius: 5, display: 'flex', alignItems: 'center', color: '#9ca3af', flexShrink: 0 }}
-                        onMouseEnter={e => { e.currentTarget.style.color = '#dc2626'; e.currentTarget.style.background = '#fef2f2' }}
-                        onMouseLeave={e => { e.currentTarget.style.color = '#9ca3af'; e.currentTarget.style.background = 'none' }}>
-                        <Trash2 size={11} strokeWidth={2} color="currentColor" />
-                      </button>
-                    )}
-                  </>
+                  <span onClick={() => setCollapsed(c => ({ ...c, [esp.id]: !c[esp.id] }))}
+                    style={{ fontSize: 10.5, fontWeight: 700, color: '#9ca3af', background: '#eef0f2', borderRadius: 999, padding: '2px 7px', flexShrink: 0 }}>{espProjets.length}</span>
                 )}
-                {/* Members button */}
-                {renamingEspace !== esp.id && <button onClick={e => { e.stopPropagation(); toggleMembresPanel(esp.id) }}
-                  title="Gérer les membres"
-                  style={{
-                    background: membresPanel === esp.id ? '#f0fdf4' : 'none',
-                    border: 'none', cursor: 'pointer', fontSize: 10.5, fontWeight: 700,
-                    color: membresPanel === esp.id ? '#16a34a' : '#9ca3af',
-                    padding: '3px 5px', borderRadius: 5, display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0,
-                  }}
-                  onMouseEnter={e => { if (membresPanel !== esp.id) { e.currentTarget.style.color = '#374151'; e.currentTarget.style.background = '#e5e7eb' } }}
-                  onMouseLeave={e => { if (membresPanel !== esp.id) { e.currentTarget.style.color = '#9ca3af'; e.currentTarget.style.background = 'none' } }}>
-                  <Users size={12} color={membresPanel === esp.id ? '#16a34a' : 'currentColor'} strokeWidth={2} />{membresCount !== null ? membresCount : ''}
-                </button>}
-                {renamingEspace !== esp.id && <span onClick={() => setCollapsed(c => ({ ...c, [esp.id]: !c[esp.id] }))}
-                  style={{ fontSize: 10.5, fontWeight: 700, color: '#9ca3af', background: '#eef0f2', borderRadius: 999, padding: '2px 7px', flexShrink: 0 }}>{espProjets.length}</span>}
+                {/* Toutes les actions (renommer, membres, supprimer) rangées
+                    dans un menu ⋮ — pour ne pas surcharger la ligne et
+                    laisser toute la place au nom de l'espace. */}
+                {renamingEspace !== esp.id && (
+                  <span style={{ position: 'relative', flexShrink: 0 }}>
+                    <button onClick={e => { e.stopPropagation(); setOpenMenuEspace(m => m === esp.id ? null : esp.id) }}
+                      title="Actions"
+                      style={{
+                        background: menuOpen ? '#e5e7eb' : 'none', border: 'none', cursor: 'pointer', padding: 3, borderRadius: 5,
+                        display: 'flex', alignItems: 'center', color: menuOpen ? '#374151' : '#9ca3af',
+                      }}
+                      onMouseEnter={e => { if (!menuOpen) { e.currentTarget.style.color = '#374151'; e.currentTarget.style.background = '#e5e7eb' } }}
+                      onMouseLeave={e => { if (!menuOpen) { e.currentTarget.style.color = '#9ca3af'; e.currentTarget.style.background = 'none' } }}>
+                      <MoreVertical size={13} strokeWidth={2} color="currentColor" />
+                    </button>
+                    {menuOpen && (
+                      <div onClick={e => e.stopPropagation()} style={{
+                        position: 'absolute', top: '100%', right: 0, marginTop: 4, background: 'white',
+                        border: '1px solid #e5e7eb', borderRadius: 9, boxShadow: '0 8px 24px rgba(0,0,0,.12)',
+                        minWidth: 172, zIndex: 200, overflow: 'hidden', padding: 4,
+                      }}>
+                        <button onClick={() => { startRenameEspace(esp); setOpenMenuEspace(null) }}
+                          style={menuItemStyle}
+                          onMouseEnter={e => (e.currentTarget.style.background = '#f3f4f6')} onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
+                          <Pencil size={13} strokeWidth={2} /> Renommer
+                        </button>
+                        <button onClick={() => { toggleMembresPanel(esp.id); setOpenMenuEspace(null) }}
+                          style={menuItemStyle}
+                          onMouseEnter={e => (e.currentTarget.style.background = '#f3f4f6')} onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
+                          <Users size={13} strokeWidth={2} /> Gérer les membres{membresCount !== null ? ` (${membresCount})` : ''}
+                        </button>
+                        {isOwner && (
+                          <button onClick={() => { setDeleteEspaceId(esp.id); setOpenMenuEspace(null) }}
+                            style={{ ...menuItemStyle, color: '#dc2626' }}
+                            onMouseEnter={e => (e.currentTarget.style.background = '#fef2f2')} onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
+                            <Trash2 size={13} strokeWidth={2} /> Supprimer l&apos;espace
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </span>
+                )}
               </div>
 
               {/* Members panel */}
@@ -551,7 +689,7 @@ export default function ProjetsSidebar() {
 
               {!isCollapsed && (
                 <>
-                  {espProjets.map(renderProjet)}
+                  {espProjets.map(p => renderProjet(p, esp.id))}
                   {renderAddProjet(esp.id, esp.id)}
                 </>
               )}
@@ -569,6 +707,8 @@ export default function ProjetsSidebar() {
             <div style={{ marginTop: espaces.length > 0 ? 6 : 0 }}>
               {espaces.length > 0 && <div style={{ height: 1, background: '#eef0f2', margin: '6px 14px 8px' }} />}
               <div onClick={() => setCollapsed(c => ({ ...c, [key]: !c[key] }))}
+                onDragOver={e => { if (dragProjet) e.preventDefault() }}
+                onDrop={e => { e.preventDefault(); if (dragProjet) dropProjetOnEspaceHeader(null) }}
                 style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 8px', cursor: 'pointer', margin: '1px 6px', borderRadius: 7 }}
                 onMouseEnter={e => (e.currentTarget.style.background = '#f0f1f3')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
@@ -583,7 +723,7 @@ export default function ProjetsSidebar() {
               </div>
               {!isCollapsed && (
                 <>
-                  {noProjets.map(renderProjet)}
+                  {noProjets.map(p => renderProjet(p, 'none'))}
                   {renderAddProjet(key, null)}
                 </>
               )}
