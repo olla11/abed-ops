@@ -171,6 +171,10 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole, civiliteC
   const [saving, setSaving] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
+  // Passe à true dès qu'un enregistrement/envoi a été bloqué faute de choix
+  // manquant (note 1-5, avis, décision...) — sert à surligner en rouge les
+  // cases non cochées, plutôt que de simplement l'indiquer dans le message.
+  const [showMissing, setShowMissing] = useState(false)
 
   // Determine what this user can edit — le circuit implique 4 acteurs
   // distincts : évaluateur (sections I-VI), évalué·e (VII), responsable de
@@ -302,7 +306,31 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole, civiliteC
     return base
   }
 
+  // Aucune case à cocher/noter ne doit pouvoir rester vide — que ce soit
+  // pour l'évaluateur (les 20 notes de 1 à 5 + l'évaluation générale), le
+  // responsable de département (son avis) ou l'un des 3 décideurs de la
+  // Section X (leur décision) : on bloque l'enregistrement ET l'envoi tant
+  // qu'il en manque une, plutôt que de laisser passer un choix non fait.
+  function getMissingSummary(): string | null {
+    const parts: string[] = []
+    if (canEditSec1to6) {
+      let missingNotes = 0
+      for (const cat of GRILLE) for (const item of cat.items) if (!notes[item.key]) missingNotes++
+      if (missingNotes > 0) parts.push(`${missingNotes} note${missingNotes > 1 ? 's' : ''} manquante${missingNotes > 1 ? 's' : ''} dans la grille de compétences (Section II)`)
+      if (!evalGen) parts.push("l'évaluation générale (Section V)")
+    }
+    if (canEditSec8 && !avisResp) parts.push("l'avis du responsable (Section VIII)")
+    if (canEditDecEval && !decEval.decision) parts.push("la décision de l'évaluateur (Section X)")
+    if (canEditDecCaf && !decCaf.decision) parts.push("la décision du CAF (Section X)")
+    if (canEditDecDe && !decDE.decision) parts.push("la décision de la Direction Exécutive (Section X)")
+    if (!parts.length) return null
+    return `Merci de compléter avant de continuer : ${parts.join(' ; ')}.`
+  }
+
   async function handleSave() {
+    const missing = getMissingSummary()
+    if (missing) { setShowMissing(true); setMsg({ type: 'err', text: missing }); window.scrollTo({ top: 0, behavior: 'smooth' }); return }
+    setShowMissing(false)
     setSaving(true); setMsg(null)
     try {
       const res = await fetch(`/api/evaluations/${ev.id}`, {
@@ -319,6 +347,9 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole, civiliteC
   }
 
   async function handleSubmit() {
+    const missing = getMissingSummary()
+    if (missing) { setShowMissing(true); setMsg({ type: 'err', text: missing }); window.scrollTo({ top: 0, behavior: 'smooth' }); return }
+    setShowMissing(false)
     setSubmitting(true); setMsg(null)
     try {
       const res = await fetch(`/api/evaluations/${ev.id}`, {
@@ -463,8 +494,16 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole, civiliteC
               {cat.cat}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {cat.items.map(item => (
-                <div key={item.key} style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              {cat.items.map(item => {
+                const itemMissing = showMissing && canEditSec1to6 && !notes[item.key]
+                return (
+                <div key={item.key} style={{
+                  display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+                  padding: itemMissing ? '6px 8px' : undefined,
+                  background: itemMissing ? '#fef2f2' : undefined,
+                  border: itemMissing ? '1px solid #fca5a5' : undefined,
+                  borderRadius: itemMissing ? 6 : undefined,
+                }}>
                   <span style={{ flex: 1, fontSize: 13, color: '#374151', minWidth: 200 }}>{item.label}</span>
                   <div style={{ display: 'flex', gap: 6 }}>
                     {[1, 2, 3, 4, 5].map(n => (
@@ -486,11 +525,15 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole, civiliteC
                       </button>
                     ))}
                   </div>
+                  {itemMissing && (
+                    <span style={{ fontSize: 11.5, color: '#dc2626', fontWeight: 700 }}>Obligatoire</span>
+                  )}
                   {notes[item.key] > 0 && (
                     <span style={{ fontSize: 12, color: '#6b7280', minWidth: 180 }}>{SCORE_LABELS[notes[item.key]]}</span>
                   )}
                 </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         ))}
@@ -522,20 +565,30 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole, civiliteC
       {/* Section V — Évaluation générale */}
       <Section title="Section V — Évaluation générale">
         <Field label="Appréciation globale de l'évalué(e)">
-          {EVALUATION_GENERALE_OPTIONS.map(opt => (
-            <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, cursor: canEditSec1to6 ? 'pointer' : 'default', fontSize: 14 }}>
-              <input
-                type="radio"
-                name="eval_generale"
-                value={opt}
-                checked={evalGen === opt}
-                onChange={() => canEditSec1to6 && setEvalGen(opt)}
-                disabled={!canEditSec1to6}
-                style={{ accentColor: 'var(--abed-green)', width: 16, height: 16 }}
-              />
-              {opt}
-            </label>
-          ))}
+          <div style={{
+            padding: showMissing && canEditSec1to6 && !evalGen ? '8px 10px' : undefined,
+            background: showMissing && canEditSec1to6 && !evalGen ? '#fef2f2' : undefined,
+            border: showMissing && canEditSec1to6 && !evalGen ? '1px solid #fca5a5' : undefined,
+            borderRadius: showMissing && canEditSec1to6 && !evalGen ? 6 : undefined,
+          }}>
+            {EVALUATION_GENERALE_OPTIONS.map(opt => (
+              <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, cursor: canEditSec1to6 ? 'pointer' : 'default', fontSize: 14 }}>
+                <input
+                  type="radio"
+                  name="eval_generale"
+                  value={opt}
+                  checked={evalGen === opt}
+                  onChange={() => canEditSec1to6 && setEvalGen(opt)}
+                  disabled={!canEditSec1to6}
+                  style={{ accentColor: 'var(--abed-green)', width: 16, height: 16 }}
+                />
+                {opt}
+              </label>
+            ))}
+            {showMissing && canEditSec1to6 && !evalGen && (
+              <span style={{ fontSize: 11.5, color: '#dc2626', fontWeight: 700 }}>Obligatoire</span>
+            )}
+          </div>
         </Field>
       </Section>
 
@@ -586,7 +639,13 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole, civiliteC
         ) : (
           <>
             <Field label="Avis du responsable">
-              <div style={{ display: 'flex', gap: 16, marginBottom: 12 }}>
+              <div style={{
+                display: 'flex', gap: 16, marginBottom: 12, alignItems: 'center', flexWrap: 'wrap',
+                padding: showMissing && canEditSec8 && !avisResp ? '8px 10px' : undefined,
+                background: showMissing && canEditSec8 && !avisResp ? '#fef2f2' : undefined,
+                border: showMissing && canEditSec8 && !avisResp ? '1px solid #fca5a5' : undefined,
+                borderRadius: showMissing && canEditSec8 && !avisResp ? 6 : undefined,
+              }}>
                 {['Poursuivre la collaboration', 'Ne pas poursuivre la collaboration'].map(opt => (
                   <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, cursor: canEditSec8 ? 'pointer' : 'default' }}>
                     <input
@@ -601,6 +660,9 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole, civiliteC
                     {opt}
                   </label>
                 ))}
+                {showMissing && canEditSec8 && !avisResp && (
+                  <span style={{ fontSize: 11.5, color: '#dc2626', fontWeight: 700 }}>Obligatoire</span>
+                )}
               </div>
             </Field>
             <Field label="Commentaires du responsable de département">
@@ -671,7 +733,13 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole, civiliteC
                     )}
                   </div>
                 ) : (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap',
+                    padding: showMissing && editable && !state.decision ? '8px 10px' : undefined,
+                    background: showMissing && editable && !state.decision ? '#fef2f2' : undefined,
+                    border: showMissing && editable && !state.decision ? '1px solid #fca5a5' : undefined,
+                    borderRadius: showMissing && editable && !state.decision ? 6 : undefined,
+                  }}>
                     {DECISION_OPTIONS.map(opt => (
                       <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, cursor: editable ? 'pointer' : 'default' }}>
                         <input
@@ -686,6 +754,9 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole, civiliteC
                         {opt}
                       </label>
                     ))}
+                    {showMissing && editable && !state.decision && (
+                      <span style={{ fontSize: 11.5, color: '#dc2626', fontWeight: 700 }}>Obligatoire</span>
+                    )}
                     {isEditingRow && (
                       <button
                         type="button"

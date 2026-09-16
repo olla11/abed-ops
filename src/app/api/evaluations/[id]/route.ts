@@ -19,6 +19,18 @@ export const dynamic = 'force-dynamic'
 
 type RouteContext = { params: Promise<{ id: string }> }
 
+// Même liste que GRILLE dans EvaluationForm.tsx (Section II) — revalidée
+// ici pour ne jamais dépendre uniquement du verrouillage de l'UI : aucune
+// note ne doit pouvoir manquer, quel que soit le client qui appelle cette
+// route.
+const GRILLE_KEYS = [
+  'c1_1', 'c1_2', 'c1_3', 'c1_4',
+  'c2_1', 'c2_2', 'c2_3', 'c2_4',
+  'c3_1', 'c3_2', 'c3_3', 'c3_4',
+  'c4_1', 'c4_2', 'c4_3', 'c4_4',
+  'c5_1', 'c5_2', 'c5_3', 'c5_4',
+]
+
 function calcScoreMoyen(notes: Record<string, number>): number | null {
   const vals = Object.values(notes).filter(v => typeof v === 'number' && v > 0)
   if (!vals.length) return null
@@ -101,6 +113,33 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
   // passent outre, comme partout ailleurs dans ce circuit.
   const isAdminRole = ['admin', 'superadmin'].includes(myRole)
   const aUneDecision = (obj: unknown) => !!(obj && typeof obj === 'object' && (obj as Record<string, unknown>).decision)
+
+  // Aucune case à cocher/noter ne doit pouvoir rester vide et passer — le
+  // formulaire bloque déjà ces cas côté client (EvaluationForm.tsx), mais on
+  // le revalide ici pour ne jamais dépendre uniquement de ce verrouillage.
+  if ('grille_notes' in fields) {
+    const notes = (fields.grille_notes ?? {}) as Record<string, number>
+    const manquantes = GRILLE_KEYS.filter(k => !notes[k] || notes[k] < 1 || notes[k] > 5)
+    if (manquantes.length > 0) {
+      return NextResponse.json({ error: `Il manque ${manquantes.length} note(s) dans la grille d'évaluation (Section II).` }, { status: 400 })
+    }
+    if ('evaluation_generale' in fields && !fields.evaluation_generale) {
+      return NextResponse.json({ error: "L'évaluation générale (Section V) est obligatoire." }, { status: 400 })
+    }
+  }
+  if ('avis_responsable' in fields && !fields.avis_responsable) {
+    return NextResponse.json({ error: "L'avis du responsable (Section VIII) est obligatoire." }, { status: 400 })
+  }
+  if ('decision_evaluateur' in fields && !aUneDecision(fields.decision_evaluateur)) {
+    return NextResponse.json({ error: "La décision de l'évaluateur (Section X) est obligatoire." }, { status: 400 })
+  }
+  if ('decision_caf' in fields && !aUneDecision(fields.decision_caf)) {
+    return NextResponse.json({ error: 'La décision du CAF (Section X) est obligatoire.' }, { status: 400 })
+  }
+  if ('decision_de' in fields && !aUneDecision(fields.decision_de)) {
+    return NextResponse.json({ error: 'La décision de la Direction Exécutive (Section X) est obligatoire.' }, { status: 400 })
+  }
+
   if ('decision_caf' in fields && !isAdminRole && !aUneDecision(ev.decision_evaluateur)) {
     return NextResponse.json({ error: "La décision de l'évaluateur doit être rendue avant celle de la CAF." }, { status: 400 })
   }
