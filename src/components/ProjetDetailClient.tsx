@@ -1,5 +1,5 @@
 'use client'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { List, LayoutDashboard, Calendar, GanttChartSquare, Table, MessageSquare, CalendarDays, X, Send, Trash2, AlertTriangle, HelpCircle, GitBranch } from 'lucide-react'
@@ -110,6 +110,27 @@ function CalendrierPicker({ debut, fin, onChange, onClose, triggerRect }: { debu
   const [month, setMonth] = useState(initDate.getMonth())
   const [champActif, setChampActif] = useState<'debut' | 'fin'>(debut && !fin ? 'fin' : 'debut')
   const ref = useRef<HTMLDivElement>(null)
+  const W = 260
+  // Position initiale sous le déclencheur — corrigée juste après (avant
+  // peinture) une fois la hauteur réelle connue, pour ne jamais déborder du
+  // bas de l'écran quand la ligne cliquée est loin dans une longue liste de
+  // tâches (sinon la modale se retrouve coupée/inatteignable sous le viewport).
+  const [pos, setPos] = useState(() => ({
+    top: triggerRect.bottom + 6,
+    left: Math.min(triggerRect.left, window.innerWidth - W - 8),
+  }))
+
+  useLayoutEffect(() => {
+    if (!ref.current) return
+    const h = ref.current.offsetHeight
+    const spaceBelow = window.innerHeight - triggerRect.bottom - 6
+    const spaceAbove = triggerRect.top - 6
+    const top = h > spaceBelow && spaceAbove > spaceBelow
+      ? Math.max(8, triggerRect.top - h - 6)
+      : Math.max(8, Math.min(triggerRect.bottom + 6, window.innerHeight - h - 8))
+    setPos({ top, left: Math.min(triggerRect.left, window.innerWidth - W - 8) })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     function handle(e: MouseEvent) {
@@ -142,14 +163,10 @@ function CalendrierPicker({ debut, fin, onChange, onClose, triggerRect }: { debu
   const cells: (number | null)[] = [...Array(startOffset).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)]
   while (cells.length % 7 !== 0) cells.push(null)
 
-  const W = 260
-  const left = Math.min(triggerRect.left, window.innerWidth - W - 8)
-  const top = triggerRect.bottom + 6
-
   const fmt = (d: string) => new Date(d + 'T12:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
 
   return createPortal(
-    <div ref={ref} style={{ position: 'fixed', zIndex: 9999, background: 'white', border: '1px solid #e5e7eb', borderRadius: 12, boxShadow: '0 8px 24px rgba(0,0,0,.14)', padding: 14, width: W, top, left }}
+    <div ref={ref} style={{ position: 'fixed', zIndex: 9999, background: 'white', border: '1px solid #e5e7eb', borderRadius: 12, boxShadow: '0 8px 24px rgba(0,0,0,.14)', padding: 14, width: W, top: pos.top, left: pos.left, maxHeight: 'calc(100vh - 16px)', overflowY: 'auto' }}
       onClick={e => e.stopPropagation()}>
       <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
         {(['debut', 'fin'] as const).map(champ => (
