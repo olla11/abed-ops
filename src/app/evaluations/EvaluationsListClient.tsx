@@ -1,7 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { useState } from 'react'
-import { ClipboardList, AlertCircle, CheckCircle2, ChevronRight, Star } from 'lucide-react'
+import { ClipboardList, AlertCircle, ChevronRight, Star, User, Users } from 'lucide-react'
 import Pagination, { paginate } from '@/components/Pagination'
 
 const PAGE_SIZE = 10
@@ -127,12 +127,86 @@ function EvalCard({ e, myId, myRole, urgent }: { e: Evaluation; myId: string; my
   )
 }
 
-export default function EvaluationsListClient({ evaluations, myId, myRole }: { evaluations: Evaluation[]; myId: string; myRole: string }) {
-  const [page, setPage] = useState(1)
+function EmptyState({ text }: { text: string }) {
+  return (
+    <div style={{
+      textAlign: 'center', padding: '40px 24px', color: 'var(--abed-muted)',
+      background: 'white', border: '1px dashed var(--abed-border)', borderRadius: 12,
+    }}>
+      <ClipboardList size={26} color="#d1d5db" style={{ marginBottom: 8 }} />
+      <div style={{ fontSize: 13.5 }}>{text}</div>
+    </div>
+  )
+}
 
+// Une évaluation donnée, groupée par section : "Mon évaluation" (je suis la
+// personne évaluée) et "Évaluations auxquelles je participe" (je rends un
+// avis/une décision sur l'évaluation de quelqu'un d'autre — évaluateur,
+// responsable de département, ou décideur CAF/DE en Section X). Ces deux
+// rôles sont mutuellement exclusifs sur une même évaluation (on ne s'évalue
+// jamais soi-même), donc chaque dossier n'apparaît que dans une seule des
+// deux sections.
+function EvalSection({
+  title, icon, evaluations, myId, myRole, emptyText,
+}: {
+  title: string
+  icon: React.ReactNode
+  evaluations: Evaluation[]
+  myId: string
+  myRole: string
+  emptyText: string
+}) {
+  const [page, setPage] = useState(1)
+  const aTraiter = evaluations.filter(e => actionRequise(e, monRole(e, myId, myRole)))
+  const paged = paginate(evaluations, page, PAGE_SIZE)
+
+  return (
+    <div style={{ marginBottom: 36 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+        {icon}
+        <h3 style={{ margin: 0, fontSize: 16, color: '#111827' }}>{title}</h3>
+        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--abed-muted)', background: '#f3f4f6', borderRadius: 20, padding: '2px 9px' }}>
+          {evaluations.length}
+        </span>
+        {aTraiter.length > 0 && (
+          <span style={{ fontSize: 11, fontWeight: 700, color: '#92400e', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 20, padding: '2px 9px' }}>
+            {aTraiter.length} à traiter
+          </span>
+        )}
+      </div>
+
+      {evaluations.length === 0 ? (
+        <div style={{ marginTop: 12 }}>
+          <EmptyState text={emptyText} />
+        </div>
+      ) : (
+        <>
+          {aTraiter.length > 0 && (
+            <div style={{ marginTop: 14, marginBottom: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                <AlertCircle size={15} color="#d97706" />
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#92400e' }}>À traiter</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {aTraiter.map(e => <EvalCard key={e.id} e={e} myId={myId} myRole={myRole} urgent />)}
+              </div>
+            </div>
+          )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: aTraiter.length > 0 ? 14 : 12 }}>
+            {paged.map(e => <EvalCard key={e.id} e={e} myId={myId} myRole={myRole} />)}
+          </div>
+          <Pagination page={page} total={evaluations.length} pageSize={PAGE_SIZE} onChange={setPage} />
+        </>
+      )}
+    </div>
+  )
+}
+
+export default function EvaluationsListClient({ evaluations, myId, myRole }: { evaluations: Evaluation[]; myId: string; myRole: string }) {
+  const mesEvaluations = evaluations.filter(e => e.profile_id === myId)
+  const participations = evaluations.filter(e => e.profile_id !== myId)
   const aTraiter = evaluations.filter(e => actionRequise(e, monRole(e, myId, myRole)))
   const enCours = evaluations.filter(e => e.statut !== 'cloture')
-  const paged = paginate(evaluations, page, PAGE_SIZE)
 
   return (
     <>
@@ -141,17 +215,11 @@ export default function EvaluationsListClient({ evaluations, myId, myRole }: { e
         <h2 style={{ margin: 0, color: 'var(--abed-green)' }}>Mes évaluations</h2>
       </div>
       <p style={{ fontSize: 13.5, color: 'var(--abed-muted)', margin: '0 0 24px' }}>
-        Vos évaluations de performance — en tant qu'évaluateur ou en tant que personne évaluée.
+        Votre propre évaluation de performance, séparée des évaluations d'autres personnes où votre avis ou votre décision est requis.
       </p>
 
       {evaluations.length === 0 ? (
-        <div style={{
-          textAlign: 'center', padding: '56px 24px', color: 'var(--abed-muted)',
-          background: 'white', border: '1px dashed var(--abed-border)', borderRadius: 12,
-        }}>
-          <ClipboardList size={30} color="#d1d5db" style={{ marginBottom: 10 }} />
-          <div>Aucune évaluation pour le moment.</div>
-        </div>
+        <EmptyState text="Aucune évaluation pour le moment." />
       ) : (
         <>
           {/* Résumé */}
@@ -174,28 +242,23 @@ export default function EvaluationsListClient({ evaluations, myId, myRole }: { e
             </div>
           </div>
 
-          {/* À traiter */}
-          {aTraiter.length > 0 && (
-            <div style={{ marginBottom: 28 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                <AlertCircle size={17} color="#d97706" />
-                <h3 style={{ margin: 0, fontSize: 15, color: '#92400e' }}>À traiter ({aTraiter.length})</h3>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {aTraiter.map(e => <EvalCard key={e.id} e={e} myId={myId} myRole={myRole} urgent />)}
-              </div>
-            </div>
-          )}
+          <EvalSection
+            title="Mon évaluation"
+            icon={<User size={18} color="#1e40af" />}
+            evaluations={mesEvaluations}
+            myId={myId}
+            myRole={myRole}
+            emptyText="Vous n'avez pas d'évaluation de performance en cours vous concernant."
+          />
 
-          {/* Toutes */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-            <CheckCircle2 size={16} color="var(--abed-muted)" />
-            <h3 style={{ margin: 0, fontSize: 15, color: '#374151' }}>Toutes mes évaluations</h3>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {paged.map(e => <EvalCard key={e.id} e={e} myId={myId} myRole={myRole} />)}
-          </div>
-          <Pagination page={page} total={evaluations.length} pageSize={PAGE_SIZE} onChange={setPage} />
+          <EvalSection
+            title="Évaluations auxquelles je participe"
+            icon={<Users size={18} color="#6d28d9" />}
+            evaluations={participations}
+            myId={myId}
+            myRole={myRole}
+            emptyText="Vous ne participez à l'évaluation de personne pour le moment."
+          />
         </>
       )}
     </>
