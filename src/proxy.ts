@@ -27,25 +27,28 @@ export async function proxy(req: NextRequest, event: NextFetchEvent) {
     }
   )
 
-  // getSession() lit le jeton localement (aucun aller-retour réseau vers
-  // Supabase à chaque requête, contrairement à getUser()) — plus rapide,
-  // au prix de détecter un compte désactivé/bloqué avec un léger délai
-  // (jusqu'à expiration du jeton) plutôt qu'instantanément. Choix assumé
-  // pour la réactivité de l'application.
+  // getUser() valide le jeton auprès du serveur Supabase Auth et, si le
+  // jeton d'accès est expiré mais le refresh token encore valide, le
+  // rafraîchit et persiste les nouveaux cookies via setAll() ci-dessus.
+  // getSession() (utilisé auparavant) lit le jeton localement sans jamais
+  // le rafraîchir depuis le middleware : dès qu'un jeton d'accès expirait,
+  // toute requête tombant dans cette fenêtre (PATCH compris — ex. Section
+  // VIII des évaluations qui échouait silencieusement en "Erreur réseau")
+  // était redirigée vers /login en 307, même avec une session par ailleurs
+  // valide côté client.
   //
   // Si le jeton de rafraîchissement stocké est invalide/périmé (session
-  // révoquée, cookie corrompu...), getSession() lève une AuthApiError —
+  // révoquée, cookie corrompu...), getUser() lève une AuthApiError —
   // sans ce filet, ça plantait cette fonction pour TOUTE requête de
   // l'utilisateur concerné (y compris /login), le bloquant derrière une
   // page d'erreur générique sans jamais pouvoir se reconnecter.
-  let session = null
+  let user = null
   try {
-    const result = await supabase.auth.getSession()
-    session = result.data.session
+    const result = await supabase.auth.getUser()
+    user = result.data.user
   } catch {
-    session = null
+    user = null
   }
-  const user = session?.user ?? null
   const path = req.nextUrl.pathname
   const isPublic =
     path.startsWith('/login') ||
