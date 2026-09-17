@@ -410,12 +410,12 @@ export default function ProjetsSidebar() {
             onKeyDown={e => { if (e.key === 'Enter') commitRenameProjet(p.id); if (e.key === 'Escape') setRenamingProjet(null) }}
             onBlur={() => commitRenameProjet(p.id)}
             onClick={e => e.stopPropagation()}
-            style={{ flex: 1, fontSize: 13, fontWeight: 600, border: '1px solid #16a34a', borderRadius: 4, padding: '1px 5px', outline: 'none', minWidth: 0 }}
+            style={{ flex: 1, fontSize: 12.5, fontWeight: 600, border: '1px solid #16a34a', borderRadius: 4, padding: '1px 5px', outline: 'none', minWidth: 0 }}
           />
         ) : (
           <span
             onDoubleClick={e => { e.stopPropagation(); startRenameProjet(p) }}
-            style={{ flex: 1, fontSize: 13, fontWeight: isActive ? 700 : 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+            style={{ flex: 1, fontSize: 12.5, fontWeight: isActive ? 600 : 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
             title="Double-clic pour renommer"
           >{p.nom}</span>
         )}
@@ -424,7 +424,7 @@ export default function ProjetsSidebar() {
             <span style={{ width: 20, height: 20, borderRadius: '50%', flexShrink: 0, position: 'relative', background: `conic-gradient(${isActive ? '#16a34a' : '#9ca3af'} ${pct * 3.6}deg, #e5e7eb 0deg)` }}>
               <span style={{ position: 'absolute', inset: 3, borderRadius: '50%', background: isActive ? '#f0fdf4' : '#fafafa' }} />
             </span>
-            <span style={{ fontSize: 10.5, color: '#9ca3af', fontWeight: 600 }}>{done}/{total}</span>
+            <span style={{ fontSize: 10, color: '#9ca3af', fontWeight: 600 }}>{done}/{total}</span>
           </span>
         )}
         {!isRenaming && (
@@ -453,7 +453,7 @@ export default function ProjetsSidebar() {
     }
     return (
       <div onClick={() => { setShowNewProjet(key); setNewProjetNom('') }}
-        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px 5px 34px', margin: '1px 6px 1px 2px', borderRadius: 7, cursor: 'pointer', color: '#9ca3af', fontSize: 12, fontWeight: 500 }}
+        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px 5px 34px', margin: '1px 6px 1px 2px', borderRadius: 7, cursor: 'pointer', color: '#9ca3af', fontSize: 11.5, fontWeight: 500 }}
         onMouseEnter={e => { e.currentTarget.style.color = '#16a34a'; e.currentTarget.style.background = '#f0fdf4' }}
         onMouseLeave={e => { e.currentTarget.style.color = '#9ca3af'; e.currentTarget.style.background = 'transparent' }}>
         <Plus size={12} strokeWidth={2} color="currentColor" /> Ajouter un projet
@@ -536,7 +536,7 @@ export default function ProjetsSidebar() {
       {/* Header — reste fixe pendant que la liste ci-dessous défile */}
       <div style={{ padding: '16px 12px 10px', borderBottom: '1px solid #e5e7eb', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11.5, fontWeight: 800, color: '#4b5563', textTransform: 'uppercase', letterSpacing: '.06em' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11, fontWeight: 800, color: '#4b5563', textTransform: 'uppercase', letterSpacing: '.06em' }}>
             <LayoutGrid size={13} color="#9ca3af" strokeWidth={2} /> Espaces
           </span>
           <button onClick={() => setShowNewEspace(v => !v)}
@@ -651,7 +651,7 @@ export default function ProjetsSidebar() {
                 )}
                 {renamingEspace !== esp.id && (
                   <span onClick={() => setCollapsed(c => ({ ...c, [esp.id]: !c[esp.id] }))}
-                    style={{ fontSize: 10.5, fontWeight: 700, color: '#9ca3af', background: '#eef0f2', borderRadius: 999, padding: '2px 7px', flexShrink: 0 }}>{espProjets.length}</span>
+                    style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', background: '#eef0f2', borderRadius: 999, padding: '2px 7px', flexShrink: 0 }}>{espProjets.length}</span>
                 )}
                 {/* Toutes les actions (renommer, membres, supprimer) rangées
                     dans un menu ⋮ — pour ne pas surcharger la ligne et
@@ -737,7 +737,7 @@ export default function ProjetsSidebar() {
                   <Folder size={13} color="#6b7280" strokeWidth={2} />
                 </span>
                 <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: '#111827', letterSpacing: '-.01em' }}>Autres projets</span>
-                <span style={{ fontSize: 10.5, fontWeight: 700, color: '#9ca3af', background: '#eef0f2', borderRadius: 999, padding: '2px 7px', flexShrink: 0 }}>{noProjets.length}</span>
+                <span style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', background: '#eef0f2', borderRadius: 999, padding: '2px 7px', flexShrink: 0 }}>{noProjets.length}</span>
               </div>
               {!isCollapsed && (
                 <>
