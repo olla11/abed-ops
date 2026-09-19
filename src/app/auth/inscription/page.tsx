@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { Eye, EyeOff, CheckCircle, XCircle, Mail } from 'lucide-react'
+import { compressImageFile } from '@/lib/image-compress'
 
 const inp = (hasError: boolean): React.CSSProperties => ({
   width: '100%', padding: '10px 12px', borderRadius: 8,
@@ -69,10 +70,14 @@ export default function InscriptionPage() {
 
   const MAX_FILE_SIZE = 10 * 1024 * 1024
 
-  function pickFile(e: React.ChangeEvent<HTMLInputElement>, setter: (f: File | null) => void) {
+  async function pickFile(e: React.ChangeEvent<HTMLInputElement>, setter: (f: File | null) => void) {
     const f = e.target.files?.[0] ?? null
     if (f && f.size > MAX_FILE_SIZE) { setErr('Fichier trop volumineux (max. 10 MB).'); e.target.value = ''; setter(null); return }
-    setter(f)
+    if (!f) { setter(null); return }
+    // Compression côté client avant envoi — une photo prise au téléphone
+    // (souvent plusieurs Mo) échoue facilement sur une connexion mobile
+    // lente ou dépasse la limite de taille de requête côté serveur.
+    setter(await compressImageFile(f))
   }
 
   function set(k: keyof typeof form, v: string) {
@@ -113,11 +118,19 @@ export default function InscriptionPage() {
     Object.entries({ ...form, telephone: fullPhone }).forEach(([k, v]) => body.append(k, v))
     body.append('photo', photo)
     body.append('piece_identite', pieceIdentite)
-    const res = await fetch('/api/auth/register', { method: 'POST', body })
-    const data = await res.json()
-    setLoading(false)
-    if (data.ok) { setDone(true) }
-    else { setErr(data.error ?? 'Erreur inconnue') }
+    try {
+      const res = await fetch('/api/auth/register', { method: 'POST', body })
+      const data = await res.json()
+      if (data.ok) { setDone(true) }
+      else { setErr(data.error ?? 'Erreur inconnue') }
+    } catch {
+      // Connexion coupée pendant l'envoi (fréquent sur mobile avec deux
+      // fichiers à téléverser) — sans ce filet, le formulaire restait
+      // bloqué sur "Envoi..." sans jamais informer l'utilisateur.
+      setErr('Erreur réseau — vérifiez votre connexion et réessayez.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   if (done) return (

@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
+import { compressImageFile } from '@/lib/image-compress'
 
 const CHEMINS_EXCLUS = ['/conditions-utilisation', '/politique-confidentialite', '/login', '/auth/']
 
@@ -79,10 +80,14 @@ export default function ProfileCompletionGate() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exclu, pathname])
 
-  function pickFile(e: React.ChangeEvent<HTMLInputElement>, setter: (f: File | null) => void) {
+  async function pickFile(e: React.ChangeEvent<HTMLInputElement>, setter: (f: File | null) => void) {
     const f = e.target.files?.[0] ?? null
     if (f && f.size > 10 * 1024 * 1024) { setErr('Fichier trop volumineux (max. 10 MB).'); e.target.value = ''; setter(null); return }
-    setter(f)
+    if (!f) { setter(null); return }
+    // Compression côté client avant envoi — une photo prise au téléphone
+    // (souvent plusieurs Mo) échoue facilement sur une connexion mobile
+    // lente ou dépasse la limite de taille de requête côté serveur.
+    setter(await compressImageFile(f))
   }
 
   async function seDeconnecter() {
