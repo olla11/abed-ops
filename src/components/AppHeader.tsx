@@ -77,8 +77,15 @@ export default function AppHeader({ userName, userRole, userTitre, typeEmploi, s
   // Appellations volontairement différentes de "Mon espace" (verbe d'action en
   // tête) : ce menu sert à traiter les dossiers d'autrui, pas à consulter les
   // siens — la distinction doit se voir dans le libellé, pas seulement dans le lien.
+  // /bd n'a pas son propre onglet en tête pour ces rôles (BDNav.tsx l'insère
+  // en sous-menu de "Vue d'ensemble" pour les superviseurs qui n'ont pas le
+  // titre BD) — l'onglet doit donc rester allumé quand on y est, sinon on
+  // perd le repère de "dans quel menu suis-je". Exclu seulement si la
+  // personne a par ailleurs son propre onglet "BD" dédié (effectiveShowBD),
+  // pour ne pas allumer les deux à la fois dans ce cas.
+  const matchVueEnsemble = effectiveShowBD ? ['/overview'] : ['/overview', '/bd']
   const aafTabs = [
-    { href: '/overview', label: "Vue d'ensemble", match: ['/overview'] },
+    { href: '/overview', label: "Vue d'ensemble", match: matchVueEnsemble },
     { href: '/aaf/demandes-paiement', label: 'Traiter les demandes de paiement', match: ['/aaf/demandes-paiement'] },
     { href: '/aaf/rapports-allocations', label: "Traiter les rapports d'allocation", match: ['/aaf/rapports-allocations'] },
     { href: '/aaf/reconciliations', label: 'Valider les réconciliations OM', match: ['/aaf/reconciliations'] },
@@ -99,7 +106,7 @@ export default function AppHeader({ userName, userRole, userTitre, typeEmploi, s
     { href: '/projets', label: t('projects'), match: ['/projets'] },
     { href: '/tdr', label: t('tdr'), match: ['/tdr'] },
     { href: '/ressources', label: t('resources'), match: ['/ressources'] },
-    ...(showOverview ? [{ href: '/overview', label: t('overview'), match: ['/overview'] }] : []),
+    ...(showOverview ? [{ href: '/overview', label: t('overview'), match: matchVueEnsemble }] : []),
     // RH : masqué ici quand le menu CAF est actif, il y figure déjà en sous-entrée.
     ...(effectiveShowRH && !effectiveShowCAF ? [{ href: '/rh', label: t('rh'), match: ['/rh'] }] : []),
     ...(showAdmin ? [{ href: '/admin', label: t('admin'), match: ['/admin'] }] : []),
