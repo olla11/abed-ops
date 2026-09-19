@@ -65,6 +65,7 @@ export default function SectionSideNav({ items, title }: { items: SideNavItem[];
         .sidenav-title, .sidenav-heading { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; color: #9ca3af; padding: 4px 10px 10px; white-space: nowrap; }
         .sidenav-heading { margin-top: 6px; }
         .sidenav-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; text-decoration: none; font-size: 13.5px; font-weight: 500; color: #374151; white-space: nowrap; overflow: hidden; border: none; background: none; cursor: pointer; width: 100%; text-align: left; font-family: inherit; }
+        .sidenav-item-indented { padding-left: 26px; }
         .sidenav-item.active { background: var(--abed-green); color: white; font-weight: 700; }
         .sidenav-item:not(.active):hover { background: #eef1ea; }
         .sidenav-label { overflow: hidden; text-overflow: ellipsis; flex: 1; }
@@ -80,34 +81,45 @@ export default function SectionSideNav({ items, title }: { items: SideNavItem[];
           .sidenav-toggle, .sidenav-title, .sidenav-heading { display: none; }
           .sidenav-collapsed .sidenav-label { display: inline; }
           .sidenav-item { flex: 0 0 auto; width: auto; }
+          .sidenav-item-indented { padding-left: 10px; }
         }
       `}</style>
       <button className="sidenav-toggle" onClick={toggle} title={collapsed ? 'Déplier le menu' : 'Replier le menu'}>
         {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
       </button>
       {title && <div className="sidenav-title">{title}</div>}
-      {items.map((item, i) => {
-        if (item.kind === 'heading') {
-          return <div key={`h-${i}`} className="sidenav-heading">{item.label}</div>
-        }
-        if (item.kind === 'button') {
+      {(() => {
+        // Un item placé après une étiquette de regroupement ("heading") est
+        // légèrement indenté pour que son rattachement au groupe se voie
+        // d'un coup d'œil, pas seulement via le petit libellé au-dessus —
+        // sinon "BD" (ou "Doc & Sign"...) ressemble à un item de plus au
+        // même niveau plutôt qu'à un vrai sous-menu incrusté.
+        let sousGroupe = false
+        return items.map((item, i) => {
+          if (item.kind === 'heading') {
+            sousGroupe = true
+            return <div key={`h-${i}`} className="sidenav-heading">{item.label}</div>
+          }
+          const indentClass = sousGroupe && !collapsed ? ' sidenav-item-indented' : ''
+          if (item.kind === 'button') {
+            return (
+              <button key={item.key} onClick={item.onClick} className={`sidenav-item${item.active ? ' active' : ''}${indentClass}`} title={item.label}>
+                <item.Icon size={17} strokeWidth={1.75} style={{ flexShrink: 0 }} />
+                <span className="sidenav-label">{item.label}</span>
+                {!!item.badge && <span className="sidenav-badge">{item.badge}</span>}
+              </button>
+            )
+          }
+          const active = item.exact ? pathname === item.href : pathname.startsWith(item.href)
           return (
-            <button key={item.key} onClick={item.onClick} className={`sidenav-item${item.active ? ' active' : ''}`} title={item.label}>
+            <Link key={item.href} href={item.href} className={`sidenav-item${active ? ' active' : ''}${indentClass}`} title={item.label}>
               <item.Icon size={17} strokeWidth={1.75} style={{ flexShrink: 0 }} />
               <span className="sidenav-label">{item.label}</span>
               {!!item.badge && <span className="sidenav-badge">{item.badge}</span>}
-            </button>
+            </Link>
           )
-        }
-        const active = item.exact ? pathname === item.href : pathname.startsWith(item.href)
-        return (
-          <Link key={item.href} href={item.href} className={`sidenav-item${active ? ' active' : ''}`} title={item.label}>
-            <item.Icon size={17} strokeWidth={1.75} style={{ flexShrink: 0 }} />
-            <span className="sidenav-label">{item.label}</span>
-            {!!item.badge && <span className="sidenav-badge">{item.badge}</span>}
-          </Link>
-        )
-      })}
+        })
+      })()}
     </nav>
   )
 }
