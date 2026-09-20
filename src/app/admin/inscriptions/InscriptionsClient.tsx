@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { UserCheck, ChevronUp, CheckCircle2 } from 'lucide-react'
 import { TITRES, TITRE_LABELS, TITRE_TO_ACCESS, type Titre } from '@/lib/roles'
@@ -58,6 +58,12 @@ function InscriptionRow({ p, managers, adminRole }: { p: Pending; managers: Mana
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState('')
   const [done, setDone] = useState(false)
+  // Garde-fou synchrone contre le double-clic : `loading` (état React) ne
+  // désactive le bouton qu'après le prochain rendu, donc un deuxième clic
+  // arrivé dans le même tick JS pouvait encore passer et se faire rejeter
+  // côté serveur ("compte déjà activé") juste après que le premier ait
+  // réussi — donnant l'impression trompeuse que l'activation avait échoué.
+  const enCours = useRef(false)
 
   // Le titre (poste précis — ex. "Responsable Hub") est optionnel ici, mais
   // dès qu'il est choisi, le rôle d'accès correspondant est présélectionné
@@ -70,16 +76,24 @@ function InscriptionRow({ p, managers, adminRole }: { p: Pending; managers: Mana
 
   async function activate() {
     if (!role || !typeEmploi) { setErr('Rôle et type d\'emploi requis'); return }
+    if (enCours.current) return
+    enCours.current = true
     setLoading(true); setErr('')
-    const res = await fetch(`/api/admin/inscriptions/${p.id}/activate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ role, titre: titre || null, type_emploi: typeEmploi, manager_id: managerId || null }),
-    })
-    const data = await res.json()
-    setLoading(false)
-    if (data.ok) { setDone(true); router.refresh() }
-    else setErr(data.error ?? 'Erreur inconnue')
+    try {
+      const res = await fetch(`/api/admin/inscriptions/${p.id}/activate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role, titre: titre || null, type_emploi: typeEmploi, manager_id: managerId || null }),
+      })
+      const data = await res.json()
+      if (data.ok) { setDone(true); router.refresh() }
+      else setErr(data.error ?? 'Erreur inconnue')
+    } catch {
+      setErr('Erreur réseau — réessayez.')
+    } finally {
+      setLoading(false)
+      enCours.current = false
+    }
   }
 
   if (done) return null
