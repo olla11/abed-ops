@@ -33,6 +33,7 @@ export const TITRES = [
   'responsable_communication',
   'assistant_communication',
   'business_developer',
+  'responsable_hub',
   'caf',
   'aaf',
   'assistant_admin',
@@ -61,6 +62,7 @@ export const TITRE_LABELS: Record<Titre, string> = {
   responsable_communication: 'Responsable communication',
   assistant_communication: 'Assistant communication',
   business_developer: 'Business Developer',
+  responsable_hub: 'Responsable Hub',
   caf: 'Chargé Administration & Finances (CAF)',
   aaf: 'Assistant administratif et financier (AAF)',
   assistant_admin: 'Assistant administration',
@@ -100,6 +102,12 @@ export const TITRE_TO_ACCESS: Record<Titre, AccessRole> = {
   responsable_communication: 'manager',
   assistant_communication: 'missionnaire',
   business_developer: 'manager',
+  // Responsable Hub : titre distinct (pour identifier qui a la charge du
+  // Hub — Espaces/Projets), mais sans droits système dédiés pour l'instant
+  // — mêmes capacités qu'un manager, comme business_developer et
+  // responsable_communication ci-dessus. À faire évoluer vers un accès
+  // propre le jour où le Hub aura des actions réservées à ce titre.
+  responsable_hub: 'manager',
   aaf: 'aaf',
   assistant_admin: 'missionnaire',
   conducteur: 'missionnaire',
