@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { UserCheck, ChevronUp, CheckCircle2 } from 'lucide-react'
+import { TITRES, TITRE_LABELS, TITRE_TO_ACCESS, type Titre } from '@/lib/roles'
 
 type Pending = {
   id: string; civilite: string | null; nom: string; prenoms: string; email: string
@@ -51,11 +52,21 @@ function InscriptionRow({ p, managers, adminRole }: { p: Pending; managers: Mana
   // le proposer dans la liste.
   const roles = ['admin', 'superadmin'].includes(adminRole) ? ROLES : ROLES.filter(r => r.value !== 'admin')
   const [role, setRole] = useState('missionnaire')
+  const [titre, setTitre] = useState('')
   const [typeEmploi, setTypeEmploi] = useState('cdd')
   const [managerId, setManagerId] = useState('')
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState('')
   const [done, setDone] = useState(false)
+
+  // Le titre (poste précis — ex. "Responsable Hub") est optionnel ici, mais
+  // dès qu'il est choisi, le rôle d'accès correspondant est présélectionné
+  // automatiquement (voir TITRE_TO_ACCESS) — l'admin garde la main pour le
+  // changer ensuite si besoin, ce n'est qu'un raccourci.
+  function choisirTitre(t: string) {
+    setTitre(t)
+    if (t) setRole(TITRE_TO_ACCESS[t as Titre])
+  }
 
   async function activate() {
     if (!role || !typeEmploi) { setErr('Rôle et type d\'emploi requis'); return }
@@ -63,7 +74,7 @@ function InscriptionRow({ p, managers, adminRole }: { p: Pending; managers: Mana
     const res = await fetch(`/api/admin/inscriptions/${p.id}/activate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ role, type_emploi: typeEmploi, manager_id: managerId || null }),
+      body: JSON.stringify({ role, titre: titre || null, type_emploi: typeEmploi, manager_id: managerId || null }),
     })
     const data = await res.json()
     setLoading(false)
@@ -106,13 +117,22 @@ function InscriptionRow({ p, managers, adminRole }: { p: Pending; managers: Mana
           </div>
 
           {/* Activation form */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12 }}>
             <div>
               <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4, color: '#374151' }}>
                 Rôle <span style={{ color: '#ef4444' }}>*</span>
               </label>
               <select style={sel} value={role} onChange={e => setRole(e.target.value)}>
                 {roles.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4, color: '#374151' }}>
+                Titre / Poste
+              </label>
+              <select style={sel} value={titre} onChange={e => choisirTitre(e.target.value)}>
+                <option value="">— Aucun —</option>
+                {TITRES.map(t => <option key={t} value={t}>{TITRE_LABELS[t]}</option>)}
               </select>
             </div>
             <div>

@@ -6,9 +6,14 @@ import { revalidateTag } from 'next/cache'
 import { z } from 'zod'
 import { validate } from '@/lib/validate'
 import { genererMatricule } from '@/lib/rh-derive'
+import { TITRES } from '@/lib/roles'
 
 const ActivateSchema = z.object({
   role:       z.string().min(1, 'Rôle requis').max(50),
+  // Optionnel : poste précis (ex. "Responsable Hub"), en plus du rôle
+  // d'accès grossier — évite un aller-retour par Administration > Titres
+  // juste après l'activation quand le poste est déjà connu.
+  titre:      z.enum(TITRES).nullable().optional(),
   type_emploi: z.string().min(1, 'Type d\'emploi requis').max(50),
   manager_id: z.string().uuid('ID responsable invalide').nullable().optional(),
 })
@@ -30,7 +35,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const rawBody = await req.json().catch(() => null)
   const v = validate(ActivateSchema, rawBody)
   if ('error' in v) return v.error
-  const { role, type_emploi, manager_id } = v.data
+  const { role, titre, type_emploi, manager_id } = v.data
 
   // Seul admin/superadmin peut activer un compte directement au niveau
   // admin/superadmin — CAF ne peut attribuer que des rôles opérationnels.
@@ -66,6 +71,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     .from('profiles')
     .update({
       role,
+      titre:               titre || null,
       type_emploi,
       manager_id:          manager_id || null,
       matricule,
