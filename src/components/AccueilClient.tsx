@@ -32,9 +32,12 @@ function buildShortcuts(t: (k: string) => string): Record<string, Shortcut[]> {
       { href: '/timesheets', Icon: Clock,    label: t('timesheets'), desc: t('myTimesheets_desc') },
       { href: '/missions',   Icon: Plane,    label: t('missions'),   desc: t('missions_desc') },
     ],
+    // Mêmes deux raccourcis mal branchés que l'AAF, repérés en corrigeant
+    // les siens : /demandes et /timesheets sont les pages "Mon espace"
+    // personnelles de la CAF, pas ses pages de traitement (voir CAFNav.tsx).
     caf: [
-      { href: '/demandes', Icon: CreditCard, label: t('payments'),    desc: t('cafValidation_desc') },
-      { href: '/timesheets',        Icon: Clock,      label: t('timesheets'),  desc: t('livrables_desc') },
+      { href: '/caf/demandes-paiement', Icon: CreditCard, label: t('payments'),    desc: t('cafValidation_desc') },
+      { href: '/caf/timesheets',    Icon: Clock,      label: t('timesheets'),  desc: t('livrables_desc') },
       { href: '/parametres',        Icon: Settings,   label: t('settings'),    desc: t('config_desc') },
       { href: '/overview',          Icon: BarChart2,  label: t('overview'),    desc: t('shortcuts_desc') },
     ],
