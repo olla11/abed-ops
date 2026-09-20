@@ -1,6 +1,6 @@
 'use client'
 import { useRouter } from 'next/navigation'
-import { BarChart2, Plane, CreditCard, Palmtree, Users, Settings, Clock, Bell, FileText, type LucideIcon } from 'lucide-react'
+import { BarChart2, Plane, CreditCard, Palmtree, Users, Settings, Clock, Bell, FileText, ClipboardList, Scale, type LucideIcon } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 type Props = {
@@ -44,10 +44,15 @@ function buildShortcuts(t: (k: string) => string): Record<string, Shortcut[]> {
       { href: '/demandes', Icon: CreditCard, label: t('payments'),  desc: t('finalApproval_desc') },
       { href: '/conges',            Icon: Palmtree,   label: t('leaves'),    desc: t('finalApprovalLeaves_desc') },
     ],
+    // Les 3 raccourcis d'origine pointaient tous vers des pages génériques
+    // "Mon espace" (/demandes, /missions) sans rapport avec le travail réel
+    // de l'AAF — reconnectés vers les vraies pages de traitement du menu
+    // AAF (voir AAFNav.tsx), la seule source fiable de ces routes.
     aaf: [
-      { href: '/demandes', Icon: CreditCard, label: t('payments'),  desc: t('aafValidation_desc') },
-      { href: '/overview',          Icon: BarChart2,  label: t('overview'),  desc: t('shortcuts_desc') },
-      { href: '/missions',          Icon: Plane,      label: t('missions'),  desc: t('missions_desc') },
+      { href: '/aaf/demandes-paiement',   Icon: CreditCard,   label: t('payments'),            desc: t('aafValidation_desc') },
+      { href: '/aaf/rapports-allocations', Icon: ClipboardList, label: t('aafAllocations'),     desc: t('aafAllocations_desc') },
+      { href: '/aaf/reconciliations',     Icon: Scale,        label: t('aafReconciliations'),  desc: t('aafReconciliations_desc') },
+      { href: '/overview',                Icon: BarChart2,    label: t('overview'),            desc: t('shortcuts_desc') },
     ],
     administrateur: [
       { href: '/overview',          Icon: BarChart2,  label: t('overview'),  desc: t('shortcuts_desc') },
