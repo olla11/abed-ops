@@ -269,7 +269,15 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole, civiliteC
   const [editingDecisions, setEditingDecisions] = useState<Set<string>>(new Set())
 
   function buildPayload(soumettre = false) {
-    const base: Record<string, unknown> = { soumettre }
+    // Signal explicite distinct de "soumettre" : au stade Section X, le même
+    // bouton et la même route servent à la fois à enregistrer sa propre
+    // décision ET à clôturer le dossier — le serveur ne peut pas deviner
+    // lequel des deux depuis le seul statut+rôle quand la même personne est
+    // à la fois évaluateur/évalué·e et CAF (cumul fréquent), sans quoi
+    // "Enregistrer ma décision" se fait rejeter par la vérification "les 3
+    // décisions doivent être rendues avant de clôturer" qui ne s'applique
+    // qu'à une vraie tentative de clôture.
+    const base: Record<string, unknown> = { soumettre, cloturer: canCloturer }
     if (canEditSec1to6) {
       Object.assign(base, {
         poste, direction,

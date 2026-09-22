@@ -104,7 +104,11 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
   const myRole = me?.role ?? ''
 
   const body = await req.json()
-  const { soumettre, ...fields } = body
+  // cloturer : signal explicite distinct de soumettre, envoyé par le client
+  // — sans lui, le statut+rôle seuls ne suffisent pas à distinguer "je rends
+  // ma propre décision" de "je clôture le dossier" quand la même personne
+  // cumule évaluateur/évalué·e et CAF (cumul fréquent), voir EvaluationForm.tsx.
+  const { soumettre, cloturer, ...fields } = body
 
   // Section X : la CAF ne peut rendre sa décision qu'une fois celle de
   // l'évaluateur enregistrée, la DE qu'une fois celle de la CAF enregistrée
@@ -260,10 +264,15 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
           message: `Le responsable a émis son avis sur l'évaluation de ${nomEmploye}. Votre décision (renouvellement, durée...) est requise en Section X.`,
         })
       }
-    } else if (ev.statut === 'responsable_complete' && estRH(myRole)) {
+    } else if (ev.statut === 'responsable_complete' && estRH(myRole) && cloturer) {
       // estRH() inclut la CAF, qui hérite des pouvoirs RH/AAF partout
       // ailleurs dans l'application — cohérent de l'autoriser aussi ici,
       // même règle que côté client (canCloturer dans EvaluationForm.tsx).
+      // `cloturer` (envoyé explicitement par le client) est requis en plus
+      // du statut+rôle : sans lui, une CAF qui est aussi l'évaluateur (ou
+      // le/la responsable) se faisait rejeter en tentant juste d'enregistrer
+      // SA PROPRE décision, ce filtre matchant à tort une tentative de
+      // clôture dès que estRH(myRole) est vrai.
       if (!troisDecisionsPresentes) {
         return NextResponse.json({ error: "Les trois décisions (évaluateur, CAF, Direction Exécutive) doivent être renseignées avant de clôturer." }, { status: 400 })
       }
