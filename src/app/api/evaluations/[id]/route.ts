@@ -131,6 +131,21 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
       return NextResponse.json({ error: "L'évaluation générale (Section V) est obligatoire." }, { status: 400 })
     }
   }
+  // Section VII : mêmes 4 champs structurés que côté client
+  // (EvaluationForm.tsx) — revalidés ici pour ne pas dépendre uniquement du
+  // verrouillage de l'UI.
+  if ('appreciation_evaluation' in fields && !fields.appreciation_evaluation) {
+    return NextResponse.json({ error: "L'appréciation de l'évaluation (Section VII) est obligatoire." }, { status: 400 })
+  }
+  if ('note_abed' in fields && !fields.note_abed) {
+    return NextResponse.json({ error: 'La note ABED (Section VII) est obligatoire.' }, { status: 400 })
+  }
+  if ('perspective_continuation' in fields && !fields.perspective_continuation) {
+    return NextResponse.json({ error: 'La perspective de continuation (Section VII) est obligatoire.' }, { status: 400 })
+  }
+  if ('perspective_continuation' in fields && fields.perspective_continuation !== 'Non' && !String(fields.conditions_continuation ?? '').trim()) {
+    return NextResponse.json({ error: 'Les conditions de continuation (Section VII) sont obligatoires.' }, { status: 400 })
+  }
   if ('avis_responsable' in fields && !fields.avis_responsable) {
     return NextResponse.json({ error: "L'avis du responsable (Section VIII) est obligatoire." }, { status: 400 })
   }
@@ -429,6 +444,10 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
             sigEvaluateur: updated.signature_evaluateur ?? null,
             dateEvaluateur: updated.date_evaluateur ?? null,
             commentaireEvalue: updated.commentaire_evalue ?? null,
+            appreciationEvaluation: updated.appreciation_evaluation ?? null,
+            noteAbed: updated.note_abed ?? null,
+            perspectiveContinuation: updated.perspective_continuation ?? null,
+            conditionsContinuation: updated.conditions_continuation ?? null,
             sigEvalue: updated.signature_evalue ?? null,
             dateEvalue: updated.date_evalue ?? null,
             avisResponsable: updated.avis_responsable ?? null,

@@ -86,6 +86,10 @@ export interface EvaluationPdfData {
   sigEvaluateur: string | null
   dateEvaluateur: string | null
   commentaireEvalue: string | null
+  appreciationEvaluation: string | null
+  noteAbed: number | null
+  perspectiveContinuation: string | null
+  conditionsContinuation: string | null
   sigEvalue: string | null
   dateEvalue: string | null
   avisResponsable: string | null
@@ -207,7 +211,13 @@ export function construireEvaluationHtml(d: EvaluationPdfData): string {
 
   <div class="section">
     <h2>Section VII — Commentaires de l'évalué(e)</h2>
-    ${blocTexte('', d.commentaireEvalue)}
+    <div class="ev-champs-grid">
+      ${champ('Appréciation de l\'évaluation', d.appreciationEvaluation)}
+      ${champ('Note ABED', d.noteAbed ? `${d.noteAbed}/5 — ${SCORE_LABELS[d.noteAbed] ?? ''}` : null)}
+      ${champ('Perspective de continuation', d.perspectiveContinuation)}
+    </div>
+    ${d.conditionsContinuation ? blocTexte('Conditions / demandes particulières', d.conditionsContinuation) : ''}
+    ${blocTexte('Commentaires', d.commentaireEvalue)}
     ${blocSignature(d.sigEvalue, d.dateEvalue)}
   </div>
 

@@ -27,6 +27,10 @@ type Evaluation = {
   signature_evaluateur: string | null
   date_evaluateur: string | null
   commentaire_evalue: string | null
+  appreciation_evaluation: string | null
+  note_abed: number | null
+  perspective_continuation: string | null
+  conditions_continuation: string | null
   signature_evalue: string | null
   date_evalue: string | null
   avis_responsable: string | null
@@ -127,6 +131,16 @@ const EVALUATION_GENERALE_OPTIONS = [
 ]
 
 const DECISION_OPTIONS = ['Renouveler le contrat', 'Ne pas renouveler le contrat', 'Proposer une promotion']
+
+const APPRECIATION_OPTIONS = ["Tout à fait d'accord", "Plutôt d'accord", 'Partiellement d\'accord', "Pas d'accord"]
+const PERSPECTIVE_OPTIONS = ['Oui', 'Non', 'Sous conditions']
+const NOTE_ABED_LABELS: Record<number, string> = {
+  1: '1 – Très insatisfaisante',
+  2: '2 – Insatisfaisante',
+  3: '3 – Correcte',
+  4: '4 – Satisfaisante',
+  5: '5 – Très satisfaisante',
+}
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -249,6 +263,10 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole, civiliteC
 
   // Section VII
   const [commentEvalue, setCommentEvalue] = useState(ev.commentaire_evalue ?? '')
+  const [appreciationEval, setAppreciationEval] = useState(ev.appreciation_evaluation ?? '')
+  const [noteAbed, setNoteAbed] = useState<number>(ev.note_abed ?? 0)
+  const [perspectiveContinuation, setPerspectiveContinuation] = useState(ev.perspective_continuation ?? '')
+  const [conditionsContinuation, setConditionsContinuation] = useState(ev.conditions_continuation ?? '')
   const [sigEvalue, setSigEvalue] = useState(ev.signature_evalue ?? '')
   const [dateEvalue, setDateEvalue] = useState(ev.date_evalue ?? '')
 
@@ -296,6 +314,12 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole, civiliteC
     if (canEditSec7) {
       Object.assign(base, {
         commentaire_evalue: commentEvalue,
+        appreciation_evaluation: appreciationEval,
+        note_abed: noteAbed || null,
+        perspective_continuation: perspectiveContinuation,
+        // Non pertinent si l'évalué·e ne prévoit pas de continuer — champ
+        // simplement vidé plutôt que de le laisser traîner en base.
+        conditions_continuation: perspectiveContinuation === 'Non' ? '' : conditionsContinuation,
         signature_evalue: sigEvalue,
         date_evalue: dateEvalue || null,
       })
@@ -326,6 +350,12 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole, civiliteC
       for (const cat of GRILLE) for (const item of cat.items) if (!notes[item.key]) missingNotes++
       if (missingNotes > 0) parts.push(`${missingNotes} note${missingNotes > 1 ? 's' : ''} manquante${missingNotes > 1 ? 's' : ''} dans la grille de compétences (Section II)`)
       if (!evalGen) parts.push("l'évaluation générale (Section V)")
+    }
+    if (canEditSec7) {
+      if (!appreciationEval) parts.push("l'appréciation de l'évaluation (Section VII)")
+      if (!noteAbed) parts.push("la note ABED (Section VII)")
+      if (!perspectiveContinuation) parts.push('la perspective de continuation (Section VII)')
+      if (perspectiveContinuation !== 'Non' && perspectiveContinuation && !conditionsContinuation.trim()) parts.push('les conditions de continuation (Section VII)')
     }
     if (canEditSec8 && !avisResp) parts.push("l'avis du responsable (Section VIII)")
     if (canEditDecEval && !decEval.decision) parts.push("la décision de l'évaluateur (Section X)")
@@ -623,9 +653,119 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole, civiliteC
           </p>
         ) : (
           <>
+            <Field label="Votre appréciation de cette évaluation">
+              <div style={{
+                padding: showMissing && canEditSec7 && !appreciationEval ? '8px 10px' : undefined,
+                background: showMissing && canEditSec7 && !appreciationEval ? '#fef2f2' : undefined,
+                border: showMissing && canEditSec7 && !appreciationEval ? '1px solid #fca5a5' : undefined,
+                borderRadius: showMissing && canEditSec7 && !appreciationEval ? 6 : undefined,
+              }}>
+                {APPRECIATION_OPTIONS.map(opt => (
+                  <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, cursor: canEditSec7 ? 'pointer' : 'default', fontSize: 14 }}>
+                    <input
+                      type="radio"
+                      name="appreciation_eval"
+                      value={opt}
+                      checked={appreciationEval === opt}
+                      onChange={() => canEditSec7 && setAppreciationEval(opt)}
+                      disabled={!canEditSec7}
+                      style={{ accentColor: 'var(--abed-green)', width: 16, height: 16 }}
+                    />
+                    {opt}
+                  </label>
+                ))}
+                {showMissing && canEditSec7 && !appreciationEval && (
+                  <span style={{ fontSize: 11.5, color: '#dc2626', fontWeight: 700 }}>Obligatoire</span>
+                )}
+              </div>
+            </Field>
+
+            <Field label="Note sur 5 — Votre expérience de travail à ABED">
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+                padding: showMissing && canEditSec7 && !noteAbed ? '8px 10px' : undefined,
+                background: showMissing && canEditSec7 && !noteAbed ? '#fef2f2' : undefined,
+                border: showMissing && canEditSec7 && !noteAbed ? '1px solid #fca5a5' : undefined,
+                borderRadius: showMissing && canEditSec7 && !noteAbed ? 6 : undefined,
+              }}>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  {[1, 2, 3, 4, 5].map(n => (
+                    <button
+                      key={n}
+                      type="button"
+                      disabled={!canEditSec7}
+                      onClick={() => canEditSec7 && setNoteAbed(n)}
+                      title={NOTE_ABED_LABELS[n]}
+                      style={{
+                        width: 36, height: 36, borderRadius: 6, border: '1px solid',
+                        fontSize: 14, fontWeight: 700, cursor: canEditSec7 ? 'pointer' : 'default',
+                        borderColor: noteAbed === n ? 'var(--abed-green)' : '#d1d5db',
+                        background: noteAbed === n ? 'var(--abed-green)' : 'white',
+                        color: noteAbed === n ? 'white' : '#374151',
+                        transition: 'all .1s',
+                      }}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+                {noteAbed > 0 && <span style={{ fontSize: 12, color: '#6b7280' }}>{NOTE_ABED_LABELS[noteAbed]}</span>}
+                {showMissing && canEditSec7 && !noteAbed && (
+                  <span style={{ fontSize: 11.5, color: '#dc2626', fontWeight: 700 }}>Obligatoire</span>
+                )}
+              </div>
+            </Field>
+
             <Field label="Commentaires de l'évalué(e) sur son évaluation">
               <textarea value={commentEvalue} onChange={e => setCommentEvalue(e.target.value)} readOnly={!canEditSec7} style={canEditSec7 ? textareaStyle : { ...textareaStyle, background: '#f9fafb' }} placeholder="Vos commentaires sur cette évaluation..." />
             </Field>
+
+            <Field label="Perspective de continuer avec ABED">
+              <div style={{
+                display: 'flex', gap: 16, flexWrap: 'wrap',
+                padding: showMissing && canEditSec7 && !perspectiveContinuation ? '8px 10px' : undefined,
+                background: showMissing && canEditSec7 && !perspectiveContinuation ? '#fef2f2' : undefined,
+                border: showMissing && canEditSec7 && !perspectiveContinuation ? '1px solid #fca5a5' : undefined,
+                borderRadius: showMissing && canEditSec7 && !perspectiveContinuation ? 6 : undefined,
+              }}>
+                {PERSPECTIVE_OPTIONS.map(opt => (
+                  <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, cursor: canEditSec7 ? 'pointer' : 'default' }}>
+                    <input
+                      type="radio"
+                      name="perspective_continuation"
+                      value={opt}
+                      checked={perspectiveContinuation === opt}
+                      onChange={() => canEditSec7 && setPerspectiveContinuation(opt)}
+                      disabled={!canEditSec7}
+                      style={{ accentColor: 'var(--abed-green)' }}
+                    />
+                    {opt}
+                  </label>
+                ))}
+                {showMissing && canEditSec7 && !perspectiveContinuation && (
+                  <span style={{ fontSize: 11.5, color: '#dc2626', fontWeight: 700 }}>Obligatoire</span>
+                )}
+              </div>
+            </Field>
+
+            {(perspectiveContinuation === 'Oui' || perspectiveContinuation === 'Sous conditions') && (
+              <Field label="Conditions / demandes particulières en cas de continuation">
+                <textarea
+                  value={conditionsContinuation}
+                  onChange={e => setConditionsContinuation(e.target.value)}
+                  readOnly={!canEditSec7}
+                  style={{
+                    ...(canEditSec7 ? textareaStyle : { ...textareaStyle, background: '#f9fafb' }),
+                    ...(showMissing && canEditSec7 && !conditionsContinuation.trim() ? { border: '1px solid #fca5a5', background: '#fef2f2' } : {}),
+                  }}
+                  placeholder="Précisez vos conditions ou demandes..."
+                />
+                {showMissing && canEditSec7 && !conditionsContinuation.trim() && (
+                  <span style={{ fontSize: 11.5, color: '#dc2626', fontWeight: 700 }}>Obligatoire</span>
+                )}
+              </Field>
+            )}
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
               <Field label="Nom & signature de l'évalué(e)">
                 <input value={sigEvalue} onChange={e => setSigEvalue(e.target.value)} readOnly={!canEditSec7} style={canEditSec7 ? inputStyle : readonlyStyle} placeholder="Nom complet" />
