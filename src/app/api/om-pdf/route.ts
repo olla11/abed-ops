@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from "@/lib/supabase-server"
 import { createClient as createServiceClient } from '@supabase/supabase-js'
-import { PDFDocument, StandardFonts, rgb, degrees } from 'pdf-lib'
+import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
 import QRCode from 'qrcode'
 import fs from 'fs'
 import path from 'path'
@@ -27,64 +27,6 @@ function wrapText(text: string, maxChars: number, maxLines: number): string[] {
   }
   if (current && lines.length < maxLines) lines.push(current)
   return lines.length ? lines : ['']
-}
-
-// Cachet ovale officiel ABED — style de l'image de référence
-function drawCachet(
-  page: any,
-  cx: number, cy: number,
-  rx: number, ry: number, // demi-axes horizontal / vertical
-  topText: string,        // texte sur l'arc supérieur
-  centerLine1: string,    // ex: "Le Directeur"
-  centerLine2: string,    // ex: "Exécutif"
-  bottomText: string,     // ex: "*(ABED ONG)*"
-  font: any,
-  boldFont: any,
-) {
-  const red = rgb(0.75, 0.05, 0.05)
-
-  // Ellipse extérieure
-  page.drawEllipse({ x: cx, y: cy, xScale: rx, yScale: ry, borderColor: red, borderWidth: 2, color: rgb(1,1,1) })
-  // Ellipse intérieure (double trait)
-  page.drawEllipse({ x: cx, y: cy, xScale: rx - 6, yScale: ry - 6, borderColor: red, borderWidth: 0.8 })
-
-  // Texte sur l'arc supérieur — caractère par caractère le long de l'ellipse
-  const chars = topText.split('')
-  // Arc de ~220° centré en haut (de ~160° à ~380° en notation standard)
-  const arcSpan = Math.PI * 1.25
-  const arcStart = Math.PI / 2 + arcSpan / 2
-  const step = arcSpan / Math.max(chars.length - 1, 1)
-  const tRx = rx - 11, tRy = ry - 11
-
-  for (let i = 0; i < chars.length; i++) {
-    const angle = arcStart - i * step
-    const x = cx + tRx * Math.cos(angle)
-    const y = cy + tRy * Math.sin(angle)
-    // Rotation : tangente à l'ellipse en ce point, orientée vers l'extérieur
-    const rot = (angle - Math.PI / 2) * 180 / Math.PI
-    page.drawText(chars[i], { x: x - 3, y: y - 3.5, size: 5.5, font, color: red, rotate: degrees(rot) })
-  }
-
-  // Texte central (2 lignes) — gras
-  const totalH = 10 * 2
-  const startY = cy + totalH / 2 - 2
-  ;[centerLine1, centerLine2].forEach((line, i) => {
-    const w = boldFont.widthOfTextAtSize(line, 8)
-    page.drawText(line, { x: cx - w / 2, y: startY - i * 11, size: 8, font: boldFont, color: red })
-  })
-
-  // Texte du bas (arc inférieur, centré)
-  const bChars = bottomText.split('')
-  const bArcSpan = Math.PI * 0.7
-  const bArcStart = -Math.PI / 2 - bArcSpan / 2
-  const bStep = bArcSpan / Math.max(bChars.length - 1, 1)
-  for (let i = 0; i < bChars.length; i++) {
-    const angle = bArcStart + i * bStep
-    const x = cx + tRx * Math.cos(angle)
-    const y = cy + tRy * Math.sin(angle)
-    const rot = (angle + Math.PI / 2) * 180 / Math.PI
-    page.drawText(bChars[i], { x: x - 3, y: y - 3.5, size: 5.5, font, color: red, rotate: degrees(rot) })
-  }
 }
 
 // Signature illustrative (tracé SVG courbe simulant une signature manuscrite)
@@ -408,7 +350,10 @@ export async function GET(req: NextRequest) {
   page.drawText(sigName, { x: sigX, y: nameY, size: 10, font: boldItalic, color: black })
   page.drawLine({ start: { x: sigX, y: nameY - 2 }, end: { x: sigX + nameW, y: nameY - 2 }, thickness: 0.8, color: black })
 
-  // Cachet droite
+  // Cachet droite — si aucun cachet n'a été téléversé par le signataire,
+  // on laisse l'espace vide plutôt que de dessiner un cachet générique
+  // (auparavant toujours "Le Directeur Exécutif", trompeur pour une
+  // signature P.O. où c'est le CAF qui signe et n'a pas encore le sien).
   if (uploadedCachetBytes) {
     try {
       const cachetImg = await pdf.embedPng(uploadedCachetBytes)
@@ -419,18 +364,8 @@ export async function GET(req: NextRequest) {
         const cachetImg = await pdf.embedJpg(uploadedCachetBytes)
         const cachetH = 90, cachetW = cachetImg.width * (cachetH / cachetImg.height)
         page.drawImage(cachetImg, { x: cachetCX - cachetW / 2, y: cachetCY - cachetH / 2, width: cachetW, height: cachetH })
-      } catch { /* fallback dessiné */ }
+      } catch { /* rien à dessiner — image invalide */ }
     }
-  } else {
-    drawCachet(page, cachetCX, cachetCY, 78, 55,
-      'AGRICULTURE POUR LE BIEN ÊTRE ET LE DÉVELOPPEMENT DURABLE',
-      sg?.role === 'administrateur'
-        ? accordGenre(sg?.civilite, "L'Administrateur", "L'Administratrice")
-        : accordGenre(sg?.civilite, 'Le Directeur', 'La Directrice'),
-      sg?.role === 'administrateur' ? '' : accordGenre(sg?.civilite, 'Exécutif', 'Exécutive'),
-      '* (ABED ONG) *',
-      font, bold,
-    )
   }
 
   // ---- QR CODE — coin inférieur droit ----
