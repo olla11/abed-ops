@@ -250,7 +250,17 @@ export default function EvaluationsRHClient({ evaluations: initial, contratsActi
       )}
 
       <div className="table-wrap" style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+        <table style={{ width: '100%', minWidth: 1150, borderCollapse: 'collapse', fontSize: 14, tableLayout: 'fixed' }}>
+          <colgroup>
+            <col style={{ width: 150 }} />
+            <col style={{ width: 130 }} />
+            <col style={{ width: 120 }} />
+            <col style={{ width: 110 }} />
+            <col style={{ width: 110 }} />
+            <col style={{ width: 250 }} />
+            <col style={{ width: 80 }} />
+            <col style={{ width: 170 }} />
+          </colgroup>
           <thead>
             <tr style={{ background: '#f9fafb' }}>
               {['Employé', 'Poste', 'Type contrat', 'Fin contrat', 'Déclenché le', 'Statut', 'Score', 'Actions'].map(h => (
@@ -290,7 +300,7 @@ export default function EvaluationsRHClient({ evaluations: initial, contratsActi
                     </span>
                   ) : <span style={{ color: '#9ca3af' }}>—</span>}
                 </td>
-                <td style={{ padding: '10px 14px' }}>
+                <td style={{ padding: '10px 14px', overflow: 'visible', textOverflow: 'clip', whiteSpace: 'normal' }}>
                   <div style={{ display: 'flex', gap: 8 }}>
                     <Link href={`/evaluations/${e.id}?depuis=rh`} style={{
                       padding: '4px 12px', borderRadius: 6, fontSize: 13, fontWeight: 600,
