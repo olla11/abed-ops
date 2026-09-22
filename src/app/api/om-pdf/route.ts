@@ -317,8 +317,10 @@ export async function GET(req: NextRequest) {
     const fonctionSg = sg?.fonction ?? (isFemme ? 'Administratrice' : 'Administrateur')
     titreLabel = `${article} ${fonctionSg}`
   } else if (sg?.role === 'caf') {
-    // P.O. = Par Ordre du DE → accord selon la civilité du DE, pas du CAF
-    titreLabel = `${accordGenre(deCivilite, 'Le Directeur Exécutif', 'La Directrice Exécutive')} et P.O`
+    // "Pour ordre" du DE, mais signé par le CAF — le libellé nomme
+    // explicitement qui signe réellement, accordé selon la civilité du CAF
+    // signataire (pas celle du DE, contrairement à l'ancien "...et P.O").
+    titreLabel = `Pour ordre – ${accordGenre(sg?.civilite, 'Le Chargé Administratif et Financier', 'La Chargée Administrative et Financière')}`
   } else {
     titreLabel = accordGenre(sg?.civilite, 'Le Directeur Exécutif', 'La Directrice Exécutive')
   }
