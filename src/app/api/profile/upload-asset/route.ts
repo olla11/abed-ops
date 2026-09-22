@@ -22,6 +22,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'fichier et type requis (signature|cachet)' }, { status: 400 })
   }
 
+  // L'attribut accept="image/*" du <input type="file"> n'est qu'une aide au
+  // choix du fichier, pas une validation — sans ce contrôle serveur, un
+  // fichier non-image (ex. un .docx) était accepté tel quel : om-pdf/route.ts
+  // ne peut alors jamais l'incorporer et retombe silencieusement sur un
+  // paraphe générique dessiné, à la place de la vraie signature/du vrai cachet.
+  const FORMATS_AUTORISES = ['image/png', 'image/jpeg', 'image/webp']
+  if (!FORMATS_AUTORISES.includes(file.type)) {
+    return NextResponse.json({ error: 'Format non supporté — utilisez une image PNG, JPEG ou WEBP.' }, { status: 400 })
+  }
+
   const admin = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
