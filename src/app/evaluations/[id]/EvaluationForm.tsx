@@ -339,10 +339,10 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole, civiliteC
         body: JSON.stringify(buildPayload(false)),
       })
       const data = await res.json()
-      if (!res.ok) { setMsg({ type: 'err', text: data.error ?? 'Erreur' }); return }
+      if (!res.ok) { setMsg({ type: 'err', text: data.error ?? 'Erreur' }); window.scrollTo({ top: 0, behavior: 'smooth' }); return }
       setMsg({ type: 'ok', text: 'Enregistré.' })
       setEditingDecisions(new Set())
-    } catch { setMsg({ type: 'err', text: 'Erreur réseau' }) }
+    } catch { setMsg({ type: 'err', text: 'Erreur réseau' }); window.scrollTo({ top: 0, behavior: 'smooth' }) }
     finally { setSaving(false) }
   }
 
@@ -358,11 +358,11 @@ export default function EvaluationForm({ evaluation: ev, myId, myRole, civiliteC
         body: JSON.stringify(buildPayload(true)),
       })
       const data = await res.json()
-      if (!res.ok) { setMsg({ type: 'err', text: data.error ?? 'Erreur' }); return }
+      if (!res.ok) { setMsg({ type: 'err', text: data.error ?? 'Erreur' }); window.scrollTo({ top: 0, behavior: 'smooth' }); return }
       setMsg({ type: 'ok', text: 'Soumis avec succès.' })
       setEditingDecisions(new Set())
       setTimeout(() => router.refresh(), 1000)
-    } catch { setMsg({ type: 'err', text: 'Erreur réseau' }) }
+    } catch { setMsg({ type: 'err', text: 'Erreur réseau' }); window.scrollTo({ top: 0, behavior: 'smooth' }) }
     finally { setSubmitting(false) }
   }
 
