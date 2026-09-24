@@ -126,23 +126,50 @@ function ChapitreEditor({ chapitre, onChange, readOnly, collab, onComment, onCli
   const calculAutoActif = idxQte >= 0 && idxCoutUnitaire >= 0 && idxCoutTotal >= 0
     && idxQte !== idxCoutUnitaire && idxQte !== idxCoutTotal && idxCoutUnitaire !== idxCoutTotal
 
+  // Largeurs des colonnes du tableau budget — Désignation a besoin de
+  // beaucoup plus de place que Qté/Unité (courts) ou les deux colonnes
+  // "Coût" (des nombres, jamais très longs), qui se contentaient de la
+  // même largeur minimale par défaut et coupaient le texte de Désignation.
+  function largeurColonneBudget(nom: string): number {
+    if (/d[ée]signation/i.test(nom)) return 320
+    if (/qt[ée]|quantit/i.test(nom)) return 70
+    if (/co[uû]t/i.test(nom)) return 140
+    if (/unit[ée]/i.test(nom)) return 90
+    return 120
+  }
+  const largeurTotaleBudget = estChapitreBudget
+    ? tableau.colonnes.reduce((s, c) => s + largeurColonneBudget(c), 0) + (readOnly ? 0 : 36)
+    : 0
+
   function parseNombre(v: string): number {
     const n = parseFloat(v.replace(/\s/g, '').replace(',', '.').replace(/[^0-9.]/g, ''))
     return isNaN(n) ? 0 : n
   }
 
+  // Resynchronise "Coût total" avec Qté × Coût unitaire dès que l'une des
+  // deux change — mais aussi au premier rendu, pour les lignes déjà
+  // remplies avant que ce calcul automatique n'existe (ou collées/importées
+  // sans passer par les champs), qui sinon restaient bloquées sur leur
+  // ancienne valeur (souvent vide) tant que personne ne retapait dedans.
+  useEffect(() => {
+    if (!calculAutoActif) return
+    let modifie = false
+    const lignes = tableau.lignes.map(l => {
+      const total = parseNombre(l[idxQte] ?? '') * parseNombre(l[idxCoutUnitaire] ?? '')
+      const totalStr = total ? String(Math.round(total)) : ''
+      if ((l[idxCoutTotal] ?? '') === totalStr) return l
+      modifie = true
+      return l.map((c, j) => j === idxCoutTotal ? totalStr : c)
+    })
+    if (modifie) onChange({ ...chapitre, tableau: { ...tableau, lignes } })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [calculAutoActif, idxQte, idxCoutUnitaire, idxCoutTotal, JSON.stringify(tableau.lignes)])
+
   function updateCell(rowIdx: number, colIdx: number, value: string) {
     const valeur = isColonneNumerique(chapitre.cle, tableau.colonnes[colIdx] ?? '')
       ? value.replace(/[^0-9.,\s]/g, '')
       : value
-    let lignes = tableau.lignes.map((l, i) => i === rowIdx ? l.map((c, j) => j === colIdx ? valeur : c) : l)
-    if (calculAutoActif && (colIdx === idxQte || colIdx === idxCoutUnitaire)) {
-      lignes = lignes.map((l, i) => {
-        if (i !== rowIdx) return l
-        const total = parseNombre(l[idxQte] ?? '') * parseNombre(l[idxCoutUnitaire] ?? '')
-        return l.map((c, j) => j === idxCoutTotal ? (total ? String(Math.round(total)) : '') : c)
-      })
-    }
+    const lignes = tableau.lignes.map((l, i) => i === rowIdx ? l.map((c, j) => j === colIdx ? valeur : c) : l)
     onChange({ ...chapitre, tableau: { ...tableau, lignes } })
   }
   function updateColonne(colIdx: number, value: string) {
@@ -194,11 +221,17 @@ function ChapitreEditor({ chapitre, onChange, readOnly, collab, onComment, onCli
         onClickComment={onClickComment}
       />
       <div className="table-wrap" style={{ marginTop: 16 }}>
-        <table style={{ minWidth: 500 }}>
+        <table style={{ minWidth: estChapitreBudget ? largeurTotaleBudget : 500, tableLayout: estChapitreBudget ? 'fixed' : undefined }}>
+          {estChapitreBudget && (
+            <colgroup>
+              {tableau.colonnes.map((col, i) => <col key={i} style={{ width: largeurColonneBudget(col) }} />)}
+              {!readOnly && <col style={{ width: 36 }} />}
+            </colgroup>
+          )}
           <thead>
             <tr>
               {tableau.colonnes.map((col, i) => (
-                <th key={i} style={{ minWidth: 120 }}>
+                <th key={i} style={estChapitreBudget ? undefined : { minWidth: 120 }}>
                   {readOnly || colonnesFixes ? col : (
                     <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                       <input value={col} onChange={e => updateColonne(i, e.target.value)} style={{ ...inputStyle, padding: '5px 8px', fontSize: 12, fontWeight: 700 }} />
