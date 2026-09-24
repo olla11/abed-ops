@@ -85,32 +85,19 @@ function ChapitreEditor({ chapitre, onChange, readOnly, collab, onComment, onCli
       .then(j => { if (j?.data) setCodesBudgetaires(j.data) })
   }, [chapitre.cle])
 
-  if (chapitre.type === 'texte') {
-    return (
-      <RichTextEditor
-        value={chapitre.texte ?? ''}
-        onChange={html => onChange({ ...chapitre, texte: html })}
-        readOnly={readOnly}
-        collab={collab}
-        onComment={onComment}
-        onClickComment={onClickComment}
-      />
-    )
-  }
-
+  // Tout ce bloc (jusqu'au useEffect inclus) doit rester AVANT le "return"
+  // anticipé du cas "texte" juste en dessous : les Hooks (useEffect) doivent
+  // être appelés inconditionnellement, dans le même ordre à chaque rendu —
+  // ChapitreEditor étant réutilisé sans changer de "key" quand on change de
+  // chapitre actif, un Hook déclaré après ce "return" ne serait appelé que
+  // pour les chapitres tableau, pas les chapitres texte, ce qui fait planter
+  // React ("Rendered fewer hooks than expected") dès qu'on bascule de l'un à
+  // l'autre.
   const tableau = chapitre.tableau ?? { colonnes: [], lignes: [] }
-  const colonnesFixes = colonnesVerrouillees(chapitre.cle)
   // Le budget total (dernière colonne "Coût total") s'affiche en direct
   // pendant la saisie — même calcul que budgetTotalDepuisChapitres (tdr.ts),
   // appliqué ici en plus au chapitre "Budget prévisionnel interne".
   const estChapitreBudget = chapitre.cle === 'budget' || chapitre.cle === 'budget_interne'
-  const totalBudget = estChapitreBudget
-    ? tableau.lignes.reduce((s, l) => {
-        const derniere = l[l.length - 1] ?? ''
-        const n = parseInt(derniere.replace(/[^0-9]/g, ''), 10)
-        return s + (isNaN(n) ? 0 : n)
-      }, 0)
-    : 0
 
   // "Coût total" se calcule automatiquement (Qté × Coût unitaire) tant que
   // l'entête standard du chapitre budget (Désignation/Unité/Qté/Coût
@@ -125,21 +112,6 @@ function ChapitreEditor({ chapitre, onChange, readOnly, collab, onComment, onCli
   const idxCoutTotal = estChapitreBudget ? tableau.colonnes.findIndex(c => /co[uû]t\s*total/i.test(c)) : -1
   const calculAutoActif = idxQte >= 0 && idxCoutUnitaire >= 0 && idxCoutTotal >= 0
     && idxQte !== idxCoutUnitaire && idxQte !== idxCoutTotal && idxCoutUnitaire !== idxCoutTotal
-
-  // Largeurs des colonnes du tableau budget — Désignation a besoin de
-  // beaucoup plus de place que Qté/Unité (courts) ou les deux colonnes
-  // "Coût" (des nombres, jamais très longs), qui se contentaient de la
-  // même largeur minimale par défaut et coupaient le texte de Désignation.
-  function largeurColonneBudget(nom: string): number {
-    if (/d[ée]signation/i.test(nom)) return 320
-    if (/qt[ée]|quantit/i.test(nom)) return 70
-    if (/co[uû]t/i.test(nom)) return 140
-    if (/unit[ée]/i.test(nom)) return 90
-    return 120
-  }
-  const largeurTotaleBudget = estChapitreBudget
-    ? tableau.colonnes.reduce((s, c) => s + largeurColonneBudget(c), 0) + (readOnly ? 0 : 36)
-    : 0
 
   function parseNombre(v: string): number {
     const n = parseFloat(v.replace(/\s/g, '').replace(',', '.').replace(/[^0-9.]/g, ''))
@@ -164,6 +136,43 @@ function ChapitreEditor({ chapitre, onChange, readOnly, collab, onComment, onCli
     if (modifie) onChange({ ...chapitre, tableau: { ...tableau, lignes } })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [calculAutoActif, idxQte, idxCoutUnitaire, idxCoutTotal, JSON.stringify(tableau.lignes)])
+
+  if (chapitre.type === 'texte') {
+    return (
+      <RichTextEditor
+        value={chapitre.texte ?? ''}
+        onChange={html => onChange({ ...chapitre, texte: html })}
+        readOnly={readOnly}
+        collab={collab}
+        onComment={onComment}
+        onClickComment={onClickComment}
+      />
+    )
+  }
+
+  const colonnesFixes = colonnesVerrouillees(chapitre.cle)
+  const totalBudget = estChapitreBudget
+    ? tableau.lignes.reduce((s, l) => {
+        const derniere = l[l.length - 1] ?? ''
+        const n = parseInt(derniere.replace(/[^0-9]/g, ''), 10)
+        return s + (isNaN(n) ? 0 : n)
+      }, 0)
+    : 0
+
+  // Largeurs des colonnes du tableau budget — Désignation a besoin de
+  // beaucoup plus de place que Qté/Unité (courts) ou les deux colonnes
+  // "Coût" (des nombres, jamais très longs), qui se contentaient de la
+  // même largeur minimale par défaut et coupaient le texte de Désignation.
+  function largeurColonneBudget(nom: string): number {
+    if (/d[ée]signation/i.test(nom)) return 320
+    if (/qt[ée]|quantit/i.test(nom)) return 70
+    if (/co[uû]t/i.test(nom)) return 140
+    if (/unit[ée]/i.test(nom)) return 90
+    return 120
+  }
+  const largeurTotaleBudget = estChapitreBudget
+    ? tableau.colonnes.reduce((s, c) => s + largeurColonneBudget(c), 0) + (readOnly ? 0 : 36)
+    : 0
 
   function updateCell(rowIdx: number, colIdx: number, value: string) {
     const valeur = isColonneNumerique(chapitre.cle, tableau.colonnes[colIdx] ?? '')
