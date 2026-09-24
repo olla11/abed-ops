@@ -25,12 +25,29 @@ function tableauEstVide(tableau: Chapitre['tableau']): tableau is undefined {
   return tableau.lignes.every(ligne => ligne.every(cell => !cell?.trim()))
 }
 
-function renderTableauInner(tableau: NonNullable<Chapitre['tableau']>): string {
+// Même calcul que TdrDetailClient.tsx (somme de la dernière colonne "Coût
+// total") — affiché en direct pendant la saisie, donc attendu aussi dans le
+// PDF final, qui autrement ne montrait que le détail ligne par ligne sans
+// jamais afficher la somme.
+function calculerTotalBudget(tableau: NonNullable<Chapitre['tableau']>): number {
+  return tableau.lignes.reduce((s, l) => {
+    const derniere = l[l.length - 1] ?? ''
+    const n = parseInt(derniere.replace(/[^0-9]/g, ''), 10)
+    return s + (isNaN(n) ? 0 : n)
+  }, 0)
+}
+
+function renderTableauInner(tableau: NonNullable<Chapitre['tableau']>, totalGeneral?: number): string {
   return `
     <table class="chapitre-table">
       <thead><tr>${tableau.colonnes.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead>
       <tbody>
         ${tableau.lignes.map(ligne => `<tr>${ligne.map(cell => `<td>${esc(cell)}</td>`).join('')}</tr>`).join('')}
+        ${totalGeneral != null ? `
+        <tr class="chapitre-table-total">
+          <td colspan="${Math.max(1, tableau.colonnes.length - 1)}">TOTAL GÉNÉRAL DU BUDGET</td>
+          <td>${totalGeneral.toLocaleString('fr-FR')} FCFA</td>
+        </tr>` : ''}
       </tbody>
     </table>
   `
@@ -40,7 +57,9 @@ function renderChapitreTableau(c: Chapitre): string {
   const texteVide = !c.texte || !c.texte.trim() || c.texte === '<p></p>'
   const tabVide = tableauEstVide(c.tableau)
   if (texteVide && tabVide) return '<p class="muted">—</p>'
-  return `${texteVide ? '' : renderTexte(c.texte)}${tabVide ? '' : renderTableauInner(c.tableau!)}`
+  const estChapitreBudget = c.cle === 'budget' || c.cle === 'budget_interne'
+  const totalGeneral = !tabVide && estChapitreBudget ? calculerTotalBudget(c.tableau!) : undefined
+  return `${texteVide ? '' : renderTexte(c.texte)}${tabVide ? '' : renderTableauInner(c.tableau!, totalGeneral)}`
 }
 
 function sigBlock(role: SignataireRole, signataire: any): string {
@@ -109,6 +128,7 @@ export function construireTdrHtml(tdr: any, exclureCles: Set<string> = new Set()
   table.chapitre-table th, .rte-content table th { background: #f0fdf4; font-weight: bold; }
   table.chapitre-table thead, .rte-content table thead { display: table-header-row-group; }
   table.chapitre-table tr, .rte-content table tr { break-inside: avoid; page-break-inside: avoid; }
+  table.chapitre-table tr.chapitre-table-total td { background: #f0fdf4; font-weight: bold; text-align: right; }
   .rte-content a { color: #2563eb; }
   .rte-content ul, .rte-content ol { margin: 0 0 10px; padding-left: 22px; }
   .sig-block { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 50px; page-break-inside: avoid; }
