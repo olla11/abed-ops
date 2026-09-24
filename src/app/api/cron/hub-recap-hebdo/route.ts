@@ -59,6 +59,16 @@ export async function GET(req: NextRequest) {
 
   const activitesDeLaSemaine = activites.filter(a => !a.parent_id && estDeLaSemaine(a.date_debut, a.date_echeance))
 
+  // Échéance affichée dans le mail : date_echeance en priorité, sinon
+  // date_debut si l'activité n'a que celle-ci — au moins une des deux est
+  // forcément renseignée (filtre "date_debut.not.is.null,date_echeance.not.is.null"
+  // plus haut).
+  function formatEcheance(a: { date_debut: string | null; date_echeance: string | null }): string {
+    const d = a.date_echeance ?? a.date_debut
+    if (!d) return ''
+    return new Date(d + 'T12:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
+  }
+
   const projetsParEspace = new Map<string, { id: string; nom: string }[]>()
   const projetById = new Map<string, { id: string; nom: string; espace_id: string }>()
   for (const p of projets) {
@@ -116,6 +126,9 @@ export async function GET(req: NextRequest) {
           ${acts.map(a => `
             <tr>
               <td style="padding:5px 8px;border-bottom:1px solid #f3f4f6;color:#374151">${a.nom}</td>
+              <td style="padding:5px 8px;border-bottom:1px solid #f3f4f6;color:#16a34a;font-weight:600;white-space:nowrap">
+                ${formatEcheance(a)}
+              </td>
               <td style="padding:5px 8px;border-bottom:1px solid #f3f4f6;color:#6b7280;white-space:nowrap">
                 ${(a.assignee as any) ? `${(a.assignee as any).prenoms} ${(a.assignee as any).nom}` : 'Non assigné'}
               </td>
