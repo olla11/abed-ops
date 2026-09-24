@@ -112,11 +112,37 @@ function ChapitreEditor({ chapitre, onChange, readOnly, collab, onComment, onCli
       }, 0)
     : 0
 
+  // "Coût total" se calcule automatiquement (Qté × Coût unitaire) tant que
+  // l'entête standard du chapitre budget (Désignation/Unité/Qté/Coût
+  // unitaire/Coût total) est conservée — reconnue par nom de colonne plutôt
+  // que par position fixe, ces tableaux n'ayant pas de colonnes verrouillées
+  // (colonnesVerrouillees ne s'applique qu'à financement_budget). Si les
+  // colonnes ont été renommées/réorganisées au point de ne plus matcher, on
+  // retombe sur la saisie manuelle du total, pour ne jamais bloquer un usage
+  // hors du format standard.
+  const idxQte = estChapitreBudget ? tableau.colonnes.findIndex(c => /qt[ée]|quantit/i.test(c)) : -1
+  const idxCoutUnitaire = estChapitreBudget ? tableau.colonnes.findIndex(c => /co[uû]t\s*unitaire/i.test(c)) : -1
+  const idxCoutTotal = estChapitreBudget ? tableau.colonnes.findIndex(c => /co[uû]t\s*total/i.test(c)) : -1
+  const calculAutoActif = idxQte >= 0 && idxCoutUnitaire >= 0 && idxCoutTotal >= 0
+    && idxQte !== idxCoutUnitaire && idxQte !== idxCoutTotal && idxCoutUnitaire !== idxCoutTotal
+
+  function parseNombre(v: string): number {
+    const n = parseFloat(v.replace(/\s/g, '').replace(',', '.').replace(/[^0-9.]/g, ''))
+    return isNaN(n) ? 0 : n
+  }
+
   function updateCell(rowIdx: number, colIdx: number, value: string) {
     const valeur = isColonneNumerique(chapitre.cle, tableau.colonnes[colIdx] ?? '')
       ? value.replace(/[^0-9.,\s]/g, '')
       : value
-    const lignes = tableau.lignes.map((l, i) => i === rowIdx ? l.map((c, j) => j === colIdx ? valeur : c) : l)
+    let lignes = tableau.lignes.map((l, i) => i === rowIdx ? l.map((c, j) => j === colIdx ? valeur : c) : l)
+    if (calculAutoActif && (colIdx === idxQte || colIdx === idxCoutUnitaire)) {
+      lignes = lignes.map((l, i) => {
+        if (i !== rowIdx) return l
+        const total = parseNombre(l[idxQte] ?? '') * parseNombre(l[idxCoutUnitaire] ?? '')
+        return l.map((c, j) => j === idxCoutTotal ? (total ? String(Math.round(total)) : '') : c)
+      })
+    }
     onChange({ ...chapitre, tableau: { ...tableau, lignes } })
   }
   function updateColonne(colIdx: number, value: string) {
@@ -191,9 +217,14 @@ function ChapitreEditor({ chapitre, onChange, readOnly, collab, onComment, onCli
               <tr key={rowIdx}>
                 {ligne.map((cell, colIdx) => {
                   const numerique = isColonneNumerique(chapitre.cle, tableau.colonnes[colIdx] ?? '')
+                  const estTotalAuto = calculAutoActif && colIdx === idxCoutTotal
                   return (
                     <td key={colIdx}>
-                      {readOnly ? cell : (
+                      {readOnly ? cell : estTotalAuto ? (
+                        <span style={{ display: 'block', padding: '5px 8px', fontSize: 13, textAlign: 'right', color: 'var(--abed-green)', fontWeight: 600 }}>
+                          {cell ? Number(cell.replace(/[^0-9.]/g, '')).toLocaleString('fr-FR') : '0'}
+                        </span>
+                      ) : (
                         <input value={cell} onChange={e => updateCell(rowIdx, colIdx, e.target.value)}
                           inputMode={numerique ? 'decimal' : 'text'}
                           placeholder={numerique ? '0' : ''}
