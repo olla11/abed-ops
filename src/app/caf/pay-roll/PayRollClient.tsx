@@ -1,5 +1,8 @@
 'use client'
 import { useEffect, useState } from 'react'
+import Pagination, { paginate } from '@/components/Pagination'
+
+const PAGE_SIZE = 15
 
 type CompteBancaire = { id: string; nom: string }
 type CodeBudgetaire = { code: string; libelle: string }
@@ -52,6 +55,7 @@ export default function PayRollClient() {
   const [codes, setCodes] = useState<CodeBudgetaire[]>([])
   const [loading, setLoading] = useState(true)
   const [filtre, setFiltre] = useState<'tous' | 'non_paye' | 'a_payer' | 'paye'>('tous')
+  const [page, setPage] = useState(1)
   const [savingId, setSavingId] = useState<string | null>(null)
   const [err, setErr] = useState('')
   const [selection, setSelection] = useState<Set<string>>(new Set())
@@ -100,6 +104,7 @@ export default function PayRollClient() {
   }
 
   const visibles = filtre === 'tous' ? items : items.filter(i => i.statut === filtre)
+  const visiblesPage = paginate(visibles, page, PAGE_SIZE)
 
   function toggleSelection(id: string) {
     setSelection(s => {
@@ -158,7 +163,7 @@ export default function PayRollClient() {
     <div>
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
         {FILTRES.map(f => (
-          <button key={f.key} onClick={() => setFiltre(f.key)} style={{
+          <button key={f.key} onClick={() => { setFiltre(f.key); setPage(1) }} style={{
             padding: '7px 16px', borderRadius: 999, fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
             border: '1.5px solid', borderColor: filtre === f.key ? 'var(--abed-green)' : 'var(--abed-border)',
             background: filtre === f.key ? '#f0fdf4' : 'white',
@@ -195,6 +200,7 @@ export default function PayRollClient() {
           Aucun paiement ici pour le moment.
         </div>
       ) : (
+        <>
         <div className="table-wrap">
           <table style={{ minWidth: 1300, tableLayout: 'fixed' }}>
             <colgroup>
@@ -222,7 +228,7 @@ export default function PayRollClient() {
               </tr>
             </thead>
             <tbody>
-              {visibles.map(item => {
+              {visiblesPage.map(item => {
                 const dejaPaye = item.statut === 'paye'
                 const selectionnable = item.statut === 'a_payer' && !item.appel_de_fonds_id
                 const codeChoisi = codes.find(c => c.code === item.code_budgetaire)
@@ -301,6 +307,8 @@ export default function PayRollClient() {
             </tbody>
           </table>
         </div>
+        <Pagination page={page} total={visibles.length} pageSize={PAGE_SIZE} onChange={setPage} />
+        </>
       )}
 
       {showGenerer && (
