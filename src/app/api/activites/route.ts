@@ -65,20 +65,56 @@ export async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
+  const { data: creatorProfile } = await supabase.from('profiles').select('prenoms, nom').eq('id', user.id).single()
+  const creatorPrenom = creatorProfile?.prenoms ?? 'Quelqu\'un'
+  const admin = createAdminClient()
+
   // Notification (in-app + email) si assigné à quelqu'un d'autre que soi-même
   if (data.assignee_id && data.assignee_id !== user.id) {
-    const { data: creatorProfile } = await supabase.from('profiles').select('prenoms, nom').eq('id', user.id).single()
-    const admin = createAdminClient()
     const { error: notifErr } = await admin.from('notifications').insert({
       user_id: data.assignee_id,
       titre: 'Nouvelle tâche assignée',
-      message: `${creatorProfile?.prenoms ?? 'Quelqu\'un'} vous a assigné la tâche « ${data.nom} »${data.projet?.nom ? ` (${data.projet.nom})` : ''}.`,
+      message: `${creatorPrenom} vous a assigné la tâche « ${data.nom} »${data.projet?.nom ? ` (${data.projet.nom})` : ''}.`,
       lien: `/projets/${data.projet_id}`,
     })
     if (notifErr) console.error(notifErr)
     if (data.assignee?.email) {
-      const email = emailAssignation(data.nom, data.projet?.nom ?? '', data.assignee.prenoms, data.assignee.nom, creatorProfile?.prenoms ?? 'Quelqu\'un', data.date_echeance)
+      const email = emailAssignation(data.nom, data.projet?.nom ?? '', data.assignee.prenoms, data.assignee.nom, creatorPrenom, data.date_echeance)
       await sendEmail({ to: data.assignee.email, ...email }).catch(console.error)
+    }
+  }
+
+  // Notification pour chaque personne associée dès la création (hors soi-même)
+  const associesInitiaux = ((data.associe_ids as string[]) ?? []).filter((aid: string) => aid !== user.id)
+  if (associesInitiaux.length > 0) {
+    const { data: profils } = await admin.from('profiles').select('id, prenoms, nom, email').in('id', associesInitiaux)
+    for (const p of profils ?? []) {
+      const { error: notifErr } = await admin.from('notifications').insert({
+        user_id: p.id,
+        titre: 'Ajouté·e comme personne associée',
+        message: `${creatorPrenom} vous a associé·e à la tâche « ${data.nom} »${data.projet?.nom ? ` (${data.projet.nom})` : ''}.`,
+        lien: `/projets/${data.projet_id}`,
+      })
+      if (notifErr) console.error(notifErr)
+      if (p.email) {
+        const dateStr = data.date_echeance ? new Date(data.date_echeance).toLocaleDateString('fr-FR') : 'non définie'
+        await sendEmail({
+          to: p.email,
+          subject: `[My ABED] Tâche partagée : ${data.nom}`,
+          html: `
+            <div style="font-family:sans-serif;max-width:560px;margin:0 auto">
+              <h2 style="color:#16a34a">Ajouté·e comme personne associée</h2>
+              <p>Bonjour <strong>${p.prenoms}</strong>,</p>
+              <p><strong>${creatorPrenom}</strong> vous a associé·e à la tâche suivante :</p>
+              <div style="background:#f0fdf4;border-left:4px solid #16a34a;padding:14px 18px;border-radius:0 8px 8px 0;margin:16px 0">
+                <p style="margin:0 0 6px;font-weight:700;font-size:16px">${data.nom}</p>
+                <p style="margin:0;color:#6b7280;font-size:14px">Projet : ${data.projet?.nom ?? ''} &nbsp;|&nbsp; Échéance : ${dateStr}</p>
+              </div>
+              <p style="color:#6b7280;font-size:13px">Connectez-vous à My ABED pour voir les détails.</p>
+            </div>
+          `,
+        }).catch(console.error)
+      }
     }
   }
 

@@ -2,6 +2,43 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { sendEmail } from '@/lib/resend'
 
+// Notification (in-app + email) commune à l'assignation du responsable et à
+// l'ajout d'une personne associée — seul le libellé change selon le rôle.
+async function notifierAffectation(admin: ReturnType<typeof createAdminClient>, opts: {
+  userId: string; email: string | null; prenoms: string; creatorPrenom: string
+  role: 'assignee' | 'associe'; nomTache: string; nomProjet: string | null; projetId: string; echeance: string | null
+}) {
+  const estAssignee = opts.role === 'assignee'
+  const titre = estAssignee ? 'Nouvelle tâche assignée' : 'Ajouté·e comme personne associée'
+  const verbe = estAssignee ? 'vous a assigné' : 'vous a associé·e à'
+  const { error: notifErr } = await admin.from('notifications').insert({
+    user_id: opts.userId,
+    titre,
+    message: `${opts.creatorPrenom} ${verbe} la tâche « ${opts.nomTache} »${opts.nomProjet ? ` (${opts.nomProjet})` : ''}.`,
+    lien: `/projets/${opts.projetId}`,
+  })
+  if (notifErr) console.error(notifErr)
+
+  if (!opts.email) return
+  const dateStr = opts.echeance ? new Date(opts.echeance).toLocaleDateString('fr-FR') : 'non définie'
+  await sendEmail({
+    to: opts.email,
+    subject: `[My ABED] ${estAssignee ? 'Tâche assignée' : 'Tâche partagée'} : ${opts.nomTache}`,
+    html: `
+      <div style="font-family:sans-serif;max-width:560px;margin:0 auto">
+        <h2 style="color:#16a34a">${titre}</h2>
+        <p>Bonjour <strong>${opts.prenoms}</strong>,</p>
+        <p><strong>${opts.creatorPrenom}</strong> ${verbe} la tâche suivante :</p>
+        <div style="background:#f0fdf4;border-left:4px solid #16a34a;padding:14px 18px;border-radius:0 8px 8px 0;margin:16px 0">
+          <p style="margin:0 0 6px;font-weight:700;font-size:16px">${opts.nomTache}</p>
+          <p style="margin:0;color:#6b7280;font-size:14px">Projet : ${opts.nomProjet ?? ''} &nbsp;|&nbsp; Échéance : ${dateStr}</p>
+        </div>
+        <p style="color:#6b7280;font-size:13px">Connectez-vous à My ABED pour voir les détails.</p>
+      </div>
+    `,
+  }).catch(console.error)
+}
+
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createClient()
@@ -10,8 +47,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const body = await req.json().catch(() => null)
 
-  // Lire l'ancienne valeur d'assignee pour détecter un changement
-  const { data: ancien } = await supabase.from('activites').select('assignee_id').eq('id', id).single()
+  // Lire les anciennes valeurs pour détecter un changement d'assignee et les
+  // nouvelles personnes associées (pas déjà présentes avant ce patch).
+  const { data: ancien } = await supabase.from('activites').select('assignee_id, associe_ids').eq('id', id).single()
 
   const update: Record<string, unknown> = {}
   if (body.nom !== undefined) update.nom = body.nom
@@ -30,42 +68,38 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Notification (in-app + email) si l'assignée a changé vers quelqu'un d'autre que soi-même
+  const { data: creatorProfile } = await supabase.from('profiles').select('prenoms, nom').eq('id', user.id).single()
+  const creatorPrenom = creatorProfile?.prenoms ?? 'Quelqu\'un'
+  const admin = createAdminClient()
+
+  // Notification si l'assignée a changé vers quelqu'un d'autre que soi-même
   const nouveauAssignee = data.assignee_id
   if (
     body.assignee_id !== undefined &&
     nouveauAssignee &&
     nouveauAssignee !== user.id &&
-    nouveauAssignee !== ancien?.assignee_id
+    nouveauAssignee !== ancien?.assignee_id &&
+    data.assignee
   ) {
-    const { data: creatorProfile } = await supabase.from('profiles').select('prenoms, nom').eq('id', user.id).single()
-    const admin = createAdminClient()
-    const { error: notifErr } = await admin.from('notifications').insert({
-      user_id: nouveauAssignee,
-      titre: 'Nouvelle tâche assignée',
-      message: `${creatorProfile?.prenoms ?? 'Quelqu\'un'} vous a assigné la tâche « ${data.nom} »${data.projet?.nom ? ` (${data.projet.nom})` : ''}.`,
-      lien: `/projets/${data.projet_id}`,
+    await notifierAffectation(admin, {
+      userId: nouveauAssignee, email: data.assignee.email, prenoms: data.assignee.prenoms, creatorPrenom,
+      role: 'assignee', nomTache: data.nom, nomProjet: data.projet?.nom ?? null, projetId: data.projet_id, echeance: data.date_echeance,
     })
-    if (notifErr) console.error(notifErr)
+  }
 
-    if (data.assignee?.email) {
-      const dateStr = data.date_echeance ? new Date(data.date_echeance).toLocaleDateString('fr-FR') : 'non définie'
-      await sendEmail({
-        to: data.assignee.email,
-        subject: `[My ABED] Tâche assignée : ${data.nom}`,
-        html: `
-          <div style="font-family:sans-serif;max-width:560px;margin:0 auto">
-            <h2 style="color:#16a34a">Tâche assignée</h2>
-            <p>Bonjour <strong>${data.assignee.prenoms}</strong>,</p>
-            <p><strong>${creatorProfile?.prenoms ?? 'Quelqu\'un'}</strong> vous a assigné la tâche suivante :</p>
-            <div style="background:#f0fdf4;border-left:4px solid #16a34a;padding:14px 18px;border-radius:0 8px 8px 0;margin:16px 0">
-              <p style="margin:0 0 6px;font-weight:700;font-size:16px">${data.nom}</p>
-              <p style="margin:0;color:#6b7280;font-size:14px">Projet : ${data.projet?.nom ?? ''} &nbsp;|&nbsp; Échéance : ${dateStr}</p>
-            </div>
-            <p style="color:#6b7280;font-size:13px">Connectez-vous à My ABED pour voir les détails.</p>
-          </div>
-        `,
-      }).catch(console.error)
+  // Notification pour chaque personne nouvellement associée (pas celles déjà
+  // présentes avant ce patch — jamais se notifier soi-même non plus).
+  if (body.associe_ids !== undefined) {
+    const idsAvant = new Set(ancien?.associe_ids ?? [])
+    const nouveaux = (data.associe_ids as string[] ?? []).filter((aid: string) => aid !== user.id && !idsAvant.has(aid))
+    if (nouveaux.length > 0) {
+      const { data: profils } = await admin.from('profiles').select('id, prenoms, nom, email').in('id', nouveaux)
+      for (const p of profils ?? []) {
+        await notifierAffectation(admin, {
+          userId: p.id, email: p.email, prenoms: p.prenoms, creatorPrenom,
+          role: 'associe', nomTache: data.nom, nomProjet: data.projet?.nom ?? null, projetId: data.projet_id, echeance: data.date_echeance,
+        })
+      }
     }
   }
 
