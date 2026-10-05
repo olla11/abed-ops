@@ -1,5 +1,6 @@
 import { createAdminClient } from '@/lib/supabase-server'
 import { estAAF } from '@/lib/roles'
+import { ajouterAuPayRoll } from '@/lib/pay-roll'
 
 type Admin = ReturnType<typeof createAdminClient>
 
@@ -88,7 +89,7 @@ async function notifyAdmins(admin: Admin, opts: { titre: string; message: string
 // Les 3 étapes sont de simples approbations (aucune donnée à saisir) : sûres à sauter.
 export async function autoSkipDemandePaiement(admin: Admin, demandeId: string) {
   for (let i = 0; i < 4; i++) {
-    const { data: d } = await admin.from('demandes_paiement').select('id, objet, demandeur_id, montant, status').eq('id', demandeId).single()
+    const { data: d } = await admin.from('demandes_paiement').select('id, objet, numero, nom_complet, code_budgetaire, demandeur_id, montant, status').eq('id', demandeId).single()
     if (!d) return
 
     let roleLabel = '', next = ''
@@ -114,6 +115,18 @@ export async function autoSkipDemandePaiement(admin: Admin, demandeId: string) {
     })
 
     if (next === 'autorise') {
+      // Même geste que valider le dernier palier normalement (traiter/route.ts)
+      // — sauter l'étape ne doit jamais faire manquer l'entrée Pay Roll.
+      await ajouterAuPayRoll(admin, {
+        sourceType: 'demande_paiement',
+        sourceId: demandeId,
+        reference: d.numero,
+        beneficiaireId: d.demandeur_id,
+        beneficiaireNom: d.nom_complet,
+        objet: d.objet,
+        codeBudgetaire: d.code_budgetaire,
+        montant: d.montant,
+      })
       await admin.from('notifications').insert({
         user_id: d.demandeur_id,
         titre: '✓ Demande de paiement autorisée',
@@ -132,7 +145,7 @@ export async function autoSkipDemandePaiement(admin: Admin, demandeId: string) {
 export async function autoSkipRapportAllocation(admin: Admin, rapportId: string) {
   for (let i = 0; i < 5; i++) {
     const { data: r } = await admin.from('rapports_allocations')
-      .select('id, status, manager_id, prestataire_id, periode_mois, periode_annee, montant_allocation, prestataire:profiles!rapports_allocations_prestataire_id_fkey(nom, prenoms, role)')
+      .select('id, status, manager_id, prestataire_id, periode_mois, periode_annee, montant_allocation, prestataire:profiles!rapports_allocations_prestataire_id_fkey(nom, prenoms, role, type_emploi)')
       .eq('id', rapportId).single()
     if (!r) return
     const prestataire = r.prestataire as any
@@ -185,6 +198,18 @@ export async function autoSkipRapportAllocation(admin: Admin, rapportId: string)
         roleVacant: soumetteurEstDirecteur ? 'Président du CA' : 'DE', statusFrom: 'valide_caf', statusTo: 'autorise', lien: '/timesheets',
       })
       if (r.montant_allocation) {
+        const estSalarie = ['cdd', 'cdi'].includes(prestataire?.type_emploi ?? '')
+        const mois = new Date(r.periode_annee, r.periode_mois - 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+        // Même geste que valider le dernier palier normalement (valider/route.ts)
+        // — sauter l'étape ne doit jamais faire manquer l'entrée Pay Roll.
+        await ajouterAuPayRoll(admin, {
+          sourceType: 'rapport_allocation',
+          sourceId: rapportId,
+          beneficiaireId: r.prestataire_id,
+          beneficiaireNom: `${prestataire?.prenoms ?? ''} ${prestataire?.nom ?? ''}`.trim(),
+          objet: `${estSalarie ? 'Salaire' : 'Allocation'} — ${mois}`,
+          montant: r.montant_allocation,
+        })
         await admin.from('notifications').insert({
           user_id: r.prestataire_id,
           titre: '✓ Allocation autorisée',
@@ -204,7 +229,9 @@ export async function autoSkipRapportAllocation(admin: Admin, rapportId: string)
 // Les 3 étapes sont de simples approbations : sûres à sauter.
 export async function autoSkipReconciliationOM(admin: Admin, missionId: string) {
   for (let i = 0; i < 4; i++) {
-    const { data: m } = await admin.from('missions').select('id, objet, reference, missionnaire_id, status').eq('id', missionId).single()
+    const { data: m } = await admin.from('missions')
+      .select('id, objet, reference, missionnaire_id, status, solde_missionnaire, a_charge_partenaire, mode_financement, missionnaire:profiles!missions_missionnaire_id_fkey(nom, prenoms)')
+      .eq('id', missionId).single()
     if (!m) return
 
     let roleLabel = '', next = ''
@@ -230,6 +257,24 @@ export async function autoSkipReconciliationOM(admin: Admin, missionId: string) 
     })
 
     if (next === 'cloture') {
+      // Même formule que valider-reconciliation-de/route.ts : solde_missionnaire
+      // négatif = ABED doit encore verser ce montant au missionnaire. Sauter
+      // l'étape DE ne doit jamais faire manquer l'entrée Pay Roll.
+      const montantDu = (!m.a_charge_partenaire && m.mode_financement !== 'totalite_avant')
+        ? Math.max(0, -(m.solde_missionnaire ?? 0))
+        : 0
+      if (montantDu > 0) {
+        const missionnaire = m.missionnaire as any
+        await ajouterAuPayRoll(admin, {
+          sourceType: 'reconciliation_mission',
+          sourceId: missionId,
+          reference: m.reference,
+          beneficiaireId: m.missionnaire_id,
+          beneficiaireNom: missionnaire ? `${missionnaire.prenoms} ${missionnaire.nom}` : m.objet,
+          objet: `Réconciliation mission — ${m.objet}`,
+          montant: montantDu,
+        })
+      }
       await admin.from('notifications').insert({
         user_id: m.missionnaire_id,
         titre: 'Réconciliation autorisée — mission clôturée',
