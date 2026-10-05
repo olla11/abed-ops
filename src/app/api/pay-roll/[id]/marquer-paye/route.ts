@@ -12,10 +12,13 @@ const SOURCE_LABELS: Record<string, string> = {
   timesheet: 'Timesheet',
 }
 
-// POST — seule action possible pour l'AAF sur Pay Roll : marquer un paiement
-// "Payé", ligne par ligne, une fois son appel de fonds signé par le circuit
-// DE → TG CA → PCA. Écrit aussi dans depenses_executees (alimente
-// l'exécution financière temps réel) et notifie le bénéficiaire par email.
+// POST — marquer un paiement "Payé", ligne par ligne, une fois son appel de
+// fonds signé par le circuit DE → TG CA → PCA. Ouvert à l'AAF (qui exécute le
+// paiement physique) ET à la CAF (qui prépare l'appel de fonds et peut aussi
+// confirmer le paiement) — la vérification "appel de fonds signé" reste la
+// vraie garde-fou, quel que soit qui confirme. Écrit aussi dans
+// depenses_executees (alimente l'exécution financière temps réel) et notifie
+// le bénéficiaire par email.
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -26,8 +29,8 @@ export async function POST(
   if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
 
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  if (!(estAAF(profile?.role) || ['admin', 'superadmin'].includes(profile?.role ?? ''))) {
-    return NextResponse.json({ error: 'accès refusé — AAF uniquement' }, { status: 403 })
+  if (!(estAAF(profile?.role) || profile?.role === 'caf' || ['admin', 'superadmin'].includes(profile?.role ?? ''))) {
+    return NextResponse.json({ error: 'accès refusé — AAF ou CAF uniquement' }, { status: 403 })
   }
 
   const admin = createAdminClient()

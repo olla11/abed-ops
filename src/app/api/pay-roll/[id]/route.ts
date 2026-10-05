@@ -3,8 +3,8 @@ import { createClient } from '@/lib/supabase-server'
 
 // PATCH { statut?, compte_bancaire_id?, code_budgetaire? } — CAF/admin
 // uniquement. Ne permet jamais de passer à 'paye' ici : ce statut n'est
-// atteignable que par l'AAF, ligne par ligne, une fois l'appel de fonds
-// signé (voir la route dédiée à venir en Phase 4).
+// atteignable que via la route dédiée /marquer-paye (AAF ou CAF), ligne par
+// ligne, une fois l'appel de fonds signé.
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 
 type CompteBancaire = { id: string; nom: string }
 type CodeBudgetaire = { code: string; libelle: string }
+type AppelDeFonds = { id: string; numero: string; statut: string }
 type PayRollItem = {
   id: string
   source_type: string
@@ -15,6 +16,7 @@ type PayRollItem = {
   compte_bancaire_id: string | null
   compte_bancaire: CompteBancaire | null
   appel_de_fonds_id: string | null
+  appel_de_fonds: AppelDeFonds | null
   created_at: string
 }
 
@@ -77,6 +79,20 @@ export default function PayRollClient() {
     const res = await fetch(`/api/pay-roll/${id}`, {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
     })
+    const j = await res.json()
+    setSavingId(null)
+    if (!res.ok) { setErr(j.error ?? 'Erreur'); return }
+    load()
+  }
+
+  // Statut "Payé" : jamais via patch() (toujours refusé côté serveur) — c'est
+  // une route dédiée avec ses propres effets de bord (écrit dans
+  // depenses_executees, envoie un reçu par email au bénéficiaire), ouverte à
+  // la CAF comme à l'AAF, mais seulement une fois l'appel de fonds signé.
+  async function marquerPaye(id: string) {
+    if (!confirm('Confirmer le paiement de cette ligne ? Le bénéficiaire recevra un email de notification.')) return
+    setSavingId(id); setErr('')
+    const res = await fetch(`/api/pay-roll/${id}/marquer-paye`, { method: 'POST' })
     const j = await res.json()
     setSavingId(null)
     if (!res.ok) { setErr(j.error ?? 'Erreur'); return }
@@ -251,10 +267,16 @@ export default function PayRollClient() {
                         }}
                         value={item.statut}
                         disabled={dejaPaye || savingId === item.id}
-                        onChange={e => patch(item.id, { statut: e.target.value })}
+                        onChange={e => {
+                          if (e.target.value === 'paye') marquerPaye(item.id)
+                          else patch(item.id, { statut: e.target.value })
+                        }}
                       >
                         <option value="non_paye">{STATUT_LABELS.non_paye}</option>
                         <option value="a_payer">{STATUT_LABELS.a_payer}</option>
+                        {item.statut === 'a_payer' && item.appel_de_fonds?.statut === 'signe' && (
+                          <option value="paye">{STATUT_LABELS.paye}</option>
+                        )}
                         {dejaPaye && <option value="paye">{STATUT_LABELS.paye}</option>}
                       </select>
                     </td>
