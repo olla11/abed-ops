@@ -67,7 +67,11 @@ export default function ActionsClient({
   const [canalEmail, setCanalEmail] = useState(true)
   const [canalNotif, setCanalNotif] = useState(true)
   const [sending, setSending] = useState(false)
+  const [retrying, setRetrying] = useState(false)
   const [emailResult, setEmailResult] = useState<{ sent: number; total: number; failed: { email: string }[] } | { scheduled: true; scheduledAt: string; total: number } | null>(null)
+  // Pièces jointes déjà téléversées lors du premier envoi — réutilisées telles
+  // quelles pour "Réessayer les échecs", sans re-téléverser les fichiers.
+  const [uploadedPieces, setUploadedPieces] = useState<PieceJointeMeta[]>([])
   const [files, setFiles] = useState<File[]>([])
   const [programmer, setProgrammer] = useState(false)
   const [scheduledAt, setScheduledAt] = useState('')
@@ -148,9 +152,26 @@ export default function ActionsClient({
   // fermer aussi bien avant qu'après un envoi/une programmation.
   function closeModal() {
     setShowEmail(false)
-    setSujet(''); setCorps(''); setFiles([])
+    setSujet(''); setCorps(''); setFiles([]); setUploadedPieces([])
     setProgrammer(false); setScheduledAt('')
     setEmailResult(null)
+  }
+
+  function refreshHistory() {
+    fetch('/api/admin/announcements').then(r => r.ok ? r.json() : null).then(j => { if (j) setHistory(j.data) })
+  }
+
+  async function envoyerA(userIds: string[], piecesJointes: PieceJointeMeta[], canauxForces?: string[]) {
+    const canaux = canauxForces ?? [canalEmail && 'email', canalNotif && 'notification'].filter(Boolean) as string[]
+    const res = await fetch('/api/admin/send-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userIds, sujet, corps, canaux, piecesJointes,
+        scheduledAt: programmer ? new Date(scheduledAt).toISOString() : null,
+      }),
+    })
+    return { res, json: await res.json() }
   }
 
   async function sendEmail() {
@@ -160,9 +181,9 @@ export default function ActionsClient({
     if (programmer && new Date(scheduledAt).getTime() <= Date.now()) { alert('La date programmée doit être dans le futur.'); return }
 
     setSending(true); setEmailResult(null)
-    const canaux = [canalEmail && 'email', canalNotif && 'notification'].filter(Boolean) as string[]
 
-    // Téléverse les pièces jointes une à une avant l'envoi/la programmation.
+    // Téléverse les pièces jointes une à une avant l'envoi/la programmation —
+    // conservées en state pour pouvoir réessayer les échecs sans re-téléverser.
     const piecesJointes: PieceJointeMeta[] = []
     for (const file of files) {
       const form = new FormData()
@@ -172,23 +193,38 @@ export default function ActionsClient({
       if (!up.ok) { setSending(false); alert(`Échec du téléversement de ${file.name} : ${upJson.error}`); return }
       piecesJointes.push(upJson.data)
     }
+    setUploadedPieces(piecesJointes)
 
-    const res = await fetch('/api/admin/send-email', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userIds: [...selected], sujet, corps, canaux, piecesJointes,
-        scheduledAt: programmer ? new Date(scheduledAt).toISOString() : null,
-      }),
-    })
-    const json = await res.json()
+    const { res, json } = await envoyerA([...selected], piecesJointes)
     setSending(false)
     if (res.ok) {
       setEmailResult(json)
       setFiles([])
-      fetch('/api/admin/announcements').then(r => r.ok ? r.json() : null).then(j => { if (j) setHistory(j.data) })
+      refreshHistory()
     }
     else alert('Erreur : ' + json.error)
+  }
+
+  // Réessaie uniquement pour les destinataires dont l'email a échoué (ex.
+  // panne/limite temporaire chez le fournisseur d'emails) — jamais pour le
+  // canal notification, qui ne peut pas échouer par destinataire et a donc
+  // déjà été délivré à tout le monde lors du premier envoi (le ré-envoyer
+  // dupliquerait les notifications déjà reçues).
+  async function retryFailed() {
+    if (!emailResult || 'scheduled' in emailResult || emailResult.failed.length === 0) return
+    const emailsEnEchec = new Set(emailResult.failed.map(f => f.email))
+    const idsARetenter = users.filter(u => emailsEnEchec.has(u.email)).map(u => u.id)
+    if (!idsARetenter.length) return
+
+    setRetrying(true)
+    const { res, json } = await envoyerA(idsARetenter, uploadedPieces, ['email'])
+    setRetrying(false)
+    if (res.ok) {
+      setEmailResult(prev => (prev && !('scheduled' in prev))
+        ? { sent: prev.sent + json.sent, total: prev.total, failed: json.failed }
+        : json)
+      refreshHistory()
+    } else alert('Erreur : ' + json.error)
   }
 
   async function cancelAnnouncement(id: string) {
@@ -442,10 +478,25 @@ export default function ActionsClient({
                 {'scheduled' in emailResult ? (
                   <span>Programmé pour le {new Date(emailResult.scheduledAt).toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' })} — {emailResult.total} destinataire{emailResult.total > 1 ? 's' : ''}.</span>
                 ) : (
-                  <span>
-                    {emailResult.sent} email{emailResult.sent > 1 ? 's' : ''} envoyé{emailResult.sent > 1 ? 's' : ''} sur {emailResult.total}.
-                    {emailResult.failed.length > 0 && <span> Échecs : {emailResult.failed.map(f => f.email).join(', ')}</span>}
-                  </span>
+                  <div>
+                    <span>
+                      {emailResult.sent} email{emailResult.sent > 1 ? 's' : ''} envoyé{emailResult.sent > 1 ? 's' : ''} sur {emailResult.total}.
+                      {emailResult.failed.length > 0 && <span> Échecs : {emailResult.failed.map(f => f.email).join(', ')}</span>}
+                    </span>
+                    {emailResult.failed.length > 0 && (
+                      <button
+                        className="btn secondary"
+                        onClick={retryFailed}
+                        disabled={retrying}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, marginTop: 8 }}
+                      >
+                        <Send size={12} />
+                        {retrying
+                          ? 'Nouvel essai…'
+                          : `Réessayer pour ${emailResult.failed.length} échec${emailResult.failed.length > 1 ? 's' : ''}`}
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             )}
