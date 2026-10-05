@@ -521,7 +521,7 @@ export default function ActionsClient({
             </tbody>
           </table>
         </div>
-        <Pagination page={page} total={filtered.length} pageSize={PAGE_SIZE} onChange={p => { setPage(p); setSelected(new Set()) }} />
+        <Pagination page={page} total={filtered.length} pageSize={PAGE_SIZE} onChange={setPage} />
       </div>
 
       {/* ── Historique des communications ── */}
