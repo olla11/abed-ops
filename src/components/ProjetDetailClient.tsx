@@ -376,7 +376,9 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
     })
     const j = await r.json()
     if (r.ok) {
-      setProjet(p => ({ ...p, activites: [...p.activites, j.data] }))
+      // En tête — la liste est triée "plus récent d'abord", et cette tâche
+      // vient justement d'être créée.
+      setProjet(p => ({ ...p, activites: [j.data, ...p.activites] }))
       setTaskForm({ nom: '', priorite: 'normale', assignee_id: '', date_debut: '', date_echeance: '', statut: 'a_faire' })
       setShowNewTaskForm(null)
       setShowAddRow(false)
@@ -394,7 +396,7 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
     })
     const j = await r.json()
     if (r.ok) {
-      setProjet(p => ({ ...p, activites: [...p.activites, j.data] }))
+      setProjet(p => ({ ...p, activites: [j.data, ...p.activites] }))
       setSubtaskNom('')
       setShowSubtaskForm(null)
       setExpandedSubtasks(e => ({ ...e, [parentId]: true }))

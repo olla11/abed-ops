@@ -30,6 +30,10 @@ export default async function ProjetDetailPage({ params }: { params: Promise<{ i
       activites(*, assignee:profiles!activites_assignee_id_fkey(id, nom, prenoms),
       created_by_profile:profiles!activites_created_by_fkey(id, nom, prenoms),
       commentaires_activites(id))`)
+    // Les tâches les plus récemment créées en premier — toutes les vues
+    // (Liste, Tableau, Calendrier, Gantt, Tableur) suivent l'ordre de
+    // projet.activites tel que reçu ici, sans retrier chacune de leur côté.
+    .order('created_at', { ascending: false, referencedTable: 'activites' })
     .eq('id', id)
     .single()
 
