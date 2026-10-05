@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { AlertTriangle, X } from 'lucide-react'
 import Pagination, { paginate } from '@/components/Pagination'
 
 const PAGE_SIZE = 15
@@ -77,6 +78,15 @@ export default function PayRollClient() {
     fetch('/api/config/listes?type=comptes_bancaires').then(r => r.json()).then(j => setComptes(j.data ?? []))
     fetch('/api/config/listes?type=codes_budgetaires&actifs=1').then(r => r.json()).then(j => setCodes(j.data ?? []))
   }, [])
+
+  // L'erreur s'affichait en texte rouge discret en haut de page — invisible
+  // si on a déjà scrollé dans le tableau. Affichée aussi en popup flottante
+  // bien visible, qui s'efface d'elle-même après quelques secondes.
+  useEffect(() => {
+    if (!err) return
+    const t = setTimeout(() => setErr(''), 6000)
+    return () => clearTimeout(t)
+  }, [err])
 
   async function patch(id: string, body: Record<string, unknown>) {
     setSavingId(id); setErr('')
@@ -175,6 +185,21 @@ export default function PayRollClient() {
       </div>
 
       {err && <p style={{ color: '#dc2626', fontSize: 13, marginBottom: 12 }}>{err}</p>}
+
+      {err && (
+        <div style={{
+          position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 2000,
+          display: 'flex', alignItems: 'center', gap: 10, maxWidth: 'calc(100vw - 32px)',
+          background: '#991b1b', color: 'white', padding: '14px 18px', borderRadius: 10,
+          fontSize: 14, fontWeight: 600, boxShadow: '0 8px 24px rgba(0,0,0,.25)',
+        }}>
+          <AlertTriangle size={18} style={{ flexShrink: 0 }} />
+          <span>{err}</span>
+          <button onClick={() => setErr('')} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', flexShrink: 0, opacity: 0.85 }}>
+            <X size={16} />
+          </button>
+        </div>
+      )}
 
       {selection.size > 0 && (
         <div style={{
