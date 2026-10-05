@@ -64,6 +64,8 @@ export async function POST(
   await admin.from('missions').update({
     status: 'reconciliation_caf',
     reconciliation_commentaire: null,
+    reconciliation_aaf_valide_par: user.id,
+    reconciliation_aaf_valide_le: new Date().toISOString(),
   }).eq('id', id)
 
   await notifyMissionByRole(admin, {

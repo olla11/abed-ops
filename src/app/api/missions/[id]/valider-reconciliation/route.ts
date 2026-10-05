@@ -67,6 +67,8 @@ export async function POST(
   await admin.from('missions').update({
     status: 'reconciliation_de',
     reconciliation_commentaire: null,
+    reconciliation_caf_valide_par: user.id,
+    reconciliation_caf_valide_le: new Date().toISOString(),
   }).eq('id', id)
 
   // Notifier le missionnaire

@@ -71,6 +71,8 @@ export async function POST(
   await admin.from('missions').update({
     status: 'cloture',
     reconciliation_commentaire: null,
+    reconciliation_de_valide_par: user.id,
+    reconciliation_de_valide_le: new Date().toISOString(),
   }).eq('id', id)
 
   const missionnaire = mission.missionnaire as any
