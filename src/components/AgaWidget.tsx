@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
+import { usePathname } from 'next/navigation'
 
 type Msg = { role: 'user' | 'assistant'; content: string }
 
@@ -48,6 +49,10 @@ const GREETING: Msg = {
 }
 
 export default function AgaWidget() {
+  const pathname = usePathname()
+  // Masquée dans le Hub (/projets) — la bulle flottante gêne le clic sur les
+  // cases à cocher/boutons collés au bord droit du tableau des tâches.
+  const dansLeHub = pathname?.startsWith('/projets') ?? false
   const [open, setOpen] = useState(false)
   const [hidden, setHidden] = useState(false)
   const [messages, setMessages] = useState<Msg[]>([GREETING])
@@ -106,7 +111,7 @@ export default function AgaWidget() {
     }
   }
 
-  if (hidden) return null
+  if (hidden || dansLeHub) return null
 
   return (
     <>

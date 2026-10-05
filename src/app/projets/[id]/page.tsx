@@ -46,6 +46,7 @@ export default async function ProjetDetailPage({ params }: { params: Promise<{ i
     for (const a of (projet as any).activites ?? []) {
       if (a.assignee_id) idsReferences.add(a.assignee_id)
       if (a.created_by) idsReferences.add(a.created_by)
+      for (const id of a.associe_ids ?? []) idsReferences.add(id)
     }
     if (idsReferences.size > 0) {
       const { data: annuaire } = await supabase
@@ -57,6 +58,9 @@ export default async function ProjetDetailPage({ params }: { params: Promise<{ i
       for (const a of (projet as any).activites ?? []) {
         if (!a.assignee && a.assignee_id) a.assignee = parId.get(a.assignee_id) ?? null
         if (!a.created_by_profile && a.created_by) a.created_by_profile = parId.get(a.created_by) ?? null
+        // associe_ids est un simple tableau d'uuid (pas de relation FK PostgREST
+        // possible dessus) — toujours résolu ici, pas seulement en secours.
+        a.associes = (a.associe_ids ?? []).map((id: string) => parId.get(id)).filter(Boolean)
       }
     }
   }

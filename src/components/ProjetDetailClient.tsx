@@ -11,6 +11,8 @@ type Activite = {
   assignee_id: string | null; date_debut: string | null; date_echeance: string | null; created_by: string | null
   created_at: string; parent_id: string | null
   assignee: Profile | null
+  associe_ids: string[]
+  associes: Profile[]
   created_by_profile: Profile | null
   commentaires_activites: { id: string }[]
 }
@@ -247,6 +249,7 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
   const [editingCell, setEditingCell] = useState<{ id: string; field: string } | null>(null)
   const [calendarFor, setCalendarFor] = useState<{ id: string; rect: DOMRect } | null>(null)
   const [addRowCalendar, setAddRowCalendar] = useState<DOMRect | null>(null)
+  const [addingAssocie, setAddingAssocie] = useState(false)
 
   // Calendrier view state
   const now = new Date()
@@ -283,6 +286,7 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
 
   async function openActivite(act: Activite) {
     setSelectedActivite(act)
+    setAddingAssocie(false)
     setLoadingComments(true)
     const r = await fetch(`/api/commentaires-activites?activite_id=${act.id}`)
     const j = await r.json()
@@ -302,17 +306,21 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
     setSendingComment(false)
   }
 
-  async function patchActivite(activiteId: string, patch: Record<string, string | null>) {
+  async function patchActivite(activiteId: string, patch: Record<string, string | string[] | null>) {
     // Optimistic update — apply immediately, revert on failure
     const prevActivites = projet.activites
     const prevSelected = selectedActivite
 
-    // Build enriched patch (resolve assignee profile for display)
+    // Build enriched patch (resolve assignee/associés profiles for display)
     const optimisticPatch: Partial<Activite> = { ...patch } as any
     if ('assignee_id' in patch) {
       optimisticPatch.assignee = patch.assignee_id
         ? (allProfiles.find(p => p.id === patch.assignee_id) ?? null)
         : null
+    }
+    if ('associe_ids' in patch) {
+      const ids = (patch.associe_ids as string[] | null) ?? []
+      optimisticPatch.associes = ids.map(id => allProfiles.find(p => p.id === id)).filter((p): p is Profile => !!p)
     }
 
     setProjet(p => ({ ...p, activites: p.activites.map(a => a.id === activiteId ? { ...a, ...optimisticPatch } : a) }))
@@ -334,6 +342,14 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
       setProjet(p => ({ ...p, activites: prevActivites }))
       setSelectedActivite(prevSelected)
     }
+  }
+
+  function ajouterAssocie(activite: Activite, profileId: string) {
+    if (!profileId || activite.associe_ids.includes(profileId)) return
+    patchActivite(activite.id, { associe_ids: [...activite.associe_ids, profileId] })
+  }
+  function retirerAssocie(activite: Activite, profileId: string) {
+    patchActivite(activite.id, { associe_ids: activite.associe_ids.filter(id => id !== profileId) })
   }
 
   function toggleSelected(id: string) {
@@ -630,6 +646,12 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
                         <span style={{ fontSize: 12, color: act.assignee ? '#374151' : '#d1d5db', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {act.assignee ? `${act.assignee.prenoms} ${act.assignee.nom}` : '—'}
                         </span>
+                        {act.associes.length > 0 && (
+                          <span onClick={e => { e.stopPropagation(); openActivite(act) }} title={act.associes.map(p => `${p.prenoms} ${p.nom}`).join(', ')}
+                            style={{ fontSize: 10, fontWeight: 700, color: '#374151', background: '#e5e7eb', borderRadius: 999, padding: '1px 6px', flexShrink: 0, cursor: 'pointer' }}>
+                            +{act.associes.length}
+                          </span>
+                        )}
                       </div>
                     )}
                   </div>
@@ -1337,6 +1359,41 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
                   </span>
                 </div>
               )}
+            </div>
+            <div>
+              <span style={{ color: '#9ca3af', display: 'block', fontSize: 11, marginBottom: 4 }}>Personnes associées</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                {selectedActivite.associes.map(p => (
+                  <span key={p.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#f3f4f6', borderRadius: 999, padding: '3px 6px 3px 3px' }}>
+                    <Initials profile={p} />
+                    <span style={{ fontSize: 12, color: '#374151', fontWeight: 600 }}>{p.prenoms} {p.nom}</span>
+                    <button onClick={() => retirerAssocie(selectedActivite, p.id)} title="Retirer"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 0, display: 'flex' }}>
+                      <X size={12} color="currentColor" strokeWidth={2} />
+                    </button>
+                  </span>
+                ))}
+                {addingAssocie ? (
+                  <select
+                    autoFocus
+                    value=""
+                    onChange={e => { ajouterAssocie(selectedActivite, e.target.value); setAddingAssocie(false) }}
+                    onBlur={() => setAddingAssocie(false)}
+                    style={{ fontSize: 12, padding: '4px 6px', borderRadius: 8, border: '1px solid var(--abed-border)', background: 'white', cursor: 'pointer' }}
+                  >
+                    <option value="">— Choisir —</option>
+                    {allProfiles.filter(p => !selectedActivite.associe_ids.includes(p.id)).map(p => (
+                      <option key={p.id} value={p.id}>{p.prenoms} {p.nom}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <button onClick={() => setAddingAssocie(true)} title="Ajouter une personne associée"
+                    style={{
+                      width: 26, height: 26, borderRadius: '50%', border: '1px dashed var(--abed-border)', background: 'white',
+                      color: '#9ca3af', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, lineHeight: 1,
+                    }}>+</button>
+                )}
+              </div>
             </div>
           </div>
           <div style={{ flex: 1, overflowY: 'auto', padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
