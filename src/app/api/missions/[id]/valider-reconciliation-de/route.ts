@@ -77,12 +77,22 @@ export async function POST(
 
   const missionnaire = mission.missionnaire as any
 
-  // Seul un solde positif signifie qu'ABED doit encore verser quelque chose
-  // au missionnaire — une réconciliation qui ne laisse rien à payer (ou où
-  // c'est le missionnaire qui doit reverser un reliquat) ne doit pas
-  // apparaître dans Pay Roll. Pas de code budgétaire natif sur les missions
-  // — la CAF le complètera elle-même avant de générer un appel de fonds.
-  if ((mission.solde_missionnaire ?? 0) > 0) {
+  // solde_missionnaire (trigger DB : montant_recu - total_depenses) est NÉGATIF
+  // quand le missionnaire a dépensé plus qu'il n'a reçu d'ABED avant le
+  // départ — c'est ce cas-là (mission à crédit, ou sur avance insuffisante)
+  // qui doit déclencher un paiement, pas l'inverse : un solde POSITIF veut
+  // dire que le missionnaire a reçu plus qu'il n'a dépensé, donc un reliquat
+  // à RESTITUER à ABED, jamais un montant à lui verser. Même formule que
+  // "Montant dû par ABED" / "Reste dû par ABED" affichée au missionnaire au
+  // moment de la réconciliation (ReconciliationForm.tsx, abedDoit) : jamais
+  // pour une mission financée par un partenaire (a_charge_partenaire, géré
+  // par un circuit de prélèvement 20% distinct, pas un paiement au
+  // missionnaire), ni pour le mode "totalité reçue avant départ" (déjà
+  // intégralement réglé, même si le missionnaire a dépensé plus que prévu).
+  const montantDu = (!mission.a_charge_partenaire && mission.mode_financement !== 'totalite_avant')
+    ? Math.max(0, -(mission.solde_missionnaire ?? 0))
+    : 0
+  if (montantDu > 0) {
     await ajouterAuPayRoll(admin, {
       sourceType: 'reconciliation_mission',
       sourceId: id,
@@ -90,7 +100,7 @@ export async function POST(
       beneficiaireId: mission.missionnaire_id,
       beneficiaireNom: missionnaire ? `${missionnaire.prenoms} ${missionnaire.nom}` : mission.objet,
       objet: `Réconciliation mission — ${mission.objet}`,
-      montant: mission.solde_missionnaire,
+      montant: montantDu,
     })
   }
   const rapport = mission.rapport as any ?? {}

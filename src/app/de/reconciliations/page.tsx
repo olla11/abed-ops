@@ -26,7 +26,7 @@ export default async function DEReconciliationsPage() {
     // ou clôturés par une autre voie que ce circuit AAF→CAF→DE).
     supabase
       .from('missions')
-      .select('id, reference, objet, lieu, status, solde_missionnaire, reconciliation_de_valide_le, missionnaire:profiles!missions_missionnaire_id_fkey(nom, prenoms), valide_par:profiles!missions_reconciliation_de_valide_par_fkey(nom, prenoms)')
+      .select('id, reference, objet, lieu, status, solde_missionnaire, a_charge_partenaire, mode_financement, reconciliation_de_valide_le, missionnaire:profiles!missions_missionnaire_id_fkey(nom, prenoms), valide_par:profiles!missions_reconciliation_de_valide_par_fkey(nom, prenoms)')
       .eq('status', 'cloture')
       .not('reconciliation_de_valide_le', 'is', null)
       .order('reconciliation_de_valide_le', { ascending: false })
@@ -77,11 +77,17 @@ export default async function DEReconciliationsPage() {
             <CheckCircle2 size={16} strokeWidth={2} color="#166534" /> Déjà autorisées (historique)
           </h3>
           <p style={{ fontSize: 12.5, color: 'var(--abed-muted)', margin: '0 0 14px' }}>
-            Les 50 dernières réconciliations déjà autorisées et clôturées. Un solde &gt; 0 a été envoyé
-            automatiquement en Pay Roll pour paiement (missions sur crédit ou avance).
+            Les 50 dernières réconciliations déjà autorisées et clôturées. Un montant encore dû par
+            ABED a été envoyé automatiquement en Pay Roll pour paiement (missions sur crédit ou avance).
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {historique.map((m: any) => (
+            {historique.map((m: any) => {
+              // Même formule que côté serveur (valider-reconciliation-de/route.ts) :
+              // solde_missionnaire négatif = ABED doit encore verser ce montant.
+              const montantDu = (!m.a_charge_partenaire && m.mode_financement !== 'totalite_avant')
+                ? Math.max(0, -(m.solde_missionnaire ?? 0))
+                : 0
+              return (
               <Link key={m.id} href={`/missions/${m.id}`} className="card" style={{
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                 textDecoration: 'none', color: 'inherit', padding: '12px 18px', opacity: 0.9,
@@ -101,10 +107,11 @@ export default async function DEReconciliationsPage() {
                   fontSize: 11.5, fontWeight: 700, color: '#166534', background: '#f0fdf4',
                   border: '1px solid #bbf7d0', borderRadius: 20, padding: '3px 12px', whiteSpace: 'nowrap',
                 }}>
-                  {(m.solde_missionnaire ?? 0) > 0 ? 'Clôturée — envoyée en Pay Roll' : 'Clôturée'}
+                  {montantDu > 0 ? 'Clôturée — envoyée en Pay Roll' : 'Clôturée'}
                 </span>
               </Link>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}
