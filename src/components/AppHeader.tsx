@@ -2,12 +2,20 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useState, useEffect, useRef } from 'react'
-import { useTranslations, useLocale } from 'next-intl'
+import { useState, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
+import {
+  LayoutDashboard, Clock, Wallet, Palmtree, PenTool, FileText, ClipboardCheck,
+  Landmark, CreditCard, Users, FileSignature, Target, ClipboardList, FolderKanban,
+  FileEdit, BookOpen, LayoutGrid, Settings, Bell, UserCircle, Home,
+} from 'lucide-react'
 import UserAvatar from './UserAvatar'
 import AgaWidget from './AgaWidget'
 import NotificationBell from './NotificationBell'
 import AuthToast from './AuthToast'
+import MobileTabBar from './mobile/MobileTabBar'
+import MobileMenuSheet, { type MenuGroup } from './mobile/MobileMenuSheet'
+import MobileTableCards from './mobile/MobileTableCards'
 import { estAAF as roleEstAAF, estRH as roleEstRH, estCAF as roleEstCAF, estDE as roleEstDE, estBD as titreEstBD } from '@/lib/roles'
 
 type Props = {
@@ -37,52 +45,29 @@ type Props = {
 // premier sous-menu du menu "AAF" (voir aafTabs ci-dessous) plutôt que
 // dupliquée aux deux endroits.
 const OVERVIEW_ROLES = ['de','dp','caf','admin','administrateur','superadmin']
+const RAPPORT_TYPES = ['benevole', 'stagiaire_n1', 'stagiaire_n2', 'cdd', 'cdi']
+
+const ROLE_LABELS: Record<string, string> = {
+  admin: 'Administrateur système', superadmin: 'Super administrateur', rh: 'Ressources Humaines',
+  caf: 'CAF', de: 'Directeur Exécutif', dp: 'Directeur des Programmes', aaf: 'AAF',
+  administrateur: "Conseil d'Administration", manager: 'Manager',
+  missionnaire: 'Missionnaire', prestataire: 'Prestataire',
+}
 
 export default function AppHeader({ userName, userRole, userTitre, typeEmploi, showAdmin, showRH, showAAF, showCAF, showDE, showBD, forceRHActive, avatarUrl }: Props) {
   const pathname = usePathname()
-  const locale = useLocale()
   const t = useTranslations('nav')
   const showOverview = OVERVIEW_ROLES.includes(userRole ?? '')
-  // Repli calculé directement depuis le rôle effectif si l'appelant n'a pas
-  // fourni la prop explicitement — évite la classe de bug déjà rencontrée
-  // avec showAAF (des pages qui oubliaient de la passer perdaient le menu).
   const effectiveShowAAF = showAAF ?? roleEstAAF(userRole)
-  // Admin/superadmin doivent pouvoir agir directement sur les dossiers RH
-  // (personnel, évaluations...) sans passer par l'aperçu de rôle — l'onglet
-  // RH leur reste donc accessible même quand la page appelante a transmis
-  // showRH={estRH(role)} (false pour eux), d'où le OR après le repli au
-  // lieu d'un simple ??.
   const effectiveShowRH = (showRH ?? roleEstRH(userRole)) || ['admin', 'superadmin'].includes(userRole ?? '')
-  // Le menu CAF (déroulant CAF Pro / AAF / RH) remplace les onglets AAF et RH
-  // séparés pour la CAF — exclusif à ce rôle, pas de repli par défaut ailleurs.
   const effectiveShowCAF = showCAF ?? roleEstCAF(userRole)
-  // DE : rôle autonome comme AAF seul (pas d'héritage) — lien simple, pas de
-  // menu déroulant (voir commentaire près du lien AAF plus bas).
   const effectiveShowDE = showDE ?? roleEstDE(userRole)
-  // BD : contrairement à AAF/CAF/DE, ce n'est pas un rôle d'accès dédié (le
-  // titre business_developer partage l'AccessRole 'manager' avec d'autres
-  // postes) — le repli se fait donc sur le TITRE, pas sur userRole.
   const effectiveShowBD = showBD ?? titreEstBD(userTitre)
   const [cafOpen, setCafOpen] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
-  const mobileRef = useRef<HTMLDivElement>(null)
 
-  // "Mon espace" n'est plus un menu déroulant : chacune de ses pages affiche
-  // désormais une barre latérale permanente (voir MonEspaceNav), qui liste
-  // ces mêmes destinations (dont "Doc & Sign" et "Contrats & Évaluations",
-  // autrefois des sous-menus en survol). Ici, un simple lien vers /dashboard,
-  // actif dès qu'on est sur l'une de ces pages.
   const MON_ESPACE_PATHS = ['/dashboard', '/missions', '/timesheets', '/demandes', '/conges', '/documents', '/signatures', '/mes-contrats', '/evaluations']
 
-  // Appellations volontairement différentes de "Mon espace" (verbe d'action en
-  // tête) : ce menu sert à traiter les dossiers d'autrui, pas à consulter les
-  // siens — la distinction doit se voir dans le libellé, pas seulement dans le lien.
-  // /bd n'a pas son propre onglet en tête pour ces rôles (BDNav.tsx l'insère
-  // en sous-menu de "Vue d'ensemble" pour les superviseurs qui n'ont pas le
-  // titre BD) — l'onglet doit donc rester allumé quand on y est, sinon on
-  // perd le repère de "dans quel menu suis-je". Exclu seulement si la
-  // personne a par ailleurs son propre onglet "BD" dédié (effectiveShowBD),
-  // pour ne pas allumer les deux à la fois dans ce cas.
   const matchVueEnsemble = effectiveShowBD ? ['/overview'] : ['/overview', '/bd']
   const aafTabs = [
     { href: '/overview', label: "Vue d'ensemble", match: matchVueEnsemble },
@@ -91,10 +76,6 @@ export default function AppHeader({ userName, userRole, userTitre, typeEmploi, s
     { href: '/aaf/reconciliations', label: 'Valider les réconciliations OM', match: ['/aaf/reconciliations'] },
   ]
 
-  // Menu CAF : regroupe l'espace de traitement propre à la CAF (CAF Pro) et
-  // les deux menus déjà accessibles par héritage (AAF, RH) — un seul point
-  // d'entrée au lieu de 3 onglets séparés. Vue d'ensemble reste HORS de ce
-  // menu, en onglet principal indépendant (cf. OVERVIEW_ROLES).
   const cafTabs = [
     { href: '/caf', label: 'CAF Pro', match: ['/caf'] },
     { href: '/aaf', label: 'AAF', match: ['/aaf'] },
@@ -107,7 +88,6 @@ export default function AppHeader({ userName, userRole, userTitre, typeEmploi, s
     { href: '/tdr', label: t('tdr'), match: ['/tdr'] },
     { href: '/ressources', label: t('resources'), match: ['/ressources'] },
     ...(showOverview ? [{ href: '/overview', label: t('overview'), match: matchVueEnsemble }] : []),
-    // RH : masqué ici quand le menu CAF est actif, il y figure déjà en sous-entrée.
     ...(effectiveShowRH && !effectiveShowCAF ? [{ href: '/rh', label: t('rh'), match: ['/rh'] }] : []),
     ...(showAdmin ? [{ href: '/admin', label: t('admin'), match: ['/admin'] }] : []),
   ]
@@ -116,30 +96,63 @@ export default function AppHeader({ userName, userRole, userTitre, typeEmploi, s
     return match.some(m => pathname === m || pathname.startsWith(m + '/'))
   }
 
-  // forceRHActive : la page consultée est partagée avec "Mon espace" (même
-  // route pour son propre dossier et pour agir en tant que CAF/RH sur celui
-  // d'un tiers) — dans ce second cas, "Mon espace" ne doit pas s'allumer,
-  // et le menu CAF (ou l'onglet RH pour la RH littérale) s'allume à la place.
   const dossierActive = !forceRHActive && isActive(MON_ESPACE_PATHS)
   const aafActive = effectiveShowAAF && (isActive(['/aaf']) || aafTabs.some(s => isActive(s.match)))
   const cafActive = effectiveShowCAF && (cafTabs.some(s => isActive(s.match)) || forceRHActive)
   const deActive = effectiveShowDE && isActive(['/de'])
   const bdActive = effectiveShowBD && isActive(['/bd'])
 
-  // Close mobile menu on route change
   useEffect(() => { setMobileOpen(false) }, [pathname])
 
-  // Close mobile menu on outside click
-  useEffect(() => {
-    if (!mobileOpen) return
-    function handle(e: MouseEvent) {
-      if (mobileRef.current && !mobileRef.current.contains(e.target as Node)) {
-        setMobileOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handle)
-    return () => document.removeEventListener('mousedown', handle)
-  }, [mobileOpen])
+  // ── Menu mobile (onglet "Menu" de la barre du bas) ──
+  // Mêmes destinations que la nav desktop + MonEspaceNav, regroupées par
+  // section. Les sections de traitement n'apparaissent que pour les rôles
+  // qui y ont accès (mêmes règles que les onglets desktop ci-dessus).
+  const estRapport = RAPPORT_TYPES.includes(typeEmploi ?? '')
+  const a = (href: string, exact = false) => exact ? pathname === href : isActive([href])
+  const menuGroups: MenuGroup[] = [
+    { title: t('dossier'), items: [
+      { href: '/accueil', label: 'Accueil', Icon: Home, active: a('/accueil') },
+      { href: '/dashboard', label: t('missions'), Icon: LayoutDashboard, active: a('/dashboard') },
+      { href: '/timesheets', label: estRapport ? t('monthlyReport') : t('timesheets'), Icon: Clock, active: a('/timesheets') },
+      { href: '/demandes', label: t('payments'), Icon: Wallet, active: a('/demandes') },
+      { href: '/conges', label: t('leaves'), Icon: Palmtree, active: a('/conges') },
+      { href: '/signatures', label: 'Signature directe', Icon: PenTool, active: a('/signatures') },
+      { href: '/documents', label: 'Documents', Icon: FileText, active: a('/documents') },
+      { href: '/mes-contrats', label: t('contracts'), Icon: FileText, active: a('/mes-contrats') },
+      { href: '/evaluations', label: t('evaluations'), Icon: ClipboardCheck, active: a('/evaluations') },
+    ]},
+    ...(effectiveShowDE ? [{ title: 'DE', items: [
+      { href: '/de', label: 'Tableau de bord', Icon: LayoutDashboard, active: a('/de', true) },
+      { href: '/de/om-a-signer', label: 'OM à signer', Icon: FileSignature, active: a('/de/om-a-signer') },
+      { href: '/de/demandes-paiement', label: 'Demandes de paiement', Icon: Wallet, active: a('/de/demandes-paiement') },
+      { href: '/de/rapports-allocations', label: "Rapports d'allocation", Icon: ClipboardList, active: a('/de/rapports-allocations') },
+      { href: '/de/reconciliations', label: 'Réconciliations OM', Icon: ClipboardCheck, active: a('/de/reconciliations') },
+      { href: '/de/timesheets', label: 'Timesheets', Icon: Clock, active: a('/de/timesheets') },
+    ]}] : []),
+    ...(effectiveShowCAF ? [{ title: 'CAF', items: [
+      { href: '/caf', label: 'CAF Pro', Icon: Landmark, active: a('/caf', true) },
+      { href: '/aaf', label: 'AAF', Icon: CreditCard, active: a('/aaf') },
+      { href: '/rh', label: 'RH', Icon: Users, active: a('/rh') },
+    ]}] : effectiveShowAAF ? [{ title: 'AAF', items: [
+      { href: '/aaf', label: 'Tableau de bord AAF', Icon: LayoutDashboard, active: a('/aaf', true) },
+      { href: '/aaf/demandes-paiement', label: 'Demandes de paiement', Icon: Wallet, active: a('/aaf/demandes-paiement') },
+      { href: '/aaf/rapports-allocations', label: "Rapports d'allocation", Icon: ClipboardList, active: a('/aaf/rapports-allocations') },
+      { href: '/aaf/reconciliations', label: 'Réconciliations OM', Icon: ClipboardCheck, active: a('/aaf/reconciliations') },
+    ]}] : []),
+    ...(effectiveShowBD ? [{ title: 'BD', items: [
+      { href: '/bd', label: 'Tableau de bord BD', Icon: Target, active: a('/bd') },
+    ]}] : []),
+    { title: 'Navigation', items: mainTabs.map(tab => ({
+      href: tab.href, label: tab.label, active: isActive(tab.match) || (!!forceRHActive && tab.href === '/rh'),
+      Icon: ({ '/statut': ClipboardList, '/projets': FolderKanban, '/tdr': FileEdit, '/ressources': BookOpen, '/overview': LayoutGrid, '/rh': Users, '/admin': Settings } as Record<string, typeof Home>)[tab.href] ?? LayoutGrid,
+    })) },
+    { title: 'Compte', items: [
+      { href: '/notifications', label: 'Notifications', Icon: Bell, active: a('/notifications') },
+      { href: '/profile', label: 'Mon profil', Icon: UserCircle, active: a('/profile') },
+      { href: '/parametres', label: 'Paramètres', Icon: Settings, active: a('/parametres') },
+    ]},
+  ]
 
   return (
     <>
@@ -156,27 +169,18 @@ export default function AppHeader({ userName, userRole, userTitre, typeEmploi, s
         height: 60, gap: 8,
       }}>
 
-        {/* Logo */}
         <Link href="/accueil" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none', flexShrink: 0, marginRight: 8 }}>
           <Image src="/logoabed2.png" alt="Logo ABED" width={34} height={34} style={{ objectFit: 'contain' }} />
           <span style={{ fontSize: 16, fontWeight: 900, color: 'var(--abed-green)', letterSpacing: 0.5 }}>My ABED</span>
         </Link>
 
-        {/* Onglets desktop */}
+        {/* Onglets desktop (inchangés) */}
         <div className="nav-desktop" style={{ display: 'flex', alignItems: 'stretch', flex: 1, height: '100%', gap: 2 }}>
 
-          {/* Mon espace — lien simple ; le sous-menu (dont Doc & Sign et
-              Contrats & Évaluations) vit désormais dans une barre latérale
-              permanente sur chacune de ces pages (voir MonEspaceNav), plutôt
-              que dans un menu déroulant du haut. */}
           <Link href="/dashboard" style={tabStyle(dossierActive)}>
             {t('dossier')}
           </Link>
 
-          {/* CAF — menu déroulant regroupant CAF Pro / AAF / RH (rôle CAF
-              uniquement). Contrairement à l'ancien essai sur AAF, ce menu ne
-              duplique pas les onglets d'une barre alignée : chaque entrée
-              pointe vers une section différente, qui a sa propre barre. */}
           {effectiveShowCAF ? (
             <div
               style={{ position: 'relative', display: 'flex', alignItems: 'stretch' }}
@@ -217,32 +221,23 @@ export default function AppHeader({ userName, userRole, userTitre, typeEmploi, s
               )}
             </div>
           ) : effectiveShowAAF && (
-            // AAF — lien simple vers le tableau de bord ; le sous-menu se fait
-            // via la barre d'onglets alignée dans la section /aaf elle-même
-            // (AAFNav), pas via un menu déroulant qui la recouvrirait.
             <Link href="/aaf" style={tabStyle(!!aafActive)}>
               AAF
             </Link>
           )}
 
-          {/* DE — même traitement que AAF seul : lien simple, sous-menu via
-              la barre d'onglets alignée dans /de (DENav), pas de menu
-              déroulant qui la recouvrirait. */}
           {effectiveShowDE && (
             <Link href="/de" style={tabStyle(!!deActive)}>
               DE
             </Link>
           )}
 
-          {/* BD — même traitement que AAF/DE seuls : lien simple, sous-menu
-              via la barre d'onglets alignée dans /bd (BDNav). */}
           {effectiveShowBD && (
             <Link href="/bd" style={tabStyle(!!bdActive)}>
               BD
             </Link>
           )}
 
-          {/* Autres onglets */}
           {mainTabs.map(tab => (
             <Link key={tab.href} href={tab.href} style={tabStyle(isActive(tab.match) || (!!forceRHActive && tab.href === '/rh'))}>
               {tab.label}
@@ -250,135 +245,23 @@ export default function AppHeader({ userName, userRole, userTitre, typeEmploi, s
           ))}
         </div>
 
-        {/* Avatar + lang switcher + hamburger */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
           <NotificationBell />
           <UserAvatar userName={userName} userRole={userRole} avatarUrl={avatarUrl} />
-
-          {/* Hamburger — visible only on mobile */}
-          <button
-            className="nav-hamburger"
-            onClick={() => setMobileOpen(o => !o)}
-            aria-label="Menu"
-            style={{
-              display: 'none',
-              background: 'none', border: 'none', cursor: 'pointer',
-              padding: 6, borderRadius: 6,
-              color: '#374151', fontSize: 22, lineHeight: 1,
-            }}
-          >
-            {mobileOpen ? '✕' : '☰'}
-          </button>
         </div>
       </div>
-
-      {/* Mobile menu */}
-      {mobileOpen && (
-        <div ref={mobileRef} style={{
-          position: 'absolute', top: 60, left: 0, right: 0, zIndex: 300,
-          background: 'white', borderBottom: '1px solid var(--abed-border)',
-          boxShadow: '0 8px 24px rgba(0,0,0,.12)',
-        }}>
-          {/* Mon espace — lien simple, comme en desktop (voir plus haut). */}
-          <Link href="/dashboard" style={{
-            display: 'block', padding: '12px 24px', fontSize: 14,
-            fontWeight: dossierActive ? 700 : 400,
-            color: dossierActive ? 'var(--abed-green)' : '#374151',
-            background: dossierActive ? '#f0fdf4' : 'white',
-            textDecoration: 'none',
-            borderBottom: '1px solid #f9fafb',
-          }}>
-            {t('dossier')}
-          </Link>
-
-          {/* CAF (CAF Pro / AAF / RH) ou AAF seul */}
-          {effectiveShowCAF ? (
-            <>
-              <div style={{ padding: '8px 16px 4px', fontSize: 11, fontWeight: 700, color: 'var(--abed-muted)', textTransform: 'uppercase', letterSpacing: '.05em', borderTop: '1px solid var(--abed-border)' }}>
-                CAF
-              </div>
-              {cafTabs.map(s => {
-                const active = isActive(s.match)
-                return (
-                  <Link key={s.href} href={s.href} style={{
-                    display: 'block', padding: '12px 24px', fontSize: 14,
-                    fontWeight: active ? 700 : 400,
-                    color: active ? 'var(--abed-green)' : '#374151',
-                    background: active ? '#f0fdf4' : 'white',
-                    textDecoration: 'none',
-                    borderBottom: '1px solid #f9fafb',
-                  }}>
-                    {s.label}
-                  </Link>
-                )
-              })}
-            </>
-          ) : effectiveShowAAF && (
-            <Link href="/aaf" style={{
-              display: 'block', padding: '12px 24px', fontSize: 14,
-              fontWeight: aafActive ? 700 : 400,
-              color: aafActive ? 'var(--abed-green)' : '#374151',
-              background: aafActive ? '#f0fdf4' : 'white',
-              textDecoration: 'none',
-              borderBottom: '1px solid #f9fafb',
-              borderTop: '1px solid var(--abed-border)',
-            }}>
-              AAF
-            </Link>
-          )}
-
-          {effectiveShowDE && (
-            <Link href="/de" style={{
-              display: 'block', padding: '12px 24px', fontSize: 14,
-              fontWeight: deActive ? 700 : 400,
-              color: deActive ? 'var(--abed-green)' : '#374151',
-              background: deActive ? '#f0fdf4' : 'white',
-              textDecoration: 'none',
-              borderBottom: '1px solid #f9fafb',
-              borderTop: '1px solid var(--abed-border)',
-            }}>
-              DE
-            </Link>
-          )}
-
-          {effectiveShowBD && (
-            <Link href="/bd" style={{
-              display: 'block', padding: '12px 24px', fontSize: 14,
-              fontWeight: bdActive ? 700 : 400,
-              color: bdActive ? 'var(--abed-green)' : '#374151',
-              background: bdActive ? '#f0fdf4' : 'white',
-              textDecoration: 'none',
-              borderBottom: '1px solid #f9fafb',
-              borderTop: '1px solid var(--abed-border)',
-            }}>
-              BD
-            </Link>
-          )}
-
-          {/* Autres onglets */}
-          {mainTabs.length > 0 && (
-            <div style={{ padding: '8px 16px 4px', fontSize: 11, fontWeight: 700, color: 'var(--abed-muted)', textTransform: 'uppercase', letterSpacing: '.05em', borderTop: '1px solid var(--abed-border)', marginTop: 4 }}>
-              Navigation
-            </div>
-          )}
-          {mainTabs.map(tab => {
-            const active = isActive(tab.match) || (!!forceRHActive && tab.href === '/rh')
-            return (
-              <Link key={tab.href} href={tab.href} style={{
-                display: 'block', padding: '12px 24px', fontSize: 14,
-                fontWeight: active ? 700 : 400,
-                color: active ? 'var(--abed-green)' : '#374151',
-                background: active ? '#f0fdf4' : 'white',
-                textDecoration: 'none',
-                borderBottom: '1px solid #f9fafb',
-              }}>
-                {tab.label}
-              </Link>
-            )
-          })}
-        </div>
-      )}
     </nav>
+
+    {/* Mobile (≤768px) : barre d'onglets en bas + menu plein écran */}
+    <MobileMenuSheet
+      open={mobileOpen}
+      onClose={() => setMobileOpen(false)}
+      userName={userName}
+      roleLabel={ROLE_LABELS[userRole ?? ''] ?? userRole}
+      groups={menuGroups}
+    />
+    <MobileTabBar role={userRole} titre={userTitre} menuOpen={mobileOpen} onMenu={() => setMobileOpen(o => !o)} />
+    <MobileTableCards />
     <AgaWidget />
     </>
   )

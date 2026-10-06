@@ -11,6 +11,7 @@
   --abed-amber: #d98e04;
   --radius: 12px;
   --shadow: 0 2px 8px rgba(40,60,20,.06), 0 8px 24px rgba(40,60,20,.05);
+  --tabbar-h: 62px;
 }
 
 /* Hub (Espaces/Projets) : le crayon de renommage d'un projet ne s'affiche
@@ -37,6 +38,8 @@ body {
 
 a { color: var(--abed-blue); text-decoration: none; }
 
+img, video, canvas { max-width: 100%; }
+
 /* ── Conteneur standard centré (style Groq) ── */
 .page-container {
   max-width: 1600px;
@@ -54,16 +57,11 @@ a { color: var(--abed-blue); text-decoration: none; }
 }
 
 /* Section avec sous-menu latéral (Admin, RH, DE, CAF, BD, AAF, TdR, Mon
-   espace) — SectionSideNav est en position fixe (collée au bord gauche de
-   l'écran, pleine hauteur, ne défile plus avec le contenu), donc hors du
-   flux normal : .section-content lui réserve la place par une marge
-   gauche, ajustée automatiquement quand le menu est replié (classe posée
-   sur <html> par SectionSideNav.tsx). .page-container perd son centrage
-   habituel ici, sinon le contenu resterait centré sur la page entière au
-   lieu de démarrer juste après la barre, avec un grand vide entre les
-   deux sur les écrans larges. Sous 700px, le sous-menu repasse lui-même en
-   rangée horizontale non fixe (voir SectionSideNav.tsx) : plus besoin de
-   lui réserver de marge. */
+   espace) — SectionSideNav est en position fixe, donc hors du flux normal :
+   .section-content lui réserve la place par une marge gauche, ajustée
+   automatiquement quand le menu est replié (classe posée sur <html> par
+   SectionSideNav.tsx). Sous 700px, le sous-menu repasse en rangée
+   horizontale (voir plus bas, section mobile). */
 .page-container:has(> .section-with-sidenav) {
   max-width: none;
   margin: 0;
@@ -87,6 +85,7 @@ html.sidenav-collapsed-html .section-content {
 }
 @media (max-width: 700px) {
   .section-content { margin-left: 0; }
+  html.sidenav-collapsed-html .section-content { margin-left: 0; }
 }
 
 .btn {
@@ -103,8 +102,6 @@ html.sidenav-collapsed-html .section-content {
 .card {
   background: var(--abed-card); border: 1px solid var(--abed-border);
   border-radius: var(--radius); padding: 24px; box-shadow: var(--shadow);
-  /* Grid/flex items default to min-width:auto, which lets a wide table
-     push the whole page wider instead of scrolling inside .table-wrap. */
   min-width: 0;
 }
 
@@ -135,8 +132,8 @@ th { color: var(--abed-muted); font-size: 12px; text-transform: uppercase; lette
 .nav-desktop { display: flex !important; }
 
 @media (max-width: 768px) {
-  .nav-hamburger { display: flex !important; }
   .nav-desktop { display: none !important; }
+  /* Le hamburger reste masqué : l'onglet "Menu" de la barre du bas le remplace. */
 }
 
 /* ── Sidebar projets ── */
@@ -150,6 +147,102 @@ th { color: var(--abed-muted); font-size: 12px; text-transform: uppercase; lette
   overflow: hidden;
 }
 
+/* ════════════════════════════════════════════════════════════════
+   MOBILE — barre d'onglets en bas + menu plein écran (prototype)
+   ════════════════════════════════════════════════════════════════ */
+.mobile-tabbar, .mobile-menu-sheet { display: none; }
+
+@media (max-width: 768px) {
+  body { padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom)); }
+
+  .mobile-tabbar {
+    display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 450;
+    background: #fff; border-top: 1px solid var(--abed-border);
+    padding: 6px 4px calc(4px + env(safe-area-inset-bottom));
+    box-shadow: 0 -2px 12px rgba(0,0,0,.04);
+  }
+  .mobile-tabbar-item {
+    flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    min-height: 48px; padding: 4px 2px; color: #9ca3af; background: none; border: none;
+    font-family: inherit; cursor: pointer; text-decoration: none; -webkit-tap-highlight-color: transparent;
+  }
+  .mobile-tabbar-item span { font-size: 10.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  .mobile-tabbar-item.active { color: var(--abed-green); }
+  .mobile-tabbar-item.active span { font-weight: 700; }
+
+  .mobile-menu-sheet {
+    display: block; position: fixed; top: 60px; left: 0; right: 0;
+    bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+    z-index: 440; background: var(--abed-bg); overflow-y: auto; -webkit-overflow-scrolling: touch;
+    animation: abedSheetIn .2s ease;
+  }
+  .mobile-menu-item {
+    display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 12px 16px;
+    background: #fff; border-top: 1px solid #f3f4f6; color: #374151; font-size: 14px; font-weight: 600; text-decoration: none;
+  }
+  .mobile-menu-item.active { color: var(--abed-green); background: #f0fdf4; }
+
+  /* En-tête mobile compact (logo + cloche + avatar) */
+  nav .page-container { padding-left: 16px !important; padding-right: 16px !important; }
+
+  /* Sous-menus de section (SectionSideNav) : rangée de pastilles qui
+     défile horizontalement, collée sous l'en-tête — au lieu de s'enrouler
+     sur plusieurs lignes et de pousser le contenu vers le bas. */
+  nav.sidenav, nav.sidenav.sidenav-collapsed {
+    position: sticky !important; top: 60px; z-index: 150;
+    flex-wrap: nowrap !important; overflow-x: auto; overflow-y: hidden;
+    padding: 8px 12px !important; gap: 6px !important;
+    background: #fff !important; border-bottom: 1px solid var(--abed-border);
+    scrollbar-width: none;
+  }
+  nav.sidenav::-webkit-scrollbar { display: none; }
+  nav.sidenav .sidenav-item {
+    border-radius: 999px; padding: 8px 14px !important; border: 1px solid var(--abed-border);
+    background: #fff; font-size: 13px; min-height: 38px;
+  }
+  nav.sidenav .sidenav-item.active { border-color: var(--abed-green); }
+
+  /* Tableaux → cartes (une carte par ligne, intitulé à gauche, valeur à
+     droite). Les data-label sont posés par MobileTableCards.tsx. */
+  table:not(.no-mobile-cards) { table-layout: auto; }
+  table:not(.no-mobile-cards) thead { display: none; }
+  table:not(.no-mobile-cards), table:not(.no-mobile-cards) tbody { display: block; width: 100%; }
+  table:not(.no-mobile-cards) tbody tr {
+    display: block; background: #fff; border: 1px solid var(--abed-border);
+    border-radius: 12px; padding: 6px 14px; margin-bottom: 10px;
+  }
+  table:not(.no-mobile-cards) tbody td {
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    padding: 8px 0 !important; border-bottom: 1px solid #f3f4f6;
+    white-space: normal; text-align: right; font-size: 13.5px; width: auto !important;
+    overflow-wrap: anywhere;
+  }
+  table:not(.no-mobile-cards) tbody td:last-child { border-bottom: none; }
+  table:not(.no-mobile-cards) tbody td[data-label]::before {
+    content: attr(data-label); flex-shrink: 0; max-width: 45%;
+    text-align: left; color: var(--abed-muted); font-size: 11.5px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .03em;
+  }
+  table:not(.no-mobile-cards) tbody td[data-label=""]::before { content: none; }
+  table:not(.no-mobile-cards) tbody td:first-child { font-weight: 700; color: #111827; }
+  .table-wrap { overflow-x: visible; }
+  .card:has(> .table-wrap), .card:has(> table) { background: none; border: none; box-shadow: none; padding: 0; }
+
+  /* Champs : 16px pour empêcher le zoom automatique d'iOS au focus */
+  input, select, textarea, .input, .select, .textarea { font-size: 16px !important; }
+
+  /* Boutons : cibles tactiles confortables */
+  .btn { min-height: 44px; }
+
+  /* Modales / panneaux en position fixe : jamais plus larges que l'écran */
+  [role="dialog"] > div, .modal, .modal-content { max-width: calc(100vw - 24px) !important; }
+
+  /* Widgets flottants (AGA, etc.) remontés au-dessus de la barre d'onglets */
+  .aga-widget, [data-floating] { bottom: calc(var(--tabbar-h) + 16px) !important; }
+}
+
+@keyframes abedSheetIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
 /* ── Responsive ── */
 @media (max-width: 768px) {
   .card { padding: 16px; }
@@ -159,28 +252,30 @@ th { color: var(--abed-muted); font-size: 12px; text-transform: uppercase; lette
   .grid-3 { grid-template-columns: 1fr !important; }
   .page-content { padding: 16px !important; }
 
-  /* Hero accueil */
-  .hero-accueil { padding: 24px 20px !important; }
+  /* Hero accueil (prototype : carte compacte) */
+  .hero-accueil { padding: 22px 20px !important; border-radius: 16px !important; margin-bottom: 18px !important; }
 
   /* Sidebar projets → masquée sur mobile */
   .projets-sidebar { display: none !important; width: 0 !important; }
   .projets-main { flex: 1; }
 
-  /* Panel latéral tâche → plein écran sur mobile */
   .task-panel {
     width: 100% !important;
     left: 0 !important;
     right: 0 !important;
   }
 
-  /* Header h1 */
   h1 { font-size: clamp(20px, 5vw, 32px) !important; }
 
-  /* Flex rows qui débordent */
   .flex-wrap-mobile { flex-wrap: wrap !important; }
 
-  /* Stats accueil hero */
-  .hero-stats { grid-template-columns: repeat(2, 1fr) !important; }
+  /* Stats accueil : grille 2×2 compacte */
+  .hero-stats { grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; margin-bottom: 22px !important; }
+  .hero-stats > button { padding: 14px !important; border-radius: 14px !important; }
+
+  /* Accès rapide : liste verticale */
+  .accueil-shortcuts { grid-template-columns: 1fr !important; gap: 10px !important; }
+  .accueil-shortcuts > button { padding: 14px 16px !important; border-radius: 12px !important; }
 }
 
 @media (max-width: 480px) {

@@ -1,6 +1,6 @@
 'use client'
 import { useRouter } from 'next/navigation'
-import { BarChart2, Plane, CreditCard, Palmtree, Users, Settings, Clock, Bell, FileText, ClipboardList, Scale, type LucideIcon } from 'lucide-react'
+import { BarChart2, Plane, CreditCard, Palmtree, Users, Settings, Clock, Bell, FileText, ClipboardList, Scale, ChevronRight, FileSignature, type LucideIcon } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 type Props = {
@@ -32,9 +32,6 @@ function buildShortcuts(t: (k: string) => string): Record<string, Shortcut[]> {
       { href: '/timesheets', Icon: Clock,    label: t('timesheets'), desc: t('myTimesheets_desc') },
       { href: '/missions',   Icon: Plane,    label: t('missions'),   desc: t('missions_desc') },
     ],
-    // Mêmes deux raccourcis mal branchés que l'AAF, repérés en corrigeant
-    // les siens : /demandes et /timesheets sont les pages "Mon espace"
-    // personnelles de la CAF, pas ses pages de traitement (voir CAFNav.tsx).
     caf: [
       { href: '/caf/demandes-paiement', Icon: CreditCard, label: t('payments'),    desc: t('cafValidation_desc') },
       { href: '/caf/timesheets',    Icon: Clock,      label: t('timesheets'),  desc: t('livrables_desc') },
@@ -43,14 +40,17 @@ function buildShortcuts(t: (k: string) => string): Record<string, Shortcut[]> {
     ],
     de: [
       { href: '/overview',          Icon: BarChart2,  label: t('overview'),  desc: t('shortcuts_desc') },
-      { href: '/missions',          Icon: Plane,      label: t('missions'),  desc: t('signValidate_desc') },
-      { href: '/demandes', Icon: CreditCard, label: t('payments'),  desc: t('finalApproval_desc') },
-      { href: '/rh/conges',         Icon: Palmtree,   label: t('leaves'),    desc: t('finalApprovalLeaves_desc') },
+      { href: '/de/om-a-signer',    Icon: FileSignature, label: 'OM à signer', desc: t('signValidate_desc') },
+      { href: '/de/demandes-paiement', Icon: CreditCard, label: t('payments'),  desc: t('finalApproval_desc') },
+      { href: '/conges',            Icon: Palmtree,   label: t('leaves'),    desc: t('finalApprovalLeaves_desc') },
     ],
-    // Les 3 raccourcis d'origine pointaient tous vers des pages génériques
-    // "Mon espace" (/demandes, /missions) sans rapport avec le travail réel
-    // de l'AAF — reconnectés vers les vraies pages de traitement du menu
-    // AAF (voir AAFNav.tsx), la seule source fiable de ces routes.
+    // DP n'avait pas de raccourcis propres (retombait sur ceux du missionnaire).
+    dp: [
+      { href: '/overview',   Icon: BarChart2,  label: t('overview'),   desc: t('shortcuts_desc') },
+      { href: '/missions',   Icon: Plane,      label: t('missions'),   desc: t('missions_desc') },
+      { href: '/demandes',   Icon: CreditCard, label: t('payments'),   desc: t('payments_desc') },
+      { href: '/timesheets', Icon: Clock,      label: t('timesheets'), desc: t('validateTimesheets_desc') },
+    ],
     aaf: [
       { href: '/aaf/demandes-paiement',   Icon: CreditCard,   label: t('payments'),            desc: t('aafValidation_desc') },
       { href: '/aaf/rapports-allocations', Icon: ClipboardList, label: t('aafAllocations'),     desc: t('aafAllocations_desc') },
@@ -87,7 +87,7 @@ export default function AccueilClient({ prenom, role, roleLabel, fonction, omEnC
   const router = useRouter()
   const t = useTranslations('home')
   const roleShortcuts = buildShortcuts(t)
-  const shortcuts = roleShortcuts[role] ?? roleShortcuts['missionnaire']
+  const shortcuts = roleShortcuts[role] ?? roleShortcuts[role === 'superadmin' ? 'admin' : 'missionnaire']
 
   const h = new Date().getHours()
   const greeting = h < 5   ? { text: t('goodNight'),        sub: t('goodNightSub') }
@@ -107,7 +107,6 @@ export default function AccueilClient({ prenom, role, roleLabel, fonction, omEnC
 
   return (
     <main className="page-container">
-      {/* Hero welcome */}
       <div className="hero-accueil" style={{
         background: 'linear-gradient(135deg, #064e3b 0%, #065f46 60%, #047857 100%)',
         borderRadius: 20, padding: '40px 48px', marginBottom: 32, position: 'relative', overflow: 'hidden', width: '100%',
@@ -130,7 +129,6 @@ export default function AccueilClient({ prenom, role, roleLabel, fonction, omEnC
         </div>
       </div>
 
-      {/* Stats row */}
       <div className="hero-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 32 }}>
         {stats.map(s => (
           <button
@@ -157,10 +155,9 @@ export default function AccueilClient({ prenom, role, roleLabel, fonction, omEnC
         ))}
       </div>
 
-      {/* Quick access */}
       <div>
         <h2 style={{ fontSize: 16, fontWeight: 800, color: '#111827', marginBottom: 16 }}>{t('shortcuts')}</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14 }}>
+        <div className="accueil-shortcuts" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14 }}>
           {shortcuts.map(s => (
             <button
               key={s.href}
@@ -183,10 +180,11 @@ export default function AccueilClient({ prenom, role, roleLabel, fonction, omEnC
               <div style={{ flexShrink: 0, color: '#6b7280' }}>
                 <s.Icon size={22} strokeWidth={1.5} color="#6b7280" />
               </div>
-              <div>
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: '#111827', marginBottom: 2 }}>{s.label}</div>
                 <div style={{ fontSize: 12, color: '#9ca3af' }}>{s.desc}</div>
               </div>
+              <ChevronRight size={16} color="#d1d5db" style={{ flexShrink: 0 }} />
             </button>
           ))}
         </div>
