@@ -134,7 +134,7 @@ export default function MesCongesClient({ conges: initial, typesConge, soldes, h
                   <td style={{ padding: '10px 14px', fontSize: 13 }}>{c.type_conge?.nom ?? '—'}</td>
                   <td style={{ padding: '10px 14px', fontSize: 12 }}>{c.date_debut} → {c.date_fin}</td>
                   <td style={{ padding: '10px 14px', fontSize: 12, fontWeight: 700 }}>{c.nb_jours ?? '—'}</td>
-                  <td style={{ padding: '10px 14px', fontSize: 12, color: '#6b7280' }}>{c.motif ?? '—'}</td>
+                  <td style={{ padding: '10px 14px', fontSize: 12, color: '#6b7280', whiteSpace: 'normal', overflow: 'visible', textOverflow: 'clip', wordBreak: 'break-word' }}>{c.motif ?? '—'}</td>
                   <td style={{ padding: '10px 14px' }}>
                     <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: s.bg, color: s.color }}>{s.label}</span>
                   </td>
