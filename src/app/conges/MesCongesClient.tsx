@@ -7,6 +7,7 @@ type Conge = { id: string; statut: string; date_debut: string; date_fin: string;
 type TypeConge = { id: string; nom: string; jours_annuels: number }
 type Solde = { type_conge_id: string; jours_acquis: number; jours_pris: number; type_conge: { nom: string } | null; annee: number }
 type CongeAValider = Conge & { profile: { nom: string; prenoms: string } | null }
+type Responsable = { id: string; nom: string; prenoms: string }
 
 const STATUT: Record<string, { label: string; color: string; bg: string }> = {
   en_attente: { label: 'En attente (responsable)', color: '#92400e', bg: '#fef3c7' },
@@ -21,19 +22,21 @@ const inputStyle: React.CSSProperties = {
   border: '1px solid var(--abed-border)', outline: 'none', boxSizing: 'border-box',
 }
 
-export default function MesCongesClient({ conges: initial, typesConge, soldes, hasManager, typeEmploi, aValiderN1 }: { conges: Conge[]; typesConge: TypeConge[]; soldes: Solde[]; hasManager: boolean; typeEmploi?: string | null; aValiderN1?: CongeAValider[] }) {
+export default function MesCongesClient({ conges: initial, typesConge, soldes, hasManager, managerId, responsables, typeEmploi, aValiderN1 }: { conges: Conge[]; typesConge: TypeConge[]; soldes: Solde[]; hasManager: boolean; managerId?: string | null; responsables?: Responsable[]; typeEmploi?: string | null; aValiderN1?: CongeAValider[] }) {
   const [conges, setConges] = useState(initial)
   const [page, setPage] = useState(1)
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ type_conge_id: '', date_debut: '', date_fin: '', motif: '' })
+  const [form, setForm] = useState({ type_conge_id: '', date_debut: '', date_fin: '', motif: '', responsable_id: managerId ?? '' })
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  const formValide = !!form.type_conge_id && !!form.motif.trim() && !!form.responsable_id
 
   // Demandes de mon équipe où je suis le responsable technique (N1) désigné
   const [aTraiter, setATraiter] = useState(aValiderN1 ?? [])
   const [traitant, setTraitant] = useState<string | null>(null)
 
   async function submit() {
+    if (!formValide) { setErr('Le type de congé, le motif et le responsable technique sont obligatoires.'); return }
     setLoading(true); setErr(null)
     const res = await fetch('/api/conges', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -44,7 +47,7 @@ export default function MesCongesClient({ conges: initial, typesConge, soldes, h
       const d = await res.json()
       setConges(c => [d.conge, ...c])
       setShowForm(false)
-      setForm({ type_conge_id: '', date_debut: '', date_fin: '', motif: '' })
+      setForm({ type_conge_id: '', date_debut: '', date_fin: '', motif: '', responsable_id: managerId ?? '' })
     } else {
       const d = await res.json(); setErr(d.error ?? 'Erreur')
     }
@@ -158,7 +161,7 @@ export default function MesCongesClient({ conges: initial, typesConge, soldes, h
             <h3 style={{ marginBottom: 20, fontSize: 16 }}>Nouvelle demande de congé</h3>
             {!hasManager && (
               <div style={{ background: '#fef3c7', border: '1px solid #fde68a', borderRadius: 8, padding: '10px 14px', marginBottom: 14, fontSize: 13, color: '#92400e' }}>
-                ⚠️ Aucun responsable technique assigné à votre profil. Contactez les RH.
+                ⚠️ Aucun responsable technique assigné par défaut à votre profil. Choisissez-en un ci-dessous.
               </div>
             )}
             <div style={{ marginBottom: 12 }}>
@@ -167,6 +170,16 @@ export default function MesCongesClient({ conges: initial, typesConge, soldes, h
                 <option value="">— Choisir —</option>
                 {typesConge.map(t => <option key={t.id} value={t.id}>{t.nom}</option>)}
               </select>
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Responsable technique *</label>
+              <select value={form.responsable_id} onChange={e => setForm(f => ({ ...f, responsable_id: e.target.value }))} style={inputStyle}>
+                <option value="">— Choisir —</option>
+                {responsables?.map(r => <option key={r.id} value={r.id}>{r.prenoms} {r.nom}</option>)}
+              </select>
+              <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>
+                Proposé par défaut selon votre profil — modifiable si besoin.
+              </div>
             </div>
             <div className="grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
               <div>
@@ -179,13 +192,13 @@ export default function MesCongesClient({ conges: initial, typesConge, soldes, h
               </div>
             </div>
             <div style={{ marginBottom: 14 }}>
-              <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Motif</label>
+              <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>Motif *</label>
               <textarea value={form.motif} onChange={e => setForm(f => ({ ...f, motif: e.target.value }))} style={{ ...inputStyle, minHeight: 70, resize: 'vertical' }} />
             </div>
             {err && <div style={{ color: '#c0392b', fontSize: 13, marginBottom: 12 }}>{err}</div>}
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button onClick={() => setShowForm(false)} style={{ padding: '8px 18px', borderRadius: 8, cursor: 'pointer', background: 'white', border: '1px solid var(--abed-border)', fontSize: 13 }}>Annuler</button>
-              <button onClick={submit} disabled={loading || !hasManager} style={{ padding: '8px 18px', borderRadius: 8, cursor: 'pointer', background: 'var(--abed-green)', color: 'white', border: 'none', fontSize: 13, fontWeight: 700, opacity: (loading || !hasManager) ? .6 : 1 }}>
+              <button onClick={submit} disabled={loading || !formValide} style={{ padding: '8px 18px', borderRadius: 8, cursor: 'pointer', background: 'var(--abed-green)', color: 'white', border: 'none', fontSize: 13, fontWeight: 700, opacity: (loading || !formValide) ? .6 : 1 }}>
                 {loading ? 'Envoi...' : 'Soumettre'}
               </button>
             </div>

@@ -21,7 +21,7 @@ export default async function MesCongesPage() {
   const previewRole = await getRolePreview()
   const impersonation = await getImpersonationInfo()
 
-  const [conges, typesConge, soldes, aValiderN1] = await Promise.all([
+  const [conges, typesConge, soldes, aValiderN1, responsables] = await Promise.all([
     supabase.from('conges')
       .select('*, type_conge:types_conge(nom)')
       .eq('profile_id', user.id)
@@ -45,6 +45,15 @@ export default async function MesCongesPage() {
       .eq('statut', 'en_attente')
       .order('created_at', { ascending: true })
       .then(r => r.data ?? []),
+    // Liste des responsables techniques possibles pour le sélecteur du
+    // formulaire — le système propose manager_id par défaut, mais l'employé
+    // peut choisir n'importe qui d'autre dans l'annuaire.
+    supabase.from('profiles_annuaire')
+      .select('id, nom, prenoms')
+      .eq('archived', false)
+      .neq('id', user.id)
+      .order('prenoms')
+      .then(r => r.data ?? []),
   ])
 
   return (
@@ -66,6 +75,8 @@ export default async function MesCongesPage() {
           typesConge={typesConge}
           soldes={soldes}
           hasManager={!!profile?.manager_id}
+          managerId={profile?.manager_id ?? null}
+          responsables={responsables}
           typeEmploi={profile?.type_emploi}
           aValiderN1={aValiderN1 as any}
         />

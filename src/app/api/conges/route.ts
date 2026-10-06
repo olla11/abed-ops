@@ -46,13 +46,15 @@ export async function POST(req: NextRequest) {
     .select('manager_id, nom, prenoms, email')
     .eq('id', user.id).single()
 
-  if (!profile?.manager_id) {
-    return NextResponse.json({ error: 'Aucun responsable technique assigné à votre profil. Contactez les RH.' }, { status: 400 })
-  }
-
   const body = await req.json()
-  const { type_conge_id, date_debut, date_fin, motif } = body
+  const { type_conge_id, date_debut, date_fin, motif, responsable_id } = body
 
+  if (!type_conge_id) {
+    return NextResponse.json({ error: 'Le type de congé est obligatoire.' }, { status: 400 })
+  }
+  if (!motif || !String(motif).trim()) {
+    return NextResponse.json({ error: 'Le motif est obligatoire.' }, { status: 400 })
+  }
   if (!date_debut || !date_fin) {
     return NextResponse.json({ error: 'Les dates de début et de fin sont obligatoires.' }, { status: 400 })
   }
@@ -60,15 +62,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'La date de fin doit être après la date de début.' }, { status: 400 })
   }
 
+  // Le responsable technique proposé par défaut est profile.manager_id,
+  // mais l'employé peut en choisir un autre au moment de la soumission.
+  const valideurN1Id = responsable_id || profile?.manager_id
+  if (!valideurN1Id) {
+    return NextResponse.json({ error: 'Vous devez choisir un responsable technique.' }, { status: 400 })
+  }
+
   const nb_jours = countWorkingDays(date_debut, date_fin)
 
   const { data, error } = await service.from('conges').insert({
     profile_id: user.id,
-    type_conge_id: type_conge_id || null,
+    type_conge_id,
     date_debut, date_fin, nb_jours,
-    motif: motif || null,
+    motif: motif.trim(),
     statut: 'en_attente',
-    valideur_n1_id: profile.manager_id,
+    valideur_n1_id: valideurN1Id,
   }).select('*, type_conge:types_conge(nom)').single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -88,26 +97,27 @@ export async function POST(req: NextRequest) {
   }
 
   await service.from('notifications').insert({
-    user_id: profile.manager_id,
+    user_id: valideurN1Id,
     titre: 'Nouvelle demande de congé',
-    message: `${profile.prenoms} ${profile.nom} — ${nb_jours} jours ouvrables (${date_debut} → ${date_fin}) attend votre validation.`,
+    message: `${profile?.prenoms} ${profile?.nom} — ${nb_jours} jours ouvrables (${date_debut} → ${date_fin}) attend votre validation.`,
     lien: '/conges',
   })
 
-  // Email au responsable N1
-  const { data: manager } = await service.from('profiles').select('email, prenoms, nom').eq('id', profile.manager_id).single()
+  // Email au responsable N1 (le responsable choisi à la soumission, pas
+  // forcément le manager_id par défaut du profil)
+  const { data: manager } = await service.from('profiles').select('email, prenoms, nom').eq('id', valideurN1Id).single()
   if (manager?.email) {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://myabed.vercel.app'
     await sendEmail({
       to: manager.email,
-      subject: `Demande de congé — ${profile.prenoms} ${profile.nom}`,
+      subject: `Demande de congé — ${profile?.prenoms} ${profile?.nom}`,
       html: `
         <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#f9fafb;border-radius:12px">
           <h2 style="color:#16a34a;margin:0 0 20px">📋 Nouvelle demande de congé</h2>
           <div style="background:white;border-radius:10px;padding:24px;border:1px solid #e5e7eb">
             <p style="margin:0 0 8px;font-size:14px;color:#374151">Bonjour <strong>${manager.prenoms} ${manager.nom}</strong>,</p>
             <p style="margin:0 0 20px;font-size:14px;color:#374151">
-              <strong>${profile.prenoms} ${profile.nom}</strong> a soumis une demande de congé qui nécessite votre validation.
+              <strong>${profile?.prenoms} ${profile?.nom}</strong> a soumis une demande de congé qui nécessite votre validation.
             </p>
             <table style="width:100%;border-collapse:collapse;margin-bottom:20px">
               <tr><td style="padding:8px 12px;background:#f9fafb;font-size:13px;color:#6b7280;width:40%">Période</td><td style="padding:8px 12px;font-size:14px;font-weight:700">${date_debut} → ${date_fin}</td></tr>
