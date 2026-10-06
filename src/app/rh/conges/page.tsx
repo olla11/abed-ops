@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
-import { getCachedCongesRH } from '@/lib/cache'
+import { getCachedCongesRH, getCachedSoldesCongesRH, getCachedPersonnel, getCachedTypesConge } from '@/lib/cache'
 import { estRH } from '@/lib/roles'
 import CongesRHClient from './CongesRHClient'
 
@@ -18,7 +18,9 @@ export default async function CongesRHPage() {
   const role = me?.role ?? ''
   if (!(estRH(role) || ['admin', 'superadmin', 'de', 'dp', 'administrateur'].includes(role))) redirect('/dashboard')
 
-  const conges = await getCachedCongesRH()
+  const [conges, soldes, personnel, typesConge] = await Promise.all([
+    getCachedCongesRH(), getCachedSoldesCongesRH(), getCachedPersonnel(), getCachedTypesConge(),
+  ])
 
-  return <CongesRHClient conges={conges as any[]} role={role} />
+  return <CongesRHClient conges={conges as any[]} soldes={soldes as any[]} personnel={personnel as any[]} typesConge={typesConge as any[]} role={role} />
 }

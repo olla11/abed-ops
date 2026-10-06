@@ -113,6 +113,20 @@ export const getCachedCongesRH = () =>
     { tags: ['conges'], revalidate: 120 }
   )()
 
+// ── Soldes de congés (vue RH, année en cours) ──────────────────────────────────
+export const getCachedSoldesCongesRH = () =>
+  unstable_cache(
+    async () => {
+      const { data } = await service()
+        .from('soldes_conges')
+        .select('*, profile:profiles!profile_id(nom, prenoms, direction), type_conge:types_conge(nom)')
+        .eq('annee', new Date().getFullYear())
+      return data ?? []
+    },
+    ['soldes-conges-rh-list'],
+    { tags: ['conges'], revalidate: 300 }
+  )()
+
 // ── Profils pour signataires ───────────────────────────────────────────────────
 export const getCachedProfilesForSignatures = () =>
   unstable_cache(

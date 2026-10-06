@@ -24,7 +24,7 @@ type Props = {
   contrats: Contrat[]
   contratsExpirants: Contrat[]
   congesRecents: Conge[]
-  congesEnAttenteCount: number
+  congesEnCoursCount: number
   evaluations: Evaluation[]
   tauxActivite: number
   activeMoisCount: number
@@ -52,7 +52,7 @@ const STATUT_EVAL: Record<string, { label: string; color: string }> = {
   cloture: { label: 'Clôturée', color: '#166534' },
 }
 
-export default function RHDashboardClient({ personnel, contrats, contratsExpirants, congesRecents, congesEnAttenteCount, evaluations, tauxActivite, activeMoisCount, totalActifs }: Props) {
+export default function RHDashboardClient({ personnel, contrats, contratsExpirants, congesRecents, congesEnCoursCount, evaluations, tauxActivite, activeMoisCount, totalActifs }: Props) {
   const tr = useTranslations('rh')
   const tc = useTranslations('common')
   const today = new Date().toISOString().split('T')[0]
@@ -153,7 +153,7 @@ export default function RHDashboardClient({ personnel, contrats, contratsExpiran
         {[
           { label: tr('totalStaff'), value: personnel.length, Icon: Users, color: '#166534', bg: '#dcfce7' },
           { label: tr('activeContracts'), value: contratsActifs, Icon: FileText, color: '#1e40af', bg: '#dbeafe' },
-          { label: tr('pendingLeaves'), value: congesEnAttenteCount, Icon: Palmtree, color: '#92400e', bg: '#fef3c7' },
+          { label: tr('currentLeaves'), value: congesEnCoursCount, Icon: Palmtree, color: '#92400e', bg: '#fef3c7' },
           { label: tr('pendingEvals'), value: evalsEnCours, Icon: ClipboardEdit, color: '#5b21b6', bg: '#ede9fe' },
         ].map(kpi => (
           <div key={kpi.label} style={{ ...card, display: 'flex', alignItems: 'center', gap: 16 }}>

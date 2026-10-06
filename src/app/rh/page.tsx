@@ -30,15 +30,18 @@ export default async function RHDashboardPage() {
   const currentMois = now.getMonth() + 1
   const currentAnnee = now.getFullYear()
 
-  // 'approuve_n1' — l'étape réellement actionnable par RH/CAF depuis le
-  // circuit à 3 étapes (le responsable technique traite 'en_attente' de son
-  // côté, sur /conges, pas ici).
-  const getCongesCount = unstable_cache(
+  // Nombre de personnes réellement en congé aujourd'hui (congé autorisé dont
+  // la période couvre la date du jour) — remplace l'ancien comptage "en
+  // attente de validation", qui n'indiquait pas qui est absent maintenant.
+  const getCongesEnCoursCount = unstable_cache(
     async () => {
-      const { count } = await service.from('conges').select('*', { count: 'exact', head: true }).eq('statut', 'approuve_n1')
+      const { count } = await service.from('conges').select('*', { count: 'exact', head: true })
+        .eq('statut', 'approuve')
+        .lte('date_debut', today)
+        .gte('date_fin', today)
       return count ?? 0
     },
-    ['conges-en-attente-count'],
+    ['conges-en-cours-count'],
     { tags: ['conges'], revalidate: 120 }
   )
 
@@ -54,12 +57,12 @@ export default async function RHDashboardPage() {
     { tags: ['rapports-allocations'], revalidate: 600 }
   )
 
-  const [personnel, contrats, congesRecents, evaluations, congesEnAttenteCount, activeMoisCount] = await Promise.all([
+  const [personnel, contrats, congesRecents, evaluations, congesEnCoursCount, activeMoisCount] = await Promise.all([
     getCachedPersonnel(),
     getCachedContrats(),
     getCachedCongesRH().then(d => d.slice(0, 15)),
     getCachedEvaluations().then(d => d.slice(0, 10)),
-    getCongesCount(),
+    getCongesEnCoursCount(),
     getActiveMois(),
   ])
 
@@ -79,7 +82,7 @@ export default async function RHDashboardPage() {
       contrats={(contrats ?? []) as any[]}
       contratsExpirants={contratsExpirants as any[]}
       congesRecents={(congesRecents ?? []) as any[]}
-      congesEnAttenteCount={congesEnAttenteCount ?? 0}
+      congesEnCoursCount={congesEnCoursCount ?? 0}
       evaluations={(evaluations ?? []) as any[]}
       tauxActivite={tauxActivite}
       activeMoisCount={activeMoisCount ?? 0}

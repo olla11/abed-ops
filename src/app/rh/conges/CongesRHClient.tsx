@@ -10,6 +10,14 @@ type Conge = {
   type_conge: { nom: string } | null
 }
 
+type Solde = {
+  profile_id: string; type_conge_id: string; jours_acquis: number; jours_pris: number; annee: number
+  profile: { nom: string; prenoms: string; direction: string | null } | null
+  type_conge: { nom: string } | null
+}
+type Personnel = { id: string; nom: string; prenoms: string }
+type TypeConge = { id: string; nom: string; jours_annuels: number }
+
 const STATUT: Record<string, { label: string; color: string; bg: string }> = {
   en_attente: { label: 'En attente (responsable)', color: '#92400e', bg: '#fef3c7' },
   approuve_n1: { label: 'Approuvé N1 — attente RH/CAF', color: '#6d28d9', bg: '#ede9fe' },
@@ -23,7 +31,7 @@ const inputStyle: React.CSSProperties = {
   border: '1px solid var(--abed-border)', outline: 'none',
 }
 
-export default function CongesRHClient({ conges: initial, role }: { conges: Conge[]; role: string }) {
+export default function CongesRHClient({ conges: initial, soldes, personnel, typesConge, role }: { conges: Conge[]; soldes: Solde[]; personnel: Personnel[]; typesConge: TypeConge[]; role: string }) {
   // Secours admin/superadmin à chaque étape (y compris celle du responsable
   // technique, normalement traitée sur /conges par l'intéressé lui-même) —
   // RH/CAF ne valident que leur propre étape, plus celle du N1 à sa place.
@@ -34,6 +42,9 @@ export default function CongesRHClient({ conges: initial, role }: { conges: Cong
   const [conges, setConges] = useState(initial)
   const [filterStatut, setFilterStatut] = useState('')
   const [page, setPage] = useState(1)
+  const [vue, setVue] = useState<'demandes' | 'soldes'>('demandes')
+  const [pageSoldes, setPageSoldes] = useState(1)
+  const [filterSolde, setFilterSolde] = useState('')
   const [actionTarget, setActionTarget] = useState<Conge | null>(null)
   const [commentaire, setCommentaire] = useState('')
   const [loading, setLoading] = useState(false)
@@ -61,10 +72,44 @@ export default function CongesRHClient({ conges: initial, role }: { conges: Cong
     valide_rh: 'Autoriser la demande (DE)',
   }
 
+  // Matrice complète employé × type de congé (acquis selon le barème du type,
+  // pris selon soldes_conges s'il existe une ligne — sinon 0) : donne la vue
+  // RH même pour un employé qui n'a encore jamais posé ce type de congé,
+  // plutôt que de se limiter aux seules lignes déjà créées en base.
+  const typesAvecBareme = typesConge.filter(t => t.jours_annuels > 0)
+  const soldeParCle: Record<string, Solde> = {}
+  soldes.forEach(s => { soldeParCle[`${s.profile_id}-${s.type_conge_id}`] = s })
+
+  const matrice = personnel.flatMap(p =>
+    typesAvecBareme.map(t => {
+      const existant = soldeParCle[`${p.id}-${t.id}`]
+      const acquis = existant?.jours_acquis ?? t.jours_annuels
+      const pris = existant?.jours_pris ?? 0
+      return { profile: p, type_nom: t.nom, acquis, pris }
+    })
+  )
+
+  const soldesFiltres = matrice
+    .filter(s => !filterSolde || `${s.profile.prenoms} ${s.profile.nom}`.toLowerCase().includes(filterSolde.toLowerCase()))
+    .sort((a, b) => (`${a.profile.prenoms}${a.profile.nom}`).localeCompare(`${b.profile.prenoms}${b.profile.nom}`) || a.type_nom.localeCompare(b.type_nom))
+
   return (
     <div className="page-container">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <h2 style={{ color: 'var(--abed-green)', fontSize: 20, margin: 0 }}>Congés ({filtered.length})</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
+        <h2 style={{ color: 'var(--abed-green)', fontSize: 20, margin: 0 }}>Congés</h2>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={() => setVue('demandes')} style={{ padding: '6px 14px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', border: '1px solid var(--abed-border)', background: vue === 'demandes' ? 'var(--abed-green)' : 'white', color: vue === 'demandes' ? 'white' : '#374151' }}>
+            Demandes ({filtered.length})
+          </button>
+          <button onClick={() => setVue('soldes')} style={{ padding: '6px 14px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', border: '1px solid var(--abed-border)', background: vue === 'soldes' ? 'var(--abed-green)' : 'white', color: vue === 'soldes' ? 'white' : '#374151' }}>
+            Soldes de congés
+          </button>
+        </div>
+      </div>
+
+      {vue === 'demandes' && (
+      <>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
         <select value={filterStatut} onChange={e => { setFilterStatut(e.target.value); setPage(1) }} style={inputStyle}>
           <option value="">Tous les statuts</option>
           {Object.entries(STATUT).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
@@ -114,6 +159,46 @@ export default function CongesRHClient({ conges: initial, role }: { conges: Cong
         </table>
         <Pagination page={page} total={filtered.length} onChange={p => { setPage(p) }} />
       </div>
+      </>
+      )}
+
+      {vue === 'soldes' && (
+      <>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+        <input value={filterSolde} onChange={e => { setFilterSolde(e.target.value); setPageSoldes(1) }} placeholder="Rechercher un employé…" style={inputStyle} />
+      </div>
+
+      <div style={{ background: 'white', border: '1px solid var(--abed-border)', borderRadius: 10, overflow: 'hidden' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ background: '#f9fafb' }}>
+              {['Employé', 'Type', 'Acquis', 'Pris', 'Restant'].map(h => (
+                <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: '#6b7280', borderBottom: '1px solid var(--abed-border)' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {paginate(soldesFiltres, pageSoldes).map((s, i) => {
+              const restant = s.acquis - s.pris
+              return (
+                <tr key={`${s.profile.id}-${s.type_nom}-${i}`} style={{ background: i % 2 === 0 ? 'white' : '#fafafa' }}>
+                  <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 600 }}>{s.profile.prenoms} {s.profile.nom}</td>
+                  <td style={{ padding: '10px 14px', fontSize: 12 }}>{s.type_nom}</td>
+                  <td style={{ padding: '10px 14px', fontSize: 12 }}>{s.acquis}j</td>
+                  <td style={{ padding: '10px 14px', fontSize: 12 }}>{s.pris}j</td>
+                  <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 700, color: restant > 5 ? '#166534' : '#b45309' }}>{restant}j</td>
+                </tr>
+              )
+            })}
+            {soldesFiltres.length === 0 && (
+              <tr><td colSpan={5} style={{ padding: 24, textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>Aucun solde enregistré</td></tr>
+            )}
+          </tbody>
+        </table>
+        <Pagination page={pageSoldes} total={soldesFiltres.length} onChange={p => setPageSoldes(p)} />
+      </div>
+      </>
+      )}
 
       {actionTarget && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
