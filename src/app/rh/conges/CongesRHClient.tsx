@@ -15,7 +15,7 @@ type Solde = {
   profile: { nom: string; prenoms: string; direction: string | null } | null
   type_conge: { nom: string } | null
 }
-type Personnel = { id: string; nom: string; prenoms: string; genre: string | null }
+type Personnel = { id: string; nom: string; prenoms: string; civilite: string | null }
 type TypeConge = { id: string; nom: string; jours_annuels: number }
 
 const STATUT: Record<string, { label: string; color: string; bg: string }> = {
@@ -98,12 +98,15 @@ export default function CongesRHClient({ conges: initial, soldes, personnel, typ
     .filter(p => !filterSolde || `${p.prenoms} ${p.nom}`.toLowerCase().includes(filterSolde.toLowerCase()))
     .sort((a, b) => `${a.prenoms}${a.nom}`.localeCompare(`${b.prenoms}${b.nom}`))
     .map(p => {
-      const typeGenre = p.genre === 'F' ? typeMaternite : p.genre === 'M' ? typePaternite : undefined
+      // Civilité plutôt que le champ genre, moins fiablement renseigné —
+      // 'Mme' = maternité, 'M.' = paternité, tout le reste (Dr, Pr, Mlle,
+      // non renseigné) reste indéterminé plutôt que de deviner.
+      const typeGenre = p.civilite === 'Mme' ? typeMaternite : p.civilite === 'M.' ? typePaternite : undefined
       return {
         profile: p,
         annuel: infoPourType(p.id, typeAnnuel),
         maladie: infoPourType(p.id, typeMaladie),
-        genreLabel: p.genre === 'F' ? 'Maternité' : p.genre === 'M' ? 'Paternité' : null,
+        genreLabel: p.civilite === 'Mme' ? 'Maternité' : p.civilite === 'M.' ? 'Paternité' : null,
         genreInfo: infoPourType(p.id, typeGenre),
       }
     })
