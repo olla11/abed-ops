@@ -6,10 +6,12 @@ import MonEspaceNav from '@/components/MonEspaceNav'
 type Conge = { id: string; statut: string; date_debut: string; date_fin: string; nb_jours: number | null; motif: string | null; created_at: string; type_conge: { nom: string } | null }
 type TypeConge = { id: string; nom: string; jours_annuels: number }
 type Solde = { type_conge_id: string; jours_acquis: number; jours_pris: number; type_conge: { nom: string } | null; annee: number }
+type CongeAValider = Conge & { profile: { nom: string; prenoms: string } | null }
 
 const STATUT: Record<string, { label: string; color: string; bg: string }> = {
-  en_attente: { label: 'En attente (RH)', color: '#92400e', bg: '#fef3c7' },
-  approuve_n1: { label: 'Validé RH — attente DE', color: '#1e40af', bg: '#dbeafe' },
+  en_attente: { label: 'En attente (responsable)', color: '#92400e', bg: '#fef3c7' },
+  approuve_n1: { label: 'Approuvé N1 — attente RH/CAF', color: '#6d28d9', bg: '#ede9fe' },
+  valide_rh: { label: 'Validé RH/CAF — attente DE', color: '#1e40af', bg: '#dbeafe' },
   approuve: { label: 'Autorisé', color: '#166534', bg: '#dcfce7' },
   rejete: { label: 'Rejeté', color: '#991b1b', bg: '#fee2e2' },
 }
@@ -19,13 +21,17 @@ const inputStyle: React.CSSProperties = {
   border: '1px solid var(--abed-border)', outline: 'none', boxSizing: 'border-box',
 }
 
-export default function MesCongesClient({ conges: initial, typesConge, soldes, hasManager, typeEmploi }: { conges: Conge[]; typesConge: TypeConge[]; soldes: Solde[]; hasManager: boolean; typeEmploi?: string | null }) {
+export default function MesCongesClient({ conges: initial, typesConge, soldes, hasManager, typeEmploi, aValiderN1 }: { conges: Conge[]; typesConge: TypeConge[]; soldes: Solde[]; hasManager: boolean; typeEmploi?: string | null; aValiderN1?: CongeAValider[] }) {
   const [conges, setConges] = useState(initial)
   const [page, setPage] = useState(1)
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ type_conge_id: '', date_debut: '', date_fin: '', motif: '' })
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+
+  // Demandes de mon équipe où je suis le responsable technique (N1) désigné
+  const [aTraiter, setATraiter] = useState(aValiderN1 ?? [])
+  const [traitant, setTraitant] = useState<string | null>(null)
 
   async function submit() {
     setLoading(true); setErr(null)
@@ -44,6 +50,17 @@ export default function MesCongesClient({ conges: initial, typesConge, soldes, h
     }
   }
 
+  async function traiterN1(id: string, action: 'approuver' | 'rejeter') {
+    if (action === 'rejeter' && !confirm('Rejeter cette demande de congé ?')) return
+    setTraitant(id)
+    const res = await fetch(`/api/conges/${id}/valider`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action }),
+    })
+    setTraitant(null)
+    if (res.ok) setATraiter(cs => cs.filter(c => c.id !== id))
+  }
+
   return (
     <div className="page-container">
     <div className="section-with-sidenav">
@@ -55,6 +72,33 @@ export default function MesCongesClient({ conges: initial, typesConge, soldes, h
           + Demande de congé
         </button>
       </div>
+
+      {/* Demandes de mon équipe à valider (je suis le responsable technique désigné) */}
+      {aTraiter.length > 0 && (
+        <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, padding: 16, marginBottom: 24 }}>
+          <h3 style={{ margin: '0 0 12px', fontSize: 14, color: '#92400e' }}>
+            Demandes de mon équipe à valider ({aTraiter.length})
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {aTraiter.map(c => (
+              <div key={c.id} style={{ background: 'white', border: '1px solid #fde68a', borderRadius: 8, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: 200 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700 }}>{c.profile?.prenoms} {c.profile?.nom}</span>
+                  <span style={{ fontSize: 12, color: '#6b7280', marginLeft: 8 }}>{c.type_conge?.nom ?? 'Congé'} · {c.date_debut} → {c.date_fin} ({c.nb_jours}j)</span>
+                </div>
+                <button onClick={() => traiterN1(c.id, 'rejeter')} disabled={traitant === c.id}
+                  style={{ padding: '6px 14px', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer', background: '#fee2e2', color: '#991b1b', border: 'none', opacity: traitant === c.id ? .6 : 1 }}>
+                  Rejeter
+                </button>
+                <button onClick={() => traiterN1(c.id, 'approuver')} disabled={traitant === c.id}
+                  style={{ padding: '6px 14px', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer', background: 'var(--abed-green)', color: 'white', border: 'none', opacity: traitant === c.id ? .6 : 1 }}>
+                  {traitant === c.id ? '…' : 'Approuver'}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Soldes */}
       {soldes.length > 0 && (

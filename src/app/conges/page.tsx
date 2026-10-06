@@ -21,7 +21,7 @@ export default async function MesCongesPage() {
   const previewRole = await getRolePreview()
   const impersonation = await getImpersonationInfo()
 
-  const [conges, typesConge, soldes] = await Promise.all([
+  const [conges, typesConge, soldes, aValiderN1] = await Promise.all([
     supabase.from('conges')
       .select('*, type_conge:types_conge(nom)')
       .eq('profile_id', user.id)
@@ -33,6 +33,17 @@ export default async function MesCongesPage() {
       .select('*, type_conge:types_conge(nom)')
       .eq('profile_id', user.id)
       .eq('annee', new Date().getFullYear())
+      .then(r => r.data ?? []),
+    // Congés de l'équipe où je suis le responsable technique (N1) désigné —
+    // n'importe qui peut être manager_id de quelqu'un d'autre, pas
+    // seulement RH/CAF/DE (qui ont déjà leur propre page /rh/conges) : cette
+    // page "Mes congés", accessible à tout le monde, est la seule qui leur
+    // permette réellement d'agir sur ce qu'on leur a assigné.
+    supabase.from('conges')
+      .select('*, type_conge:types_conge(nom), profile:profiles!profile_id(nom, prenoms)')
+      .eq('valideur_n1_id', user.id)
+      .eq('statut', 'en_attente')
+      .order('created_at', { ascending: true })
       .then(r => r.data ?? []),
   ])
 
@@ -56,6 +67,7 @@ export default async function MesCongesPage() {
           soldes={soldes}
           hasManager={!!profile?.manager_id}
           typeEmploi={profile?.type_emploi}
+          aValiderN1={aValiderN1 as any}
         />
     </>
   )

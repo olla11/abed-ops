@@ -37,8 +37,9 @@ const card: React.CSSProperties = {
 }
 
 const STATUT_CONGE: Record<string, { label: string; color: string; bg: string }> = {
-  en_attente: { label: 'En attente', color: '#92400e', bg: '#fef3c7' },
-  approuve_n1: { label: 'Approuvé N1', color: '#1e40af', bg: '#dbeafe' },
+  en_attente: { label: 'En attente (responsable)', color: '#92400e', bg: '#fef3c7' },
+  approuve_n1: { label: 'Approuvé N1', color: '#6d28d9', bg: '#ede9fe' },
+  valide_rh: { label: 'Validé RH/CAF', color: '#1e40af', bg: '#dbeafe' },
   approuve: { label: 'Approuvé', color: '#166534', bg: '#dcfce7' },
   rejete: { label: 'Rejeté', color: '#991b1b', bg: '#fee2e2' },
 }

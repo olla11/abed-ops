@@ -30,9 +30,12 @@ export default async function RHDashboardPage() {
   const currentMois = now.getMonth() + 1
   const currentAnnee = now.getFullYear()
 
+  // 'approuve_n1' — l'étape réellement actionnable par RH/CAF depuis le
+  // circuit à 3 étapes (le responsable technique traite 'en_attente' de son
+  // côté, sur /conges, pas ici).
   const getCongesCount = unstable_cache(
     async () => {
-      const { count } = await service.from('conges').select('*', { count: 'exact', head: true }).eq('statut', 'en_attente')
+      const { count } = await service.from('conges').select('*', { count: 'exact', head: true }).eq('statut', 'approuve_n1')
       return count ?? 0
     },
     ['conges-en-attente-count'],

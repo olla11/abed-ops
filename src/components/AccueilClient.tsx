@@ -45,7 +45,7 @@ function buildShortcuts(t: (k: string) => string): Record<string, Shortcut[]> {
       { href: '/overview',          Icon: BarChart2,  label: t('overview'),  desc: t('shortcuts_desc') },
       { href: '/missions',          Icon: Plane,      label: t('missions'),  desc: t('signValidate_desc') },
       { href: '/demandes', Icon: CreditCard, label: t('payments'),  desc: t('finalApproval_desc') },
-      { href: '/conges',            Icon: Palmtree,   label: t('leaves'),    desc: t('finalApprovalLeaves_desc') },
+      { href: '/rh/conges',         Icon: Palmtree,   label: t('leaves'),    desc: t('finalApprovalLeaves_desc') },
     ],
     // Les 3 raccourcis d'origine pointaient tous vers des pages génériques
     // "Mon espace" (/demandes, /missions) sans rapport avec le travail réel

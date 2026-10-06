@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/supabase-server'
 import { estAAF } from '@/lib/roles'
 import { ajouterAuPayRoll } from '@/lib/pay-roll'
+import { finaliserCongeApprouve } from '@/lib/conge-notify'
 
 type Admin = ReturnType<typeof createAdminClient>
 
@@ -286,33 +287,48 @@ export async function autoSkipReconciliationOM(admin: Admin, missionId: string) 
   }
 }
 
-// ── Congés : en_attente[N1 nommé, ou RH, ou DE/DP/Administrateur/Admin]
-//    → approuve_n1[DE/DP/Administrateur/Admin] → approuve ──
-// Les 2 étapes sont de simples approbations : sûres à sauter.
+// ── Congés : en_attente[responsable technique = N1 nommé, ou admin en secours]
+//    → approuve_n1[RH ou CAF] → valide_rh[DE, ou DP/Administrateur en secours]
+//    → approuve ──
+// Les 3 étapes sont de simples approbations : sûres à sauter. Contrairement
+// à l'ancien circuit à 2 étapes, chaque palier n'est désormais sautable que
+// si SON PROPRE rôle est vacant — RH/CAF ne se substituent plus au
+// responsable technique, ni DE/DP/Administrateur à RH/CAF.
 export async function autoSkipConge(admin: Admin, congeId: string) {
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 4; i++) {
     const { data: c } = await admin.from('conges').select('id, statut, profile_id, valideur_n1_id, date_debut, date_fin, nb_jours').eq('id', congeId).single()
     if (!c) return
 
     if (c.statut === 'en_attente') {
       const hasHolder = (await hasActiveIndividual(admin, c.valideur_n1_id))
-        || (await hasActiveRoleHolder(admin, r => ['rh', 'caf', 'admin', 'superadmin', 'de', 'dp', 'administrateur'].includes(r)))
+        || (await hasActiveRoleHolder(admin, r => ['admin', 'superadmin'].includes(r)))
       if (hasHolder) return
       await admin.from('conges').update({ statut: 'approuve_n1' }).eq('id', congeId)
       await logAndNotifySkip(admin, {
         circuit: 'conge', entityId: congeId, entityLabel: `Congé — ${c.date_debut} → ${c.date_fin}`,
-        roleVacant: 'N1 / RH', statusFrom: 'en_attente', statusTo: 'approuve_n1', lien: '/conges',
+        roleVacant: 'Responsable technique (N1)', statusFrom: 'en_attente', statusTo: 'approuve_n1', lien: '/conges',
       })
       continue
     }
 
     if (c.statut === 'approuve_n1') {
+      const vacant = !(await hasActiveRoleHolder(admin, r => ['rh', 'caf', 'admin', 'superadmin'].includes(r)))
+      if (!vacant) return
+      await admin.from('conges').update({ statut: 'valide_rh' }).eq('id', congeId)
+      await logAndNotifySkip(admin, {
+        circuit: 'conge', entityId: congeId, entityLabel: `Congé — ${c.date_debut} → ${c.date_fin}`,
+        roleVacant: 'RH / CAF', statusFrom: 'approuve_n1', statusTo: 'valide_rh', lien: '/conges',
+      })
+      continue
+    }
+
+    if (c.statut === 'valide_rh') {
       const vacant = !(await hasActiveRoleHolder(admin, r => ['de', 'dp', 'administrateur', 'admin', 'superadmin'].includes(r)))
       if (!vacant) return
       await admin.from('conges').update({ statut: 'approuve' }).eq('id', congeId)
       await logAndNotifySkip(admin, {
         circuit: 'conge', entityId: congeId, entityLabel: `Congé — ${c.date_debut} → ${c.date_fin}`,
-        roleVacant: 'DE', statusFrom: 'approuve_n1', statusTo: 'approuve', lien: '/conges',
+        roleVacant: 'DE', statusFrom: 'valide_rh', statusTo: 'approuve', lien: '/conges',
       })
       await admin.from('notifications').insert({
         user_id: c.profile_id,
@@ -320,6 +336,10 @@ export async function autoSkipConge(admin: Admin, congeId: string) {
         message: `Votre demande de congé (${c.date_debut} → ${c.date_fin}, ${c.nb_jours} jours) a été approuvée.`,
         lien: '/conges',
       })
+      // Même geste que l'autorisation finale manuelle (route valider/) — le
+      // ticket de congé et la mise à jour du solde ne doivent jamais
+      // dépendre de qui a concrètement cliqué.
+      await finaliserCongeApprouve(admin, congeId).catch(e => console.error('[finaliserCongeApprouve après saut]:', e))
       return
     }
 

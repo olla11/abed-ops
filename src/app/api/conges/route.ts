@@ -74,16 +74,24 @@ export async function POST(req: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   revalidateTag('conges')
 
-  // Si le responsable N1 assigné n'a plus de compte actif (et qu'aucun RH/DE
-  // ne peut prendre le relais), fait sauter automatiquement l'étape plutôt
-  // que de bloquer la demande de congé.
+  // Si le responsable N1 assigné n'a plus de compte actif (et qu'aucun
+  // admin ne peut prendre le relais), fait sauter automatiquement l'étape
+  // plutôt que de bloquer la demande de congé.
   await autoSkipConge(service, data.id).catch(e => console.error('[autoSkipConge]:', e))
+
+  // Ne notifie le responsable N1 que si la demande est encore réellement à
+  // cette étape — un saut automatique a pu la faire avancer entre-temps
+  // (manager inactif), auquel cas le notifier serait trompeur.
+  const { data: congeApresSaut } = await service.from('conges').select('statut').eq('id', data.id).single()
+  if (congeApresSaut?.statut !== 'en_attente') {
+    return NextResponse.json({ conge: data })
+  }
 
   await service.from('notifications').insert({
     user_id: profile.manager_id,
     titre: 'Nouvelle demande de congé',
     message: `${profile.prenoms} ${profile.nom} — ${nb_jours} jours ouvrables (${date_debut} → ${date_fin}) attend votre validation.`,
-    lien: '/rh/conges',
+    lien: '/conges',
   })
 
   // Email au responsable N1
@@ -106,7 +114,7 @@ export async function POST(req: NextRequest) {
               <tr><td style="padding:8px 12px;background:#f9fafb;font-size:13px;color:#6b7280">Durée</td><td style="padding:8px 12px;font-size:14px;font-weight:700">${nb_jours} jours ouvrables</td></tr>
               ${motif ? `<tr><td style="padding:8px 12px;background:#f9fafb;font-size:13px;color:#6b7280">Motif</td><td style="padding:8px 12px;font-size:14px">${motif}</td></tr>` : ''}
             </table>
-            <a href="${appUrl}/rh/conges" style="display:block;text-align:center;background:#16a34a;color:white;padding:12px 0;border-radius:8px;font-size:14px;font-weight:700;text-decoration:none">
+            <a href="${appUrl}/conges" style="display:block;text-align:center;background:#16a34a;color:white;padding:12px 0;border-radius:8px;font-size:14px;font-weight:700;text-decoration:none">
               Traiter la demande →
             </a>
           </div>

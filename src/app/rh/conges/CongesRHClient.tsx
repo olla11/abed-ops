@@ -11,8 +11,9 @@ type Conge = {
 }
 
 const STATUT: Record<string, { label: string; color: string; bg: string }> = {
-  en_attente: { label: 'En attente (RH)', color: '#92400e', bg: '#fef3c7' },
-  approuve_n1: { label: 'Validé RH — attente DE', color: '#1e40af', bg: '#dbeafe' },
+  en_attente: { label: 'En attente (responsable)', color: '#92400e', bg: '#fef3c7' },
+  approuve_n1: { label: 'Approuvé N1 — attente RH/CAF', color: '#6d28d9', bg: '#ede9fe' },
+  valide_rh: { label: 'Validé RH/CAF — attente DE', color: '#1e40af', bg: '#dbeafe' },
   approuve: { label: 'Autorisé (DE)', color: '#166534', bg: '#dcfce7' },
   rejete: { label: 'Rejeté', color: '#991b1b', bg: '#fee2e2' },
 }
@@ -23,8 +24,13 @@ const inputStyle: React.CSSProperties = {
 }
 
 export default function CongesRHClient({ conges: initial, role }: { conges: Conge[]; role: string }) {
-  const canValiderN1 = estRH(role) || ['admin', 'superadmin'].includes(role)
-  const canValiderFinal = ['de', 'dp', 'administrateur', 'admin'].includes(role)
+  // Secours admin/superadmin à chaque étape (y compris celle du responsable
+  // technique, normalement traitée sur /conges par l'intéressé lui-même) —
+  // RH/CAF ne valident que leur propre étape, plus celle du N1 à sa place.
+  const estAdmin = ['admin', 'superadmin'].includes(role)
+  const canValiderN1Secours = estAdmin
+  const canValiderRH = estRH(role) || estAdmin
+  const canValiderFinal = ['de', 'dp', 'administrateur'].includes(role) || estAdmin
   const [conges, setConges] = useState(initial)
   const [filterStatut, setFilterStatut] = useState('')
   const [page, setPage] = useState(1)
@@ -34,12 +40,12 @@ export default function CongesRHClient({ conges: initial, role }: { conges: Cong
 
   const filtered = conges.filter(c => !filterStatut || c.statut === filterStatut)
 
-  async function valider(action: 'approuver' | 'rejeter', niveau: 'n1' | 'final') {
+  async function valider(action: 'approuver' | 'rejeter') {
     if (!actionTarget) return
     setLoading(true)
     const res = await fetch(`/api/conges/${actionTarget.id}/valider`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action, niveau, commentaire }),
+      body: JSON.stringify({ action, commentaire }),
     })
     setLoading(false)
     if (res.ok) {
@@ -47,6 +53,12 @@ export default function CongesRHClient({ conges: initial, role }: { conges: Cong
       setConges(cs => cs.map(c => c.id === actionTarget.id ? { ...c, ...d.conge } : c))
       setActionTarget(null); setCommentaire('')
     }
+  }
+
+  const titreModal: Record<string, string> = {
+    en_attente: 'Valider à la place du responsable technique (secours)',
+    approuve_n1: 'Valider la demande (RH/CAF)',
+    valide_rh: 'Autoriser la demande (DE)',
   }
 
   return (
@@ -71,8 +83,10 @@ export default function CongesRHClient({ conges: initial, role }: { conges: Cong
           <tbody>
             {paginate(filtered, page).map((c, i) => {
               const s = STATUT[c.statut] ?? { label: c.statut, color: '#374151', bg: '#f3f4f6' }
-              const canAct = (c.statut === 'en_attente' && canValiderN1) || (c.statut === 'approuve_n1' && canValiderFinal)
-              const niveau: 'n1' | 'final' = c.statut === 'en_attente' ? 'n1' : 'final'
+              const canAct =
+                (c.statut === 'en_attente' && canValiderN1Secours) ||
+                (c.statut === 'approuve_n1' && canValiderRH) ||
+                (c.statut === 'valide_rh' && canValiderFinal)
               return (
                 <tr key={c.id} style={{ background: i % 2 === 0 ? 'white' : '#fafafa' }}>
                   <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 600 }}>{c.profile?.prenoms} {c.profile?.nom}</td>
@@ -105,7 +119,7 @@ export default function CongesRHClient({ conges: initial, role }: { conges: Cong
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ background: 'white', borderRadius: 12, padding: 28, width: 420 }}>
             <h3 style={{ marginBottom: 8, fontSize: 16 }}>
-              {actionTarget.statut === 'en_attente' ? 'Valider la demande (RH)' : 'Autoriser la demande (DE)'}
+              {titreModal[actionTarget.statut] ?? 'Traiter la demande'}
             </h3>
             <p style={{ fontSize: 13, color: '#374151', marginBottom: 4 }}>
               <strong>{actionTarget.profile?.prenoms} {actionTarget.profile?.nom}</strong> — {actionTarget.type_conge?.nom ?? 'Congé'}
@@ -121,10 +135,10 @@ export default function CongesRHClient({ conges: initial, role }: { conges: Cong
             </div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
               <button onClick={() => setActionTarget(null)} style={{ padding: '8px 16px', borderRadius: 8, cursor: 'pointer', background: 'white', border: '1px solid var(--abed-border)', fontSize: 13 }}>Annuler</button>
-              <button onClick={() => valider('rejeter', actionTarget.statut === 'en_attente' ? 'n1' : 'final')} disabled={loading} style={{ padding: '8px 16px', borderRadius: 8, cursor: 'pointer', background: '#dc2626', color: 'white', border: 'none', fontSize: 13, fontWeight: 700, opacity: loading ? .6 : 1 }}>
+              <button onClick={() => valider('rejeter')} disabled={loading} style={{ padding: '8px 16px', borderRadius: 8, cursor: 'pointer', background: '#dc2626', color: 'white', border: 'none', fontSize: 13, fontWeight: 700, opacity: loading ? .6 : 1 }}>
                 Rejeter
               </button>
-              <button onClick={() => valider('approuver', actionTarget.statut === 'en_attente' ? 'n1' : 'final')} disabled={loading} style={{ padding: '8px 16px', borderRadius: 8, cursor: 'pointer', background: 'var(--abed-green)', color: 'white', border: 'none', fontSize: 13, fontWeight: 700, opacity: loading ? .6 : 1 }}>
+              <button onClick={() => valider('approuver')} disabled={loading} style={{ padding: '8px 16px', borderRadius: 8, cursor: 'pointer', background: 'var(--abed-green)', color: 'white', border: 'none', fontSize: 13, fontWeight: 700, opacity: loading ? .6 : 1 }}>
                 Approuver
               </button>
             </div>
