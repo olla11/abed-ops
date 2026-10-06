@@ -14,6 +14,9 @@ Modifiés :
 - `src/components/AppHeader.tsx` — monte les 3 composants ci-dessus ; desktop **inchangé** ;
   l'ancien menu hamburger déroulant est remplacé par le menu plein écran
 - `src/app/globals.css` — toute la couche mobile (ajouts uniquement, le desktop ne bouge pas)
+- `src/components/AgaWidget.tsx` — bulle AGA **déplaçable** (doigt ou souris) : appui = ouvrir,
+  glisser = déplacer ; se colle au bord gauche/droit, position mémorisée sur toutes les pages,
+  ne descend jamais sur la barre d'onglets ; sur mobile la fenêtre de chat tient entre l'en-tête et la barre
 - `src/components/AccueilClient.tsx` — classe `accueil-shortcuts`, raccourcis DP ajoutés,
   raccourcis DE pointés vers `/de/om-a-signer` et `/de/demandes-paiement`
 
@@ -42,8 +45,6 @@ Partout :
 
 ## À vérifier après déploiement
 
-- **AgaWidget** : s'il flotte en bas à droite, il peut chevaucher la barre d'onglets.
-  Ajoute `className="aga-widget"` sur son bouton flottant (la CSS le remonte déjà).
 - Les tableaux avec beaucoup d'actions/inputs par ligne peuvent rendre mieux en mode
   classique — mets-leur `no-mobile-cards` au cas par cas.
 - Les traductions anglaises des libellés du menu mobile ajoutés (Accueil, Documents…)

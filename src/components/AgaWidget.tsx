@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { usePathname } from 'next/navigation'
 
 type Msg = { role: 'user' | 'assistant'; content: string }
@@ -48,10 +48,53 @@ const GREETING: Msg = {
   content: "Salut, je suis AGA 👋 Pose-moi une question sur ABED ou sur l'app My ABED (congés, timesheets, ordres de mission...).",
 }
 
+// ── Bulle déplaçable ──
+// La bulle peut être glissée n'importe où à l'écran (souris ou doigt) pour
+// libérer les boutons qu'elle recouvrirait (ex. onglet "Menu" de la barre
+// mobile). Un simple appui l'ouvre ; un glissement la déplace. Au lâcher,
+// elle se colle au bord gauche ou droit le plus proche, et sa position est
+// mémorisée (localStorage) pour toutes les pages.
+const BUBBLE = 56
+const MARGIN = 12
+const HEADER_H = 60
+const TABBAR_H = 62 // doit correspondre à --tabbar-h dans globals.css
+const DRAG_THRESHOLD = 6
+const POS_KEY = 'aga-bubble-pos'
+
+type Pos = { x: number; y: number }
+
+function isMobile() { return typeof window !== 'undefined' && window.innerWidth <= 768 }
+
+function bounds() {
+  const bottomReserved = isMobile() ? TABBAR_H + MARGIN : MARGIN
+  return {
+    minX: MARGIN,
+    maxX: window.innerWidth - BUBBLE - MARGIN,
+    minY: HEADER_H + MARGIN,
+    maxY: window.innerHeight - BUBBLE - bottomReserved,
+  }
+}
+
+function clamp(p: Pos): Pos {
+  const b = bounds()
+  return { x: Math.min(Math.max(p.x, b.minX), b.maxX), y: Math.min(Math.max(p.y, b.minY), b.maxY) }
+}
+
+function defaultPos(): Pos {
+  const b = bounds()
+  // Par défaut sur mobile : au-dessus de la barre d'onglets, mi-hauteur
+  // basse, pour ne jamais recouvrir "Menu" au premier affichage.
+  return isMobile() ? { x: b.maxX, y: b.maxY - 80 } : { x: b.maxX, y: b.maxY }
+}
+
+function snap(p: Pos): Pos {
+  const b = bounds()
+  const mid = window.innerWidth / 2 - BUBBLE / 2
+  return clamp({ x: p.x < mid ? b.minX : b.maxX, y: p.y })
+}
+
 export default function AgaWidget() {
   const pathname = usePathname()
-  // Masquée dans le Hub (/projets) — la bulle flottante gêne le clic sur les
-  // cases à cocher/boutons collés au bord droit du tableau des tâches.
   const dansLeHub = pathname?.startsWith('/projets') ?? false
   const [open, setOpen] = useState(false)
   const [hidden, setHidden] = useState(false)
@@ -61,6 +104,19 @@ export default function AgaWidget() {
   const [error, setError] = useState<AgaError | null>(null)
   const lastMessagesRef = useRef<Msg[]>([])
   const listRef = useRef<HTMLDivElement>(null)
+
+  const [pos, setPos] = useState<Pos | null>(null)
+  const [dragging, setDragging] = useState(false)
+  const drag = useRef<{ startX: number; startY: number; origin: Pos; moved: boolean; id: number } | null>(null)
+
+  useEffect(() => {
+    let saved: Pos | null = null
+    try { const raw = localStorage.getItem(POS_KEY); if (raw) saved = JSON.parse(raw) } catch {}
+    setPos(clamp(saved ?? defaultPos()))
+    function onResize() { setPos(p => (p ? clamp(p) : p)) }
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
@@ -72,6 +128,39 @@ export default function AgaWidget() {
     })
     obs.observe(document.body, { attributes: true, attributeFilter: ['class'] })
     return () => obs.disconnect()
+  }, [])
+
+  const onPointerDown = useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!pos) return
+    e.currentTarget.setPointerCapture(e.pointerId)
+    drag.current = { startX: e.clientX, startY: e.clientY, origin: pos, moved: false, id: e.pointerId }
+  }, [pos])
+
+  const onPointerMove = useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
+    const d = drag.current
+    if (!d || d.id !== e.pointerId) return
+    const dx = e.clientX - d.startX
+    const dy = e.clientY - d.startY
+    if (!d.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD) return
+    if (!d.moved) { d.moved = true; setDragging(true) }
+    setPos(clamp({ x: d.origin.x + dx, y: d.origin.y + dy }))
+  }, [])
+
+  const onPointerUp = useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
+    const d = drag.current
+    if (!d || d.id !== e.pointerId) return
+    drag.current = null
+    if (d.moved) {
+      setDragging(false)
+      setPos(p => {
+        if (!p) return p
+        const s = snap(p)
+        try { localStorage.setItem(POS_KEY, JSON.stringify(s)) } catch {}
+        return s
+      })
+    } else {
+      setOpen(true)
+    }
   }, [])
 
   async function send() {
@@ -111,34 +200,43 @@ export default function AgaWidget() {
     }
   }
 
-  if (hidden || dansLeHub) return null
+  if (hidden || dansLeHub || !pos) return null
 
   return (
     <>
-      {/* Bulle flottante : cercle fixe avec icône de chat */}
+      {/* Bulle flottante déplaçable */}
       {!open && (
         <button
-          onClick={() => setOpen(true)}
-          aria-label="Discuter avec AGA"
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
+          aria-label="Discuter avec AGA (glisser pour déplacer)"
+          title="Appuyer pour discuter · glisser pour déplacer"
           style={{
-            position: 'fixed', bottom: 24, right: 24, zIndex: 500,
+            position: 'fixed', left: pos.x, top: pos.y, zIndex: 500,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             background: 'var(--abed-green)', color: '#fff',
             border: 'none', borderRadius: '50%',
-            height: 56, width: 56,
-            boxShadow: '0 8px 24px rgba(99,165,33,.4)',
-            cursor: 'pointer',
+            height: BUBBLE, width: BUBBLE,
+            boxShadow: dragging ? '0 14px 32px rgba(0,0,0,.28)' : '0 8px 24px rgba(99,165,33,.4)',
+            cursor: dragging ? 'grabbing' : 'grab',
+            touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none',
+            transform: dragging ? 'scale(1.08)' : 'none',
+            transition: dragging ? 'transform .1s, box-shadow .1s' : 'left .2s ease, top .2s ease, transform .1s, box-shadow .1s',
+            opacity: dragging ? 0.92 : 1,
           }}
         >
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="#fff">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="#fff" style={{ pointerEvents: 'none' }}>
             <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
           </svg>
         </button>
       )}
 
-      {/* Fenêtre de chat */}
+      {/* Fenêtre de chat — sur mobile, occupe l'espace entre l'en-tête et la
+          barre d'onglets (classe .aga-window dans le <style> ci-dessous). */}
       {open && (
-        <div style={{
+        <div className="aga-window" style={{
           position: 'fixed', bottom: 24, right: 24, zIndex: 500,
           width: 360, maxWidth: 'calc(100vw - 32px)',
           height: 520, maxHeight: 'calc(100vh - 48px)',
@@ -147,7 +245,6 @@ export default function AgaWidget() {
           display: 'flex', flexDirection: 'column', overflow: 'hidden',
           border: '1px solid var(--abed-border)',
         }}>
-          {/* Header */}
           <div style={{
             background: 'linear-gradient(135deg, var(--abed-green), var(--abed-green-dark))',
             color: '#fff', padding: '14px 16px',
@@ -164,11 +261,10 @@ export default function AgaWidget() {
             <button
               onClick={() => setOpen(false)}
               aria-label="Fermer"
-              style={{ background: 'none', border: 'none', color: '#fff', fontSize: 18, cursor: 'pointer', padding: 4, opacity: 0.9 }}
+              style={{ background: 'none', border: 'none', color: '#fff', fontSize: 18, cursor: 'pointer', padding: 8, opacity: 0.9, minWidth: 40, minHeight: 40 }}
             >✕</button>
           </div>
 
-          {/* Messages */}
           <div ref={listRef} style={{ flex: 1, overflowY: 'auto', padding: 14, display: 'flex', flexDirection: 'column', gap: 10, background: '#f9fafb' }}>
             {messages.map((m, i) => (
               <div key={i} style={{
@@ -256,7 +352,6 @@ export default function AgaWidget() {
             })()}
           </div>
 
-          {/* Saisie */}
           <div style={{ borderTop: '1px solid var(--abed-border)', padding: 10, display: 'flex', gap: 8, background: '#fff' }}>
             <textarea
               value={input}
@@ -275,7 +370,7 @@ export default function AgaWidget() {
               disabled={loading || !input.trim()}
               style={{
                 background: loading || !input.trim() ? '#d1d5db' : 'var(--abed-green)',
-                color: '#fff', border: 'none', borderRadius: 10, width: 40, flexShrink: 0,
+                color: '#fff', border: 'none', borderRadius: 10, width: 44, flexShrink: 0,
                 cursor: loading || !input.trim() ? 'default' : 'pointer', fontSize: 16,
               }}
             >➤</button>
@@ -287,6 +382,13 @@ export default function AgaWidget() {
         @keyframes aga-bounce {
           0%, 60%, 100% { transform: translateY(0); opacity: .4; }
           30% { transform: translateY(-4px); opacity: 1; }
+        }
+        @media (max-width: 768px) {
+          .aga-window {
+            top: ${HEADER_H + 8}px !important; left: 8px !important; right: 8px !important;
+            bottom: calc(${TABBAR_H + 8}px + env(safe-area-inset-bottom)) !important;
+            width: auto !important; height: auto !important; max-width: none !important; max-height: none !important;
+          }
         }
       `}</style>
     </>

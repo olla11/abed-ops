@@ -237,8 +237,6 @@ th { color: var(--abed-muted); font-size: 12px; text-transform: uppercase; lette
   /* Modales / panneaux en position fixe : jamais plus larges que l'écran */
   [role="dialog"] > div, .modal, .modal-content { max-width: calc(100vw - 24px) !important; }
 
-  /* Widgets flottants (AGA, etc.) remontés au-dessus de la barre d'onglets */
-  .aga-widget, [data-floating] { bottom: calc(var(--tabbar-h) + 16px) !important; }
 }
 
 @keyframes abedSheetIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
