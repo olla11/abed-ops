@@ -15,7 +15,7 @@ type Solde = {
   profile: { nom: string; prenoms: string; direction: string | null } | null
   type_conge: { nom: string } | null
 }
-type Personnel = { id: string; nom: string; prenoms: string }
+type Personnel = { id: string; nom: string; prenoms: string; genre: string | null }
 type TypeConge = { id: string; nom: string; jours_annuels: number }
 
 const STATUT: Record<string, { label: string; color: string; bg: string }> = {
@@ -72,26 +72,51 @@ export default function CongesRHClient({ conges: initial, soldes, personnel, typ
     valide_rh: 'Autoriser la demande (DE)',
   }
 
-  // Matrice complète employé × type de congé (acquis selon le barème du type,
-  // pris selon soldes_conges s'il existe une ligne — sinon 0) : donne la vue
-  // RH même pour un employé qui n'a encore jamais posé ce type de congé,
-  // plutôt que de se limiter aux seules lignes déjà créées en base.
+  // Une ligne par employé (acquis selon le barème du type, pris selon
+  // soldes_conges s'il existe une ligne — sinon 0) : donne la vue RH même
+  // pour un employé qui n'a encore jamais posé tel type de congé. Congé
+  // maternité réservé aux femmes, congé paternité exclusivement aux hommes
+  // — pas de colonne pour le genre non concerné.
   const typesAvecBareme = typesConge.filter(t => t.jours_annuels > 0)
   const soldeParCle: Record<string, Solde> = {}
   soldes.forEach(s => { soldeParCle[`${s.profile_id}-${s.type_conge_id}`] = s })
 
-  const matrice = personnel.flatMap(p =>
-    typesAvecBareme.map(t => {
-      const existant = soldeParCle[`${p.id}-${t.id}`]
-      const acquis = existant?.jours_acquis ?? t.jours_annuels
-      const pris = existant?.jours_pris ?? 0
-      return { profile: p, type_nom: t.nom, acquis, pris }
-    })
-  )
+  function infoPourType(profileId: string, type?: TypeConge) {
+    if (!type) return null
+    const existant = soldeParCle[`${profileId}-${type.id}`]
+    const acquis = existant?.jours_acquis ?? type.jours_annuels
+    const pris = existant?.jours_pris ?? 0
+    return { acquis, pris, restant: acquis - pris }
+  }
 
-  const soldesFiltres = matrice
-    .filter(s => !filterSolde || `${s.profile.prenoms} ${s.profile.nom}`.toLowerCase().includes(filterSolde.toLowerCase()))
-    .sort((a, b) => (`${a.profile.prenoms}${a.profile.nom}`).localeCompare(`${b.profile.prenoms}${b.profile.nom}`) || a.type_nom.localeCompare(b.type_nom))
+  const typeAnnuel = typesAvecBareme.find(t => t.nom === 'Congé annuel')
+  const typeMaladie = typesAvecBareme.find(t => t.nom === 'Congé maladie')
+  const typeMaternite = typesAvecBareme.find(t => t.nom === 'Congé maternité')
+  const typePaternite = typesAvecBareme.find(t => t.nom === 'Congé paternité')
+
+  const lignesSoldes = personnel
+    .filter(p => !filterSolde || `${p.prenoms} ${p.nom}`.toLowerCase().includes(filterSolde.toLowerCase()))
+    .sort((a, b) => `${a.prenoms}${a.nom}`.localeCompare(`${b.prenoms}${b.nom}`))
+    .map(p => {
+      const typeGenre = p.genre === 'F' ? typeMaternite : p.genre === 'M' ? typePaternite : undefined
+      return {
+        profile: p,
+        annuel: infoPourType(p.id, typeAnnuel),
+        maladie: infoPourType(p.id, typeMaladie),
+        genreLabel: p.genre === 'F' ? 'Maternité' : p.genre === 'M' ? 'Paternité' : null,
+        genreInfo: infoPourType(p.id, typeGenre),
+      }
+    })
+
+  function CelluleSolde({ info }: { info: { acquis: number; pris: number; restant: number } | null }) {
+    if (!info) return <span style={{ color: '#9ca3af' }}>—</span>
+    return (
+      <>
+        <span style={{ fontWeight: 700, color: info.restant > 5 ? '#166534' : '#b45309' }}>{info.restant}j restants</span>
+        <span style={{ color: '#9ca3af', fontSize: 11, marginLeft: 6 }}>({info.pris}j pris / {info.acquis}j)</span>
+      </>
+    )
+  }
 
   return (
     <div className="page-container">
@@ -172,30 +197,29 @@ export default function CongesRHClient({ conges: initial, soldes, personnel, typ
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: '#f9fafb' }}>
-              {['Employé', 'Type', 'Acquis', 'Pris', 'Restant'].map(h => (
+              {['Employé', 'Congé annuel', 'Congé maladie', 'Maternité / Paternité'].map(h => (
                 <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: '#6b7280', borderBottom: '1px solid var(--abed-border)' }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {paginate(soldesFiltres, pageSoldes).map((s, i) => {
-              const restant = s.acquis - s.pris
-              return (
-                <tr key={`${s.profile.id}-${s.type_nom}-${i}`} style={{ background: i % 2 === 0 ? 'white' : '#fafafa' }}>
-                  <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 600 }}>{s.profile.prenoms} {s.profile.nom}</td>
-                  <td style={{ padding: '10px 14px', fontSize: 12 }}>{s.type_nom}</td>
-                  <td style={{ padding: '10px 14px', fontSize: 12 }}>{s.acquis}j</td>
-                  <td style={{ padding: '10px 14px', fontSize: 12 }}>{s.pris}j</td>
-                  <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 700, color: restant > 5 ? '#166534' : '#b45309' }}>{restant}j</td>
-                </tr>
-              )
-            })}
-            {soldesFiltres.length === 0 && (
-              <tr><td colSpan={5} style={{ padding: 24, textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>Aucun solde enregistré</td></tr>
+            {paginate(lignesSoldes, pageSoldes).map((l, i) => (
+              <tr key={l.profile.id} style={{ background: i % 2 === 0 ? 'white' : '#fafafa' }}>
+                <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 600 }}>{l.profile.prenoms} {l.profile.nom}</td>
+                <td style={{ padding: '10px 14px', fontSize: 12 }}><CelluleSolde info={l.annuel} /></td>
+                <td style={{ padding: '10px 14px', fontSize: 12 }}><CelluleSolde info={l.maladie} /></td>
+                <td style={{ padding: '10px 14px', fontSize: 12 }}>
+                  {l.genreLabel && <span style={{ color: '#6b7280', marginRight: 6 }}>{l.genreLabel} :</span>}
+                  <CelluleSolde info={l.genreInfo} />
+                </td>
+              </tr>
+            ))}
+            {lignesSoldes.length === 0 && (
+              <tr><td colSpan={4} style={{ padding: 24, textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>Aucun employé</td></tr>
             )}
           </tbody>
         </table>
-        <Pagination page={pageSoldes} total={soldesFiltres.length} onChange={p => setPageSoldes(p)} />
+        <Pagination page={pageSoldes} total={lignesSoldes.length} onChange={p => setPageSoldes(p)} />
       </div>
       </>
       )}
