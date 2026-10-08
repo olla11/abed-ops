@@ -1,6 +1,6 @@
 'use client'
 import { useTranslations } from 'next-intl'
-import { LayoutDashboard, Clock, Wallet, Palmtree, PenTool, FileText, ClipboardCheck } from 'lucide-react'
+import { LayoutDashboard, Clock, Wallet, ClipboardList, Palmtree, PenTool, FileText, ClipboardCheck } from 'lucide-react'
 import SectionSideNav, { type SideNavItem } from '@/components/SectionSideNav'
 
 const RAPPORT_TYPES = ['benevole', 'stagiaire_n1', 'stagiaire_n2', 'cdd', 'cdi']
@@ -19,6 +19,7 @@ export default function MonEspaceNav({ typeEmploi }: { typeEmploi?: string | nul
     { href: '/dashboard', label: t('missions'), Icon: LayoutDashboard },
     { href: '/timesheets', label: estRapport ? t('monthlyReport') : t('timesheets'), Icon: Clock },
     { href: '/demandes', label: t('payments'), Icon: Wallet },
+    { href: '/besoins', label: "Expression de besoin", Icon: ClipboardList },
     { href: '/conges', label: t('leaves'), Icon: Palmtree },
     { kind: 'heading', label: 'Doc & Sign' },
     { href: '/signatures', label: 'Signature directe', Icon: PenTool },

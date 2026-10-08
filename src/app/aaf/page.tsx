@@ -21,8 +21,9 @@ export default async function AAFDashboardPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const [{ count: demandesCount }, { count: rapportsCount }, { count: reconciliationsCount }] = await Promise.all([
+  const [{ count: demandesCount }, { count: besoinsCount }, { count: rapportsCount }, { count: reconciliationsCount }] = await Promise.all([
     supabase.from('demandes_paiement').select('id', { count: 'exact', head: true }).eq('status', 'soumis'),
+    supabase.from('expressions_besoin').select('id', { count: 'exact', head: true }).eq('status', 'soumis'),
     // Exclut les rapports soumis par l'AAF lui-même : il ne peut jamais les
     // traiter (bloqué côté serveur), ils apparaissent directement dans le
     // tableau de bord CAF Pro à la place.
@@ -44,6 +45,7 @@ export default async function AAFDashboardPage() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 240px), 1fr))', gap: 16, marginBottom: 8 }}>
         <StatCard label="Demandes de paiement à traiter" count={demandesCount ?? 0} href="/aaf/demandes-paiement" color="#b45309" />
+        <StatCard label="Expressions de besoin à traiter" count={besoinsCount ?? 0} href="/aaf/besoins" color="#9d174d" />
         <StatCard label="Rapports d'allocation à traiter" count={rapportsCount ?? 0} href="/aaf/rapports-allocations" color="#6d28d9" />
         <StatCard label="Réconciliations OM à valider" count={reconciliationsCount ?? 0} href="/aaf/reconciliations" color="#1e40af" />
       </div>

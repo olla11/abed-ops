@@ -1,5 +1,5 @@
 'use client'
-import { LayoutDashboard, Eye, Wallet, ClipboardList, Scale, Banknote, FileText } from 'lucide-react'
+import { LayoutDashboard, Eye, Wallet, ClipboardList, ClipboardEdit, Scale, Banknote, FileText } from 'lucide-react'
 import SectionSideNav from '@/components/SectionSideNav'
 
 export default function AAFNav({ role }: { role?: string }) {
@@ -11,6 +11,7 @@ export default function AAFNav({ role }: { role?: string }) {
     { href: '/aaf', label: 'Tableau de bord', exact: true, Icon: LayoutDashboard },
     ...(role === 'aaf' ? [{ href: '/overview', label: "Vue d'ensemble", exact: true, Icon: Eye }] : []),
     { href: '/aaf/demandes-paiement', label: 'Demandes de paiement', Icon: Wallet },
+    { href: '/aaf/besoins', label: 'Expressions de besoin', Icon: ClipboardEdit },
     { href: '/aaf/rapports-allocations', label: "Rapports d'allocation", Icon: ClipboardList },
     { href: '/aaf/reconciliations', label: 'Réconciliations OM', Icon: Scale },
     { href: '/aaf/pay-roll', label: 'Pay Roll', Icon: Banknote },

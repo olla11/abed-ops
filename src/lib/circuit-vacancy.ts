@@ -287,6 +287,44 @@ export async function autoSkipReconciliationOM(admin: Admin, missionId: string) 
   }
 }
 
+// ── Expressions de besoin : soumis[AAF ou CAF] → valide_aaf[DE] → autorise ──
+// Les 2 étapes sont de simples approbations : sûres à sauter.
+export async function autoSkipExpressionBesoin(admin: Admin, expressionId: string) {
+  for (let i = 0; i < 3; i++) {
+    const { data: e } = await admin.from('expressions_besoin').select('id, numero, projet_service, demandeur_id, status').eq('id', expressionId).single()
+    if (!e) return
+
+    let roleLabel = '', next = ''
+    let vacant = false
+    if (e.status === 'soumis') {
+      roleLabel = 'AAF'; next = 'valide_aaf'
+      vacant = !(await hasActiveRoleHolder(admin, r => estAAF(r) || r === 'admin' || r === 'superadmin'))
+    } else if (e.status === 'valide_aaf') {
+      roleLabel = 'DE'; next = 'autorise'
+      vacant = !(await hasActiveRoleHolder(admin, r => r === 'de' || r === 'admin' || r === 'superadmin'))
+    } else {
+      return
+    }
+    if (!vacant) return
+
+    await admin.from('expressions_besoin').update({ status: next }).eq('id', expressionId)
+    await logAndNotifySkip(admin, {
+      circuit: 'expression_besoin', entityId: expressionId, entityLabel: `Expression de besoin — ${e.numero ?? e.projet_service}`,
+      roleVacant: roleLabel, statusFrom: e.status, statusTo: next, lien: '/besoins',
+    })
+
+    if (next === 'autorise') {
+      await admin.from('notifications').insert({
+        user_id: e.demandeur_id,
+        titre: '✓ Expression de besoin autorisée',
+        message: `Votre expression de besoin "${e.numero ?? e.projet_service}" a été autorisée.`,
+        lien: '/besoins',
+      })
+      return
+    }
+  }
+}
+
 // ── Congés : en_attente[responsable technique = N1 nommé, ou admin en secours]
 //    → approuve_n1[RH ou CAF] → valide_rh[DE, ou DP/Administrateur en secours]
 //    → approuve ──

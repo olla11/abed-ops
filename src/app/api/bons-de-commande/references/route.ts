@@ -51,9 +51,12 @@ export async function GET(req: NextRequest) {
   }
 
   if (type === 'expression_besoin') {
-    // Pas encore de source de données — le champ existe déjà côté formulaire
-    // et en base (bon_de_commande_references), prêt à être alimenté.
-    return NextResponse.json({ data: [] })
+    const { data, error } = await admin
+      .from('expressions_besoin').select('id, numero, projet_service, montant_total').eq('status', 'autorise').order('created_at', { ascending: false })
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    return NextResponse.json({
+      data: (data ?? []).map(e => ({ id: e.id, label: `${e.numero ?? e.id.slice(0, 8)} — ${e.projet_service} (${Number(e.montant_total).toLocaleString('fr-FR')} FCFA)` })),
+    })
   }
 
   return NextResponse.json({ error: 'type invalide' }, { status: 400 })

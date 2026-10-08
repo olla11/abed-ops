@@ -24,6 +24,7 @@ export default async function DEDashboardPage() {
   const [
     { data: omASigner },
     { count: demandesCount },
+    { count: besoinsCount },
     { count: rapportsCount },
     { count: reconciliationsCount },
     { count: timesheetsCount },
@@ -36,6 +37,7 @@ export default async function DEDashboardPage() {
       .select('id, missionnaire_id, missionnaire:profiles!missions_missionnaire_id_fkey(role)')
       .in('status', ['soumis', 'brouillon']),
     supabase.from('demandes_paiement').select('id', { count: 'exact', head: true }).eq('status', 'valide_caf'),
+    supabase.from('expressions_besoin').select('id', { count: 'exact', head: true }).eq('status', 'valide_aaf'),
     supabase.from('rapports_allocations').select('id', { count: 'exact', head: true }).eq('status', 'valide_caf'),
     supabase.from('missions').select('id', { count: 'exact', head: true }).eq('status', 'reconciliation_de'),
     supabase.from('soumissions').select('id', { count: 'exact', head: true }).eq('status', 'valide_caf'),
@@ -56,6 +58,7 @@ export default async function DEDashboardPage() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 240px), 1fr))', gap: 16, marginBottom: 8 }}>
         <StatCard label="Ordres de mission à signer" count={omASignerCount ?? 0} href="/de/om-a-signer" color="#166534" />
         <StatCard label="Demandes de paiement à autoriser" count={demandesCount ?? 0} href="/de/demandes-paiement" color="#b45309" />
+        <StatCard label="Expressions de besoin à autoriser" count={besoinsCount ?? 0} href="/de/besoins" color="#9d174d" />
         <StatCard label="Rapports d'allocation à autoriser" count={rapportsCount ?? 0} href="/de/rapports-allocations" color="#6d28d9" />
         <StatCard label="Réconciliations OM à autoriser" count={reconciliationsCount ?? 0} href="/de/reconciliations" color="#1e40af" />
         <StatCard label="Timesheets à autoriser" count={timesheetsCount ?? 0} href="/de/timesheets" color="#0f766e" />
