@@ -38,12 +38,15 @@ function emailAssignation(activiteNom: string, projetNom: string, assignePrenom:
 }
 
 export async function POST(req: NextRequest) {
-  const limited = rateLimit(req, { limit: 30, window: 60 })
-  if (limited) return limited
-
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
+
+  // Par utilisateur, pas par IP — sinon tout un bureau derrière la même IP
+  // publique partage un seul quota et des créations légitimes (plusieurs
+  // tâches ajoutées à la suite) finissent bloquées sans explication.
+  const limited = rateLimit(req, { limit: 30, window: 60 }, user.id)
+  if (limited) return limited
 
   const body = await req.json().catch(() => null)
   const v = validate(ActiviteSchema, body)

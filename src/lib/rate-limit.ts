@@ -19,8 +19,12 @@ function getIP(req: NextRequest): string {
   )
 }
 
-export function rateLimit(req: NextRequest, opts: RateLimitOptions): NextResponse | null {
-  const key = `${getIP(req)}:${new URL(req.url).pathname}`
+// keyOverride (ex: user.id) évite qu'une route authentifiée partage son quota
+// entre tous les collègues d'un même bureau (même IP publique derrière un
+// routeur/NAT) — sans ça, le budget se vide bien plus vite que la limite
+// configurée ne le laisse penser.
+export function rateLimit(req: NextRequest, opts: RateLimitOptions, keyOverride?: string): NextResponse | null {
+  const key = `${keyOverride ?? getIP(req)}:${new URL(req.url).pathname}`
   const now = Date.now()
   const windowMs = opts.window * 1000
 

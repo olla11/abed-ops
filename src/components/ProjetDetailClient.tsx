@@ -250,6 +250,13 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
   const [calendarFor, setCalendarFor] = useState<{ id: string; rect: DOMRect } | null>(null)
   const [addRowCalendar, setAddRowCalendar] = useState<DOMRect | null>(null)
   const [addingAssocie, setAddingAssocie] = useState(false)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!errorMsg) return
+    const t = setTimeout(() => setErrorMsg(null), 6000)
+    return () => clearTimeout(t)
+  }, [errorMsg])
 
   // Calendrier view state
   const now = new Date()
@@ -338,7 +345,10 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
       if (selectedActivite?.id === activiteId || prevSelected?.id === activiteId)
         setSelectedActivite(prev => prev ? { ...prev, ...j.data } : null)
     } else {
-      // Revert
+      // Revert — et prévenir, plutôt que de laisser l'utilisateur croire que
+      // ça a été enregistré alors que ça a échoué silencieusement.
+      const j = await r.json().catch(() => null)
+      setErrorMsg(j?.error ?? 'La modification n\'a pas pu être enregistrée. Réessayez.')
       setProjet(p => ({ ...p, activites: prevActivites }))
       setSelectedActivite(prevSelected)
     }
@@ -383,6 +393,8 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
       setShowNewTaskForm(null)
       setShowAddRow(false)
       setTableurAddRow(null)
+    } else {
+      setErrorMsg(j?.error ?? 'La tâche n\'a pas pu être créée. Réessayez.')
     }
     setSavingTask(false)
   }
@@ -400,6 +412,8 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
       setSubtaskNom('')
       setShowSubtaskForm(null)
       setExpandedSubtasks(e => ({ ...e, [parentId]: true }))
+    } else {
+      setErrorMsg(j?.error ?? 'La sous-tâche n\'a pas pu être créée. Réessayez.')
     }
     setSavingTask(false)
   }
@@ -502,6 +516,21 @@ export default function ProjetDetailClient({ projet: initial, userId, allProfile
 
   return (
     <div style={{ padding: '24px 32px', paddingRight: selectedActivite ? 460 : 32, transition: 'padding-right 0.2s' }}>
+
+      {errorMsg && (
+        <div style={{
+          position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 2000,
+          display: 'flex', alignItems: 'center', gap: 10, maxWidth: 'calc(100vw - 32px)',
+          background: '#991b1b', color: 'white', padding: '14px 18px', borderRadius: 10,
+          fontSize: 14, fontWeight: 600, boxShadow: '0 8px 24px rgba(0,0,0,.25)',
+        }}>
+          <AlertTriangle size={18} style={{ flexShrink: 0 }} />
+          <span>{errorMsg}</span>
+          <button onClick={() => setErrorMsg(null)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', flexShrink: 0, opacity: 0.85 }}>
+            <X size={16} />
+          </button>
+        </div>
+      )}
 
       {/* Header */}
       <div style={{ marginBottom: 20 }}>
