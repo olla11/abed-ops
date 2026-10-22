@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
+import QRCode from 'qrcode'
 import AppHeader from '@/components/AppHeader'
 import RolePreviewBanner from '@/components/RolePreviewBanner'
 import ImpersonationBanner from '@/components/ImpersonationBanner'
@@ -10,7 +11,9 @@ import ProfileEditForm from '@/components/ProfileEditForm'
 import ProfileAssetForm from '@/components/ProfileAssetForm'
 import NotificationTopicsForm from '@/components/NotificationTopicsForm'
 import PersonnelDossierClient from '@/components/PersonnelDossierClient'
+import ProfileQrCode from '@/components/ProfileQrCode'
 import { estRH, estAAF } from '@/lib/roles'
+import { buildProfileVCard } from '@/lib/profile-qr'
 
 export default async function ProfilePage() {
   const supabase = await createClient()
@@ -29,6 +32,11 @@ export default async function ProfilePage() {
   const impersonation = await getImpersonationInfo()
   const canUpload = ['de', 'dp', 'caf', 'admin', 'administrateur'].includes(role)
 
+  const qrDataUrl = profile ? await QRCode.toDataURL(
+    buildProfileVCard({ nom: profile.nom ?? '', prenoms: profile.prenoms ?? '', titre: profile.titre, email: profile.email ?? user.email ?? null }),
+    { width: 320, margin: 1 }
+  ) : null
+
   return (
     <>
       <AppHeader
@@ -45,6 +53,19 @@ export default async function ProfilePage() {
       {impersonation && <ImpersonationBanner adminNom={impersonation.adminNom} adminPrenoms={impersonation.adminPrenoms} targetNom={impersonation.targetNom} targetPrenoms={impersonation.targetPrenoms} targetRole={impersonation.targetRole} />}
       <div className="page-container" style={{ maxWidth: 760 }}>
         <h2 style={{ color: 'var(--abed-green)', marginBottom: 24 }}>Mon profil</h2>
+
+        {qrDataUrl && (
+          <div className="card" style={{ marginBottom: 24, display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap' }}>
+            <ProfileQrCode dataUrl={qrDataUrl} fileName={`QR_${profile?.prenoms}_${profile?.nom}.png`.replace(/\s+/g, '_')} />
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <h3 style={{ marginBottom: 6, fontSize: 15 }}>Mon QR code d&apos;identification</h3>
+              <p style={{ fontSize: 12.5, color: 'var(--abed-muted)' }}>
+                Contient votre nom, votre poste à ABED-ONG et votre email — scannable avec l&apos;appareil photo d&apos;un
+                smartphone (propose directement &quot;Ajouter aux contacts&quot;).
+              </p>
+            </div>
+          </div>
+        )}
 
         <div className="card" style={{ marginBottom: 24 }}>
           <h3 style={{ marginBottom: 20, fontSize: 15 }}>Informations personnelles</h3>
