@@ -19,12 +19,12 @@ export default async function PersonnelDossierPage({ params }: { params: Promise
   if (!(estRH(me?.role) || ['admin', 'superadmin'].includes(me?.role ?? ''))) redirect('/rh/conges')
 
   const { data: profile } = await supabase
-    .from('profiles').select('nom, prenoms, fonction, role, titre, email').eq('id', id).single()
+    .from('profiles').select('nom, prenoms, fonction, role, titre, email, telephone').eq('id', id).single()
 
   if (!profile) redirect('/rh/personnel')
 
   const qrDataUrl = await QRCode.toDataURL(
-    buildProfileVCard({ nom: profile.nom ?? '', prenoms: profile.prenoms ?? '', titre: profile.titre, email: profile.email }),
+    buildProfileVCard({ nom: profile.nom ?? '', prenoms: profile.prenoms ?? '', titre: profile.titre, email: profile.email, telephone: profile.telephone ?? null }),
     { width: 320, margin: 1 }
   )
 

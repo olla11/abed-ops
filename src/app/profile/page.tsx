@@ -33,7 +33,7 @@ export default async function ProfilePage() {
   const canUpload = ['de', 'dp', 'caf', 'admin', 'administrateur'].includes(role)
 
   const qrDataUrl = profile ? await QRCode.toDataURL(
-    buildProfileVCard({ nom: profile.nom ?? '', prenoms: profile.prenoms ?? '', titre: profile.titre, email: profile.email ?? user.email ?? null }),
+    buildProfileVCard({ nom: profile.nom ?? '', prenoms: profile.prenoms ?? '', titre: profile.titre, email: profile.email ?? user.email ?? null, telephone: profile.telephone ?? null }),
     { width: 320, margin: 1 }
   ) : null
 
