@@ -99,6 +99,9 @@ html.sidenav-collapsed-html .section-content {
 .btn.danger { background: var(--abed-danger); }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
 
+@keyframes abed-spin { to { transform: rotate(360deg); } }
+.abed-spin { animation: abed-spin .7s linear infinite; }
+
 .card {
   background: var(--abed-card); border: 1px solid var(--abed-border);
   border-radius: var(--radius); padding: 24px; box-shadow: var(--shadow);

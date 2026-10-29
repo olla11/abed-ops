@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic'
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff, Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase-client'
 import { useLocale } from 'next-intl'
@@ -23,29 +23,34 @@ export default function LoginPage() {
   async function signIn(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true); setErr('')
+    // setLoading(false) n'est appelé que sur les sorties d'erreur ci-dessous —
+    // jamais juste après signInWithPassword : le bouton restait sinon
+    // réactivé pendant tout l'aller-retour suivant (vérification du compte),
+    // laissant une fenêtre où un second clic relançait une connexion en
+    // double sans que rien ne le signale à l'écran.
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-    setLoading(false)
-    if (error) { setErr(error.message); return }
+    if (error) { setLoading(false); setErr(error.message); return }
 
+    // must_change_password n'est plus vérifié ici : /accueil fait déjà ce
+    // contrôle et redirige si besoin — un aller-retour réseau en moins avant
+    // de naviguer.
     const { data: profile } = await supabase
-      .from('profiles').select('must_change_password, registration_status').eq('id', data.user.id).single()
+      .from('profiles').select('registration_status').eq('id', data.user.id).single()
 
     if (profile?.registration_status === 'pending_email') {
       await supabase.auth.signOut()
+      setLoading(false)
       setErr('Veuillez confirmer votre adresse email avant de vous connecter.')
       return
     }
     if (profile?.registration_status === 'pending_activation') {
       await supabase.auth.signOut()
+      setLoading(false)
       setErr('Votre compte est en attente d\'activation par l\'administrateur système. Vous serez notifié(e) par email dès que votre accès sera configuré.')
       return
     }
     try { sessionStorage.setItem('abed_auth_toast', JSON.stringify({ message: 'Connexion réussie !', variant: 'success' })) } catch { /* ignore */ }
-    if (profile?.must_change_password) {
-      router.push('/auth/changer-mot-de-passe')
-    } else {
-      router.push('/accueil')
-    }
+    router.push('/accueil')
   }
 
   return (
@@ -150,7 +155,7 @@ export default function LoginPage() {
               marginTop: 4,
             }}
           >
-            {loading ? t('loading') : t('submit')}
+            {loading ? <><Loader2 size={16} className="abed-spin" /> {t('loading')}</> : t('submit')}
           </button>
         </form>
 
