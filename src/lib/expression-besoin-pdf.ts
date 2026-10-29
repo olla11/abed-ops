@@ -4,6 +4,7 @@
 // / Directrice Exécutive) sur le même modèle que tdr-reconciliation-pdf.ts.
 import { LOGO_COLOR_PNG_B64 } from '@/lib/logo-color-b64'
 import { nombreEnLettresFr } from '@/lib/nombre-en-lettres'
+import { BRITTANY_SIGNATURE_FONT_DATA_URI } from '@/lib/signature-font-data'
 import puppeteer from 'puppeteer-core'
 import chromium from '@sparticuz/chromium'
 
@@ -27,10 +28,13 @@ export interface ExpressionBesoinPdfData {
   lignes: ExpressionBesoinLignePdf[]
   montantTotal: number
   demandeurNom: string
+  demandeurCursif: string | null
   demandeurLe: string | null
   aafNom: string | null
+  aafCursif: string | null
   aafLe: string | null
   deNom: string | null
+  deCursif: string | null
   deLe: string | null
 }
 
@@ -42,13 +46,22 @@ function fmt(n: number): string {
   return Math.round(n).toLocaleString('fr-FR')
 }
 
-function sigBlock(role: string, nom: string, dateStr: string | null): string {
+// Signature manuscrite reconstituée en police cursive (même police
+// "BrittanySignature" que le circuit de signature formel — contrat-pdf.ts)
+// au moment du rendu — cette fiche n'a jamais eu de capture de signature
+// (validation en un clic), donc rien à incruster : la police suffit à
+// donner un rendu manuscrit cohérent avec les autres documents de
+// l'application. `cursif` suit le même format que partout ailleurs dans
+// l'appli (formatSignatureDisplayName) : premier prénom + nom, tout en
+// minuscules sauf la première lettre du prénom — ex. "Isidore aglossi".
+function sigBlock(role: string, nomImprime: string, cursif: string | null, dateStr: string | null): string {
   return `
     <div class="sig">
       <div class="sig-role">${esc(role)}</div>
+      <div class="sig-area">${cursif && dateStr ? `<div class="sig-cursive">${esc(cursif)}</div>` : ''}</div>
       <div class="sig-rule"></div>
-      <div class="sig-realname">${esc(nom)}</div>
-      <div class="sig-stamp">${dateStr ? `✓ Signé le ${esc(dateStr)}` : ''}</div>
+      <div class="sig-realname">${esc(nomImprime)}</div>
+      <div class="sig-stamp">${dateStr ? `✓ Signé le ${esc(dateStr)}` : 'En attente de signature'}</div>
     </div>
   `
 }
@@ -73,9 +86,12 @@ const STYLE = `
   table.lignes td.center { text-align: center; }
   table.lignes tr.total td { font-weight: 700; background: #dcfce7; text-align: center; }
   .lettres { margin-bottom: 30px; font-size: 10pt; }
+  @font-face { font-family: 'BrittanySignature'; src: url('${BRITTANY_SIGNATURE_FONT_DATA_URI}') format('truetype'); font-weight: normal; font-style: normal; }
   .sig-block { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 40px; page-break-inside: avoid; }
   .sig { text-align: center; }
-  .sig-role { font-size: 9pt; font-weight: bold; margin-bottom: 30px; min-height: 26px; }
+  .sig-role { font-size: 9pt; font-weight: bold; margin-bottom: 6px; min-height: 26px; }
+  .sig-area { min-height: 34px; display: flex; align-items: flex-end; justify-content: center; }
+  .sig-cursive { font-family: 'BrittanySignature', cursive; font-size: 19pt; line-height: 1; color: #1e3a8a; transform: translateY(-6px); }
   .sig-rule { border-top: 1px solid #000; }
   .sig-realname { font-size: 9.5pt; font-weight: bold; margin-top: 10px; color: #111; }
   .sig-stamp { font-size: 8pt; color: #166534; margin-top: 3px; font-weight: bold; }
@@ -148,9 +164,9 @@ export function construireExpressionBesoinHtml(d: ExpressionBesoinPdfData): stri
 
   <h2 class="section-titre" style="background:none;color:#166534;padding:0;">4. Visas et approbations</h2>
   <div class="sig-block">
-    ${sigBlock('Visa du Demandeur', d.demandeurNom, d.demandeurLe)}
-    ${sigBlock('Visa du Comptable / AAF', d.aafNom ?? '—', d.aafLe)}
-    ${sigBlock('Visa de la Directrice Exécutive', d.deNom ?? '—', d.deLe)}
+    ${sigBlock('Visa du Demandeur', d.demandeurNom, d.demandeurCursif, d.demandeurLe)}
+    ${sigBlock('Visa du Comptable / AAF', d.aafNom ?? '—', d.aafCursif, d.aafLe)}
+    ${sigBlock('Visa de la Directrice Exécutive', d.deNom ?? '—', d.deCursif, d.deLe)}
   </div>
 
   <div class="footer">ABED ONG · Parakou, Quartier Zongo, Bénin · Système de gestion financière</div>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
 import { genererExpressionBesoinPdf, nomFichierExpressionBesoinPdf, type ExpressionBesoinPdfData } from '@/lib/expression-besoin-pdf'
+import { formatSignatureDisplayName } from '@/lib/signature-name'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -27,6 +28,7 @@ export async function GET(
   const canView = e.demandeur_id === user.id || ['aaf', 'caf', 'de', 'admin', 'superadmin'].includes(role)
   if (!canView) return NextResponse.json({ error: 'accès refusé' }, { status: 403 })
 
+  const demandeur = e.demandeur as { nom: string; prenoms: string } | null
   const aaf = e.aaf as { nom: string; prenoms: string } | null
   const de = e.de as { nom: string; prenoms: string } | null
   const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString('fr-FR') : null
@@ -46,10 +48,13 @@ export async function GET(
     })),
     montantTotal: Number(e.montant_total) || 0,
     demandeurNom: e.nom_demandeur,
+    demandeurCursif: demandeur ? formatSignatureDisplayName(demandeur.prenoms, demandeur.nom) : null,
     demandeurLe: fmtDate(e.created_at),
     aafNom: aaf ? `${aaf.prenoms} ${aaf.nom}` : null,
+    aafCursif: aaf ? formatSignatureDisplayName(aaf.prenoms, aaf.nom) : null,
     aafLe: fmtDate(e.aaf_le),
     deNom: de ? `${de.prenoms} ${de.nom}` : null,
+    deCursif: de ? formatSignatureDisplayName(de.prenoms, de.nom) : null,
     deLe: fmtDate(e.de_le),
   }
 
