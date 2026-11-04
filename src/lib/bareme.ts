@@ -43,6 +43,7 @@ export const TITRE_VERS_NIVEAU_FONCTION: Partial<Record<Titre, NiveauFonctionHon
   representant_pays: 'programme_lead_manager',
   programme_lead: 'programme_lead_manager',
   responsable_communication: 'programme_lead_manager',
+  responsable_suivi_evaluation: 'programme_lead_manager',
   charge_projet: 'charge_projet',
   agent_projet: 'agent_projet',
   animateur: 'animateur',

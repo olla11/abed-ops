@@ -31,6 +31,7 @@ export const TITRES = [
   'agent_projet',
   'animateur',
   'responsable_communication',
+  'responsable_suivi_evaluation',
   'assistant_communication',
   'business_developer',
   'responsable_hub',
@@ -60,6 +61,7 @@ export const TITRE_LABELS: Record<Titre, string> = {
   agent_projet: 'Agent de projet / superviseur',
   animateur: 'Animateur / Coach / Facilitateur',
   responsable_communication: 'Responsable communication',
+  responsable_suivi_evaluation: 'Responsable Suivi-évaluation',
   assistant_communication: 'Assistant communication',
   business_developer: 'Business Developer',
   responsable_hub: 'Responsable Hub',
@@ -100,6 +102,7 @@ export const TITRE_TO_ACCESS: Record<Titre, AccessRole> = {
   agent_projet: 'missionnaire',
   animateur: 'missionnaire',
   responsable_communication: 'manager',
+  responsable_suivi_evaluation: 'manager',
   assistant_communication: 'missionnaire',
   business_developer: 'manager',
   // Responsable Hub : titre distinct (pour identifier qui a la charge du
