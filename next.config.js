@@ -41,8 +41,15 @@ const securityHeaders = [
       // Fonts — data: nécessaire pour la police de signature embarquée en base64
       "font-src 'self' data:",
       // API calls autorisés — blob: nécessaire pour que pdf.js puisse lire
-      // l'aperçu d'un PDF local (pas encore uploadé) via un blob URL
-      "connect-src 'self' blob: https://*.supabase.co https://*.supabase.in https://api.groq.com https://generativelanguage.googleapis.com https://abedong.org https://*.abedong.org",
+      // l'aperçu d'un PDF local (pas encore uploadé) via un blob URL.
+      // wss:// (en plus de https://) est indispensable pour Supabase
+      // Realtime : le schéma d'une connexion WebSocket n'est jamais couvert
+      // par une entrée https:// dans connect-src, même avec le même domaine
+      // — sans lui, la connexion est bloquée par la CSP (pas une erreur
+      // réseau), ce qui faisait planter le reste de la page au premier
+      // accès à des données censées déjà être là (ex. Hub après création
+      // d'une tâche) avec "Cette page n'a pas pu s'afficher".
+      "connect-src 'self' blob: https://*.supabase.co https://*.supabase.in wss://*.supabase.co wss://*.supabase.in https://api.groq.com https://generativelanguage.googleapis.com https://abedong.org https://*.abedong.org",
       // Frames : self + Supabase storage (PDF viewer)
       "frame-src 'self' https://*.supabase.co https://*.supabase.in",
       // Workers
