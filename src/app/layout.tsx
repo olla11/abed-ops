@@ -5,6 +5,7 @@ import { getLocale, getMessages } from 'next-intl/server'
 import LegalConsentGate from '@/components/LegalConsentGate'
 import ProfileCompletionGate from '@/components/ProfileCompletionGate'
 import InactivityLogout from '@/components/InactivityLogout'
+import ChunkErrorRecovery from '@/components/ChunkErrorRecovery'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -34,6 +35,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <LegalConsentGate />
           <ProfileCompletionGate />
           <InactivityLogout />
+          <ChunkErrorRecovery />
         </NextIntlClientProvider>
       </body>
     </html>

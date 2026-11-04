@@ -24,6 +24,12 @@
 html {
   overflow-x: clip;
   scroll-behavior: smooth;
+  /* Empêche le geste "tirer pour rafraîchir" du navigateur mobile de
+     déclencher un rechargement natif de la page en pleine saisie (ex: créer
+     une tâche dans le Hub) — un léger glissement vertical pendant l'appui
+     sur un bouton suffisait à le provoquer, interrompant la requête en
+     cours et affichant l'écran "Cette page n'a pas pu s'afficher". */
+  overscroll-behavior-y: contain;
 }
 
 body {
@@ -34,6 +40,7 @@ body {
   overflow-x: clip;
   max-width: 100vw;
   padding-top: 60px;
+  overscroll-behavior-y: contain;
 }
 
 a { color: var(--abed-blue); text-decoration: none; }
