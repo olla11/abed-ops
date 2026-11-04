@@ -3,6 +3,26 @@ import { NextResponse, type NextRequest, type NextFetchEvent } from 'next/server
 import { logRequest } from '@/lib/audit-log'
 
 export async function proxy(req: NextRequest, event: NextFetchEvent) {
+  try {
+    return await proxyInterne(req, event)
+  } catch (err) {
+    // Filet de sécurité global : ce middleware tourne sur CHAQUE navigation
+    // de l'application. Une exception non rattrapée ici (où que ce soit
+    // dans la fonction — pas seulement l'appel Supabase déjà protégé plus
+    // bas) faisait planter la requête entière sans aucune page d'erreur
+    // propre : le navigateur affichait "Cette page n'a pas pu s'afficher",
+    // y compris pour une action déjà réussie côté serveur (ex. une tâche
+    // créée dans le Hub), ne se réparant qu'au rechargement manuel suivant.
+    // En dernier recours on laisse passer la requête telle quelle : chaque
+    // page protégée vérifie de toute façon elle-même la session côté
+    // serveur (voir les `redirect('/login')` dans les pages), donc ça ne
+    // contourne pas la sécurité, ça évite seulement un plantage dur ici.
+    console.error('[proxy] erreur non rattrapée, requête laissée passer :', err)
+    return NextResponse.next({ request: req })
+  }
+}
+
+async function proxyInterne(req: NextRequest, event: NextFetchEvent) {
   let res = NextResponse.next({ request: req })
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://placeholder.supabase.co',
