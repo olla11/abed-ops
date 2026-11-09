@@ -25,8 +25,13 @@ const securityHeaders = [
     value: 'strict-origin-when-cross-origin',
   },
   {
+    // camera et geolocation : nécessaires au badgeage bureau (/badge —
+    // photo de vérification faciale + position GPS). Restreints à 'self'
+    // (jamais à une iframe tierce) — avant, ce header bloquait ces deux
+    // API au niveau HTTP, avant même la demande de permission navigateur,
+    // ce qui empêchait tout badgeage quel que soit l'appareil.
     key: 'Permissions-Policy',
-    value: 'camera=(), microphone=(), geolocation=()',
+    value: 'camera=(self), microphone=(), geolocation=(self)',
   },
   {
     key: 'Content-Security-Policy',
