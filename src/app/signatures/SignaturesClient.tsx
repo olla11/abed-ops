@@ -256,20 +256,24 @@ type Props = {
 }
 
 export default function SignaturesClient({ userId, mesDemandesASign: initialASign, mesCreations: initialCreations, toutesSignees, profiles, typeEmploi }: Props) {
-  const [activeTab, setActiveTab] = useState<'asigner' | 'mesdemandes'>('asigner')
+  const [activeTab, setActiveTab] = useState<'asigner' | 'mesdemandes' | 'signees'>('asigner')
   const [demandesASign, setDemandesASign] = useState(initialASign)
   const [mesCreations, setMesCreations] = useState(initialCreations)
+  const [signees, setSignees] = useState(toutesSignees)
   const [pageASign, setPageASign] = useState(1)
   const [pageCreations, setPageCreations] = useState(1)
+  const [pageSignees, setPageSignees] = useState(1)
 
   function handleDeleted(id: string) {
     setDemandesASign(list => list.filter(d => d.id !== id))
     setMesCreations(list => list.filter(d => d.id !== id))
+    setSignees(list => list.filter(d => d.id !== id))
   }
 
   function handleCorrected(demande: DemandeRow) {
     setMesCreations(list => list.map(d => d.id === demande.id ? demande : d))
     setDemandesASign(list => list.map(d => d.id === demande.id ? demande : d))
+    setSignees(list => list.map(d => d.id === demande.id ? demande : d))
   }
 
   const tabStyle = (active: boolean): React.CSSProperties => ({
@@ -307,6 +311,9 @@ export default function SignaturesClient({ userId, mesDemandesASign: initialASig
         <button style={tabStyle(activeTab === 'mesdemandes')} onClick={() => setActiveTab('mesdemandes')}>
           Mes demandes
         </button>
+        <button style={tabStyle(activeTab === 'signees')} onClick={() => setActiveTab('signees')}>
+          Signées
+        </button>
       </div>
 
       {/* À signer tab */}
@@ -340,6 +347,24 @@ export default function SignaturesClient({ userId, mesDemandesASign: initialASig
                 <DemandeCard key={d.id} d={d} userId={userId} onDeleted={handleDeleted} onCorrected={handleCorrected} />
               ))}
               <Pagination page={pageCreations} total={mesCreations.length} onChange={setPageCreations} />
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Signées tab */}
+      {activeTab === 'signees' && (
+        <div>
+          {signees.length === 0 ? (
+            <div style={{ background: 'white', border: '1px solid var(--abed-border)', borderRadius: 10, padding: '40px 24px', textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>
+              Aucun document entièrement signé pour l&apos;instant.
+            </div>
+          ) : (
+            <>
+              {paginate(signees, pageSignees).map(d => (
+                <DemandeCard key={d.id} d={d} userId={userId} onDeleted={handleDeleted} onCorrected={handleCorrected} />
+              ))}
+              <Pagination page={pageSignees} total={signees.length} onChange={setPageSignees} />
             </>
           )}
         </div>
