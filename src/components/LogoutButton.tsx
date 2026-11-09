@@ -13,6 +13,7 @@ export default function LogoutButton() {
     setLoading(true)
     const supabase = createClient()
     await supabase.auth.signOut()
+    await fetch('/api/auth/clear-session-overrides', { method: 'POST' }).catch(() => {})
     try { sessionStorage.setItem('abed_auth_toast', JSON.stringify({ message: 'Déconnexion réussie.', variant: 'logout' })) } catch { /* ignore */ }
     router.push('/login')
   }

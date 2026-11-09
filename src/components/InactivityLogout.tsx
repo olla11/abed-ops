@@ -37,6 +37,7 @@ export default function InactivityLogout() {
     if (compteARebours.current) clearInterval(compteARebours.current)
     const supabase = createClient()
     await supabase.auth.signOut()
+    await fetch('/api/auth/clear-session-overrides', { method: 'POST' }).catch(() => {})
     try {
       sessionStorage.setItem('abed_auth_toast', JSON.stringify({
         message: 'Déconnecté(e) automatiquement pour inactivité.', variant: 'logout',

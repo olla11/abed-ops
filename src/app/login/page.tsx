@@ -49,6 +49,12 @@ export default function LoginPage() {
       setErr('Votre compte est en attente d\'activation par l\'administrateur système. Vous serez notifié(e) par email dès que votre accès sera configuré.')
       return
     }
+    // Filet de sécurité : si la session précédente s'est terminée autrement
+    // qu'en cliquant sur "Déconnexion" (jeton expiré, fermeture de
+    // l'onglet...), les cookies de simulation de rôle / usurpation posés par
+    // un admin ne seraient jamais nettoyés — ce qui ferait réapparaître à
+    // tort la bannière "Connecté en tant que..." à cette reconnexion.
+    await fetch('/api/auth/clear-session-overrides', { method: 'POST' }).catch(() => {})
     try { sessionStorage.setItem('abed_auth_toast', JSON.stringify({ message: 'Connexion réussie !', variant: 'success' })) } catch { /* ignore */ }
     router.push('/accueil')
   }
