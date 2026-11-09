@@ -9,6 +9,7 @@ import ImpersonationBanner from '@/components/ImpersonationBanner'
 import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
 import { getImpersonationInfo } from '@/lib/impersonation'
 import { estRH, estAAF, estBD } from '@/lib/roles'
+import { debutJourLocal } from '@/lib/badge-jours'
 import BadgePointageClient from '@/components/BadgePointageClient'
 
 const ACCES_HISTORIQUE_EQUIPE = ['manager', 'rh', 'caf', 'admin', 'superadmin']
@@ -26,12 +27,12 @@ export default async function BadgePage() {
   const previewRole = await getRolePreview()
   const impersonation = await getImpersonationInfo()
 
-  const debutJour = new Date(); debutJour.setHours(0, 0, 0, 0)
   const { data: pointagesDuJour } = await supabase
     .from('badge_pointages')
     .select('id, type, statut, horodatage')
     .eq('profile_id', user.id)
-    .gte('horodatage', debutJour.toISOString())
+    .neq('statut', 'non_badge')
+    .gte('horodatage', debutJourLocal().toISOString())
     .order('horodatage', { ascending: true })
 
   return (

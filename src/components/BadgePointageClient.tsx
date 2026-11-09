@@ -25,7 +25,7 @@ function fmtHeure(iso: string) {
   return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 }
 
-type Etape = 'idle' | 'localisation' | 'camera' | 'envoi'
+type Etape = 'idle' | 'localisation' | 'justification' | 'camera' | 'envoi'
 
 export default function BadgePointageClient({ aReferencePhoto, pointagesDuJour }: {
   aReferencePhoto: boolean
@@ -36,17 +36,24 @@ export default function BadgePointageClient({ aReferencePhoto, pointagesDuJour }
   const [etape, setEtape] = useState<Etape>('idle')
   const [erreur, setErreur] = useState<string | null>(null)
   const [succes, setSucces] = useState<string | null>(null)
+  const [justificationTexte, setJustificationTexte] = useState('')
+  const [typeAJustifier, setTypeAJustifier] = useState<'entree' | 'sortie' | null>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const positionRef = useRef<{ latitude: number; longitude: number; accuracy: number } | null>(null)
+  const justificationRef = useRef<string>('')
 
   useEffect(() => {
     chargerModelesVisage().catch(() => {}) // préchargement, pas bloquant
   }, [])
 
-  const dernierType = historique.filter(p => p.statut === 'reussi').at(-1)?.type
+  const reussis = historique.filter(p => p.statut === 'reussi')
+  const dernierType = reussis.at(-1)?.type
   const prochainType: 'entree' | 'sortie' = dernierType === 'entree' ? 'sortie' : 'entree'
+  // Strictement 2 pointages par jour (1 entrée + 1 sortie) — voir
+  // /api/badge/pointer, qui applique la même règle côté serveur.
+  const journeeComplete = reussis.length >= 2
 
   function arreterCamera() {
     streamRef.current?.getTracks().forEach(t => t.stop())
@@ -58,9 +65,15 @@ export default function BadgePointageClient({ aReferencePhoto, pointagesDuJour }
     setEtape('envoi')
     const res = await fetch('/api/badge/pointer', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...positionRef.current, deviceId: idAppareil(), descriptor }),
+      body: JSON.stringify({ ...positionRef.current, deviceId: idAppareil(), descriptor, justification: justificationRef.current || undefined }),
     })
     const json = await res.json()
+
+    if (res.ok && json.needsJustification) {
+      setTypeAJustifier(json.type)
+      setEtape('justification')
+      return
+    }
 
     if (res.ok && json.needsFaceVerification) {
       setEtape('camera')
@@ -80,7 +93,18 @@ export default function BadgePointageClient({ aReferencePhoto, pointagesDuJour }
 
     setSucces(`${json.pointage.type === 'entree' ? 'Entrée' : 'Sortie'} enregistrée à ${fmtHeure(json.pointage.horodatage)}.`)
     setHistorique(h => [...h, json.pointage])
+    justificationRef.current = ''
+    setJustificationTexte('')
+    setTypeAJustifier(null)
     setEtape('idle')
+  }
+
+  function confirmerJustification() {
+    const texte = justificationTexte.trim()
+    if (!texte) { setErreur('Merci de préciser un motif.'); return }
+    justificationRef.current = texte
+    setErreur(null)
+    envoyerPointage()
   }
 
   function demarrer() {
@@ -125,7 +149,27 @@ export default function BadgePointageClient({ aReferencePhoto, pointagesDuJour }
         </div>
       )}
 
-      {etape === 'camera' ? (
+      {etape === 'justification' ? (
+        <div className="card">
+          <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
+            {typeAJustifier === 'entree' ? 'Entrée après 9h — merci de préciser le motif' : 'Sortie avant 17h — merci de préciser le motif'}
+          </p>
+          <p style={{ fontSize: 12, color: 'var(--abed-muted)', marginBottom: 12 }}>
+            Ce motif sera visible par les RH et votre manager.
+          </p>
+          <textarea
+            value={justificationTexte}
+            onChange={e => setJustificationTexte(e.target.value)}
+            placeholder="Ex. rendez-vous médical, embouteillage, mission externe…"
+            rows={3}
+            maxLength={500}
+            style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid var(--abed-border)', fontSize: 13, boxSizing: 'border-box', marginBottom: 12, fontFamily: 'inherit', resize: 'vertical' }}
+          />
+          <button className="btn" style={{ width: '100%', justifyContent: 'center' }} onClick={confirmerJustification}>
+            Confirmer le badgeage
+          </button>
+        </div>
+      ) : etape === 'camera' ? (
         <div className="card">
           <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Nouvel appareil détecté — vérification d&apos;identité</p>
           <div style={{ position: 'relative', width: '100%', aspectRatio: '1', background: '#111', borderRadius: 12, overflow: 'hidden', marginBottom: 14 }}>
@@ -135,6 +179,14 @@ export default function BadgePointageClient({ aReferencePhoto, pointagesDuJour }
           <button className="btn" style={{ width: '100%', justifyContent: 'center' }} onClick={capturerEtVerifier}>
             <Camera size={16} /> Vérifier mon identité
           </button>
+        </div>
+      ) : journeeComplete ? (
+        <div className="card" style={{ textAlign: 'center' }}>
+          <CheckCircle2 size={22} color="#16a34a" style={{ marginBottom: 8 }} />
+          <p style={{ fontSize: 13.5, fontWeight: 600, margin: 0 }}>Journée terminée</p>
+          <p style={{ fontSize: 12.5, color: 'var(--abed-muted)', margin: '4px 0 0' }}>
+            Entrée et sortie déjà enregistrées aujourd&apos;hui.
+          </p>
         </div>
       ) : (
         <div className="card" style={{ textAlign: 'center' }}>

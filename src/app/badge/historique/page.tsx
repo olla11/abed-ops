@@ -33,7 +33,7 @@ export default async function BadgeHistoriquePage() {
 
   const { data: pointages, error } = await supabase
     .from('badge_pointages')
-    .select('id, type, statut, horodatage, distance_bureau_m, verification_faciale_effectuee, profile:profiles!badge_pointages_profile_id_fkey(nom, prenoms)')
+    .select('id, type, statut, horodatage, distance_bureau_m, verification_faciale_effectuee, justification, profile:profiles!badge_pointages_profile_id_fkey(nom, prenoms)')
     .order('horodatage', { ascending: false })
     .limit(500)
   if (error) console.error('[badge/historique] échec lecture badge_pointages:', error)

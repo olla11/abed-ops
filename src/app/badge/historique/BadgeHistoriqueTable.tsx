@@ -3,10 +3,11 @@
 type Pointage = {
   id: string
   type: 'entree' | 'sortie'
-  statut: 'reussi' | 'hors_perimetre' | 'echec_facial'
+  statut: 'reussi' | 'hors_perimetre' | 'echec_facial' | 'non_badge'
   horodatage: string
   distance_bureau_m: number
   verification_faciale_effectuee: boolean
+  justification: string | null
   profile: { nom: string; prenoms: string } | null
 }
 
@@ -14,6 +15,7 @@ const STATUT_LABELS: Record<Pointage['statut'], { label: string; color: string; 
   reussi: { label: 'Réussi', color: '#166534', bg: '#dcfce7' },
   hors_perimetre: { label: 'Hors périmètre', color: '#991b1b', bg: '#fee2e2' },
   echec_facial: { label: 'Échec facial', color: '#991b1b', bg: '#fee2e2' },
+  non_badge: { label: 'Non badgé', color: '#92400e', bg: '#fef3c7' },
 }
 
 export default function BadgeHistoriqueTable({ pointages }: { pointages: Pointage[] }) {
@@ -32,23 +34,26 @@ export default function BadgeHistoriqueTable({ pointages }: { pointages: Pointag
             <th style={{ padding: '10px 14px' }}>Distance</th>
             <th style={{ padding: '10px 14px' }}>Vérif. faciale</th>
             <th style={{ padding: '10px 14px' }}>Statut</th>
+            <th style={{ padding: '10px 14px' }}>Justification</th>
           </tr>
         </thead>
         <tbody>
           {pointages.map(p => {
             const s = STATUT_LABELS[p.statut]
+            const estAuto = p.statut === 'non_badge'
             return (
               <tr key={p.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
                 <td style={{ padding: '10px 14px' }}>{p.profile ? `${p.profile.prenoms} ${p.profile.nom}` : '—'}</td>
                 <td style={{ padding: '10px 14px' }}>{p.type === 'entree' ? 'Entrée' : 'Sortie'}</td>
-                <td style={{ padding: '10px 14px' }}>{new Date(p.horodatage).toLocaleString('fr-FR')}</td>
-                <td style={{ padding: '10px 14px' }}>{Math.round(p.distance_bureau_m)} m</td>
-                <td style={{ padding: '10px 14px' }}>{p.verification_faciale_effectuee ? 'Oui' : 'Non'}</td>
+                <td style={{ padding: '10px 14px' }}>{estAuto ? new Date(p.horodatage).toLocaleDateString('fr-FR') : new Date(p.horodatage).toLocaleString('fr-FR')}</td>
+                <td style={{ padding: '10px 14px' }}>{estAuto ? '—' : `${Math.round(p.distance_bureau_m)} m`}</td>
+                <td style={{ padding: '10px 14px' }}>{estAuto ? '—' : (p.verification_faciale_effectuee ? 'Oui' : 'Non')}</td>
                 <td style={{ padding: '10px 14px' }}>
                   <span style={{ fontSize: 11.5, padding: '3px 9px', borderRadius: 20, background: s.bg, color: s.color, fontWeight: 600 }}>
                     {s.label}
                   </span>
                 </td>
+                <td style={{ padding: '10px 14px' }}>{p.justification || '—'}</td>
               </tr>
             )
           })}
