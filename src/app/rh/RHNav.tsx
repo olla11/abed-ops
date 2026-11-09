@@ -1,5 +1,5 @@
 'use client'
-import { LayoutDashboard, Users, FileText, Wallet, Palmtree, ClipboardCheck, Settings } from 'lucide-react'
+import { LayoutDashboard, Users, FileText, Wallet, Palmtree, ClipboardCheck, Settings, MapPin } from 'lucide-react'
 import SectionSideNav from '@/components/SectionSideNav'
 
 const ALL_TABS = [
@@ -9,6 +9,7 @@ const ALL_TABS = [
   { href: '/rh/paie', label: 'Paie', Icon: Wallet },
   { href: '/rh/conges', label: 'Congés', Icon: Palmtree },
   { href: '/rh/evaluations', label: 'Évaluations', Icon: ClipboardCheck },
+  { href: '/badge/historique', label: 'Badgeage bureau', Icon: MapPin },
   { href: '/rh/parametres', label: 'Paramètres', Icon: Settings },
 ]
 

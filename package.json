@@ -28,6 +28,7 @@
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.0",
     "docx": "^9.7.1",
+    "face-api.js": "^0.22.2",
     "jszip": "^3.10.1",
     "lib0": "^0.2.117",
     "lucide-react": "^1.21.0",

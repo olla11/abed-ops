@@ -9,7 +9,7 @@ import {
   Landmark, CreditCard, Users, FileSignature, Target, ClipboardList, FolderKanban,
   FileEdit, BookOpen, LayoutGrid, Settings, Bell, UserCircle, Home,
   ClipboardEdit, Scale, Banknote, TrendingUp, Calendar, FileBarChart,
-  UserPlus, Shield, Tag, Zap, HardDrive, QrCode, History, ScrollText, BarChart3,
+  UserPlus, Shield, Tag, Zap, HardDrive, QrCode, History, ScrollText, BarChart3, MapPin,
 } from 'lucide-react'
 import UserAvatar from './UserAvatar'
 import AgaWidget from './AgaWidget'
@@ -68,7 +68,7 @@ export default function AppHeader({ userName, userRole, userTitre, typeEmploi, s
   const [cafOpen, setCafOpen] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
 
-  const MON_ESPACE_PATHS = ['/dashboard', '/missions', '/timesheets', '/demandes', '/conges', '/documents', '/signatures', '/mes-contrats', '/evaluations']
+  const MON_ESPACE_PATHS = ['/dashboard', '/missions', '/badge', '/timesheets', '/demandes', '/conges', '/documents', '/signatures', '/mes-contrats', '/evaluations']
 
   const matchVueEnsemble = effectiveShowBD ? ['/overview'] : ['/overview', '/bd']
   const aafTabs = [
@@ -122,6 +122,7 @@ export default function AppHeader({ userName, userRole, userTitre, typeEmploi, s
     { title: t('dossier'), items: [
       { href: '/accueil', label: 'Accueil', Icon: Home, active: a('/accueil') },
       { href: '/dashboard', label: t('missions'), Icon: LayoutDashboard, active: a('/dashboard') },
+      { href: '/badge', label: 'Badgeage bureau', Icon: MapPin, active: a('/badge') },
       { href: '/timesheets', label: estRapport ? t('monthlyReport') : t('timesheets'), Icon: Clock, active: a('/timesheets') },
       { href: '/demandes', label: t('payments'), Icon: Wallet, active: a('/demandes') },
       { href: '/besoins', label: 'Expression de besoin', Icon: ClipboardList, active: a('/besoins') },
@@ -168,6 +169,7 @@ export default function AppHeader({ userName, userRole, userTitre, typeEmploi, s
       { href: '/rh/paie', label: 'Paie', Icon: Wallet, active: a('/rh/paie') },
       { href: '/rh/conges', label: 'Congés', Icon: Palmtree, active: a('/rh/conges') },
       { href: '/rh/evaluations', label: 'Évaluations', Icon: ClipboardCheck, active: a('/rh/evaluations') },
+      { href: '/badge/historique', label: 'Badgeage bureau', Icon: MapPin, active: a('/badge/historique') },
       { href: '/rh/parametres', label: 'Paramètres RH', Icon: Settings, active: a('/rh/parametres') },
     ]}] : []),
     ...(effectiveShowBD ? [{ title: 'BD', items: [
@@ -189,6 +191,7 @@ export default function AppHeader({ userName, userRole, userTitre, typeEmploi, s
       ...(estAdminSys ? [
         { href: '/admin/stockage', label: 'Stockage', Icon: HardDrive, active: a('/admin/stockage') },
         { href: '/admin/presence', label: 'Présence', Icon: QrCode, active: a('/admin/presence') },
+        { href: '/admin/badge-parametres', label: 'Badgeage bureau', Icon: MapPin, active: a('/admin/badge-parametres') },
         { href: '/admin/signatures', label: 'Journal des signatures', Icon: History, active: a('/admin/signatures') },
       ] : []),
       ...(userRole === 'superadmin' ? [

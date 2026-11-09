@@ -299,6 +299,7 @@
     "batchActions": "Batch actions",
     "storage": "Storage",
     "presence": "Attendance",
+    "badgePointage": "Office badge-in",
     "signaturesJournal": "Signatures log",
     "journal": "Journal",
     "createAccount": "Create account",
