@@ -1,6 +1,6 @@
 'use client'
 import { useRouter } from 'next/navigation'
-import { BarChart2, Plane, CreditCard, Palmtree, Users, Settings, Clock, Bell, FileText, ClipboardList, Scale, ChevronRight, FileSignature, type LucideIcon } from 'lucide-react'
+import { BarChart2, Plane, CreditCard, Palmtree, Users, Settings, Clock, Bell, FileText, ClipboardList, Scale, ChevronRight, FileSignature, MapPin, type LucideIcon } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 type Props = {
@@ -12,6 +12,7 @@ type Props = {
   congesEnAttente: number
   demandesEnCours: number
   notifsNonLues: number
+  badgeActif: boolean
 }
 
 type Shortcut = { href: string; Icon: LucideIcon; label: string; desc: string }
@@ -83,7 +84,7 @@ function buildShortcuts(t: (k: string) => string): Record<string, Shortcut[]> {
   }
 }
 
-export default function AccueilClient({ prenom, role, roleLabel, fonction, omEnCours, congesEnAttente, demandesEnCours, notifsNonLues }: Props) {
+export default function AccueilClient({ prenom, role, roleLabel, fonction, omEnCours, congesEnAttente, demandesEnCours, notifsNonLues, badgeActif }: Props) {
   const router = useRouter()
   const t = useTranslations('home')
   const roleShortcuts = buildShortcuts(t)
@@ -117,9 +118,25 @@ export default function AccueilClient({ prenom, role, roleLabel, fonction, omEnC
           <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, margin: '0 0 6px', fontWeight: 500 }}>
             {greeting.text},
           </p>
-          <h1 style={{ color: 'white', fontSize: 32, fontWeight: 900, margin: '0 0 8px', letterSpacing: -0.5 }}>
-            {prenom || 'Bienvenue'}
-          </h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', margin: '0 0 8px' }}>
+            <h1 style={{ color: 'white', fontSize: 32, fontWeight: 900, margin: 0, letterSpacing: -0.5 }}>
+              {prenom || 'Bienvenue'}
+            </h1>
+            {badgeActif && (
+              <button
+                onClick={() => router.push('/badge')}
+                title="Le badgeage bureau est activé pour vous"
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  padding: '4px 11px', borderRadius: 20, fontSize: 11, fontWeight: 600,
+                  color: 'rgba(255,255,255,0.85)', background: 'rgba(255,255,255,0.12)',
+                  border: '1px solid rgba(255,255,255,0.25)', cursor: 'pointer', letterSpacing: 0.2,
+                }}
+              >
+                <MapPin size={11} /> Badgeage actif
+              </button>
+            )}
+          </div>
           <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: 14, margin: '0 0 4px' }}>
             {greeting.sub}
           </p>
