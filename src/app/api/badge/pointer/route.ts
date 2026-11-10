@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
   const deviceId = body?.deviceId
   const descriptor: number[] | undefined = Array.isArray(body?.descriptor) ? body.descriptor : undefined
   const justification = typeof body?.justification === 'string' ? body.justification.trim().slice(0, 500) : ''
+  const typeDemande: 'entree' | 'sortie' | undefined = body?.type === 'entree' || body?.type === 'sortie' ? body.type : undefined
 
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
     return NextResponse.json({ error: 'Position GPS invalide' }, { status: 400 })
@@ -62,9 +63,15 @@ export async function POST(req: NextRequest) {
 
   const distance = distanceMetres(latitude, longitude, bureauLat, bureauLng)
 
-  // Entrée si pas encore badgée aujourd'hui, sinon forcément sortie (le cas
-  // "les deux déjà faites" a été écarté juste au-dessus).
-  const type: 'entree' | 'sortie' = aDejaBadgeEntree ? 'sortie' : 'entree'
+  // Quand une seule des deux reste possible, elle s'impose (ignore un éventuel
+  // type demandé incohérent). Quand aucune n'est encore faite — oubli du
+  // matin, ou simplement premier badgeage de la journée — c'est ambigu :
+  // le client propose un choix (Entrée/Sortie) et envoie le type choisi ;
+  // à défaut, on retombe sur "entrée" par défaut.
+  const type: 'entree' | 'sortie' =
+    aDejaBadgeEntree ? 'sortie' :
+    aDejaBadgeSortie ? 'entree' :
+    typeDemande ?? 'entree'
 
   const basePointage = {
     profile_id: user.id, type, latitude, longitude, precision_m: accuracy,

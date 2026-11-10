@@ -49,11 +49,18 @@ export default function BadgePointageClient({ aReferencePhoto, pointagesDuJour }
   }, [])
 
   const reussis = historique.filter(p => p.statut === 'reussi')
-  const dernierType = reussis.at(-1)?.type
-  const prochainType: 'entree' | 'sortie' = dernierType === 'entree' ? 'sortie' : 'entree'
+  const aDejaEntree = reussis.some(p => p.type === 'entree')
+  const aDejaSortie = reussis.some(p => p.type === 'sortie')
   // Strictement 2 pointages par jour (1 entrée + 1 sortie) — voir
   // /api/badge/pointer, qui applique la même règle côté serveur.
-  const journeeComplete = reussis.length >= 2
+  const journeeComplete = aDejaEntree && aDejaSortie
+  // Une seule des deux reste possible : pas d'ambiguïté, elle s'impose. Si
+  // rien n'est encore badgé (y compris un oubli du matin, remarqué le
+  // soir), les deux sont possibles — proposer un choix plutôt que de
+  // deviner à tort "Entrée" quand c'est en réalité une sortie oubliée.
+  const typeImpose: 'entree' | 'sortie' | null = aDejaEntree ? 'sortie' : aDejaSortie ? 'entree' : null
+  const [typeChoisi, setTypeChoisi] = useState<'entree' | 'sortie'>(() => new Date().getHours() < 13 ? 'entree' : 'sortie')
+  const typeActuel = typeImpose ?? typeChoisi
 
   function arreterCamera() {
     streamRef.current?.getTracks().forEach(t => t.stop())
@@ -65,7 +72,7 @@ export default function BadgePointageClient({ aReferencePhoto, pointagesDuJour }
     setEtape('envoi')
     const res = await fetch('/api/badge/pointer', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...positionRef.current, deviceId: idAppareil(), descriptor, justification: justificationRef.current || undefined }),
+      body: JSON.stringify({ ...positionRef.current, deviceId: idAppareil(), descriptor, justification: justificationRef.current || undefined, type: typeActuel }),
     })
     const json = await res.json()
 
@@ -190,17 +197,36 @@ export default function BadgePointageClient({ aReferencePhoto, pointagesDuJour }
         </div>
       ) : (
         <div className="card" style={{ textAlign: 'center' }}>
-          <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: 20 }}>
+          <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: typeImpose ? 20 : 12 }}>
             <MapPin size={13} style={{ verticalAlign: -2 }} /> Votre position doit être à proximité immédiate du bureau.
           </p>
+          {!typeImpose && (
+            <div style={{ display: 'flex', gap: 8, marginBottom: 16, justifyContent: 'center' }}>
+              {(['entree', 'sortie'] as const).map(t => (
+                <button
+                  key={t}
+                  onClick={() => setTypeChoisi(t)}
+                  disabled={etape !== 'idle'}
+                  style={{
+                    flex: 1, maxWidth: 160, padding: '9px 0', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                    border: `1.5px solid ${typeChoisi === t ? 'var(--abed-green)' : 'var(--abed-border)'}`,
+                    background: typeChoisi === t ? 'var(--abed-green)' : 'white',
+                    color: typeChoisi === t ? 'white' : '#6b7280',
+                  }}
+                >
+                  {t === 'entree' ? 'Entrée' : 'Sortie'}
+                </button>
+              ))}
+            </div>
+          )}
           <button
             className="btn"
-            style={{ width: '100%', justifyContent: 'center', padding: '16px 0', fontSize: 16, background: prochainType === 'entree' ? 'var(--abed-green)' : '#b45309' }}
+            style={{ width: '100%', justifyContent: 'center', padding: '16px 0', fontSize: 16, background: typeActuel === 'entree' ? 'var(--abed-green)' : '#b45309' }}
             onClick={demarrer}
             disabled={etape !== 'idle'}
           >
-            {prochainType === 'entree' ? <LogIn size={19} /> : <LogOut size={19} />}
-            {etape === 'idle' ? `Badger — ${prochainType === 'entree' ? 'Entrée' : 'Sortie'}`
+            {typeActuel === 'entree' ? <LogIn size={19} /> : <LogOut size={19} />}
+            {etape === 'idle' ? `Badger — ${typeActuel === 'entree' ? 'Entrée' : 'Sortie'}`
               : etape === 'localisation' ? 'Localisation en cours…' : 'Enregistrement…'}
           </button>
         </div>
