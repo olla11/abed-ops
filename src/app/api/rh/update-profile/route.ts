@@ -20,10 +20,16 @@ export async function PATCH(req: NextRequest) {
   const allowed = [
     'fonction', 'direction', 'telephone', 'matricule', 'adresse', 'manager_id',
     'genre', 'ville', 'niveau_etude', 'nombre_enfants',
+    'badge_actif', 'badge_jours_semaine',
   ]
   const updates: Record<string, unknown> = {}
   for (const k of allowed) {
     if (k in fields) updates[k] = fields[k] === '' || fields[k] === undefined ? null : fields[k]
+  }
+  // Tableau vide = pas de planning particulier, équivalent à null (tous les
+  // jours ouvrés) — voir badge_jours_semaine dans badge-jours.ts.
+  if (Array.isArray(updates.badge_jours_semaine) && (updates.badge_jours_semaine as unknown[]).length === 0) {
+    updates.badge_jours_semaine = null
   }
 
   // Filet de sécurité : si l'adresse change et qu'aucune ville n'a été

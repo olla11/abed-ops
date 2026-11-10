@@ -9,7 +9,7 @@ import {
   Landmark, CreditCard, Users, FileSignature, Target, ClipboardList, FolderKanban,
   FileEdit, BookOpen, LayoutGrid, Settings, Bell, UserCircle, Home,
   ClipboardEdit, Scale, Banknote, TrendingUp, Calendar, FileBarChart,
-  UserPlus, Shield, Tag, Zap, HardDrive, QrCode, History, ScrollText, BarChart3, MapPin,
+  UserPlus, Shield, Tag, Zap, HardDrive, QrCode, History, ScrollText, BarChart3, MapPin, CalendarClock,
 } from 'lucide-react'
 import UserAvatar from './UserAvatar'
 import AgaWidget from './AgaWidget'
@@ -170,6 +170,7 @@ export default function AppHeader({ userName, userRole, userTitre, typeEmploi, s
       { href: '/rh/conges', label: 'Congés', Icon: Palmtree, active: a('/rh/conges') },
       { href: '/rh/evaluations', label: 'Évaluations', Icon: ClipboardCheck, active: a('/rh/evaluations') },
       { href: '/badge/historique', label: 'Badgeage bureau', Icon: MapPin, active: a('/badge/historique') },
+      { href: '/rh/badge-configuration', label: 'Badgeage — configuration', Icon: CalendarClock, active: a('/rh/badge-configuration') },
       { href: '/rh/parametres', label: 'Paramètres RH', Icon: Settings, active: a('/rh/parametres') },
     ]}] : []),
     ...(effectiveShowBD ? [{ title: 'BD', items: [

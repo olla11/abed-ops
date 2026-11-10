@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase-server'
-import { debutJourLocal, dateLocaleISO } from '@/lib/badge-jours'
+import { debutJourLocal, dateLocaleISO, jourAttendu } from '@/lib/badge-jours'
 
 // Cron job — jours ouvrés à 18h (heure du Bénin — voir vercel.json :
 // "0 17 * * 1-5"). Pour chaque employé actif, pas en congé approuvé
@@ -18,8 +18,14 @@ export async function GET(req: NextRequest) {
   const today = dateLocaleISO()
   const debutJour = debutJourLocal()
 
-  const { data: profils } = await admin.from('profiles').select('id').eq('archived', false)
+  const { data: profils } = await admin.from('profiles')
+    .select('id, badge_actif, badge_jours_semaine').eq('archived', false)
   if (!profils?.length) return NextResponse.json({ ok: true, marked: 0 })
+
+  // Badgeage désactivé, ou pas un jour attendu pour cette personne
+  // (télétravail partiel) : pas de marqueur "non_badge" aujourd'hui.
+  const concernes = profils.filter(p => p.badge_actif && jourAttendu(p.badge_jours_semaine))
+  if (!concernes.length) return NextResponse.json({ ok: true, marked: 0 })
 
   const { data: congesAujourdhui } = await admin
     .from('conges').select('profile_id')
@@ -39,7 +45,7 @@ export async function GET(req: NextRequest) {
     .gte('horodatage', debutJour.toISOString())
   const dejaNonBadge = new Set((dejaMarques ?? []).map(p => p.profile_id))
 
-  const aMarquer = profils
+  const aMarquer = concernes
     .map(p => p.id)
     .filter(id => !enConge.has(id) && !ontBadge.has(id) && !dejaNonBadge.has(id))
 
