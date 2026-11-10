@@ -169,8 +169,8 @@ export default function AppHeader({ userName, userRole, userTitre, typeEmploi, s
       { href: '/rh/paie', label: 'Paie', Icon: Wallet, active: a('/rh/paie') },
       { href: '/rh/conges', label: 'Congés', Icon: Palmtree, active: a('/rh/conges') },
       { href: '/rh/evaluations', label: 'Évaluations', Icon: ClipboardCheck, active: a('/rh/evaluations') },
-      { href: '/badge/historique', label: 'Badgeage bureau', Icon: MapPin, active: a('/badge/historique') },
-      { href: '/rh/badge-configuration', label: 'Badgeage — configuration', Icon: CalendarClock, active: a('/rh/badge-configuration') },
+      { href: '/badge/historique', label: 'Historique badgeage', Icon: MapPin, active: a('/badge/historique') },
+      { href: '/rh/badge-configuration', label: 'Configuration badgeage', Icon: CalendarClock, active: a('/rh/badge-configuration') },
       { href: '/rh/parametres', label: 'Paramètres RH', Icon: Settings, active: a('/rh/parametres') },
     ]}] : []),
     ...(effectiveShowBD ? [{ title: 'BD', items: [

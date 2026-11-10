@@ -9,8 +9,8 @@ const ALL_TABS = [
   { href: '/rh/paie', label: 'Paie', Icon: Wallet },
   { href: '/rh/conges', label: 'Congés', Icon: Palmtree },
   { href: '/rh/evaluations', label: 'Évaluations', Icon: ClipboardCheck },
-  { href: '/badge/historique', label: 'Badgeage bureau', Icon: MapPin },
-  { href: '/rh/badge-configuration', label: 'Badgeage', Icon: CalendarClock },
+  { href: '/badge/historique', label: 'Historique badgeage', Icon: MapPin },
+  { href: '/rh/badge-configuration', label: 'Configuration badgeage', Icon: CalendarClock },
   { href: '/rh/parametres', label: 'Paramètres', Icon: Settings },
 ]
 

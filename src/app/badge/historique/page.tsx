@@ -4,10 +4,17 @@ import { redirect } from 'next/navigation'
 import AppHeader from '@/components/AppHeader'
 import RolePreviewBanner from '@/components/RolePreviewBanner'
 import ImpersonationBanner from '@/components/ImpersonationBanner'
+import RHNav from '@/app/rh/RHNav'
 import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
 import { getImpersonationInfo } from '@/lib/impersonation'
 import { estRH, estAAF, estBD } from '@/lib/roles'
 import BadgeHistoriqueTable from './BadgeHistoriqueTable'
+
+// Qui a accès à la section RH (voir rh/layout.tsx) garde sa barre latérale
+// RH ici aussi — sinon, venant du menu RH, cliquer "Historique badgeage"
+// faisait disparaître la barre verticale (cette page n'est pas nichée sous
+// /rh/*). Un manager (sans accès RH) n'a jamais cette barre, ici non plus.
+const ROLES_AVEC_RHNAV = ['rh', 'caf', 'admin', 'superadmin']
 
 // Accès : RH/CAF/Admin/superadmin voient tout, chaque manager voit son
 // équipe — dans les deux cas la portée réelle est imposée par les policies
@@ -38,6 +45,18 @@ export default async function BadgeHistoriquePage() {
     .limit(500)
   if (error) console.error('[badge/historique] échec lecture badge_pointages:', error)
 
+  const contenu = (
+    <>
+      <h2 style={{ color: 'var(--abed-green)', marginBottom: 6 }}>Historique de badgeage</h2>
+      <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: 24 }}>
+        {['rh', 'caf', 'admin', 'superadmin'].includes(role)
+          ? 'Pointages entrée/sortie de tous les employés (500 derniers).'
+          : 'Pointages entrée/sortie de votre équipe (500 derniers).'}
+      </p>
+      <BadgeHistoriqueTable pointages={(pointages ?? []) as any[]} />
+    </>
+  )
+
   return (
     <>
       <AppHeader
@@ -52,15 +71,16 @@ export default async function BadgeHistoriquePage() {
       />
       {previewRole && <RolePreviewBanner previewRole={previewRole} />}
       {impersonation && <ImpersonationBanner adminNom={impersonation.adminNom} adminPrenoms={impersonation.adminPrenoms} targetNom={impersonation.targetNom} targetPrenoms={impersonation.targetPrenoms} targetRole={impersonation.targetRole} />}
-      <div className="page-container">
-        <h2 style={{ color: 'var(--abed-green)', marginBottom: 6 }}>Historique de badgeage</h2>
-        <p style={{ fontSize: 13, color: 'var(--abed-muted)', marginBottom: 24 }}>
-          {['rh', 'caf', 'admin', 'superadmin'].includes(role)
-            ? 'Pointages entrée/sortie de tous les employés (500 derniers).'
-            : 'Pointages entrée/sortie de votre équipe (500 derniers).'}
-        </p>
-        <BadgeHistoriqueTable pointages={(pointages ?? []) as any[]} />
-      </div>
+      {ROLES_AVEC_RHNAV.includes(role) ? (
+        <div className="page-container">
+          <div className="section-with-sidenav">
+            <RHNav role={role} />
+            <div className="section-content">{contenu}</div>
+          </div>
+        </div>
+      ) : (
+        <div className="page-container">{contenu}</div>
+      )}
     </>
   )
 }
