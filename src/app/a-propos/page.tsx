@@ -67,7 +67,7 @@ export default async function AProposPage() {
             </div>
           </div>
           <p style={{ fontSize: 13.5, color: '#374151', lineHeight: 1.7, margin: 0 }}>
-            My ABED est la plateforme de gestion administrative interne d&apos;ABED-ONG (Agriculture pour le
+            My ABED est la plateforme de gestion administrative interne de ABED-ONG (Agriculture pour le
             Bien-être et le Développement Durable) : missions, ressources humaines, finances et projets,
             dans un seul outil accessible à toute l&apos;équipe.
           </p>
@@ -85,7 +85,7 @@ export default async function AProposPage() {
             <ShieldCheck size={16} color="var(--abed-green)" /> Confidentialité
           </h3>
           <p style={{ fontSize: 13, color: 'var(--abed-muted)', lineHeight: 1.7, margin: '0 0 12px' }}>
-            Les données saisies dans My ABED servent exclusivement à la gestion des activités d&apos;ABED-ONG.
+            Les données saisies dans My ABED servent exclusivement à la gestion des activités de ABED-ONG.
             Les communications ciblées de l&apos;administration reposent sur des préférences que vous choisissez
             vous-même depuis votre profil, et que vous pouvez modifier à tout moment.
           </p>

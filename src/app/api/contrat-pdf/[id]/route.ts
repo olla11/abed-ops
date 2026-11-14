@@ -106,7 +106,7 @@ export async function GET(
   const dateFin = contrat.date_fin ? new Date(contrat.date_fin).toLocaleDateString('fr-FR') : 'Indéterminée'
   const today = new Date().toLocaleDateString('fr-FR')
 
-  // Représentant d'ABED affiché dans le préambule ET dans le bloc de
+  // Représentant de ABED affiché dans le préambule ET dans le bloc de
   // signature : priorité à la personne effectivement enregistrée comme
   // signataire du contrat (contrat.signataire_id) — c'est elle qui a
   // réellement signé le document, quel que soit le titulaire actuel du

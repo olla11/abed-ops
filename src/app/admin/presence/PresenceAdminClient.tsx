@@ -107,7 +107,7 @@ export default function PresenceAdminClient({ config, configError, lien, qrDataU
     <div>
       <h2 style={{ color: 'var(--abed-green)', margin: '0 0 6px' }}>Présence des visiteurs</h2>
       <p style={{ fontSize: 13, color: 'var(--abed-muted)', margin: '0 0 24px' }}>
-        Lien public d&apos;enregistrement pour les visiteurs d&apos;ABED — à scanner (QR) ou consulter directement, sans compte My ABED.
+        Lien public d&apos;enregistrement pour les visiteurs de ABED — à scanner (QR) ou consulter directement, sans compte My ABED.
       </p>
 
       {msg && (

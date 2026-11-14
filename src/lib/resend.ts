@@ -6,7 +6,7 @@ function disclaimerEmail(): string {
   return `
     <div style="margin-top:32px;padding-top:16px;border-top:1px solid #e5e7eb;text-align:center;">
       <p style="font-size:8px;line-height:1.5;color:#9ca3af;margin:0;">
-        Ce message a été envoyé automatiquement par My ABED, la plateforme de gestion d'ABED-ONG.
+        Ce message a été envoyé automatiquement par My ABED, la plateforme de gestion de ABED-ONG.
         Merci de ne pas y répondre directement. Pour toute question, contactez
         <a href="mailto:contact@abedong.org" style="color:#9ca3af;">contact@abedong.org</a>.<br>
         © ${annee} ABED-ONG — Agriculture pour le Bien-être et le Développement Durable. Tous droits réservés.

@@ -7,7 +7,7 @@ export default function PolitiqueConfidentialitePage() {
   return (
     <LegalPageLayout title="Politique de confidentialité et de protection des données" updatedAt={LEGAL_UPDATED_AT} otherHref="/conditions-utilisation" otherLabel="Conditions générales d'utilisation">
       <p style={{ marginBottom: 24 }}>
-        My ABED est la plateforme de gestion des opérations d'ABED-ONG (missions, ressources humaines, contrats,
+        My ABED est la plateforme de gestion des opérations de ABED-ONG (missions, ressources humaines, contrats,
         projets, présence des visiteurs...). Cette politique explique quelles données personnelles nous traitons
         dans le cadre de cette plateforme, pourquoi, avec qui elles peuvent être partagées, et quels sont vos droits.
       </p>

@@ -116,7 +116,7 @@ export default function ContratExterneClient({ token, contrat: initial }: { toke
         <div style={cardStyle}>
           <div style={{ fontSize: 48, marginBottom: 16 }}>↩️</div>
           <h2 style={{ color: '#111827', fontSize: 20, fontWeight: 800, margin: '0 0 12px' }}>Document renvoyé</h2>
-          <p style={{ fontSize: 14, color: '#6b7280', margin: 0 }}>La RH d&apos;ABED ONG a été informée de votre motif et vous recontactera après correction du document.</p>
+          <p style={{ fontSize: 14, color: '#6b7280', margin: 0 }}>La RH de ABED ONG a été informée de votre motif et vous recontactera après correction du document.</p>
         </div>
       </div>
     )
@@ -201,7 +201,7 @@ export default function ContratExterneClient({ token, contrat: initial }: { toke
 
           {contrat.commentairesRh && (
             <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: 12 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#1e40af', marginBottom: 4 }}>NOTE D&apos;ABED ONG</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#1e40af', marginBottom: 4 }}>NOTE De ABED ONG</div>
               <p style={{ fontSize: 12.5, color: '#1e3a8a', margin: 0 }}>{contrat.commentairesRh}</p>
             </div>
           )}

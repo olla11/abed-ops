@@ -79,7 +79,7 @@ export default function ReconciliationForm({
     if (aChargePartenaire && montantRecu <= 0) return 'Saisissez le montant reçu du partenaire.'
     if (!aChargePartenaire && !modeFinancement) return 'Sélectionnez le mode de financement de la mission.'
     if (!aChargePartenaire && (modeFinancement === 'avance' || modeFinancement === 'totalite_avant') && montantRecu <= 0) {
-      return 'Saisissez le montant reçu d\'ABED avant le départ.'
+      return 'Saisissez le montant reçu de ABED avant le départ.'
     }
     if (donActif && donPossible) {
       if (!(donPourcentage > 0 && donPourcentage <= 100)) return 'Le pourcentage du don doit être compris entre 1 et 100.'
@@ -182,7 +182,7 @@ export default function ReconciliationForm({
         <div className="card">
           <h3 style={{ marginBottom: 12 }}>Mode de financement *</h3>
           <p style={{ fontSize: 12, color: 'var(--abed-muted)', marginBottom: 16 }}>
-            Cette mission est à la charge d'ABED. Précisez comment le financement a été géré.
+            Cette mission est à la charge de ABED. Précisez comment le financement a été géré.
           </p>
           <div style={{ display: 'grid', gap: 10 }}>
             {MODE_OPTIONS.map(opt => (
@@ -243,8 +243,8 @@ export default function ReconciliationForm({
                   {aChargePartenaire
                     ? 'Montant total reçu du partenaire (F CFA) *'
                     : modeFinancement === 'avance'
-                      ? 'Montant de l\'avance reçue d\'ABED (F CFA) *'
-                      : 'Montant total reçu d\'ABED avant départ (F CFA) *'}
+                      ? 'Montant de l\'avance reçue de ABED (F CFA) *'
+                      : 'Montant total reçu de ABED avant départ (F CFA) *'}
                 </label>
                 <input className="input" type="number" value={montantRecu}
                   onChange={e => setMontantRecu(+e.target.value)} />
@@ -317,13 +317,12 @@ export default function ReconciliationForm({
       {!submitted && donPossible && (
         <div className="card" style={{ border: '1px solid #a7f3d0', background: '#f7fdf9' }}>
           <h3 style={{ marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8, color: '#065f46' }}>
-            <Award size={18} /> Faire un don à ABED — {NOM_CLUB}
+            <Award size={18} /> {`Faire un don à ABED — ${NOM_CLUB}`}
           </h3>
           <p style={{ fontSize: 12.5, color: '#047857', marginBottom: 14 }}>
-            {aChargePartenaire
+            {`${aChargePartenaire
               ? 'Facultatif. Choisissez le pourcentage du montant reçu du partenaire que vous souhaitez offrir à ABED.'
-              : 'Facultatif. Vous pouvez renoncer à tout ou partie du montant qu\'ABED vous doit — sans aucun versement de votre part.'}
-            {' '}Les donateurs rejoignent {NOM_CLUB} et figurent au tableau d&apos;honneur annuel.
+              : 'Facultatif. Vous pouvez renoncer à tout ou partie du montant que ABED vous doit — sans aucun versement de votre part.'} Les donateurs rejoignent ${NOM_CLUB} et figurent au tableau d'honneur annuel.`}
           </p>
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, fontWeight: 600, marginBottom: donActif ? 14 : 0, cursor: 'pointer' }}>
             <input type="checkbox" checked={donActif} onChange={e => setDonActif(e.target.checked)} />
@@ -335,8 +334,8 @@ export default function ReconciliationForm({
                 <label className="label" style={{ margin: 0 }}>Pourcentage</label>
                 <input className="input" type="number" min={1} max={100} value={donPourcentage}
                   onChange={e => setDonPourcentage(+e.target.value)} style={{ width: 90 }} />
-                <span style={{ fontSize: 13 }}>% de {baseDon.toLocaleString('fr-FR')} F CFA =</span>
-                <strong style={{ fontSize: 15, color: '#065f46' }}>{montantDuDon.toLocaleString('fr-FR')} F CFA</strong>
+                <span style={{ fontSize: 13 }}>{`% de ${baseDon.toLocaleString('fr-FR')} F CFA =`}</span>
+                <strong style={{ fontSize: 15, color: '#065f46' }}>{`${montantDuDon.toLocaleString('fr-FR')} F CFA`}</strong>
               </div>
               {aChargePartenaire ? (
                 <>
@@ -351,7 +350,7 @@ export default function ReconciliationForm({
                   </div>
                 </>
               ) : (
-                <Row label="Montant qu'ABED vous versera après don" value={Math.max(0, baseDon - montantDuDon)} bold />
+                <Row label="Montant que ABED vous versera après don" value={Math.max(0, baseDon - montantDuDon)} bold />
               )}
             </div>
           )}

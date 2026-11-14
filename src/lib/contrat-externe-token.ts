@@ -1,5 +1,5 @@
 // Jeton signé pour l'accès public (sans compte) à une Offre/Convention en
-// attente d'un destinataire pas encore membre d'ABED — même mécanisme que
+// attente d'un destinataire pas encore membre de ABED — même mécanisme que
 // external-signer-token.ts (HMAC-SHA256, comparaison en temps constant),
 // mais durée de vie volontairement courte (72h) puisque ce lien est envoyé
 // par email et n'importe qui le possédant peut consulter/signer le document.

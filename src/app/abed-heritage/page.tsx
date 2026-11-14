@@ -106,9 +106,7 @@ export default async function AbedHeritagePage({ searchParams }: { searchParams:
               Ce que nous construisons ensemble nous survit.
             </p>
             <p style={{ margin: '0 0 20px', fontSize: 14, color: 'rgba(255,255,255,0.82)', maxWidth: 640, lineHeight: 1.6 }}>
-              {NOM_CLUB} réunit celles et ceux qui donnent à ABED pour faire durer son action : l&apos;agriculture, le bien-être et
-              le développement durable. Chaque don, même modeste, vous inscrit dans cette histoire, et chaque année les plus
-              engagés sont distingués au tableau d&apos;honneur.
+              {`${NOM_CLUB} réunit celles et ceux qui donnent à ABED pour faire durer son action : l'agriculture, le bien-être et le développement durable. Chaque don, même modeste, vous inscrit dans cette histoire, et chaque année les plus engagés sont distingués au tableau d'honneur.`}
             </p>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
               {estAnneeCourante && (
@@ -218,8 +216,8 @@ export default async function AbedHeritagePage({ searchParams }: { searchParams:
         {/* ── Pourquoi donner ── */}
         <h2 style={{ margin: '8px 0 14px', color: 'var(--abed-green)' }}>Pourquoi donner ?</h2>
         <div className="heritage-3col" style={{ marginBottom: 26 }}>
-          <Raison Icon={Sprout} titre="Faire durer l'action d'ABED"
-            texte="Votre don soutient directement les activités d'ABED sur le terrain, au-delà des financements des partenaires." />
+          <Raison Icon={Sprout} titre="Faire durer l'action de ABED"
+            texte="Votre don soutient directement les activités de ABED sur le terrain, au-delà des financements des partenaires." />
           <Raison Icon={Trophy} titre="Être reconnu"
             texte="Chaque année, les trois plus grands donateurs reçoivent les distinctions Or, Argent et Bronze, et tous les membres figurent au tableau d'honneur." />
           <Raison Icon={ShieldCheck} titre="Discret et simple"
@@ -242,7 +240,7 @@ export default async function AbedHeritagePage({ searchParams }: { searchParams:
           <ul style={{ margin: 0, paddingLeft: 18 }}>
             <li><strong>Don spontané</strong> : à tout moment, ici ou depuis <Link href="/dons" style={{ color: 'var(--abed-green)', fontWeight: 600 }}>Mon espace → ABED Héritage</Link>, du montant de votre choix.</li>
             <li><strong>À la réconciliation d&apos;une mission financée par un partenaire</strong> : le pourcentage de votre choix du montant reçu.</li>
-            <li><strong>Mission à crédit</strong> : en renonçant à tout ou partie du remboursement qu&apos;ABED vous doit, sans rien verser.</li>
+            <li><strong>Mission à crédit</strong> : en renonçant à tout ou partie du remboursement que ABED vous doit, sans rien verser.</li>
           </ul>
           <p style={{ margin: '10px 0 0', color: 'var(--abed-muted)', fontSize: 12.5 }}>
             {`MoMo Pay ABED : ${MOMO_PAY_ABED}. Un don compte une fois le paiement vérifié par l'AAF ou la CAF. Le classement se fait sur le total de l'année ; les montants ne sont jamais affichés.`}

@@ -56,10 +56,12 @@ export function DonReconciliationBlock({ don, peutTraiter, entete }: { don: DonM
       </div>
       <div style={{ fontSize: 13, color: '#374151' }}>
         {don.type === 'libre'
-          ? <>Don spontané par MoMo de <strong>{Number(don.montant).toLocaleString('fr-FR')} F CFA</strong>.</>
+          ? `Don spontané par MoMo de ${Number(don.montant).toLocaleString('fr-FR')} F CFA.`
           : don.type === 'partenaire'
-          ? <>Versement MoMo de <strong>{Number(don.montant).toLocaleString('fr-FR')} F CFA</strong> ({don.pourcentage} % du montant reçu du partenaire).</>
-          : <>Renonciation à <strong>{don.pourcentage} %</strong> du montant dû par ABED{don.statut === 'confirme' ? <> — soit <strong>{Number(don.montant).toLocaleString('fr-FR')} F CFA</strong></> : <> (déduit du remboursement à la clôture)</>}.</>}
+          ? `Versement MoMo de ${Number(don.montant).toLocaleString('fr-FR')} F CFA (${don.pourcentage} % du montant reçu du partenaire).`
+          : don.statut === 'confirme'
+          ? `Renonciation à ${don.pourcentage} % du montant dû par ABED, soit ${Number(don.montant).toLocaleString('fr-FR')} F CFA.`
+          : `Renonciation à ${don.pourcentage} % du montant dû par ABED (déduit du remboursement à la clôture).`}
       </div>
       {(don.capture_path || traitable || err) && (
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10, alignItems: 'center' }}>
@@ -85,7 +87,7 @@ export function DonReconciliationBlock({ don, peutTraiter, entete }: { don: DonM
 
 export function DonExhortation({ credit = false }: { credit?: boolean }) {
   const texte = credit
-    ? `À la réconciliation, vous pourrez renoncer à tout ou partie de votre remboursement au profit d'ABED. Les donateurs figurent chaque année au `
+    ? `À la réconciliation, vous pourrez renoncer à tout ou partie de votre remboursement au profit de ABED. Les donateurs figurent chaque année au `
     : `À la réconciliation, vous pourrez faire un don du pourcentage de votre choix sur le montant reçu du partenaire. Les donateurs figurent chaque année au `
   return (
     <div style={{

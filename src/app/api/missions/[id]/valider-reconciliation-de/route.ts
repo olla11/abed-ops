@@ -79,7 +79,7 @@ export async function POST(
   const missionnaire = mission.missionnaire as any
 
   // solde_missionnaire (trigger DB : montant_recu - total_depenses) est NÉGATIF
-  // quand le missionnaire a dépensé plus qu'il n'a reçu d'ABED avant le
+  // quand le missionnaire a dépensé plus qu'il n'a reçu de ABED avant le
   // départ — c'est ce cas-là (mission à crédit, ou sur avance insuffisante)
   // qui doit déclencher un paiement, pas l'inverse : un solde POSITIF veut
   // dire que le missionnaire a reçu plus qu'il n'a dépensé, donc un reliquat

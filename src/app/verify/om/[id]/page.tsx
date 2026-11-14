@@ -109,7 +109,7 @@ export default async function VerifyOMPage({ params }: { params: Promise<{ id: s
                   </div>
                   <p style={{ margin: 0, fontSize: 13, color: '#15803d', lineHeight: 1.6 }}>
                     Ce document a été émis et signé officiellement par <strong>ABED ONG</strong> via la plateforme <strong>My ABED</strong> le <strong>{fmt(m.signe_le)}</strong>.
-                    Son authenticité est garantie par le système de gestion interne d'ABED.
+                    Son authenticité est garantie par le système de gestion interne de ABED.
                   </p>
                 </div>
               </div>
@@ -144,7 +144,7 @@ export default async function VerifyOMPage({ params }: { params: Promise<{ id: s
 
               {/* Footer */}
               <div style={{ textAlign: 'center', fontSize: 11, color: '#9ca3af', padding: '0 0 32px' }}>
-                <div>Vérifié via My ABED — Système de gestion interne d'ABED ONG</div>
+                <div>Vérifié via My ABED — Système de gestion interne de ABED ONG</div>
                 <div style={{ marginTop: 4 }}>Agriculture pour le Bien-Être et le Développement Durable · Parakou, Quartier Zongo, Bénin</div>
               </div>
             </>

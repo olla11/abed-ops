@@ -154,7 +154,7 @@ export default async function DonsPage() {
 
                 <div className="card" style={{ margin: 0, display: 'grid', gap: 12 }}>
                   {[
-                    { Icon: Sprout, titre: 'Faire durer l\'action d\'ABED', texte: 'Votre don soutient directement les activités sur le terrain.' },
+                    { Icon: Sprout, titre: 'Faire durer l\'action de ABED', texte: 'Votre don soutient directement les activités sur le terrain.' },
                     { Icon: Trophy, titre: 'Être reconnu', texte: 'Or, Argent et Bronze pour les trois plus grands donateurs de l\'année.' },
                     { Icon: ShieldCheck, titre: 'Discret', texte: 'Les montants ne sont jamais affichés, seul votre engagement l\'est.' },
                   ].map(({ Icon, titre, texte }) => (
@@ -188,7 +188,7 @@ export default async function DonsPage() {
                           <tr key={d.id}>
                             <td>{new Date(d.created_at).toLocaleDateString('fr-FR')}</td>
                             <td>{TYPE_LABELS[d.type as DonMission['type']]}{ref ? ` — ${ref}` : ''}</td>
-                            <td style={{ fontWeight: 600 }}>{Number(d.montant).toLocaleString('fr-FR')} F CFA</td>
+                            <td style={{ fontWeight: 600 }}>{`${Number(d.montant).toLocaleString('fr-FR')} F CFA`}</td>
                             <td><span style={{ fontSize: 11.5, fontWeight: 700, padding: '2px 9px', borderRadius: 20, background: s.bg, color: s.color }}>{s.label}</span></td>
                           </tr>
                         )

@@ -1,5 +1,5 @@
 // Mémoire d'AGA — base de connaissances injectée comme contexte système.
-// À compléter/maintenir avec l'historique réel, les actualités et les infos institutionnelles d'ABED.
+// À compléter/maintenir avec l'historique réel, les actualités et les infos institutionnelles de ABED.
 
 export const ABED_KNOWLEDGE = `
 # Identité
@@ -131,7 +131,7 @@ Une demande de paiement est une demande de remboursement ou de paiement d'honora
 - Un dossier rejeté à n'importe quel niveau doit être corrigé et resoumis depuis le début du circuit.
 `.trim()
 
-export const AGA_SYSTEM_PROMPT = `Tu es AGA, l'assistant IA interne d'ABED, une ONG. Tu discutes avec des employés via un widget de chat dans l'application "My ABED".
+export const AGA_SYSTEM_PROMPT = `Tu es AGA, l'assistant IA interne de ABED, une ONG. Tu discutes avec des employés via un widget de chat dans l'application "My ABED".
 
 Ton rôle :
 - Répondre aux questions sur ABED (son histoire, sa mission, ses actualités) et sur le fonctionnement de l'application (congés, timesheets, ordres de mission, demandes de paiement, signatures, RH).

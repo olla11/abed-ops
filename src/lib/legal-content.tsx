@@ -106,7 +106,7 @@ export function CguBody() {
           <li><strong>Éditeur</strong> : ABED-ONG, association de droit béninois immatriculée sous le n° 2019-4/0008/PDB/SG/SAG, dont le siège est à Parakou, Quartier Zongo, Bénin.</li>
           <li><strong>Utilisateur</strong> : toute personne physique disposant d'un compte personnel sur la Plateforme, quel que soit son statut (personnel salarié, stagiaire, bénévole, consultant, prestataire) ou son rôle (agent, responsable RH, direction, administrateur système...).</li>
           <li><strong>Signataire externe</strong> : personne invitée, sans créer de compte, à consulter, commenter ou signer électroniquement un document (contrat, ordre de mission) via un lien personnel et temporaire transmis par email.</li>
-          <li><strong>Visiteur</strong> : personne physique qui, sans créer de compte, renseigne le formulaire public d'enregistrement de présence mis à disposition à l'accueil des locaux d'ABED-ONG (lien ou QR code).</li>
+          <li><strong>Visiteur</strong> : personne physique qui, sans créer de compte, renseigne le formulaire public d'enregistrement de présence mis à disposition à l'accueil des locaux de ABED-ONG (lien ou QR code).</li>
           <li><strong>Compte</strong> : l'espace personnel et sécurisé attribué à un Utilisateur, associé à des identifiants de connexion propres et à un ou plusieurs rôles définissant ses droits d'accès.</li>
           <li><strong>Document</strong> : tout contenu créé, transmis ou signé via la Plateforme (contrat, ordre de mission, évaluation, feuille de temps, demande de congé ou de paiement, terme de référence...).</li>
         </ul>
@@ -123,7 +123,7 @@ export function CguBody() {
         <SubSection id="acces-2" title="3.2 Procédure de création">
           <p>
             Un Compte est créé ou validé par le service des ressources humaines ou par l'administration système
-            de la Plateforme, généralement à l'occasion de l'arrivée de la personne concernée au sein d'ABED-ONG.
+            de la Plateforme, généralement à l'occasion de l'arrivée de la personne concernée au sein de ABED-ONG.
             L'Utilisateur peut être invité à compléter ou corriger certaines informations de son profil lors de
             sa première connexion.
           </p>
@@ -224,7 +224,7 @@ export function CguBody() {
           <p>L'Utilisateur, le Signataire externe et le Visiteur s'engagent à fournir des informations exactes, complètes et à jour, et à les corriger sans délai en cas de changement.</p>
         </SubSection>
         <SubSection id="obligations-2" title="6.2 Usage conforme">
-          <p>La Plateforme doit être utilisée conformément à sa destination professionnelle et aux besoins réels d'ABED-ONG. Tout usage à des fins personnelles, commerciales ou étrangères à l'activité d'ABED-ONG est interdit.</p>
+          <p>La Plateforme doit être utilisée conformément à sa destination professionnelle et aux besoins réels de ABED-ONG. Tout usage à des fins personnelles, commerciales ou étrangères à l'activité de ABED-ONG est interdit.</p>
         </SubSection>
         <SubSection id="obligations-3" title="6.3 Sécurité des accès">
           <p>L'Utilisateur ne doit partager ni ses identifiants, ni les liens d'accès personnels qui lui sont transmis (Signataire externe), et doit se déconnecter de la Plateforme lorsqu'il utilise un appareil partagé.</p>
@@ -247,7 +247,7 @@ export function CguBody() {
         <SubSection id="propriete-1" title="8.1 Éléments protégés">
           <p>
             La Plateforme, son architecture, son interface graphique, son code source, ses logos et sa marque
-            « My ABED » sont la propriété exclusive d'ABED-ONG ou de ses prestataires techniques. Toute
+            « My ABED » sont la propriété exclusive de ABED-ONG ou de ses prestataires techniques. Toute
             reproduction, représentation, modification ou exploitation de tout ou partie de ces éléments, en
             dehors de l'usage professionnel prévu par les présentes CGU, est interdite sans autorisation écrite
             préalable.
@@ -256,7 +256,7 @@ export function CguBody() {
         <SubSection id="propriete-2" title="8.2 Contenus de l'utilisateur">
           <p>
             Les Documents et données propres à chaque Utilisateur (contrats, missions, évaluations...) demeurent
-            sa propriété ou celle d'ABED-ONG selon leur nature, sans préjudice du droit d'ABED-ONG de les
+            sa propriété ou celle de ABED-ONG selon leur nature, sans préjudice du droit de ABED-ONG de les
             conserver, traiter et archiver conformément aux présentes CGU et à la Politique de confidentialité.
           </p>
         </SubSection>
@@ -332,7 +332,7 @@ export function CguBody() {
           <p>
             Un Utilisateur qui refuse d'accepter les CGU révisées ne peut pas continuer à accéder aux
             fonctionnalités de la Plateforme réservées aux Utilisateurs. Il conserve la possibilité de se
-            déconnecter et de solliciter le service RH ou l'administration système d'ABED-ONG pour toute question
+            déconnecter et de solliciter le service RH ou l'administration système de ABED-ONG pour toute question
             relative à ce refus.
           </p>
         </SubSection>
@@ -407,7 +407,7 @@ export function PolitiqueBody() {
     <>
       <Section id="preambule" title="1. Préambule">
         <p>
-          My ABED est la plateforme numérique de gestion des opérations d'ABED-ONG. Elle traite, à ce titre, des
+          My ABED est la plateforme numérique de gestion des opérations de ABED-ONG. Elle traite, à ce titre, des
           données à caractère personnel relatives à son personnel, aux personnes qui signent des documents sans
           disposer d'un compte, et aux visiteurs de ses locaux. La présente politique explique quelles données
           sont collectées, pourquoi, pendant combien de temps, avec qui elles peuvent être partagées, et quels
@@ -451,7 +451,7 @@ export function PolitiqueBody() {
           <p>Toute personne invitée à consulter ou signer un contrat ou un ordre de mission via un lien sécurisé, sans créer de compte.</p>
         </SubSection>
         <SubSection id="personnes-3" title="4.3 Visiteurs">
-          <p>Toute personne s'enregistrant via le formulaire public de présence à l'accueil d'ABED-ONG.</p>
+          <p>Toute personne s'enregistrant via le formulaire public de présence à l'accueil de ABED-ONG.</p>
         </SubSection>
       </Section>
 
@@ -478,7 +478,7 @@ export function PolitiqueBody() {
           <p>
             Afin de vérifier la présence physique des agents sur leur lieu de travail, My ABED collecte ou pourra
             collecter la position géographique de l'appareil utilisé par l'agent, au moment précis où celui-ci
-            effectue un pointage ou une action de vérification de présence depuis les locaux d'ABED-ONG. Cette
+            effectue un pointage ou une action de vérification de présence depuis les locaux de ABED-ONG. Cette
             collecte est ponctuelle, limitée au moment du pointage, et n'a pas vocation à assurer un suivi
             continu ou permanent des déplacements de l'agent en dehors de ces instants de vérification. Elle
             n'est pas utilisée à d'autres fins que le contrôle de présence au bureau.
@@ -500,10 +500,10 @@ export function PolitiqueBody() {
           <p>Établissement et suivi des contrats et ordres de mission impliquant des tiers — sur la base de l'exécution du Document accepté et signé par la personne concernée.</p>
         </SubSection>
         <SubSection id="finalites-3" title="6.3 Contrôle de présence au bureau">
-          <p>Vérification, par géolocalisation ponctuelle décrite à l'article 5.7, de la présence physique des agents sur leur lieu de travail — sur la base de l'intérêt légitime d'ABED-ONG à organiser et contrôler l'exécution du travail, dans le respect du principe de proportionnalité.</p>
+          <p>Vérification, par géolocalisation ponctuelle décrite à l'article 5.7, de la présence physique des agents sur leur lieu de travail — sur la base de l'intérêt légitime de ABED-ONG à organiser et contrôler l'exécution du travail, dans le respect du principe de proportionnalité.</p>
         </SubSection>
         <SubSection id="finalites-4" title="6.4 Sécurité du système">
-          <p>Journalisation des connexions et actions sensibles, protections anti-robot — sur la base de l'intérêt légitime d'ABED-ONG à sécuriser son système d'information.</p>
+          <p>Journalisation des connexions et actions sensibles, protections anti-robot — sur la base de l'intérêt légitime de ABED-ONG à sécuriser son système d'information.</p>
         </SubSection>
         <SubSection id="finalites-5" title="6.5 Gestion des visites">
           <p>Enregistrement des Visiteurs à l'accueil — sur la base du consentement donné par la personne au moment où elle remplit volontairement le formulaire de présence.</p>
@@ -517,7 +517,7 @@ export function PolitiqueBody() {
           système de rôles et de permissions restreint l'accès de chaque utilisateur aux seules données
           pertinentes pour ses missions.
         </p>
-        <p>Certains traitements techniques sont confiés à des prestataires (sous-traitants) agissant sur instruction d'ABED-ONG :</p>
+        <p>Certains traitements techniques sont confiés à des prestataires (sous-traitants) agissant sur instruction de ABED-ONG :</p>
         <ul style={{ margin: '8px 0', paddingLeft: 20 }}>
           <li><strong>Supabase</strong> — hébergement de la base de données, authentification des comptes et stockage des documents/fichiers ;</li>
           <li><strong>Vercel</strong> — hébergement de l'application web My ABED ;</li>
