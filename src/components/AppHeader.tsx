@@ -9,7 +9,7 @@ import {
   Landmark, CreditCard, Users, FileSignature, Target, ClipboardList, FolderKanban,
   FileEdit, BookOpen, LayoutGrid, Settings, Bell, UserCircle, Home,
   ClipboardEdit, Scale, Banknote, TrendingUp, Calendar, FileBarChart,
-  UserPlus, Shield, Tag, Zap, HardDrive, QrCode, History, ScrollText, BarChart3, MapPin, CalendarClock,
+  UserPlus, Shield, Tag, Zap, HardDrive, QrCode, History, ScrollText, BarChart3, MapPin, CalendarClock, Award,
 } from 'lucide-react'
 import UserAvatar from './UserAvatar'
 import AgaWidget from './AgaWidget'
@@ -68,7 +68,7 @@ export default function AppHeader({ userName, userRole, userTitre, typeEmploi, s
   const [cafOpen, setCafOpen] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
 
-  const MON_ESPACE_PATHS = ['/dashboard', '/missions', '/badge', '/timesheets', '/demandes', '/conges', '/documents', '/signatures', '/mes-contrats', '/evaluations']
+  const MON_ESPACE_PATHS = ['/dashboard', '/missions', '/badge', '/timesheets', '/demandes', '/conges', '/documents', '/signatures', '/mes-contrats', '/evaluations', '/dons']
 
   const matchVueEnsemble = effectiveShowBD ? ['/overview'] : ['/overview', '/bd']
   const aafTabs = [
@@ -131,6 +131,7 @@ export default function AppHeader({ userName, userRole, userTitre, typeEmploi, s
       { href: '/documents', label: 'Documents', Icon: FileText, active: a('/documents') },
       { href: '/mes-contrats', label: t('contracts'), Icon: FileText, active: a('/mes-contrats') },
       { href: '/evaluations', label: t('evaluations'), Icon: ClipboardCheck, active: a('/evaluations') },
+      { href: '/dons', label: 'ABED Héritage', Icon: Award, active: a('/dons') },
     ]},
     ...(effectiveShowDE ? [{ title: 'DE', items: [
       { href: '/de', label: 'Tableau de bord', Icon: LayoutDashboard, active: a('/de', true) },

@@ -1,6 +1,6 @@
 'use client'
 import { useTranslations } from 'next-intl'
-import { LayoutDashboard, Clock, Wallet, ClipboardList, Palmtree, PenTool, FileText, ClipboardCheck, MapPin } from 'lucide-react'
+import { LayoutDashboard, Clock, Wallet, ClipboardList, Palmtree, PenTool, FileText, ClipboardCheck, MapPin, Award } from 'lucide-react'
 import SectionSideNav, { type SideNavItem } from '@/components/SectionSideNav'
 
 const RAPPORT_TYPES = ['benevole', 'stagiaire_n1', 'stagiaire_n2', 'cdd', 'cdi']
@@ -28,6 +28,8 @@ export default function MonEspaceNav({ typeEmploi }: { typeEmploi?: string | nul
     { kind: 'heading', label: t('contractsGroup') },
     { href: '/mes-contrats', label: t('contracts'), Icon: FileText },
     { href: '/evaluations', label: t('evaluations'), Icon: ClipboardCheck },
+    { kind: 'heading', label: 'Solidarité' },
+    { href: '/dons', label: 'ABED Héritage', Icon: Award },
   ]
 
   return <SectionSideNav items={items} />

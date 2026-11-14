@@ -7,9 +7,9 @@ import { NOM_CLUB, MOMO_PAY_ABED, codeUssdDon } from '@/lib/dons'
 
 export type DonMission = {
   id: string
-  type: 'partenaire' | 'abandon_credit'
-  pourcentage: number
-  base_montant: number
+  type: 'partenaire' | 'abandon_credit' | 'libre'
+  pourcentage: number | null
+  base_montant: number | null
   montant: number
   capture_path: string | null
   statut: 'declare' | 'confirme' | 'rejete'
@@ -21,12 +21,12 @@ const STATUT_DON: Record<DonMission['statut'], { label: string; color: string; b
   rejete: { label: 'Non confirmé', color: '#991b1b', bg: '#fee2e2' },
 }
 
-export function DonReconciliationBlock({ don, peutTraiter }: { don: DonMission; peutTraiter: boolean }) {
+export function DonReconciliationBlock({ don, peutTraiter, entete }: { don: DonMission; peutTraiter: boolean; entete?: string }) {
   const router = useRouter()
   const [loading, setLoading] = useState<'confirme' | 'rejete' | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const s = STATUT_DON[don.statut]
-  const traitable = peutTraiter && don.type === 'partenaire' && don.statut === 'declare'
+  const traitable = peutTraiter && don.type !== 'abandon_credit' && don.statut === 'declare'
 
   async function voirCapture() {
     if (!don.capture_path) return
@@ -51,11 +51,13 @@ export function DonReconciliationBlock({ don, peutTraiter }: { don: DonMission; 
     <div style={{ marginTop: 14, border: '1px solid #a7f3d0', background: '#f7fdf9', borderRadius: 10, padding: '12px 16px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
         <Award size={16} color="#065f46" />
-        <strong style={{ fontSize: 13.5, color: '#065f46' }}>Don {NOM_CLUB}</strong>
+        <strong style={{ fontSize: 13.5, color: '#065f46' }}>{entete ?? `Don ${NOM_CLUB}`}</strong>
         <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 9px', borderRadius: 20, background: s.bg, color: s.color }}>{s.label}</span>
       </div>
       <div style={{ fontSize: 13, color: '#374151' }}>
-        {don.type === 'partenaire'
+        {don.type === 'libre'
+          ? <>Don spontané par MoMo de <strong>{Number(don.montant).toLocaleString('fr-FR')} F CFA</strong>.</>
+          : don.type === 'partenaire'
           ? <>Versement MoMo de <strong>{Number(don.montant).toLocaleString('fr-FR')} F CFA</strong> ({don.pourcentage} % du montant reçu du partenaire).</>
           : <>Renonciation à <strong>{don.pourcentage} %</strong> du montant dû par ABED{don.statut === 'confirme' ? <> — soit <strong>{Number(don.montant).toLocaleString('fr-FR')} F CFA</strong></> : <> (déduit du remboursement à la clôture)</>}.</>}
       </div>
@@ -96,6 +98,64 @@ export function DonExhortation({ credit = false }: { credit?: boolean }) {
           : 'À la réconciliation, vous pourrez faire un don du pourcentage de votre choix sur le montant reçu du partenaire.'}
         {' '}Les donateurs figurent chaque année au{' '}
         <Link href="/abed-heritage" style={{ color: '#065f46', fontWeight: 700 }}>tableau d&apos;honneur</Link>.
+      </div>
+    </div>
+  )
+}
+
+export function DonLibreForm() {
+  const router = useRouter()
+  const [montant, setMontant] = useState(5000)
+  const [capture, setCapture] = useState<File | null>(null)
+  const [envoi, setEnvoi] = useState(false)
+  const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
+
+  async function envoyer() {
+    if (!(montant >= 100)) { setMsg({ type: 'err', text: 'Montant minimum : 100 F CFA.' }); return }
+    if (!capture) { setMsg({ type: 'err', text: 'Joignez la capture du paiement MoMo.' }); return }
+    setEnvoi(true); setMsg(null)
+    const fd = new FormData()
+    fd.append('montant', String(montant))
+    fd.append('capture', capture)
+    const res = await fetch('/api/dons', { method: 'POST', body: fd })
+    const json = await res.json().catch(() => ({}))
+    setEnvoi(false)
+    if (!res.ok) { setMsg({ type: 'err', text: json.error ?? 'Erreur' }); return }
+    setMsg({ type: 'ok', text: `Merci ! Votre don sera compté dans ${NOM_CLUB} dès que l'AAF aura confirmé le paiement.` })
+    setCapture(null)
+    router.refresh()
+  }
+
+  return (
+    <div className="card" style={{ border: '1px solid #a7f3d0', background: '#f7fdf9' }}>
+      <h3 style={{ marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8, color: '#065f46' }}>
+        <Award size={18} /> Faire un don à ABED
+      </h3>
+      <p style={{ fontSize: 12.5, color: '#047857', marginBottom: 14 }}>
+        À tout moment, du montant de votre choix. Chaque don confirmé vous fait rejoindre {NOM_CLUB} et compte pour le tableau d&apos;honneur de l&apos;année.
+      </p>
+      <div style={{ display: 'grid', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <label className="label" style={{ margin: 0 }}>1. Montant (F CFA)</label>
+          <input className="input" type="number" min={100} step={100} value={montant}
+            onChange={e => setMontant(+e.target.value)} style={{ width: 140 }} />
+        </div>
+        <div>
+          <div className="label" style={{ marginBottom: 6 }}>2. Payez par MoMo</div>
+          <UssdDon montant={montant} />
+        </div>
+        <div className="field" style={{ margin: 0 }}>
+          <label className="label">3. Capture du paiement *</label>
+          <input className="input" type="file" accept="image/*,.pdf" onChange={e => setCapture(e.target.files?.[0] ?? null)} />
+        </div>
+        {msg && (
+          <div style={{ fontSize: 13, padding: '9px 12px', borderRadius: 8, background: msg.type === 'ok' ? '#dcfce7' : '#fee2e2', color: msg.type === 'ok' ? '#166534' : '#991b1b' }}>
+            {msg.text}
+          </div>
+        )}
+        <button className="btn" onClick={envoyer} disabled={envoi} style={{ justifySelf: 'start' }}>
+          {envoi ? 'Envoi…' : 'Soumettre mon don'}
+        </button>
       </div>
     </div>
   )

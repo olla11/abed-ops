@@ -76,8 +76,8 @@ export default async function AbedHeritagePage({ searchParams }: { searchParams:
             <h1 style={{ margin: 0, fontSize: 28, fontWeight: 900, color: 'white' }}>{NOM_CLUB}</h1>
           </div>
           <p style={{ margin: 0, fontSize: 14, color: 'rgba(255,255,255,0.8)', maxWidth: 620 }}>
-            Le cercle de celles et ceux qui soutiennent ABED par un don, à l&apos;issue d&apos;une mission financée par un partenaire
-            ou en renonçant à tout ou partie d&apos;un remboursement. Merci à chacun d&apos;eux.
+            Le cercle de celles et ceux qui soutiennent ABED par un don : spontané, à l&apos;issue d&apos;une mission financée
+            par un partenaire, ou en renonçant à tout ou partie d&apos;un remboursement. Merci à chacun d&apos;eux.
           </p>
           {moi && (
             <p style={{ margin: '12px 0 0', fontSize: 13, fontWeight: 700, color: '#a7f3d0' }}>
@@ -148,7 +148,8 @@ export default async function AbedHeritagePage({ searchParams }: { searchParams:
         )}
 
         <p style={{ fontSize: 12.5, color: 'var(--abed-muted)', marginTop: 20 }}>
-          Les dons se font à la réconciliation de votre mission (MoMo Pay ABED : <strong>{MOMO_PAY_ABED}</strong>).
+          Faites un don à tout moment depuis <Link href="/dons" style={{ color: 'var(--abed-green)', fontWeight: 600 }}>Mon espace → ABED Héritage</Link>,
+          ou à la réconciliation d&apos;une mission (MoMo Pay ABED : <strong>{MOMO_PAY_ABED}</strong>).
           Seuls les dons confirmés sont pris en compte ; les montants ne sont jamais affichés.
         </p>
       </main>

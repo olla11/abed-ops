@@ -140,7 +140,7 @@ export default function AccueilClient({ prenom, role, roleLabel, fonction, omEnC
               </button>
             )}
             <button
-              onClick={() => router.push('/abed-heritage')}
+              onClick={() => router.push(membreHeritage ? '/abed-heritage' : '/dons')}
               title={membreHeritage ? `Vous faites partie d'${NOM_CLUB}` : `Découvrir ${NOM_CLUB} et le tableau d'honneur`}
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 5,
