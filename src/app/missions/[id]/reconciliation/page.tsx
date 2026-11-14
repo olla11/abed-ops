@@ -57,8 +57,8 @@ export default async function ReconciliationPage({ params }: { params: Promise<{
       <p style={{ color: 'var(--abed-muted)', marginBottom: 24 }}>
         Mission : <strong>{mission.objet}</strong> — {mission.lieu}
         {mission.a_charge_partenaire && (
-          <span style={{ marginLeft: 10, color: 'var(--abed-amber)' }}>
-            ⚠ Mission à charge partenaire — prélèvement 20 % applicable
+          <span style={{ marginLeft: 10, color: 'var(--abed-muted)' }}>
+            · Mission à charge partenaire
           </span>
         )}
       </p>

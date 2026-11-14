@@ -113,7 +113,7 @@ export default function MissionEditForm({ mission }: { mission: Mission }) {
         <div className="field">
           <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
             <input type="checkbox" checked={form.a_charge_partenaire} onChange={e => set('a_charge_partenaire', e.target.checked)} />
-            <span>Mission a charge d un partenaire (prelevement 20 %)</span>
+            <span>Mission à charge d'un partenaire</span>
           </label>
         </div>
         {err && <p style={{ color: 'var(--abed-danger)', fontSize: 13, marginBottom: 12 }}>{err}</p>}

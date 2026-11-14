@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/supabase-server'
 import { estAAF } from '@/lib/roles'
 import { ajouterAuPayRoll } from '@/lib/pay-roll'
+import { appliquerAbandonCredit } from '@/lib/dons'
 import { finaliserCongeApprouve } from '@/lib/conge-notify'
 
 type Admin = ReturnType<typeof createAdminClient>
@@ -261,9 +262,10 @@ export async function autoSkipReconciliationOM(admin: Admin, missionId: string) 
       // Même formule que valider-reconciliation-de/route.ts : solde_missionnaire
       // négatif = ABED doit encore verser ce montant au missionnaire. Sauter
       // l'étape DE ne doit jamais faire manquer l'entrée Pay Roll.
-      const montantDu = (!m.a_charge_partenaire && m.mode_financement !== 'totalite_avant')
+      const montantDuBrut = (!m.a_charge_partenaire && m.mode_financement !== 'totalite_avant')
         ? Math.max(0, -(m.solde_missionnaire ?? 0))
         : 0
+      const montantDu = await appliquerAbandonCredit(admin, missionId, montantDuBrut, null)
       if (montantDu > 0) {
         const missionnaire = m.missionnaire as any
         await ajouterAuPayRoll(admin, {

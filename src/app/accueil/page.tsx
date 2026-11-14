@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic'
-import { createClient } from '@/lib/supabase-server'
+import { createClient, createAdminClient } from '@/lib/supabase-server'
+import { classementAnnuel } from '@/lib/dons'
 import { redirect } from 'next/navigation'
 import { getEffectiveRole, getRolePreview } from '@/lib/role-preview'
 import { getImpersonationInfo } from '@/lib/impersonation'
@@ -37,6 +38,14 @@ export default async function AccueilPage() {
     supabase.from('notifications').select('*', { count: 'exact', head: true }).eq('lu', false),
   ])
 
+  // ABED Héritage : membre dès un don confirmé ; distinction (Or/Argent/
+  // Bronze) si dans le top 3 de l'année en cours.
+  const [{ count: donsConfirmes }, classement] = await Promise.all([
+    supabase.from('dons').select('id', { count: 'exact', head: true }).eq('profile_id', user.id).eq('statut', 'confirme'),
+    classementAnnuel(createAdminClient(), new Date().getFullYear()),
+  ])
+  const distinctionHeritage = classement.find(r => r.profileId === user.id)?.distinction ?? null
+
   const ROLE_LABELS: Record<string, string> = {
     admin: 'Administrateur système', rh: 'Ressources Humaines',
     caf: 'CAF — Comptable', de: 'Directeur Exécutif', aaf: 'AAF',
@@ -68,6 +77,8 @@ export default async function AccueilPage() {
         demandesEnCours={demandesEnCours ?? 0}
         notifsNonLues={notifsNonLues ?? 0}
         badgeActif={(profile as any)?.badge_actif ?? true}
+        membreHeritage={(donsConfirmes ?? 0) > 0}
+        distinctionHeritage={distinctionHeritage}
       />
     </>
   )

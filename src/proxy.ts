@@ -74,7 +74,6 @@ async function proxyInterne(req: NextRequest, event: NextFetchEvent) {
     path.startsWith('/login') ||
     path.startsWith('/auth/') ||
     path.startsWith('/api/auth/') ||
-    path.startsWith('/api/fedapay') ||
     path.startsWith('/signatures/externe') ||
     path.startsWith('/api/signatures/externe') ||
     path.startsWith('/verify/om') ||

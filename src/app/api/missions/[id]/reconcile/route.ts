@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
-import { createMomoDebit } from '@/lib/fedapay'
 import { sendEmail } from '@/lib/resend'
 import { notifyMissionUser, notifyMissionByRole } from '@/lib/mission-notify'
 import { autoSkipReconciliationOM } from '@/lib/circuit-vacancy'
+import { montantDon } from '@/lib/dons'
 
 export async function POST(
   req: NextRequest,
@@ -15,7 +15,7 @@ export async function POST(
   if (!user) return NextResponse.json({ error: 'non authentifié' }, { status: 401 })
 
   const body = await req.json()
-  const { point_financier, montant_recu, rapport, mode_financement, pieces_jointes } = body
+  const { point_financier, montant_recu, rapport, mode_financement, pieces_jointes, don } = body
 
   const totalDepenses = Array.isArray(point_financier)
     ? point_financier.reduce((s: number, l: any) => s + (Number(l.montant) || 0), 0)
@@ -23,9 +23,31 @@ export async function POST(
 
   // Vérifier que la mission appartient bien à cet utilisateur
   const { data: missionCheck } = await supabase
-    .from('missions').select('id, missionnaire_id').eq('id', id).single()
+    .from('missions').select('id, missionnaire_id, a_charge_partenaire').eq('id', id).single()
   if (!missionCheck || missionCheck.missionnaire_id !== user.id) {
     return NextResponse.json({ error: 'mission introuvable' }, { status: 404 })
+  }
+
+  // Don ABED Héritage (facultatif). Partenaire : un pourcentage du montant
+  // reçu du partenaire, versé par MoMo Pay — la capture est obligatoire.
+  // Crédit/avance : renonciation à un pourcentage du montant dû par ABED,
+  // sans versement (réappliqué au montant réel à la clôture, voir dons.ts).
+  const pourcentageDon = Number(don?.pourcentage)
+  const avecDon = don && Number.isFinite(pourcentageDon) && pourcentageDon > 0
+  let ligneDon: Record<string, unknown> | null = null
+  if (avecDon) {
+    if (pourcentageDon > 100) return NextResponse.json({ error: 'Pourcentage de don invalide.' }, { status: 400 })
+    if (missionCheck.a_charge_partenaire) {
+      if (typeof don.capture_path !== 'string' || !don.capture_path.startsWith(`${user.id}/`)) {
+        return NextResponse.json({ error: 'Joignez la capture du paiement MoMo de votre don.' }, { status: 400 })
+      }
+      const base = Number(montant_recu) || 0
+      ligneDon = { type: 'partenaire', base_montant: base, montant: montantDon(base, pourcentageDon), capture_path: don.capture_path }
+    } else if (mode_financement === 'credit' || mode_financement === 'avance') {
+      const base = mode_financement === 'credit' ? totalDepenses : Math.max(0, totalDepenses - (Number(montant_recu) || 0))
+      if (base <= 0) return NextResponse.json({ error: 'Aucun montant dû par ABED : pas de don possible sur cette mission.' }, { status: 400 })
+      ligneDon = { type: 'abandon_credit', base_montant: base, montant: montantDon(base, pourcentageDon), capture_path: null }
+    }
   }
 
   // Statut initial selon mode
@@ -52,90 +74,13 @@ export async function POST(
     return NextResponse.json({ error: error?.message ?? 'mission introuvable' }, { status: 400 })
   }
 
-  // ── Cas partenaire : prélèvement FedaPay ──
-  if (mission.a_charge_partenaire && mission.prelevement_20 && mission.prelevement_20 > 0) {
-    await admin.from('missions').update({ status: 'paiement_attente' }).eq('id', id)
-
-    const { data: profile } = await supabase
-      .from('profiles').select('telephone, nom, prenoms, email').eq('id', user.id).single()
-
-    if (!profile?.telephone) {
-      return NextResponse.json({ error: 'Numéro Mobile Money manquant dans le profil' }, { status: 400 })
-    }
-
-    await supabase.from('payments').insert({
-      mission_id: mission.id,
-      montant: mission.prelevement_20,
-      telephone: profile.telephone,
-      status: 'en_attente',
-    })
-
-    try {
-      const { fedapayTxId, paymentUrl } = await createMomoDebit({
-        montant: mission.prelevement_20,
-        telephone: profile.telephone,
-        description: `Prélèvement 20% mission ${mission.reference ?? mission.id}`,
-        missionId: mission.id,
-        nom: profile.nom ?? undefined,
-        prenoms: profile.prenoms ?? undefined,
-        email: profile.email ?? undefined,
-      })
-      await supabase.from('payments').update({ fedapay_tx_id: fedapayTxId }).eq('mission_id', mission.id)
-
-      // Notif in-app avec lien cliquable
-      await admin.from('notifications').insert({
-        user_id: user.id,
-        titre: 'Paiement prélèvement ABED requis',
-        message: `Un prélèvement de ${Number(mission.prelevement_20).toLocaleString('fr-FR')} F CFA (20%) est dû. Cliquez pour payer via FedaPay.`,
-        lien: paymentUrl,
-      })
-
-      // Email au missionnaire
-      const { data: missProfile } = await supabase.from('profiles').select('email').eq('id', user.id).single()
-      if (missProfile?.email) {
-        try {
-          await sendEmail({
-            to: missProfile.email,
-            subject: `💳 Paiement requis — Prélèvement 20% mission ${mission.reference ?? ''}`,
-            html: `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;background:#f0f4f8;font-family:'Segoe UI',Arial,sans-serif">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f4f8;padding:40px 16px">
-    <tr><td align="center"><table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px">
-      <tr><td style="background:#63a521;border-radius:12px 12px 0 0;padding:22px 28px;text-align:center">
-        <span style="color:white;font-size:19px;font-weight:800">My ABED</span>
-      </td></tr>
-      <tr><td style="background:white;padding:32px 28px;border-radius:0 0 12px 12px">
-        <h2 style="color:#111827;font-size:18px;margin:0 0 16px">Prélèvement ABED — 20%</h2>
-        <p style="font-size:14px;color:#6b7280;margin:0 0 20px;line-height:1.6">
-          Votre réconciliation pour la mission <strong>${mission.reference ?? mission.id}</strong> a été enregistrée.<br>
-          Un prélèvement de <strong style="color:#c0392b">${Number(mission.prelevement_20).toLocaleString('fr-FR')} F CFA</strong> est dû (20% mission à charge partenaire).
-        </p>
-        <div style="text-align:center;margin:24px 0">
-          <a href="${paymentUrl}" style="display:inline-block;background:#63a521;color:white;padding:13px 32px;border-radius:8px;font-size:14px;font-weight:700;text-decoration:none">
-            💳 Payer maintenant via FedaPay
-          </a>
-        </div>
-        <p style="font-size:12px;color:#9ca3af;margin:0">Après paiement, votre mission sera clôturée automatiquement.</p>
-      </td></tr>
-    </table></td></tr>
-  </table>
-</body></html>`,
-          })
-        } catch (emailErr) {
-          console.error('[reconcile] email error:', emailErr)
-        }
-      }
-
-      return NextResponse.json({
-        ok: true,
-        prelevement: mission.prelevement_20,
-        paymentUrl,
-        message: `Cliquez sur le lien ci-dessous pour payer le prélèvement de ${Number(mission.prelevement_20).toLocaleString('fr-FR')} F CFA. Un email vous a aussi été envoyé.`,
-      })
-    } catch (e: any) {
-      await supabase.from('payments').update({ status: 'echoue' }).eq('mission_id', mission.id)
-      await admin.from('missions').update({ status: 'reconciliation' }).eq('id', id)
-      return NextResponse.json({ error: `Échec FedaPay: ${e.message}` }, { status: 502 })
+  // Resoumission après rejet : le don éventuel est remplacé (ou retiré).
+  // Un don déjà confirmé n'est plus jamais touché.
+  await admin.from('dons').delete().eq('mission_id', id).neq('statut', 'confirme')
+  if (ligneDon) {
+    const { data: dejaConfirme } = await admin.from('dons').select('id').eq('mission_id', id).maybeSingle()
+    if (!dejaConfirme) {
+      await admin.from('dons').insert({ ...ligneDon, mission_id: id, profile_id: user.id, pourcentage: pourcentageDon, statut: 'declare' })
     }
   }
 
@@ -194,7 +139,7 @@ export async function POST(
     missionId: id,
     excludeId: user.id,
     titre: `Réconciliation à valider — Mission ${mission.reference ?? id}`,
-    message: `La réconciliation de la mission « ${mission.objet} » est soumise pour validation AAF. Mode financement : ${modeLabelFr(mode_financement)}.`,
+    message: `La réconciliation de la mission « ${mission.objet} » est soumise pour validation AAF. Mode financement : ${mission.a_charge_partenaire ? 'à charge partenaire' : modeLabelFr(mode_financement)}.${ligneDon ? ` Don ABED Héritage déclaré : ${Number(ligneDon.montant).toLocaleString('fr-FR')} F CFA.` : ''}`,
   })
 
   // Si aucun compte AAF (ni CAF, qui en hérite les droits) n'est actif,

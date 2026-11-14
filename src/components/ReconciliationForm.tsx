@@ -1,5 +1,8 @@
 'use client'
 import { useState } from 'react'
+import { Award } from 'lucide-react'
+import { UssdDon } from '@/components/DonAbedHeritage'
+import { NOM_CLUB, montantDon } from '@/lib/dons'
 
 type Ligne = { libelle: string; quantite: number; pu: number; montant: number }
 type Rapport = { objectifs: string; activites: string; resultats: string; difficultes: string; suite: string }
@@ -36,15 +39,14 @@ export default function ReconciliationForm({
   const [msg, setMsg] = useState('')
   const [msgType, setMsgType] = useState<'ok' | 'err' | 'warn'>('ok')
   const [loading, setLoading] = useState(false)
-  const [paymentFailed, setPaymentFailed] = useState(false)
-  const [retrying, setRetrying] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [emailFailed, setEmailFailed] = useState(false)
   const [retryingEmail, setRetryingEmail] = useState(false)
-  const [paymentUrl, setPaymentUrl] = useState<string | null>(null)
+  const [donActif, setDonActif] = useState(false)
+  const [donPourcentage, setDonPourcentage] = useState(10)
+  const [donCapture, setDonCapture] = useState<File | null>(null)
 
   const totalDepenses = lignes.reduce((s, l) => s + (l.montant || 0), 0)
-  const prelevement = aChargePartenaire ? Math.round(montantRecu * 0.2) : 0
 
   const abedDoit = !aChargePartenaire
     ? modeFinancement === 'totalite_avant'
@@ -53,6 +55,12 @@ export default function ReconciliationForm({
         ? Math.max(0, totalDepenses - montantRecu)
         : totalDepenses
     : 0
+
+  // Base du don ABED Héritage : montant reçu du partenaire, ou montant dû
+  // par ABED (crédit/avance) auquel le missionnaire renonce en partie.
+  const baseDon = aChargePartenaire ? montantRecu : (modeFinancement === 'credit' || modeFinancement === 'avance') ? abedDoit : 0
+  const donPossible = baseDon > 0
+  const montantDuDon = donActif && donPossible ? montantDon(baseDon, donPourcentage) : 0
 
   function updateLigne(i: number, patch: Partial<Ligne>) {
     setLignes(prev => prev.map((l, idx) => {
@@ -73,13 +81,17 @@ export default function ReconciliationForm({
     if (!aChargePartenaire && (modeFinancement === 'avance' || modeFinancement === 'totalite_avant') && montantRecu <= 0) {
       return 'Saisissez le montant reçu d\'ABED avant le départ.'
     }
+    if (donActif && donPossible) {
+      if (!(donPourcentage > 0 && donPourcentage <= 100)) return 'Le pourcentage du don doit être compris entre 1 et 100.'
+      if (aChargePartenaire && !donCapture) return 'Joignez la capture du paiement MoMo de votre don.'
+    }
     return null
   }
 
   async function submit() {
     const err = validate()
     if (err) { setMsg(err); setMsgType('err'); return }
-    setLoading(true); setMsg(''); setPaymentFailed(false); setEmailFailed(false)
+    setLoading(true); setMsg(''); setEmailFailed(false)
 
     const piecesJointes: { path: string; nom: string }[] = []
     for (const file of pieces) {
@@ -95,6 +107,23 @@ export default function ReconciliationForm({
       piecesJointes.push({ path: upj.path, nom: upj.nom })
     }
 
+    let don: { pourcentage: number; capture_path?: string } | undefined
+    if (donActif && donPossible) {
+      don = { pourcentage: donPourcentage }
+      if (aChargePartenaire && donCapture) {
+        const fd = new FormData(); fd.append('file', donCapture)
+        const up = await fetch(`/api/missions/${missionId}/reconcile/upload`, { method: 'POST', body: fd })
+        const upj = await up.json()
+        if (!up.ok) {
+          setLoading(false)
+          setMsg(`Erreur capture du don : ${upj.error ?? 'inconnue'}`)
+          setMsgType('err')
+          return
+        }
+        don.capture_path = upj.path
+      }
+    }
+
     const res = await fetch(`/api/missions/${missionId}/reconcile`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -104,39 +133,21 @@ export default function ReconciliationForm({
         rapport,
         mode_financement: aChargePartenaire ? null : modeFinancement,
         pieces_jointes: piecesJointes,
+        don,
       }),
     })
     const data = await res.json()
     setLoading(false)
     if (!res.ok) {
-      const isFedapay = data.error?.includes('FedaPay') || data.error?.includes('fedapay')
       setMsg('Erreur : ' + (data.error ?? 'inconnue'))
       setMsgType('err')
-      if (isFedapay) setPaymentFailed(true)
       return
     }
     setSubmitted(true)
-    setMsg(data.message ?? 'Réconciliation enregistrée.')
+    setMsg((data.message ?? 'Réconciliation enregistrée.') + (don ? ` Merci pour votre don à ${NOM_CLUB} !` : ''))
     setMsgType(data.status === 'reconciliation_aaf' ? 'warn' : 'ok')
-    if (data.paymentUrl) setPaymentUrl(data.paymentUrl)
     if (data.email_sent === false) {
       setEmailFailed(true)
-    }
-  }
-
-  async function retryPayment() {
-    setRetrying(true); setMsg(''); setPaymentFailed(false)
-    const res = await fetch(`/api/missions/${missionId}/retry-payment`, { method: 'POST' })
-    const data = await res.json()
-    setRetrying(false)
-    if (!res.ok) {
-      setMsg('Erreur : ' + (data.error ?? 'inconnue'))
-      setMsgType('err')
-      setPaymentFailed(true)
-    } else {
-      setMsg(data.message ?? 'Lien de paiement généré.')
-      setMsgType('ok')
-      if (data.paymentUrl) setPaymentUrl(data.paymentUrl)
     }
   }
 
@@ -243,8 +254,7 @@ export default function ReconciliationForm({
             <div style={{ background: 'var(--abed-bg)', padding: 16, borderRadius: 8, marginTop: 12 }}>
               <Row label="Total dépenses" value={totalDepenses} />
               {showMontantRecu && <Row label="Montant reçu" value={montantRecu} />}
-              {aChargePartenaire && <Row label="Prélèvement ABED (20%)" value={prelevement} accent />}
-              {aChargePartenaire && <Row label="Solde missionnaire" value={montantRecu - totalDepenses - prelevement} bold />}
+              {aChargePartenaire && <Row label="Solde missionnaire" value={montantRecu - totalDepenses} bold />}
               {!aChargePartenaire && modeFinancement === 'avance' && (
                 <Row label="Reste dû par ABED" value={abedDoit} bold accent={abedDoit > 0} />
               )}
@@ -304,10 +314,48 @@ export default function ReconciliationForm({
         </>
       )}
 
-      {aChargePartenaire && prelevement > 0 && !submitted && (
-        <p style={{ fontSize: 13, color: 'var(--abed-amber)', background: '#fef3c7', padding: '10px 14px', borderRadius: 8 }}>
-          ⚠ À la validation, un lien de paiement FedaPay de <strong>{prelevement.toLocaleString('fr-FR')} F CFA</strong> (prélèvement 20%) sera généré. Cliquez dessus pour payer et clôturer la mission.
-        </p>
+      {!submitted && donPossible && (
+        <div className="card" style={{ border: '1px solid #a7f3d0', background: '#f7fdf9' }}>
+          <h3 style={{ marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8, color: '#065f46' }}>
+            <Award size={18} /> Faire un don à ABED — {NOM_CLUB}
+          </h3>
+          <p style={{ fontSize: 12.5, color: '#047857', marginBottom: 14 }}>
+            {aChargePartenaire
+              ? 'Facultatif. Choisissez le pourcentage du montant reçu du partenaire que vous souhaitez offrir à ABED.'
+              : 'Facultatif. Vous pouvez renoncer à tout ou partie du montant qu\'ABED vous doit — sans aucun versement de votre part.'}
+            {' '}Les donateurs rejoignent {NOM_CLUB} et figurent au tableau d&apos;honneur annuel.
+          </p>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, fontWeight: 600, marginBottom: donActif ? 14 : 0, cursor: 'pointer' }}>
+            <input type="checkbox" checked={donActif} onChange={e => setDonActif(e.target.checked)} />
+            Je souhaite faire un don
+          </label>
+          {donActif && (
+            <div style={{ display: 'grid', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <label className="label" style={{ margin: 0 }}>Pourcentage</label>
+                <input className="input" type="number" min={1} max={100} value={donPourcentage}
+                  onChange={e => setDonPourcentage(+e.target.value)} style={{ width: 90 }} />
+                <span style={{ fontSize: 13 }}>% de {baseDon.toLocaleString('fr-FR')} F CFA =</span>
+                <strong style={{ fontSize: 15, color: '#065f46' }}>{montantDuDon.toLocaleString('fr-FR')} F CFA</strong>
+              </div>
+              {aChargePartenaire ? (
+                <>
+                  <UssdDon montant={montantDuDon} />
+                  <div className="field" style={{ margin: 0 }}>
+                    <label className="label">Capture du paiement MoMo *</label>
+                    <input className="input" type="file" accept="image/*,.pdf"
+                      onChange={e => setDonCapture(e.target.files?.[0] ?? null)} />
+                    <p style={{ fontSize: 11.5, color: 'var(--abed-muted)', margin: '4px 0 0' }}>
+                      Effectuez le paiement, puis joignez la capture d&apos;écran du message de confirmation. Le don sera confirmé par l&apos;AAF/CAF.
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <Row label="Montant qu'ABED vous versera après don" value={Math.max(0, baseDon - montantDuDon)} bold />
+              )}
+            </div>
+          )}
+        </div>
       )}
 
       {!submitted && !aChargePartenaire && modeFinancement === 'totalite_avant' && (
@@ -339,37 +387,6 @@ export default function ReconciliationForm({
           </p>
           <button className="btn" style={{ background: '#d97706' }} onClick={retryEmail} disabled={retryingEmail}>
             {retryingEmail ? '⏳ Envoi…' : '🔄 Réessayer l\'envoi de l\'email'}
-          </button>
-        </div>
-      )}
-
-      {paymentUrl && (
-        <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: 16 }}>
-          <p style={{ fontWeight: 700, marginBottom: 12, color: '#166534', fontSize: 14 }}>
-            💳 Lien de paiement FedaPay disponible
-          </p>
-          <a
-            href={paymentUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn"
-            style={{ display: 'inline-flex', background: '#16a34a', textDecoration: 'none' }}
-          >
-            Payer maintenant →
-          </a>
-          <p style={{ fontSize: 12, color: '#6b7280', marginTop: 10 }}>
-            Ce lien a aussi été envoyé par email et notification. Après paiement, la mission sera clôturée automatiquement.
-          </p>
-        </div>
-      )}
-
-      {paymentFailed && !paymentUrl && (
-        <div style={{ background: '#fff7ed', border: '1px solid #f59e0b', borderRadius: 8, padding: 16 }}>
-          <p style={{ fontWeight: 600, marginBottom: 8, color: '#92400e' }}>
-            Le lien de paiement n'a pas pu être généré. Vous pouvez réessayer ci-dessous.
-          </p>
-          <button className="btn" style={{ background: '#d97706' }} onClick={retryPayment} disabled={retrying}>
-            {retrying ? '⏳ Génération…' : '🔄 Réessayer le paiement FedaPay'}
           </button>
         </div>
       )}

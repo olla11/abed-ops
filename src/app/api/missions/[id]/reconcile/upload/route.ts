@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase-server'
 
-const EXT_AUTORISEES = ['pdf', 'doc', 'docx', 'xls', 'xlsx']
+// Images : capture du paiement MoMo d'un don ABED Héritage.
+const EXT_AUTORISEES = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'jpg', 'jpeg', 'png', 'webp']
 
 export async function POST(
   req: NextRequest,
@@ -24,7 +25,7 @@ export async function POST(
 
   const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
   if (!EXT_AUTORISEES.includes(ext)) {
-    return NextResponse.json({ error: 'Format non autorisé (PDF, Word ou Excel uniquement)' }, { status: 400 })
+    return NextResponse.json({ error: 'Format non autorisé (PDF, Word, Excel ou image)' }, { status: 400 })
   }
 
   const admin = createAdminClient()

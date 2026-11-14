@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase-server'
 import { sendEmail } from '@/lib/resend'
 import { notifyMissionUser } from '@/lib/mission-notify'
 import { ajouterAuPayRoll } from '@/lib/pay-roll'
+import { appliquerAbandonCredit } from '@/lib/dons'
 import { accordGenre } from '@/lib/genre'
 
 // POST /api/missions/[id]/valider-reconciliation-de
@@ -85,13 +86,14 @@ export async function POST(
   // à RESTITUER à ABED, jamais un montant à lui verser. Même formule que
   // "Montant dû par ABED" / "Reste dû par ABED" affichée au missionnaire au
   // moment de la réconciliation (ReconciliationForm.tsx, abedDoit) : jamais
-  // pour une mission financée par un partenaire (a_charge_partenaire, géré
-  // par un circuit de prélèvement 20% distinct, pas un paiement au
-  // missionnaire), ni pour le mode "totalité reçue avant départ" (déjà
-  // intégralement réglé, même si le missionnaire a dépensé plus que prévu).
-  const montantDu = (!mission.a_charge_partenaire && mission.mode_financement !== 'totalite_avant')
+  // pour une mission financée par un partenaire (a_charge_partenaire, pas un
+  // paiement au missionnaire), ni pour le mode "totalité reçue avant départ"
+  // (déjà intégralement réglé, même si le missionnaire a dépensé plus que
+  // prévu). Un don ABED Héritage "abandon_credit" réduit ce montant.
+  const montantDuBrut = (!mission.a_charge_partenaire && mission.mode_financement !== 'totalite_avant')
     ? Math.max(0, -(mission.solde_missionnaire ?? 0))
     : 0
+  const montantDu = await appliquerAbandonCredit(admin, id, montantDuBrut, user.id)
   if (montantDu > 0) {
     await ajouterAuPayRoll(admin, {
       sourceType: 'reconciliation_mission',

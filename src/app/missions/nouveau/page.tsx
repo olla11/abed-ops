@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 import Link from 'next/link'
+import { DonExhortation } from '@/components/DonAbedHeritage'
 
 // Départ minimum : aujourd'hui (mais un avertissement s'affiche si c'est aujourd'hui)
 function minDepart() {
@@ -297,8 +298,13 @@ export default function NouvelleMission() {
             <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
               <input type="checkbox" checked={form.a_charge_partenaire}
                 onChange={e => set('a_charge_partenaire', e.target.checked)} />
-              <span>Mission à charge d'un partenaire (prélèvement 20 % applicable)</span>
+              <span>Mission à charge d'un partenaire</span>
             </label>
+            {form.a_charge_partenaire && (
+              <div style={{ marginTop: 10 }}>
+                <DonExhortation />
+              </div>
+            )}
           </div>
 
           {err && <p style={{ color: 'var(--abed-danger)', fontSize: 13, marginBottom: 12 }}>{err}</p>}

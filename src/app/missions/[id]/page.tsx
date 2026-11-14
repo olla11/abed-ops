@@ -9,7 +9,7 @@ import AppHeader from '@/components/AppHeader'
 import ReconciliationValidationCAF from '@/components/ReconciliationValidationCAF'
 import ReconciliationValidationAAF from '@/components/ReconciliationValidationAAF'
 import ReconciliationValidationDE from '@/components/ReconciliationValidationDE'
-import RetryPaymentButton from './RetryPaymentButton'
+import { DonExhortation, DonReconciliationBlock, type DonMission } from '@/components/DonAbedHeritage'
 import PiecesJointesList from '@/components/PiecesJointesList'
 import RolePreviewBanner from '@/components/RolePreviewBanner'
 import ImpersonationBanner from '@/components/ImpersonationBanner'
@@ -75,7 +75,12 @@ export default async function MissionDetail({ params }: { params: Promise<{ id: 
   const canValidateReconcAAF = (estAAF(role) || role === 'admin') && mission.status === 'reconciliation_aaf'
   const canValidateReconc = ['caf', 'admin'].includes(role) && mission.status === 'reconciliation_caf'
   const canAutoriserReconcDE = ['de', 'admin'].includes(role) && mission.status === 'reconciliation_de'
-  const canRetryPayment = user.id === mission.missionnaire_id && mission.status === 'paiement_attente'
+  const estMissionnaire = user.id === mission.missionnaire_id
+  const peutTraiterDon = estAAF(role) || ['de', 'admin', 'superadmin'].includes(role)
+
+  const { data: don } = await admin.from('dons')
+    .select('id, type, pourcentage, base_montant, montant, capture_path, statut')
+    .eq('mission_id', id).maybeSingle()
 
   const STATUS_LABELS: Record<string, string> = {
     brouillon: 'Brouillon',
@@ -138,11 +143,14 @@ export default async function MissionDetail({ params }: { params: Promise<{ id: 
               Faire la réconciliation
             </Link>
           )}
-          {canRetryPayment && (
-            <RetryPaymentButton missionId={mission.id} prelevement={mission.prelevement_20} />
-          )}
         </div>
       </div>
+
+      {estMissionnaire && mission.a_charge_partenaire && !don && ['brouillon', 'soumis', 'signe', 'en_mission', 'reconciliation'].includes(mission.status) && (
+        <div style={{ marginBottom: 20 }}>
+          <DonExhortation />
+        </div>
+      )}
 
       <div className="card" style={{ marginBottom: 20 }}>
         <h3 style={{ marginBottom: 16, fontSize: 15 }}>Informations de la mission</h3>
@@ -159,7 +167,7 @@ export default async function MissionDetail({ params }: { params: Promise<{ id: 
             <Row label="Date de départ" value={new Date(mission.date_depart).toLocaleDateString('fr-FR')} />
             <Row label="Date de retour" value={new Date(mission.date_retour).toLocaleDateString('fr-FR')} />
             <Row label="Imputation" value={mission.imputation ?? '—'} />
-            <Row label="À charge partenaire" value={mission.a_charge_partenaire ? 'Oui (prélèvement 20 %)' : 'Non (à charge ABED)'} />
+            <Row label="À charge partenaire" value={mission.a_charge_partenaire ? 'Oui' : 'Non (à charge ABED)'} />
           </tbody>
         </table>
       </div>
@@ -191,13 +199,11 @@ export default async function MissionDetail({ params }: { params: Promise<{ id: 
             <Row label="Montant reçu" value={mission.montant_recu != null ? `${Number(mission.montant_recu).toLocaleString('fr-FR')} FCFA` : '—'} />
             <Row label="Total dépenses" value={mission.total_depenses != null ? `${Number(mission.total_depenses).toLocaleString('fr-FR')} FCFA` : '—'} />
             {mission.a_charge_partenaire && (
-              <Row label="Prélèvement 20 %" value={mission.prelevement_20 != null ? `${Number(mission.prelevement_20).toLocaleString('fr-FR')} FCFA` : '—'} />
-            )}
-            {mission.a_charge_partenaire && (
               <Row label="Solde missionnaire" value={mission.solde_missionnaire != null ? `${Number(mission.solde_missionnaire).toLocaleString('fr-FR')} FCFA` : '—'} />
             )}
           </tbody></table>
           <PiecesJointesList pieces={mission.reconciliation_pieces_jointes} />
+          {don && <DonReconciliationBlock don={don as DonMission} peutTraiter={peutTraiterDon} />}
         </div>
       )}
 

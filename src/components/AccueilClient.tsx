@@ -1,6 +1,7 @@
 'use client'
 import { useRouter } from 'next/navigation'
-import { BarChart2, Plane, CreditCard, Palmtree, Users, Settings, Clock, Bell, FileText, ClipboardList, Scale, ChevronRight, FileSignature, MapPin, type LucideIcon } from 'lucide-react'
+import { BarChart2, Plane, CreditCard, Palmtree, Users, Settings, Clock, Bell, FileText, ClipboardList, Scale, ChevronRight, FileSignature, MapPin, Award, type LucideIcon } from 'lucide-react'
+import { NOM_CLUB, DISTINCTION_LABELS, type Distinction } from '@/lib/dons'
 import { useTranslations } from 'next-intl'
 
 type Props = {
@@ -13,6 +14,8 @@ type Props = {
   demandesEnCours: number
   notifsNonLues: number
   badgeActif: boolean
+  membreHeritage: boolean
+  distinctionHeritage: Distinction | null
 }
 
 type Shortcut = { href: string; Icon: LucideIcon; label: string; desc: string }
@@ -84,7 +87,7 @@ function buildShortcuts(t: (k: string) => string): Record<string, Shortcut[]> {
   }
 }
 
-export default function AccueilClient({ prenom, role, roleLabel, fonction, omEnCours, congesEnAttente, demandesEnCours, notifsNonLues, badgeActif }: Props) {
+export default function AccueilClient({ prenom, role, roleLabel, fonction, omEnCours, congesEnAttente, demandesEnCours, notifsNonLues, badgeActif, membreHeritage, distinctionHeritage }: Props) {
   const router = useRouter()
   const t = useTranslations('home')
   const roleShortcuts = buildShortcuts(t)
@@ -136,6 +139,22 @@ export default function AccueilClient({ prenom, role, roleLabel, fonction, omEnC
                 <MapPin size={11} /> Badgeage actif
               </button>
             )}
+            <button
+              onClick={() => router.push('/abed-heritage')}
+              title={membreHeritage ? `Vous faites partie d'${NOM_CLUB}` : `Découvrir ${NOM_CLUB} et le tableau d'honneur`}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                padding: '4px 11px', borderRadius: 20, fontSize: 11, fontWeight: 600, cursor: 'pointer', letterSpacing: 0.2,
+                ...(membreHeritage
+                  ? { color: '#fde68a', background: 'rgba(251,191,36,0.14)', border: '1px solid rgba(251,191,36,0.45)' }
+                  : { color: 'rgba(255,255,255,0.7)', background: 'transparent', border: '1px dashed rgba(255,255,255,0.3)' }),
+              }}
+            >
+              <Award size={11} />
+              {membreHeritage
+                ? `${NOM_CLUB}${distinctionHeritage ? ` · ${DISTINCTION_LABELS[distinctionHeritage]}` : ''}`
+                : `Rejoindre ${NOM_CLUB}`}
+            </button>
           </div>
           <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: 14, margin: '0 0 4px' }}>
             {greeting.sub}
