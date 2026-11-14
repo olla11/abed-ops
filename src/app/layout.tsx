@@ -6,6 +6,7 @@ import LegalConsentGate from '@/components/LegalConsentGate'
 import ProfileCompletionGate from '@/components/ProfileCompletionGate'
 import InactivityLogout from '@/components/InactivityLogout'
 import ChunkErrorRecovery from '@/components/ChunkErrorRecovery'
+import AnnonceHeritage from '@/components/AnnonceHeritage'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -34,6 +35,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           {children}
           <LegalConsentGate />
           <ProfileCompletionGate />
+          <AnnonceHeritage />
           <InactivityLogout />
           <ChunkErrorRecovery />
         </NextIntlClientProvider>
