@@ -103,6 +103,8 @@ export function DonExhortation({ credit = false }: { credit?: boolean }) {
   )
 }
 
+const MONTANTS_RAPIDES = [1000, 2000, 5000, 10000, 25000]
+
 export function DonLibreForm() {
   const router = useRouter()
   const [montant, setMontant] = useState(5000)
@@ -135,10 +137,21 @@ export function DonLibreForm() {
         À tout moment, du montant de votre choix. Chaque don confirmé vous fait rejoindre {NOM_CLUB} et compte pour le tableau d&apos;honneur de l&apos;année.
       </p>
       <div style={{ display: 'grid', gap: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <label className="label" style={{ margin: 0 }}>1. Montant (F CFA)</label>
-          <input className="input" type="number" min={100} step={100} value={montant}
-            onChange={e => setMontant(+e.target.value)} style={{ width: 140 }} />
+        <div>
+          <label className="label">1. Montant (F CFA)</label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            {MONTANTS_RAPIDES.map(m => (
+              <button key={m} type="button" onClick={() => setMontant(m)} style={{
+                padding: '7px 13px', borderRadius: 20, fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                border: `1.5px solid ${montant === m ? '#065f46' : '#a7f3d0'}`,
+                background: montant === m ? '#065f46' : 'white', color: montant === m ? 'white' : '#065f46',
+              }}>
+                {m.toLocaleString('fr-FR')}
+              </button>
+            ))}
+            <input className="input" type="number" min={100} step={100} value={montant} aria-label="Autre montant"
+              onChange={e => setMontant(+e.target.value)} style={{ width: 120 }} />
+          </div>
         </div>
         <div>
           <div className="label" style={{ marginBottom: 6 }}>2. Payez par MoMo</div>
