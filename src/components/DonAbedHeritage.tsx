@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Award, Copy, Phone, Check } from 'lucide-react'
+import { Award, Copy, Phone, Check, Upload } from 'lucide-react'
 import { NOM_CLUB, MOMO_PAY_ABED, codeUssdDon } from '@/lib/dons'
 
 export type DonMission = {
@@ -84,6 +84,9 @@ export function DonReconciliationBlock({ don, peutTraiter, entete }: { don: DonM
 }
 
 export function DonExhortation({ credit = false }: { credit?: boolean }) {
+  const texte = credit
+    ? `À la réconciliation, vous pourrez renoncer à tout ou partie de votre remboursement au profit d'ABED. Les donateurs figurent chaque année au `
+    : `À la réconciliation, vous pourrez faire un don du pourcentage de votre choix sur le montant reçu du partenaire. Les donateurs figurent chaque année au `
   return (
     <div style={{
       display: 'flex', gap: 12, alignItems: 'flex-start',
@@ -92,11 +95,8 @@ export function DonExhortation({ credit = false }: { credit?: boolean }) {
     }}>
       <Award size={20} style={{ flexShrink: 0, marginTop: 1 }} />
       <div>
-        <strong>Soutenez ABED, rejoignez {NOM_CLUB}.</strong>{' '}
-        {credit
-          ? 'À la réconciliation, vous pourrez renoncer à tout ou partie de votre remboursement au profit d\'ABED.'
-          : 'À la réconciliation, vous pourrez faire un don du pourcentage de votre choix sur le montant reçu du partenaire.'}
-        {' '}Les donateurs figurent chaque année au{' '}
+        <strong style={{ display: 'block', marginBottom: 2 }}>{`Soutenez ABED, rejoignez ${NOM_CLUB}.`}</strong>
+        <span>{texte}</span>
         <Link href="/abed-heritage" style={{ color: '#065f46', fontWeight: 700 }}>tableau d&apos;honneur</Link>.
       </div>
     </div>
@@ -104,6 +104,21 @@ export function DonExhortation({ credit = false }: { credit?: boolean }) {
 }
 
 const MONTANTS_RAPIDES = [1000, 2000, 5000, 10000, 25000]
+
+function Etape({ n, titre, children }: { n: number; titre: string; children: React.ReactNode }) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '30px 1fr', gap: 12 }}>
+      <span style={{
+        width: 30, height: 30, borderRadius: '50%', background: '#065f46', color: 'white',
+        fontSize: 13, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>{n}</span>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 13.5, fontWeight: 700, color: '#111827', margin: '5px 0 10px' }}>{titre}</div>
+        {children}
+      </div>
+    </div>
+  )
+}
 
 export function DonLibreForm() {
   const router = useRouter()
@@ -129,45 +144,64 @@ export function DonLibreForm() {
   }
 
   return (
-    <div className="card" style={{ border: '1px solid #a7f3d0', background: '#f7fdf9' }}>
-      <h3 style={{ marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8, color: '#065f46' }}>
-        <Award size={18} /> Faire un don à ABED
-      </h3>
-      <p style={{ fontSize: 12.5, color: '#047857', marginBottom: 14 }}>
-        À tout moment, du montant de votre choix. Chaque don confirmé vous fait rejoindre {NOM_CLUB} et compte pour le tableau d&apos;honneur de l&apos;année.
-      </p>
-      <div style={{ display: 'grid', gap: 12 }}>
-        <div>
-          <label className="label">1. Montant (F CFA)</label>
+    <div className="card" style={{ padding: 0, overflow: 'hidden', border: '1px solid #a7f3d0' }}>
+      <div style={{ background: 'linear-gradient(135deg, #064e3b, #047857)', color: 'white', padding: '18px 22px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 17, fontWeight: 800 }}>
+          <Award size={20} color="#fcd34d" /> Faire un don à ABED
+        </div>
+        <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.8)', marginTop: 4 }}>
+          {`À tout moment, du montant de votre choix. Chaque don confirmé vous fait rejoindre ${NOM_CLUB} et compte pour le tableau d'honneur de l'année.`}
+        </div>
+      </div>
+
+      <div style={{ padding: '20px 22px', display: 'grid', gap: 20 }}>
+        <Etape n={1} titre="Choisissez le montant">
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
             {MONTANTS_RAPIDES.map(m => (
               <button key={m} type="button" onClick={() => setMontant(m)} style={{
-                padding: '7px 13px', borderRadius: 20, fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                padding: '8px 14px', borderRadius: 20, fontSize: 13, fontWeight: 700, cursor: 'pointer',
                 border: `1.5px solid ${montant === m ? '#065f46' : '#a7f3d0'}`,
                 background: montant === m ? '#065f46' : 'white', color: montant === m ? 'white' : '#065f46',
               }}>
                 {m.toLocaleString('fr-FR')}
               </button>
             ))}
-            <input className="input" type="number" min={100} step={100} value={montant} aria-label="Autre montant"
-              onChange={e => setMontant(+e.target.value)} style={{ width: 120 }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <input className="input" type="number" min={100} step={100} value={montant} aria-label="Autre montant"
+                onChange={e => setMontant(+e.target.value)} style={{ width: 120 }} />
+              <span style={{ fontSize: 12.5, color: 'var(--abed-muted)' }}>F CFA</span>
+            </div>
           </div>
-        </div>
-        <div>
-          <div className="label" style={{ marginBottom: 6 }}>2. Payez par MoMo</div>
+        </Etape>
+
+        <Etape n={2} titre="Payez par MoMo">
           <UssdDon montant={montant} />
-        </div>
-        <div className="field" style={{ margin: 0 }}>
-          <label className="label">3. Capture du paiement *</label>
-          <input className="input" type="file" accept="image/*,.pdf" onChange={e => setCapture(e.target.files?.[0] ?? null)} />
-        </div>
+        </Etape>
+
+        <Etape n={3} titre="Joignez la capture du paiement">
+          <label style={{
+            display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', borderRadius: 10, cursor: 'pointer',
+            border: `1.5px dashed ${capture ? '#065f46' : '#a7f3d0'}`, background: capture ? '#f0fdf4' : 'white',
+            fontSize: 13, color: capture ? '#065f46' : '#6b7280',
+          }}>
+            {capture ? <Check size={18} /> : <Upload size={18} />}
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {capture ? capture.name : 'Cliquez pour choisir une image ou un PDF'}
+            </span>
+            <input type="file" accept="image/*,.pdf" style={{ display: 'none' }}
+              onChange={e => setCapture(e.target.files?.[0] ?? null)} />
+          </label>
+        </Etape>
+
         {msg && (
-          <div style={{ fontSize: 13, padding: '9px 12px', borderRadius: 8, background: msg.type === 'ok' ? '#dcfce7' : '#fee2e2', color: msg.type === 'ok' ? '#166534' : '#991b1b' }}>
+          <div style={{ fontSize: 13, padding: '10px 14px', borderRadius: 8, background: msg.type === 'ok' ? '#dcfce7' : '#fee2e2', color: msg.type === 'ok' ? '#166534' : '#991b1b' }}>
             {msg.text}
           </div>
         )}
-        <button className="btn" onClick={envoyer} disabled={envoi} style={{ justifySelf: 'start' }}>
-          {envoi ? 'Envoi…' : 'Soumettre mon don'}
+
+        <button className="btn" onClick={envoyer} disabled={envoi}
+          style={{ width: '100%', justifyContent: 'center', padding: '13px 0', fontSize: 14.5 }}>
+          {envoi ? 'Envoi…' : `Soumettre mon don de ${Math.max(0, montant || 0).toLocaleString('fr-FR')} F CFA`}
         </button>
       </div>
     </div>
