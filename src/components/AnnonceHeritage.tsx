@@ -6,7 +6,11 @@ import { Award, X, Smartphone, HandCoins, Upload, BadgeCheck, Sparkles, Plane, W
 import { createClient } from '@/lib/supabase-client'
 import { NOM_CLUB, MOMO_PAY_ABED } from '@/lib/dons'
 
-const CLE_FERMEE = 'abed_annonce_heritage_fermee'
+// Jour (local) où ce navigateur a déjà eu sa réponse — évite de redemander
+// au serveur à chaque page. La règle « une fois par jour » elle-même est
+// tenue côté serveur (/api/annonces/heritage), commune à tous les onglets.
+const CLE_TRAITEE = 'abed_annonce_heritage_traitee_le'
+const aujourdhui = () => new Date().toDateString()
 
 // Pas sur les pages publiques ni sur les pages qui présentent déjà ABED
 // Héritage elles-mêmes.
@@ -102,8 +106,8 @@ export default function AnnonceHeritage() {
 
   async function verifier() {
     try {
-      if (sessionStorage.getItem(CLE_FERMEE)) return
-    } catch { /* sessionStorage indisponible : on montre quand même */ }
+      if (localStorage.getItem(CLE_TRAITEE) === aujourdhui()) return
+    } catch { /* stockage indisponible : le serveur décide seul */ }
     try {
       // Les fenêtres bloquantes (CGU, profil à compléter) passent d'abord —
       // ne jamais empiler celle-ci par-dessus.
@@ -114,9 +118,8 @@ export default function AnnonceHeritage() {
       if (legal.needsAcceptance || profil.needsCompletion) return
       const res = await fetch('/api/annonces/heritage')
       const d = await res.json()
+      try { localStorage.setItem(CLE_TRAITEE, aujourdhui()) } catch { /* ignore */ }
       if (d.afficher) { setEcran(0); setVuJusqua(0); setOuverte(true) }
-      // Fenêtre des 7 jours passée : inutile de redemander à chaque page.
-      else try { sessionStorage.setItem(CLE_FERMEE, '1') } catch { /* ignore */ }
     } catch { /* réseau : on réessaiera à la prochaine navigation */ }
   }
 
@@ -125,9 +128,10 @@ export default function AnnonceHeritage() {
     verifier()
     const supabase = createClient()
     const { data: { subscription } } = supabase.auth.onAuthStateChange(event => {
-      // Nouvelle connexion : la fenêtre doit pouvoir réapparaître.
+      // Changement de compte sur ce navigateur : l'autre personne a droit
+      // à sa propre réponse du serveur.
       if (event === 'SIGNED_IN') {
-        try { sessionStorage.removeItem(CLE_FERMEE) } catch { /* ignore */ }
+        try { localStorage.removeItem(CLE_TRAITEE) } catch { /* ignore */ }
         verifier()
       }
       if (event === 'SIGNED_OUT') setOuverte(false)
@@ -150,7 +154,6 @@ export default function AnnonceHeritage() {
 
   function fermer() {
     if (!toutVu) return
-    try { sessionStorage.setItem(CLE_FERMEE, '1') } catch { /* ignore */ }
     setOuverte(false)
   }
 
