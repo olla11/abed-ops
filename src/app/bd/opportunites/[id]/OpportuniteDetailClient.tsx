@@ -218,7 +218,14 @@ export default function OpportuniteDetailClient({ opportunite, peutGerer, person
               </select>
             </Field>
             <Field label="Statut">
-              <select value={form.statut} onChange={e => set('statut', e.target.value as OpportuniteStatut)} style={inputStyle}>
+              <select value={form.statut} onChange={e => {
+                const statut = e.target.value as OpportuniteStatut
+                set('statut', statut)
+                // Accepté : le montant obtenu reprend par défaut le montant demandé
+                // (modifiable en cas de financement partiel) — même règle que la
+                // base (trigger opportunites_bd_montant_obtenu_par_defaut).
+                if (statut === 'accepte' && !form.montant_obtenu && form.montant_demande) set('montant_obtenu', form.montant_demande)
+              }} style={inputStyle}>
                 {OPPORTUNITE_STATUTS.map(s => <option key={s} value={s}>{STATUT_LABELS[s]}</option>)}
               </select>
             </Field>

@@ -91,7 +91,7 @@ export default function RapportClient() {
   const resolues = nbAcceptees + nbRefusees
   const tauxSucces = resolues > 0 ? Math.round((nbAcceptees / resolues) * 100) : null
   const montantDemande = soumises.reduce((s, o) => s + (Number(o.montant_demande) || 0), 0)
-  const montantObtenu = soumises.reduce((s, o) => s + (Number(o.montant_obtenu) || 0), 0)
+  const montantObtenu = soumises.filter(o => o.statut === 'accepte').reduce((s, o) => s + (Number(o.montant_obtenu) || 0), 0)
 
   const repartition = (Object.keys(STATUT_LABELS) as OpportuniteStatut[])
     .map(s => ({ statut: s, value: soumises.filter(o => o.statut === s).length }))

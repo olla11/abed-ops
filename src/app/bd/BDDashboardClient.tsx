@@ -68,7 +68,7 @@ export default function BDDashboardClient({ opportunites, peutGerer }: { opportu
   const tauxSucces = nbReponsesResolues > 0 ? Math.round((nbAccepte / nbReponsesResolues) * 100) : 0
 
   const montantDemande = opportunitesAnnee.reduce((s, o) => s + (Number(o.montant_demande) || 0), 0)
-  const montantObtenu = opportunitesAnnee.reduce((s, o) => s + (Number(o.montant_obtenu) || 0), 0)
+  const montantObtenu = opportunitesAnnee.filter(o => o.statut === 'accepte').reduce((s, o) => s + (Number(o.montant_obtenu) || 0), 0)
   const tauxConversionValeur = montantDemande > 0 ? Math.round((montantObtenu / montantDemande) * 100) : 0
 
   const repartition = (Object.keys(STATUT_LABELS) as OpportuniteStatut[])
