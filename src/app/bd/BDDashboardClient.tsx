@@ -63,9 +63,12 @@ export default function BDDashboardClient({ opportunites, peutGerer }: { opportu
   const nbRefuse = opportunitesAnnee.filter(o => o.statut === 'refuse').length
   const nbSansReponse = opportunitesAnnee.filter(o => o.statut === 'sans_reponse').length
   const nbEnAttente = opportunitesAnnee.filter(o => o.statut === 'soumis').length
-  const nbReponsesResolues = nbAccepte + nbRefuse
   const tauxSoumission = nbIdentifiees > 0 ? Math.round((nbSoumises / nbIdentifiees) * 100) : 0
-  const tauxSucces = nbReponsesResolues > 0 ? Math.round((nbAccepte / nbReponsesResolues) * 100) : 0
+  // Taux calculés sur l'ensemble des appels soumis (y compris ceux encore en
+  // attente de réponse), pas seulement sur les réponses déjà reçues.
+  const pctSoumises = (n: number) => nbSoumises > 0 ? Math.round((n / nbSoumises) * 100) : 0
+  const tauxSucces = pctSoumises(nbAccepte)
+  const tauxEchec = pctSoumises(nbRefuse)
 
   const montantDemande = opportunitesAnnee.reduce((s, o) => s + (Number(o.montant_demande) || 0), 0)
   const montantObtenu = opportunitesAnnee.filter(o => o.statut === 'accepte').reduce((s, o) => s + (Number(o.montant_obtenu) || 0), 0)
@@ -125,9 +128,9 @@ export default function BDDashboardClient({ opportunites, peutGerer }: { opportu
 
       <SectionLabel>Résultats</SectionLabel>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 14, marginBottom: 26 }}>
-        <KpiCard icon={CheckCircle2} label="Acceptées" value={nbAccepte} color="#166534" sub={nbReponsesResolues > 0 ? `${tauxSucces}% de taux de succès` : undefined} />
-        <KpiCard icon={XCircle} label="Refusées" value={nbRefuse} color="#991b1b" />
-        <KpiCard icon={HelpCircle} label="Sans réponse" value={nbSansReponse} color="#78716c" />
+        <KpiCard icon={CheckCircle2} label="Acceptées" value={nbAccepte} color="#166534" sub={nbSoumises > 0 ? `Taux de succès : ${tauxSucces}% des soumises` : undefined} />
+        <KpiCard icon={XCircle} label="Refusées" value={nbRefuse} color="#991b1b" sub={nbSoumises > 0 ? `Taux d'échec : ${tauxEchec}% des soumises` : undefined} />
+        <KpiCard icon={HelpCircle} label="Sans réponse" value={nbSansReponse} color="#78716c" sub={nbSoumises > 0 ? `${pctSoumises(nbSansReponse)}% des soumises` : undefined} />
       </div>
 
       <SectionLabel>Finance</SectionLabel>

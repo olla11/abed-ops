@@ -88,8 +88,10 @@ export default function RapportClient() {
   const nbRefusees = soumises.filter(o => o.statut === 'refuse').length
   const nbSansReponse = soumises.filter(o => o.statut === 'sans_reponse').length
   const nbEnAttente = soumises.filter(o => o.statut === 'soumis').length
-  const resolues = nbAcceptees + nbRefusees
-  const tauxSucces = resolues > 0 ? Math.round((nbAcceptees / resolues) * 100) : null
+  // Taux calculés sur l'ensemble des appels soumis (y compris ceux encore en
+  // attente de réponse), pas seulement sur les réponses déjà reçues.
+  const tauxSucces = soumises.length > 0 ? Math.round((nbAcceptees / soumises.length) * 100) : null
+  const tauxEchec = soumises.length > 0 ? Math.round((nbRefusees / soumises.length) * 100) : null
   const montantDemande = soumises.reduce((s, o) => s + (Number(o.montant_demande) || 0), 0)
   const montantObtenu = soumises.filter(o => o.statut === 'accepte').reduce((s, o) => s + (Number(o.montant_obtenu) || 0), 0)
 
@@ -160,7 +162,8 @@ export default function RapportClient() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14, marginBottom: 24 }}>
             <Tile label="Identifiées" value={identifiees.length} color="#475569" sub="durant la période" />
             <Tile label="Soumises" value={soumises.length} color="#1e40af" sub="durant la période" />
-            <Tile label="Taux de succès" value={tauxSucces !== null ? `${tauxSucces}%` : '—'} color="#166534" sub={resolues > 0 ? `${nbAcceptees} sur ${resolues} réponses` : 'aucune réponse reçue'} />
+            <Tile label="Taux de succès" value={tauxSucces !== null ? `${tauxSucces}%` : '—'} color="#166534" sub={soumises.length > 0 ? `${nbAcceptees} acceptée${nbAcceptees > 1 ? 's' : ''} sur ${soumises.length} soumises` : 'aucune soumission'} />
+            <Tile label="Taux d'échec" value={tauxEchec !== null ? `${tauxEchec}%` : '—'} color="#991b1b" sub={soumises.length > 0 ? `${nbRefusees} refusée${nbRefusees > 1 ? 's' : ''} sur ${soumises.length} soumises` : 'aucune soumission'} />
             <Tile label="En attente" value={nbEnAttente} color="#b45309" sub="réponse du bailleur" />
             <Tile label="Montant demandé" value={fmtFcfa(montantDemande)} color="#6d28d9" />
             <Tile label="Montant obtenu" value={fmtFcfa(montantObtenu)} color="#0f766e" sub={montantDemande > 0 ? `${Math.round((montantObtenu / montantDemande) * 100)}% du demandé` : undefined} />

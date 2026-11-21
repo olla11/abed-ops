@@ -122,11 +122,13 @@ export function construireRapportBDHtml(params: {
   const nbRefusees = soumises.filter(o => o.statut === 'refuse').length
   const nbSansReponse = soumises.filter(o => o.statut === 'sans_reponse').length
   const nbEnAttente = soumises.filter(o => o.statut === 'soumis').length
-  const resolues = nbAcceptees + nbRefusees
-  const tauxSucces = resolues > 0 ? Math.round((nbAcceptees / resolues) * 100) : null
+  // Taux calculés sur l'ensemble des appels soumis (y compris ceux encore en
+  // attente de réponse), pas seulement sur les réponses déjà reçues.
+  const tauxSucces = nbSoumises > 0 ? Math.round((nbAcceptees / nbSoumises) * 100) : null
+  const tauxEchec = nbSoumises > 0 ? Math.round((nbRefusees / nbSoumises) * 100) : null
 
   const montantDemande = soumises.reduce((s, o) => s + (Number(o.montant_demande) || 0), 0)
-  const montantObtenu = soumises.reduce((s, o) => s + (Number(o.montant_obtenu) || 0), 0)
+  const montantObtenu = soumises.filter(o => o.statut === 'accepte').reduce((s, o) => s + (Number(o.montant_obtenu) || 0), 0)
   const tauxConversion = montantDemande > 0 ? Math.round((montantObtenu / montantDemande) * 100) : null
 
   return `<!DOCTYPE html>
@@ -145,7 +147,7 @@ export function construireRapportBDHtml(params: {
   h1.titre-doc { text-align: center; font-size: 15pt; letter-spacing: 1.5px; margin: 0 0 4px; color: #14532d; }
   p.sous-titre { text-align: center; font-size: 11pt; color: #4b5563; margin: 0 0 20px; }
   h2.section-titre { font-size: 12pt; color: #14532d; border-bottom: 1px solid #d1d5db; padding-bottom: 4px; margin: 26px 0 12px; break-after: avoid; page-break-after: avoid; }
-  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 6px; }
+  .kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 6px; }
   .kpis.small { grid-template-columns: repeat(2, 1fr); }
   .kpi { background: #f9fafb; border-radius: 8px; padding: 10px 12px; border: 1px solid #eef0f2; }
   .kpi-label { font-size: 8pt; color: #6b7280; text-transform: uppercase; letter-spacing: .03em; }
@@ -182,7 +184,8 @@ export function construireRapportBDHtml(params: {
   <div class="kpis">
     ${kpiTile('Identifiées', String(nbIdentifiees), 'durant la période')}
     ${kpiTile('Soumises', String(nbSoumises), 'durant la période')}
-    ${kpiTile('Taux de succès', tauxSucces !== null ? `${tauxSucces}%` : '—', resolues > 0 ? `${nbAcceptees} sur ${resolues} réponses reçues` : 'aucune réponse reçue')}
+    ${kpiTile('Taux de succès', tauxSucces !== null ? `${tauxSucces}%` : '—', nbSoumises > 0 ? `${nbAcceptees} acceptée${nbAcceptees > 1 ? 's' : ''} sur ${nbSoumises} soumises` : 'aucune soumission')}
+    ${kpiTile("Taux d'échec", tauxEchec !== null ? `${tauxEchec}%` : '—', nbSoumises > 0 ? `${nbRefusees} refusée${nbRefusees > 1 ? 's' : ''} sur ${nbSoumises} soumises` : 'aucune soumission')}
     ${kpiTile('En attente de réponse', String(nbEnAttente), 'parmi les soumissions')}
   </div>
   <div class="kpis small">
